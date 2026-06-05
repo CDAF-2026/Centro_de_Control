@@ -48,6 +48,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      audit_log: {
+        Row: {
+          id: number;
+          actor_id: string | null;
+          action: string;
+          entity: string;
+          entity_id: string | null;
+          before: Json | null;
+          after: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          actor_id?: string | null;
+          action: string;
+          entity: string;
+          entity_id?: string | null;
+          before?: Json | null;
+          after?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          actor_id?: string | null;
+          action?: string;
+          entity?: string;
+          entity_id?: string | null;
+          before?: Json | null;
+          after?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

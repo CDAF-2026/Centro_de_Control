@@ -56,3 +56,19 @@ export function can(
   const p = PERMISSIONS[module]?.[role] ?? "none";
   return action === "edit" ? p === "edit" : p === "edit" || p === "read";
 }
+
+export const ALL_ROLES: AppRole[] = [
+  "superadmin",
+  "coord_admin",
+  "coord_deportivo",
+  "recepcion",
+  "profesor",
+];
+
+/** Roles con al menos `read` (o `edit`) sobre un módulo. Útil para guards de ruta. */
+export function rolesForModule(
+  module: ModuleKey,
+  action: "read" | "edit" = "read",
+): AppRole[] {
+  return ALL_ROLES.filter((r) => can(r, module, action));
+}
