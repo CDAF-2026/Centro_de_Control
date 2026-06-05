@@ -1,0 +1,32 @@
+# ── Secretos / entorno ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Dependencias ────────────────────────────────────────────
+node_modules/
+
+# ── Builds ──────────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ── Supabase CLI ────────────────────────────────────────────
+supabase/.temp/
+supabase/.branches/
+
+# ── Claude Code (tooling local; manifiesto en skills-lock.json) ──
+.agents/
+.claude/skills/
+
+# ── OS / editores ───────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
