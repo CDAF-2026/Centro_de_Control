@@ -365,6 +365,7 @@ export type Database = {
           precio: number | null;
           descuento_pct: number;
           estado: ClaseEstado;
+          registrada_por: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -384,10 +385,31 @@ export type Database = {
           precio?: number | null;
           descuento_pct?: number;
           estado?: ClaseEstado;
+          registrada_por?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["clases"]["Insert"]>;
+        Relationships: [];
+      };
+      asistencias: {
+        Row: {
+          id: number;
+          clase_id: number;
+          cliente_id: number;
+          presente: boolean;
+          registrado_por: string | null;
+          registrado_at: string;
+        };
+        Insert: {
+          id?: number;
+          clase_id: number;
+          cliente_id: number;
+          presente?: boolean;
+          registrado_por?: string | null;
+          registrado_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["asistencias"]["Insert"]>;
         Relationships: [];
       };
       audit_log: {
