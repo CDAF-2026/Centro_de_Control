@@ -21,6 +21,11 @@ export type ClienteEstado = "activo" | "retirado";
 
 export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
 
+export type Deporte = "tenis" | "padel";
+export type ClaseTipo = "academia" | "individual";
+export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
+export type PaqueteEstado = "activo" | "agotado" | "vencido";
+
 export type Database = {
   public: {
     Tables: {
@@ -199,6 +204,192 @@ export type Database = {
         };
         Relationships: [];
       };
+      academias: {
+        Row: {
+          id: number;
+          codigo: string;
+          nombre: string;
+          deporte: Deporte;
+          nivel: string | null;
+          profesor_id: string | null;
+          cancha: string | null;
+          horario: string | null;
+          precio: number;
+          matricula: number;
+          periodo_inicio: string | null;
+          periodo_fin: string | null;
+          dias_semana: number[];
+          hora_inicio: string | null;
+          hora_fin: string | null;
+          activa: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          codigo: string;
+          nombre: string;
+          deporte: Deporte;
+          nivel?: string | null;
+          profesor_id?: string | null;
+          cancha?: string | null;
+          horario?: string | null;
+          precio?: number;
+          matricula?: number;
+          periodo_inicio?: string | null;
+          periodo_fin?: string | null;
+          dias_semana?: number[];
+          hora_inicio?: string | null;
+          hora_fin?: string | null;
+          activa?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["academias"]["Insert"]>;
+        Relationships: [];
+      };
+      inscripciones: {
+        Row: {
+          id: number;
+          academia_id: number;
+          cliente_id: number;
+          plan_frecuencia: number;
+          descuento_pct: number;
+          fecha_inscripcion: string;
+          activa: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          academia_id: number;
+          cliente_id: number;
+          plan_frecuencia: number;
+          descuento_pct?: number;
+          fecha_inscripcion?: string;
+          activa?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["inscripciones"]["Insert"]>;
+        Relationships: [];
+      };
+      lista_espera: {
+        Row: {
+          id: number;
+          academia_id: number | null;
+          cliente_id: number | null;
+          nombre: string;
+          contacto: string | null;
+          deporte: Deporte | null;
+          nivel: string | null;
+          edad: number | null;
+          disponibilidad: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          academia_id?: number | null;
+          cliente_id?: number | null;
+          nombre: string;
+          contacto?: string | null;
+          deporte?: Deporte | null;
+          nivel?: string | null;
+          edad?: number | null;
+          disponibilidad?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lista_espera"]["Insert"]>;
+        Relationships: [];
+      };
+      paquetes_catalogo: {
+        Row: {
+          id: number;
+          nombre: string;
+          deporte: Deporte | null;
+          num_clases: number;
+          precio: number;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nombre: string;
+          deporte?: Deporte | null;
+          num_clases: number;
+          precio?: number;
+          activo?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["paquetes_catalogo"]["Insert"]>;
+        Relationships: [];
+      };
+      paquetes_cliente: {
+        Row: {
+          id: number;
+          cliente_id: number;
+          catalogo_id: number | null;
+          num_clases: number;
+          clases_consumidas: number;
+          descuento_pct: number;
+          estado: PaqueteEstado;
+          vence_el: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          cliente_id: number;
+          catalogo_id?: number | null;
+          num_clases: number;
+          clases_consumidas?: number;
+          descuento_pct?: number;
+          estado?: PaqueteEstado;
+          vence_el?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["paquetes_cliente"]["Insert"]>;
+        Relationships: [];
+      };
+      clases: {
+        Row: {
+          id: number;
+          tipo: ClaseTipo;
+          academia_id: number | null;
+          cliente_id: number | null;
+          paquete_cliente_id: number | null;
+          profesor_id: string | null;
+          deporte: Deporte | null;
+          nivel: string | null;
+          cancha: string | null;
+          fecha: string;
+          hora_inicio: string | null;
+          hora_fin: string | null;
+          precio: number | null;
+          descuento_pct: number;
+          estado: ClaseEstado;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          tipo: ClaseTipo;
+          academia_id?: number | null;
+          cliente_id?: number | null;
+          paquete_cliente_id?: number | null;
+          profesor_id?: string | null;
+          deporte?: Deporte | null;
+          nivel?: string | null;
+          cancha?: string | null;
+          fecha: string;
+          hora_inicio?: string | null;
+          hora_fin?: string | null;
+          precio?: number | null;
+          descuento_pct?: number;
+          estado?: ClaseEstado;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["clases"]["Insert"]>;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -239,6 +430,10 @@ export type Database = {
       app_role: AppRole;
       cliente_estado: ClienteEstado;
       cliente_documento_tipo: ClienteDocumentoTipo;
+      deporte: Deporte;
+      clase_tipo: ClaseTipo;
+      clase_estado: ClaseEstado;
+      paquete_estado: PaqueteEstado;
     };
     CompositeTypes: Record<string, never>;
   };

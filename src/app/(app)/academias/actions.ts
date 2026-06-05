@@ -1,0 +1,183 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit";
+import { createAcademiaSchema } from "@/lib/validations/academia";
+import type { AppRole } from "@/lib/database.types";
+
+const GESTION: AppRole[] = ["superadmin", "coord_admin", "coord_deportivo"];
+const INSCRIBE: AppRole[] = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"];
+
+export type AcademiaFormState = {
+  error?: string;
+  ok?: string;
+  fieldErrors?: Record<string, string>;
+};
+
+export async function createAcademia(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  const parsed = createAcademiaSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] = i.message;
+    return { error: "Revisa los campos.", fieldErrors };
+  }
+  const d = parsed.data;
+  const dias = formData
+    .getAll("dias")
+    .map((x) => Number(x))
+    .filter((n) => n >= 0 && n <= 6);
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("academias")
+    .select("*", { count: "exact", head: true });
+  const seq = String((count ?? 0) + 1).padStart(4, "0");
+  const codigo = `ACA-2026-${d.deporte === "tenis" ? "TEN" : "PAD"}-${seq}`;
+
+  const { data: ac, error } = await supabase
+    .from("academias")
+    .insert({
+      codigo,
+      nombre: d.nombre,
+      deporte: d.deporte,
+      nivel: d.nivel || null,
+      profesor_id: d.profesorId || null,
+      cancha: d.cancha || null,
+      precio: d.precio,
+      matricula: d.matricula,
+      periodo_inicio: d.periodoInicio || null,
+      periodo_fin: d.periodoFin || null,
+      dias_semana: dias,
+      hora_inicio: d.horaInicio || null,
+      hora_fin: d.horaFin || null,
+    })
+    .select("id")
+    .single();
+  if (error || !ac) return { error: error?.message ?? "No se pudo crear la academia." };
+
+  await logAudit({
+    action: "academia.create",
+    entity: "academias",
+    entityId: String(ac.id),
+    after: { codigo, nombre: d.nombre },
+  });
+  revalidatePath("/academias");
+  redirect(`/academias/${ac.id}`);
+}
+
+export async function inscribirCliente(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(INSCRIBE);
+  const academiaId = Number(formData.get("academiaId"));
+  const clienteId = Number(formData.get("clienteId"));
+  const plan = Number(formData.get("plan"));
+  const descuento = Number(formData.get("descuento") || 0);
+  if (!clienteId) return { error: "Selecciona un cliente." };
+  if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
+  if (descuento < 0 || descuento > 100) return { error: "Descuento inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("inscripciones").insert({
+    academia_id: academiaId,
+    cliente_id: clienteId,
+    plan_frecuencia: plan,
+    descuento_pct: descuento,
+  });
+  if (error) {
+    return {
+      error: /duplicate|unique/i.test(error.message)
+        ? "El cliente ya está inscrito en esta academia."
+        : error.message,
+    };
+  }
+  await logAudit({
+    action: "academia.inscribir",
+    entity: "inscripciones",
+    entityId: String(academiaId),
+    after: { cliente_id: clienteId, plan, descuento_pct: descuento },
+  });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: "Cliente inscrito." };
+}
+
+export async function addListaEspera(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(INSCRIBE);
+  const academiaId = Number(formData.get("academiaId")) || null;
+  const nombre = String(formData.get("nombre") || "").trim();
+  if (!nombre) return { error: "Nombre requerido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("lista_espera").insert({
+    academia_id: academiaId,
+    nombre,
+    contacto: String(formData.get("contacto") || "") || null,
+    nivel: String(formData.get("nivel") || "") || null,
+    edad: Number(formData.get("edad")) || null,
+    disponibilidad: String(formData.get("disponibilidad") || "") || null,
+  });
+  if (error) return { error: error.message };
+  await logAudit({ action: "academia.lista_espera", entity: "lista_espera", entityId: String(academiaId) });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: "Agregado a la lista de espera." };
+}
+
+/** Genera las clases del periodo según los días/horas de la academia. */
+export async function generarProgramacion(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  const academiaId = Number(formData.get("academiaId"));
+  const supabase = await createClient();
+  const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
+  if (!a) return { error: "Academia no encontrada." };
+  if (!a.periodo_inicio || !a.periodo_fin || !a.dias_semana?.length) {
+    return { error: "Define periodo (inicio/fin) y días de la semana antes de programar." };
+  }
+
+  // Regenera: borra las clases aún programadas y crea el calendario del periodo.
+  await supabase.from("clases").delete().eq("academia_id", academiaId).eq("estado", "programada");
+
+  const rows: { tipo: "academia"; academia_id: number; profesor_id: string | null; deporte: typeof a.deporte; nivel: string | null; cancha: string | null; fecha: string; hora_inicio: string | null; hora_fin: string | null; estado: "programada" }[] = [];
+  const end = new Date(`${a.periodo_fin}T00:00:00`);
+  for (let d = new Date(`${a.periodo_inicio}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
+    if (a.dias_semana.includes(d.getDay())) {
+      rows.push({
+        tipo: "academia",
+        academia_id: academiaId,
+        profesor_id: a.profesor_id,
+        deporte: a.deporte,
+        nivel: a.nivel,
+        cancha: a.cancha,
+        fecha: d.toISOString().slice(0, 10),
+        hora_inicio: a.hora_inicio,
+        hora_fin: a.hora_fin,
+        estado: "programada",
+      });
+    }
+  }
+  if (rows.length) {
+    const { error } = await supabase.from("clases").insert(rows);
+    if (error) return { error: error.message };
+  }
+  await logAudit({
+    action: "academia.programar",
+    entity: "academias",
+    entityId: String(academiaId),
+    after: { clases_generadas: rows.length },
+  });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: `${rows.length} clases programadas.` };
+}
