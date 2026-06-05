@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:new": "supabase migration new",
     "db:push": "node --env-file=.env scripts/supabase-remote.mjs db push",
-    "db:types": "node --env-file=.env scripts/supabase-remote.mjs gen types typescript > src/lib/database.types.ts"
+    "db:types": "node --env-file=.env scripts/supabase-remote.mjs gen types typescript > src/lib/database.types.ts",
+    "seed:admin": "node --env-file=.env scripts/seed-admin.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "pg": "^8.21.0",
     "supabase": "^2.105.0",
     "tailwindcss": "^4",
     "typescript": "^5"
