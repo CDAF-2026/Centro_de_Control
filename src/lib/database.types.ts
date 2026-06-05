@@ -1,7 +1,6 @@
 // Tipos de la base de datos del Centro de Control CDAF.
 // NOTA: mantenidos a mano por ahora (gen types vía CLI requiere Docker o un
-// SUPABASE_ACCESS_TOKEN del proyecto). Formato compatible con `supabase gen types`
-// para regenerarlos sin fricción más adelante.
+// SUPABASE_ACCESS_TOKEN del proyecto). Formato compatible con `supabase gen types`.
 
 export type Json =
   | string
@@ -27,6 +26,8 @@ export type Database = {
           role: AppRole;
           nombre: string | null;
           telefono: string | null;
+          documento: string | null;
+          activo: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -35,6 +36,8 @@ export type Database = {
           role?: AppRole;
           nombre?: string | null;
           telefono?: string | null;
+          documento?: string | null;
+          activo?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -43,8 +46,37 @@ export type Database = {
           role?: AppRole;
           nombre?: string | null;
           telefono?: string | null;
+          documento?: string | null;
+          activo?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      profesor_valor_clase: {
+        Row: {
+          id: number;
+          profesor_id: string;
+          valor: number;
+          vigente_desde: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          profesor_id: string;
+          valor: number;
+          vigente_desde?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          profesor_id?: string;
+          valor?: number;
+          vigente_desde?: string;
+          created_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
