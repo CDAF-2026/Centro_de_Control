@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .group { margin-bottom: 14px; }
+  .group:last-child { margin-bottom: 0; }
+  .pairs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; border-radius: 4px; overflow: hidden; border: 1px solid var(--cdaf-outline-variant); }
+  .cell { padding: 10px 10px 12px; min-height: 70px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .cell .name { font-family: var(--font-body); font-weight: 700; font-size: 10px; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.04em; }
+  .cell .hex { font-family: var(--font-mono); font-size: 9.5px; opacity: 0.7; margin-top: 2px; }
+  .label-eyebrow { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <div class="group">
+    <div class="label-eyebrow">Primary · Secondary · Tertiary · Error (base / container)</div>
+    <div class="pairs">
+      <div class="pair">
+        <div class="cell" style="background:#5B6300;color:#fff"><div class="name">Primary</div><div class="hex">#5B6300</div></div>
+        <div class="cell" style="background:#D4E157;color:#5B6300"><div class="name">Container</div><div class="hex">#D4E157</div></div>
+      </div>
+      <div class="pair">
+        <div class="cell" style="background:#506169;color:#fff"><div class="name">Secondary</div><div class="hex">#506169</div></div>
+        <div class="cell" style="background:#D1E2EC;color:#55656D"><div class="name">Container</div><div class="hex">#D1E2EC</div></div>
+      </div>
+      <div class="pair">
+        <div class="cell" style="background:#3E6280;color:#fff"><div class="name">Tertiary</div><div class="hex">#3E6280</div></div>
+        <div class="cell" style="background:#B8DCFF;color:#3E617F"><div class="name">Container</div><div class="hex">#B8DCFF</div></div>
+      </div>
+      <div class="pair">
+        <div class="cell" style="background:#BA1A1A;color:#fff"><div class="name">Error</div><div class="hex">#BA1A1A</div></div>
+        <div class="cell" style="background:#FFDAD6;color:#93000A"><div class="name">Container</div><div class="hex">#FFDAD6</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

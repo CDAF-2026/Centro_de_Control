@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .scale { display: flex; align-items: flex-end; gap: 10px; }
+  .step { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar { background: var(--cdaf-impact-lime); border: 1px solid var(--cdaf-court-charcoal); width: 28px; }
+  .num { font-family: var(--font-mono); font-size: 10px; color: var(--fg2); }
+  .label { font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg1); }
+  .system { margin-top: 16px; display: grid; grid-template-columns: 110px 1fr; gap: 8px 16px; font-family: var(--font-mono); font-size: 11px; color: var(--fg1); align-items: baseline; }
+  .system .k { color: var(--fg2); }
+</style>
+</head>
+<body>
+  <div class="label-eyebrow" style="margin-bottom:10px">8px base scale</div>
+  <div class="scale">
+    <div class="step"><div class="bar" style="height:4px"></div><div class="num">4</div><div class="label">1</div></div>
+    <div class="step"><div class="bar" style="height:8px"></div><div class="num">8</div><div class="label">2</div></div>
+    <div class="step"><div class="bar" style="height:12px"></div><div class="num">12</div><div class="label">3</div></div>
+    <div class="step"><div class="bar" style="height:16px"></div><div class="num">16</div><div class="label">4</div></div>
+    <div class="step"><div class="bar" style="height:20px"></div><div class="num">20</div><div class="label">5</div></div>
+    <div class="step"><div class="bar" style="height:24px"></div><div class="num">24</div><div class="label">6</div></div>
+    <div class="step"><div class="bar" style="height:32px"></div><div class="num">32</div><div class="label">8</div></div>
+    <div class="step"><div class="bar" style="height:40px"></div><div class="num">40</div><div class="label">10</div></div>
+    <div class="step"><div class="bar" style="height:48px"></div><div class="num">48</div><div class="label">12</div></div>
+    <div class="step"><div class="bar" style="height:64px"></div><div class="num">64</div><div class="label">16</div></div>
+    <div class="step"><div class="bar" style="height:80px"></div><div class="num">80</div><div class="label">20</div></div>
+  </div>
+  <div class="system">
+    <div class="k">container-max</div><div>1280px</div>
+    <div class="k">gutter</div><div>24px</div>
+    <div class="k">margin · desktop</div><div>40px</div>
+    <div class="k">margin · mobile</div><div>16px</div>
+  </div>
+</body>
+</html>

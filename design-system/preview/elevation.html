@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .tile { background: #fff; border-radius: 6px; padding: 14px; min-height: 110px; display: flex; flex-direction: column; justify-content: space-between; }
+  .tile .name { font-family: var(--font-body); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg1); }
+  .tile .note { font-family: var(--font-mono); font-size: 10px; color: var(--fg2); line-height: 1.5; }
+  .e0 { border: 1px solid var(--cdaf-court-charcoal); box-shadow: none; }
+  .e1 { border: 1px solid transparent; box-shadow: 0 1px 2px rgba(26,28,30,0.04); }
+  .e2 { border: 1px solid transparent; box-shadow: 0 2px 8px rgba(26,28,30,0.06); }
+  .e3 { border: 1px solid transparent; box-shadow: 0 6px 24px rgba(26,28,30,0.08); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="tile e0"><div class="name">Hairline</div><div class="note">1px charcoal border<br>· default depth ·</div></div>
+    <div class="tile e1"><div class="name">Elev 1</div><div class="note">0 1px 2px / 4%<br>· tiny separation ·</div></div>
+    <div class="tile e2"><div class="name">Elev 2</div><div class="note">0 2px 8px / 6%<br>· raised surface ·</div></div>
+    <div class="tile e3"><div class="name">Elev 3</div><div class="note">0 6px 24px / 8%<br>· menus, dialogs ·</div></div>
+  </div>
+</body>
+</html>

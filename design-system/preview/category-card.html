@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card {
+    background: #fff; border: 1px solid var(--cdaf-outline-variant);
+    border-radius: 8px; overflow: hidden;
+    transition: transform 200ms cubic-bezier(0.16,1,0.3,1), border-color 200ms;
+  }
+  .card:hover { transform: translateY(-4px); border-color: var(--cdaf-impact-lime); }
+  .photo { aspect-ratio: 4/3; background-size: cover; background-position: center; }
+  .body { padding: 12px 14px 14px; }
+  .title { font-family: 'Montserrat'; font-weight: 700; text-transform: lowercase; font-size: 18px; line-height: 1.1; color: var(--cdaf-stadium-black); margin: 0 0 6px; }
+  .ghost {
+    font-family: 'Montserrat'; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+    font-size: 11px; color: var(--cdaf-stadium-black);
+    background: transparent; border: 0; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .ghost::after {
+    content: ''; flex: 1; height: 2px; background: var(--cdaf-impact-lime);
+    margin-left: 6px; min-width: 18px;
+  }
+  .arr { font-family: 'Open Sans'; font-weight: 700; color: var(--cdaf-impact-lime); -webkit-text-stroke: 0.4px var(--cdaf-stadium-black); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="photo" style="background-image:url(https://centrodeportivoaf.com/wp-content/uploads/2024/08/ninos.jpg)"></div>
+    <div class="body">
+      <h3 class="title">tenis niños</h3>
+      <button class="ghost">Ver más <span class="arr">↗</span></button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="photo" style="background-image:url(https://centrodeportivoaf.com/wp-content/uploads/2024/08/adulto.jpg)"></div>
+    <div class="body">
+      <h3 class="title">tenis adultos</h3>
+      <button class="ghost">Ver más <span class="arr">↗</span></button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="photo" style="background-image:url(https://centrodeportivoaf.com/wp-content/uploads/2024/07/padel.jpg)"></div>
+    <div class="body">
+      <h3 class="title">padel</h3>
+      <button class="ghost">Ver más <span class="arr">↗</span></button>
+    </div>
+  </div>
+</body>
+</html>
