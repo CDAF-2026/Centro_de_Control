@@ -19,6 +19,8 @@ export type AppRole =
 
 export type ClienteEstado = "activo" | "retirado";
 
+export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
+
 export type Database = {
   public: {
     Tables: {
@@ -167,6 +169,36 @@ export type Database = {
           },
         ];
       };
+      cliente_documentos: {
+        Row: {
+          id: number;
+          cliente_id: number;
+          tipo: ClienteDocumentoTipo;
+          nombre_archivo: string;
+          storage_path: string;
+          uploaded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          cliente_id: number;
+          tipo?: ClienteDocumentoTipo;
+          nombre_archivo: string;
+          storage_path: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          cliente_id?: number;
+          tipo?: ClienteDocumentoTipo;
+          nombre_archivo?: string;
+          storage_path?: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -206,6 +238,7 @@ export type Database = {
     Enums: {
       app_role: AppRole;
       cliente_estado: ClienteEstado;
+      cliente_documento_tipo: ClienteDocumentoTipo;
     };
     CompositeTypes: Record<string, never>;
   };

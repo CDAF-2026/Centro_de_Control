@@ -110,3 +110,70 @@ export async function toggleEstado(
   revalidatePath("/clientes");
   return {};
 }
+
+const DOC_TIPOS = ["consentimiento", "certificado_medico", "otro"] as const;
+
+/** Sube un documento del cliente a Storage + registra metadatos. */
+export async function uploadDocumento(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(WRITE_ROLES);
+  const clienteId = Number(formData.get("clienteId"));
+  const tipoRaw = String(formData.get("tipo") || "otro");
+  const tipo = (DOC_TIPOS as readonly string[]).includes(tipoRaw)
+    ? (tipoRaw as (typeof DOC_TIPOS)[number])
+    : "otro";
+
+  const file = formData.get("archivo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un archivo." };
+  if (file.size > 10 * 1024 * 1024) return { error: "El archivo supera 10 MB." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sesión expirada." };
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const path = `${clienteId}/${Date.now()}-${safeName}`;
+  const { error: upErr } = await supabase.storage.from("cliente-docs").upload(path, file);
+  if (upErr) return { error: upErr.message };
+
+  const { error: metaErr } = await supabase.from("cliente_documentos").insert({
+    cliente_id: clienteId,
+    tipo,
+    nombre_archivo: file.name,
+    storage_path: path,
+    uploaded_by: user.id,
+  });
+  if (metaErr) return { error: metaErr.message };
+
+  await logAudit({
+    action: "cliente.documento.upload",
+    entity: "cliente_documentos",
+    entityId: String(clienteId),
+    after: { nombre: file.name, tipo },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+  return {};
+}
+
+/** Elimina un documento (Storage + metadatos). */
+export async function deleteDocumento(formData: FormData): Promise<void> {
+  await requireRole(WRITE_ROLES);
+  const id = Number(formData.get("id"));
+  const clienteId = Number(formData.get("clienteId"));
+  const path = String(formData.get("path"));
+
+  const supabase = await createClient();
+  await supabase.storage.from("cliente-docs").remove([path]);
+  await supabase.from("cliente_documentos").delete().eq("id", id);
+
+  await logAudit({
+    action: "cliente.documento.delete",
+    entity: "cliente_documentos",
+    entityId: String(clienteId),
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+}

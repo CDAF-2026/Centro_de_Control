@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EstadoForm } from "./estado-form";
+import { Documentos, type DocItem } from "./documentos";
 
 export default async function ClienteDetallePage({
   params,
@@ -34,6 +35,20 @@ export default async function ClienteDetallePage({
       .single();
     acudiente = data ?? null;
   }
+
+  const { data: docsRaw } = await supabase
+    .from("cliente_documentos")
+    .select("id, tipo, nombre_archivo, storage_path")
+    .eq("cliente_id", Number(id))
+    .order("created_at", { ascending: false });
+  const docs: DocItem[] = await Promise.all(
+    (docsRaw ?? []).map(async (d) => {
+      const { data: signed } = await supabase.storage
+        .from("cliente-docs")
+        .createSignedUrl(d.storage_path, 3600);
+      return { ...d, url: signed?.signedUrl ?? null };
+    }),
+  );
 
   const puedeEditar = can(profile.role, "clientes", "edit");
 
@@ -85,6 +100,15 @@ export default async function ClienteDetallePage({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Documentos clienteId={cliente.id} docs={docs} puedeEditar={puedeEditar} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
