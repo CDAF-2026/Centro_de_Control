@@ -33,3 +33,8 @@ supabase/.branches/
 .DS_Store
 .vscode/
 .idea/
+
+# ── Next.js / tooling ──
+*.tsbuildinfo
+.vercel/
+next-env.d.ts
