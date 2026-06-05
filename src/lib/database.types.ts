@@ -17,6 +17,8 @@ export type AppRole =
   | "recepcion"
   | "profesor";
 
+export type ClienteEstado = "activo" | "retirado";
+
 export type Database = {
   public: {
     Tables: {
@@ -80,6 +82,91 @@ export type Database = {
         };
         Relationships: [];
       };
+      acudientes: {
+        Row: {
+          id: number;
+          nombre: string;
+          documento: string | null;
+          telefono: string | null;
+          email: string | null;
+          parentesco: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nombre: string;
+          documento?: string | null;
+          telefono?: string | null;
+          email?: string | null;
+          parentesco?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          nombre?: string;
+          documento?: string | null;
+          telefono?: string | null;
+          email?: string | null;
+          parentesco?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      clientes: {
+        Row: {
+          id: number;
+          nombres: string;
+          apellidos: string;
+          documento: string | null;
+          fecha_nacimiento: string | null;
+          es_menor: boolean;
+          celular: string | null;
+          email: string | null;
+          contacto_emergencia: string | null;
+          acudiente_id: number | null;
+          estado: ClienteEstado;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          nombres: string;
+          apellidos: string;
+          documento?: string | null;
+          fecha_nacimiento?: string | null;
+          es_menor?: boolean;
+          celular?: string | null;
+          email?: string | null;
+          contacto_emergencia?: string | null;
+          acudiente_id?: number | null;
+          estado?: ClienteEstado;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          nombres?: string;
+          apellidos?: string;
+          documento?: string | null;
+          fecha_nacimiento?: string | null;
+          es_menor?: boolean;
+          celular?: string | null;
+          email?: string | null;
+          contacto_emergencia?: string | null;
+          acudiente_id?: number | null;
+          estado?: ClienteEstado;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clientes_acudiente_id_fkey";
+            columns: ["acudiente_id"];
+            referencedRelation: "acudientes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -118,6 +205,7 @@ export type Database = {
     Functions: Record<string, never>;
     Enums: {
       app_role: AppRole;
+      cliente_estado: ClienteEstado;
     };
     CompositeTypes: Record<string, never>;
   };
