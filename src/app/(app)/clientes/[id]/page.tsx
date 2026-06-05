@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 
+const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
 export default async function ClienteDetallePage({
   params,
 }: {
@@ -49,6 +51,20 @@ export default async function ClienteDetallePage({
       return { ...d, url: signed?.signedUrl ?? null };
     }),
   );
+
+  const { data: asigns } = await supabase
+    .from("asignaciones_pago")
+    .select("id, pago_id, servicio, periodos")
+    .eq("cliente_id", Number(id))
+    .order("created_at", { ascending: false });
+  let pagosData: { id: number; monto: number; fecha: string }[] = [];
+  const pagoIds = (asigns ?? []).map((a) => a.pago_id);
+  if (pagoIds.length) {
+    const { data } = await supabase.from("pagos").select("id, monto, fecha").in("id", pagoIds);
+    pagosData = data ?? [];
+  }
+  const pagoById = new Map(pagosData.map((p) => [p.id, p]));
+  const totalConciliado = pagosData.reduce((s, p) => s + p.monto, 0);
 
   const puedeEditar = can(profile.role, "clientes", "edit");
 
@@ -112,10 +128,36 @@ export default async function ClienteDetallePage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Servicios e historial</CardTitle>
+          <CardTitle>Situación financiera</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          Academias, paquetes, clases y situación financiera aparecerán aquí (Sprints 2 y 4).
+        <CardContent className="space-y-2 text-sm">
+          {asigns && asigns.length > 0 ? (
+            <>
+              <ul className="divide-y">
+                {asigns.map((a) => {
+                  const p = pagoById.get(a.pago_id);
+                  return (
+                    <li key={a.id} className="flex justify-between gap-3 py-2">
+                      <span>
+                        {a.servicio}
+                        {a.periodos.length > 0 && (
+                          <span className="text-muted-foreground"> · {a.periodos.join(", ")}</span>
+                        )}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {p ? `${COP.format(p.monto)} · ${p.fecha}` : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="font-semibold">Total conciliado: {COP.format(totalConciliado)}</p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              Sin pagos conciliados (visible solo para administración).
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

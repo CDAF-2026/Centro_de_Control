@@ -25,6 +25,8 @@ export type Deporte = "tenis" | "padel";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido";
+export type CentroCostos = "clase_particular" | "cafeteria" | "academia_tenis" | "academia_padel" | "otro";
+export type PagoEstado = "sin_asignar" | "asignado";
 
 export type Database = {
   public: {
@@ -412,6 +414,72 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["asistencias"]["Insert"]>;
         Relationships: [];
       };
+      pagos: {
+        Row: {
+          id: number;
+          origen: string;
+          external_id: string | null;
+          monto: number;
+          fecha: string;
+          centro_costos: CentroCostos;
+          concepto: string | null;
+          estado: PagoEstado;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          origen?: string;
+          external_id?: string | null;
+          monto: number;
+          fecha?: string;
+          centro_costos?: CentroCostos;
+          concepto?: string | null;
+          estado?: PagoEstado;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["pagos"]["Insert"]>;
+        Relationships: [];
+      };
+      asignaciones_pago: {
+        Row: {
+          id: number;
+          pago_id: number;
+          cliente_id: number;
+          servicio: string;
+          periodos: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          pago_id: number;
+          cliente_id: number;
+          servicio: string;
+          periodos?: string[];
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["asignaciones_pago"]["Insert"]>;
+        Relationships: [];
+      };
+      abonos: {
+        Row: {
+          id: number;
+          cliente_id: number;
+          centro_costos: CentroCostos;
+          monto: number;
+          nota: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          cliente_id: number;
+          centro_costos?: CentroCostos;
+          monto: number;
+          nota?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["abonos"]["Insert"]>;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -456,6 +524,8 @@ export type Database = {
       clase_tipo: ClaseTipo;
       clase_estado: ClaseEstado;
       paquete_estado: PaqueteEstado;
+      centro_costos: CentroCostos;
+      pago_estado: PagoEstado;
     };
     CompositeTypes: Record<string, never>;
   };
