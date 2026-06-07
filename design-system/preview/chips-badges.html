@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .chip {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 5px 10px;
+    border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip-lime    { background: var(--cdaf-impact-lime); color: var(--cdaf-stadium-black); }
+  .chip-gray    { background: var(--cdaf-surface-container-high); color: var(--cdaf-on-surface-variant); }
+  .chip-char    { background: var(--cdaf-stadium-black); color: var(--cdaf-impact-lime); }
+  .chip-outline { background: transparent; color: var(--cdaf-stadium-black); border: 1px solid var(--cdaf-court-charcoal); }
+  .chip-error   { background: #FFDAD6; color: #93000A; }
+  .live { background: var(--cdaf-impact-lime); color: var(--cdaf-stadium-black); padding: 6px 12px; border-radius: 9999px; font-family: 'Montserrat'; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 9999px; background: #BA1A1A; box-shadow: 0 0 0 0 rgba(186,26,26,0.5); animation: p 1.6s infinite; }
+  @keyframes p { 70% { box-shadow: 0 0 0 8px rgba(186,26,26,0); } 100% { box-shadow: 0 0 0 0 rgba(186,26,26,0); } }
+</style>
+</head>
+<body>
+  <div class="label-eyebrow">Status chips · 2px radius</div>
+  <div class="row">
+    <span class="chip chip-lime">Activo</span>
+    <span class="chip chip-gray">Completo</span>
+    <span class="chip chip-outline">Inscripción abierta</span>
+    <span class="chip chip-char">Premium</span>
+    <span class="chip chip-error">Cancelado</span>
+  </div>
+  <div class="label-eyebrow" style="margin-top:6px">Signature: live broadcast pill</div>
+  <div class="row">
+    <span class="live"><span class="dot"></span>¡En Vivo!</span>
+    <span class="chip chip-lime"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#1A1C1E"></span>NUEVO</span>
+  </div>
+</body>
+</html>

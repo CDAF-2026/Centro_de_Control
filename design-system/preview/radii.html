@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .swatch { width: 92px; height: 64px; background: var(--cdaf-court-charcoal); }
+  .name { font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg1); }
+  .px { font-family: var(--font-mono); font-size: 10px; color: var(--fg2); }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="swatch" style="border-radius:2px"></div><div class="name">sm</div><div class="px">2px</div></div>
+    <div class="item"><div class="swatch" style="border-radius:4px;background:var(--cdaf-impact-lime)"></div><div class="name">default</div><div class="px">4px</div></div>
+    <div class="item"><div class="swatch" style="border-radius:6px"></div><div class="name">md</div><div class="px">6px</div></div>
+    <div class="item"><div class="swatch" style="border-radius:8px;background:var(--cdaf-impact-lime)"></div><div class="name">lg</div><div class="px">8px</div></div>
+    <div class="item"><div class="swatch" style="border-radius:12px"></div><div class="name">xl</div><div class="px">12px</div></div>
+    <div class="item"><div class="swatch" style="border-radius:9999px;width:64px;height:64px;background:var(--cdaf-impact-lime)"></div><div class="name">full</div><div class="px">9999px</div></div>
+  </div>
+</body>
+</html>

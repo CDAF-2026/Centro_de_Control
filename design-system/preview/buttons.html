@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .btn {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 12px 18px;
+    border-radius: 4px;
+    border: 0;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: all 200ms cubic-bezier(0.16,1,0.3,1);
+  }
+  .btn-primary    { background: var(--cdaf-impact-lime); color: var(--cdaf-stadium-black); border: 2px solid var(--cdaf-stadium-black); }
+  .btn-charcoal   { background: var(--cdaf-court-charcoal); color: #fff; border: 2px solid var(--cdaf-impact-lime); }
+  .btn-outline    { background: transparent; color: var(--cdaf-stadium-black); border: 2px solid var(--cdaf-stadium-black); }
+  .btn-outline-lime { background: transparent; color: var(--cdaf-stadium-black); border: 2px solid var(--cdaf-impact-lime); }
+  .btn-ghost      { background: transparent; color: var(--cdaf-impact-lime); border: 0; padding: 8px 0; -webkit-text-stroke: 0.4px var(--cdaf-stadium-black); }
+  .ico-btn { width: 44px; height: 44px; border-radius: 9999px; background: var(--cdaf-impact-lime); border: 2px solid var(--cdaf-stadium-black); display: inline-grid; place-items: center; cursor: pointer; }
+  .ico-btn svg { width: 22px; height: 22px; }
+  .label-eyebrow { width: 100%; }
+</style>
+</head>
+<body>
+  <button class="btn btn-primary">VER MÁS <span aria-hidden="true">↗</span></button>
+  <button class="btn btn-charcoal">RESERVAR</button>
+  <button class="btn btn-outline">NOSOTROS</button>
+  <button class="btn btn-outline-lime">VER PERFIL</button>
+  <span class="btn-ghost" style="font-family:'Montserrat';font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:0.04em">NOSOTROS</span>
+  <button class="ico-btn" aria-label="Calendar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#1A1C1E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+  </button>
+</body>
+</html>

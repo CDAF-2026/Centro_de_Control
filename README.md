@@ -25,6 +25,18 @@ Plataforma interna de control y gestión para el **Centro Deportivo Alejandro Fa
 3. Rellenar `.env` con las credenciales reales de Supabase (URL, publishable key, `DATABASE_URL`).
    **⚠️ Nunca commitear `.env`** — está protegido por `.gitignore`.
 
+## Generación de imágenes (OpenAI)
+
+Script para generar imágenes con `gpt-image-1` (uso local / server-side):
+
+```bash
+node --env-file=.env scripts/generate-image.mjs "tu prompt aquí"
+# opciones: --size 1024x1024 --quality high --model gpt-image-1 --out generated/mi-imagen.png
+```
+
+Requiere `OPENAI_API_KEY` en `.env`. Las imágenes se guardan en `generated/` (ignorada por git).
+En la plataforma, la generación irá en una **API route server-side** y las imágenes se persistirán en **Supabase Storage**.
+
 ## Notas del proyecto
 
 - `Centro Deportivo AF Design System.zip` — sistema de diseño (colores, tipografías, componentes) a aplicar en la UI.

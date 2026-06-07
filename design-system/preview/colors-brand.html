@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sw {
+    border-radius: 6px;
+    padding: 14px 14px 16px;
+    min-height: 140px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    border: 1px solid transparent;
+  }
+  .name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-style: italic;
+    text-transform: uppercase;
+    font-size: 13px;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+  }
+  .hex {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.85;
+  }
+  .lime  { background: #D4E157; color: #1A1C1E; }
+  .char  { background: #37474F; color: #FFFFFF; }
+  .black { background: #1A1C1E; color: #FFFFFF; }
+  .white { background: #FFFFFF; color: #1A1C1E; border-color: var(--cdaf-outline-variant); }
+</style>
+</head>
+<body>
+  <div class="grid">
+    <div class="sw lime">
+      <div class="name">Impact<br>Lime</div>
+      <div class="hex">#D4E157</div>
+    </div>
+    <div class="sw char">
+      <div class="name">Court<br>Charcoal</div>
+      <div class="hex">#37474F</div>
+    </div>
+    <div class="sw black">
+      <div class="name">Stadium<br>Black</div>
+      <div class="hex">#1A1C1E</div>
+    </div>
+    <div class="sw white">
+      <div class="name">Athletic<br>White</div>
+      <div class="hex">#FFFFFF</div>
+    </div>
+  </div>
+</body>
+</html>

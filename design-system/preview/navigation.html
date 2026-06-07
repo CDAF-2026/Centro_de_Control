@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .bar {
+    background: #fff;
+    border-radius: 6px;
+    padding: 14px 18px;
+    border: 1px solid var(--cdaf-outline-variant);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    width: 44px; height: 44px;
+    background-image: url(../assets/logo-primary.png);
+    background-size: cover; background-repeat: no-repeat; background-position: center;
+    border-radius: 50%;
+  }
+  .links { display: flex; gap: 0; align-items: center; }
+  .links a {
+    font-family: 'Montserrat'; font-weight: 800; font-size: 12px; letter-spacing: 0.04em;
+    text-transform: uppercase; text-decoration: none; color: var(--cdaf-stadium-black);
+    padding: 6px 14px; position: relative;
+  }
+  .links a + a::before {
+    content: ''; position: absolute; left: 0; top: 25%; height: 50%;
+    width: 1px; background: var(--cdaf-court-charcoal); opacity: 0.4;
+  }
+  .links a.active { color: var(--cdaf-impact-lime); -webkit-text-stroke: 0.4px var(--cdaf-stadium-black); }
+  .bar.dark { background: var(--cdaf-stadium-black); border-color: var(--cdaf-stadium-black); }
+  .bar.dark .links a { color: #fff; }
+  .bar.dark .links a + a::before { background: #fff; opacity: 0.3; }
+  .bar.dark .links a.active { color: var(--cdaf-impact-lime); -webkit-text-stroke: 0; }
+  .cta {
+    font-family: 'Montserrat'; font-weight: 800; font-size: 11px; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 8px 14px; border-radius: 4px;
+    background: var(--cdaf-impact-lime); color: var(--cdaf-stadium-black); border: 2px solid var(--cdaf-stadium-black);
+  }
+  .bar.dark .cta { border-color: var(--cdaf-impact-lime); }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="logo"></div>
+    <nav class="links">
+      <a class="active" href="#">Inicio</a>
+      <a href="#">Reservar</a>
+      <a href="#">Encuéntranos</a>
+      <a href="#">Nosotros</a>
+    </nav>
+    <button class="cta">RESERVAR</button>
+  </div>
+  <div class="bar dark">
+    <div class="logo"></div>
+    <nav class="links">
+      <a href="#">Inicio</a>
+      <a href="#">Reservar</a>
+      <a class="active" href="#">Encuéntranos</a>
+      <a href="#">Nosotros</a>
+    </nav>
+    <button class="cta">RESERVAR</button>
+  </div>
+</body>
+</html>

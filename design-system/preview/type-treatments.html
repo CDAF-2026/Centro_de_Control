@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .block { background: #fff; border: 1px solid var(--cdaf-outline-variant); border-radius: 6px; padding: 14px; }
+  .block.dark { background: var(--cdaf-stadium-black); color: #fff; border-color: var(--cdaf-stadium-black); }
+  .eyebrow { font-family: var(--font-body); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg2); margin-bottom: 8px; }
+  .block.dark .eyebrow { color: var(--cdaf-impact-lime); }
+  .upper { font-family: 'Montserrat', sans-serif; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 22px; line-height: 1.05; letter-spacing: -0.01em; }
+  .lower { font-family: 'Montserrat', sans-serif; font-weight: 700; text-transform: lowercase; font-size: 22px; line-height: 1.1; }
+  .note { font-family: var(--font-body); font-size: 11px; color: var(--fg2); margin-top: 8px; line-height: 1.45; }
+  .block.dark .note { color: #cfd3d6; }
+  .accent { color: var(--cdaf-impact-lime); }
+</style>
+</head>
+<body>
+  <div class="block">
+    <div class="eyebrow">UPPERCASE display</div>
+    <div class="upper">RESPETO · COMPROMISO</div>
+    <div class="note">For hero titles, section headers, eyebrow labels, nav. Italic conveys speed; uppercase carries authority.</div>
+  </div>
+  <div class="block">
+    <div class="eyebrow">lowercase category</div>
+    <div class="lower">tenis niños</div>
+    <div class="lower" style="font-style:italic;">padel</div>
+    <div class="note">Lowercase Montserrat is reserved for category card titles — a deliberate counterpoint to the otherwise uppercase headlines.</div>
+  </div>
+  <div class="block dark">
+    <div class="eyebrow">On dark · italic + lime accent</div>
+    <div class="upper"><span class="accent">VER MÁS</span> ↗</div>
+    <div class="note">Ghost link signature: lime word, charcoal arrow ↗. The arrow is part of the type, never an icon.</div>
+  </div>
+  <div class="block">
+    <div class="eyebrow">Eyebrow / metadata</div>
+    <div style="font-family:'Open Sans',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:var(--fg1)">CATEGORÍA · ADULTO · MIXTO</div>
+    <div class="note">Open Sans Bold UPPERCASE for nav, breadcrumbs, status, technical metadata strips.</div>
+  </div>
+</body>
+</html>

@@ -22,6 +22,9 @@ yarn-error.log*
 supabase/.temp/
 supabase/.branches/
 
+# ── Imágenes generadas (OpenAI, output ad-hoc) ──
+/generated/
+
 # ── Claude Code (tooling local; manifiesto en skills-lock.json) ──
 .agents/
 .claude/skills/
@@ -30,3 +33,14 @@ supabase/.branches/
 .DS_Store
 .vscode/
 .idea/
+
+# ── Next.js / tooling ──
+*.tsbuildinfo
+.vercel/
+next-env.d.ts
+
+# ── Playwright ──
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .ico {
+    width: 64px; height: 64px; border-radius: 9999px;
+    background: var(--cdaf-stadium-black);
+    display: grid; place-items: center;
+    border: 2px solid var(--cdaf-impact-lime);
+  }
+  .ico svg { width: 30px; height: 30px; stroke: var(--cdaf-impact-lime); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ico.solid { background: var(--cdaf-impact-lime); border-color: var(--cdaf-stadium-black); }
+  .ico.solid svg { stroke: var(--cdaf-stadium-black); }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .label { font-family: 'Open Sans'; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg1); }
+  .note { font-family: var(--font-body); font-size: 11px; color: var(--fg2); margin-top: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="item"><div class="ico"><!-- tennis ball -->
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3.6 8.5c4 0 7 3 7 7M20.4 15.5c-4 0-7-3-7-7"/></svg>
+    </div><span class="label">Tenis</span></div>
+    <div class="item"><div class="ico"><!-- padel racket -->
+      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="9" rx="7" ry="8"/><path d="M12 17v5M9 22h6"/><circle cx="9" cy="8" r=".8" fill="currentColor"/><circle cx="12" cy="8" r=".8" fill="currentColor"/><circle cx="15" cy="8" r=".8" fill="currentColor"/><circle cx="10.5" cy="11" r=".8" fill="currentColor"/><circle cx="13.5" cy="11" r=".8" fill="currentColor"/></svg>
+    </div><span class="label">Pádel</span></div>
+    <div class="item"><div class="ico"><!-- clock -->
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    </div><span class="label">Horario</span></div>
+    <div class="item"><div class="ico solid"><!-- pin -->
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-12a7 7 0 0114 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+    </div><span class="label">Ubicación</span></div>
+    <div class="item"><div class="ico"><!-- calendar -->
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+    </div><span class="label">Reservar</span></div>
+    <div class="item"><div class="ico"><!-- user with racket -->
+      <svg viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M4 21c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="18" cy="6" r="2"/><path d="M18 8v6"/></svg>
+    </div><span class="label">Staff</span></div>
+  </div>
+  <div class="note">Brand sport icons: black/lime ball-shape, 2px Impact Lime stroke. UI utility icons use <strong>Lucide</strong> (CDN) at 24×24 / 2px stroke. <em>No emoji.</em></div>
+</body>
+</html>

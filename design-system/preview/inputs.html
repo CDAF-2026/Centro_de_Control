@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .lbl { font-family: 'Open Sans'; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg1); }
+  .input {
+    font-family: 'Open Sans'; font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--cdaf-court-charcoal);
+    background: #fff;
+    color: var(--fg1);
+  }
+  .input:focus { outline: 2px solid var(--cdaf-primary); outline-offset: 2px; }
+  .help { font-family: 'Open Sans'; font-size: 11px; color: var(--fg2); }
+  .row-cb { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .cb {
+    width: 18px; height: 18px; border-radius: 2px;
+    border: 2px solid var(--cdaf-court-charcoal); background: #fff;
+    display: inline-grid; place-items: center; flex-shrink: 0;
+  }
+  .cb.on { background: var(--cdaf-impact-lime); }
+  .cb.on::after { content: ''; width: 10px; height: 5px; border: 2px solid var(--cdaf-stadium-black); border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+  .rd { width: 18px; height: 18px; border-radius: 9999px; border: 2px solid var(--cdaf-court-charcoal); display: inline-grid; place-items: center; flex-shrink: 0; }
+  .rd.on::after { content: ''; width: 9px; height: 9px; border-radius: 9999px; background: var(--cdaf-impact-lime); }
+  .row-cb span { font-family: 'Open Sans'; font-size: 13px; color: var(--fg1); }
+</style>
+</head>
+<body>
+  <div class="field">
+    <span class="lbl">Nombre completo</span>
+    <input class="input" value="Leo Ruiz">
+    <span class="help">Para el registro de miembro</span>
+  </div>
+  <div class="field">
+    <span class="lbl">Disciplina</span>
+    <select class="input"><option>Tenis</option><option>Pádel</option></select>
+  </div>
+  <div>
+    <div class="lbl" style="margin-bottom:8px">Servicios</div>
+    <div class="row-cb"><span class="cb on"></span><span>Reserva de cancha</span></div>
+    <div class="row-cb"><span class="cb"></span><span>Clase con entrenador</span></div>
+    <div class="row-cb"><span class="cb"></span><span>Alquiler de equipo</span></div>
+  </div>
+  <div>
+    <div class="lbl" style="margin-bottom:8px">Nivel</div>
+    <div class="row-cb"><span class="rd on"></span><span>Principiante</span></div>
+    <div class="row-cb"><span class="rd"></span><span>Intermedio</span></div>
+    <div class="row-cb"><span class="rd"></span><span>Alto rendimiento</span></div>
+  </div>
+</body>
+</html>

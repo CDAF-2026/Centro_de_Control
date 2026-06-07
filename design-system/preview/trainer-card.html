@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: #fff; border: 1px solid var(--cdaf-outline-variant);
+    border-radius: 6px; padding: 12px; display: grid;
+    grid-template-columns: 92px 1fr; gap: 14px; align-items: center;
+  }
+  .portrait { width: 92px; height: 92px; border-radius: 9999px; overflow: hidden; background: var(--cdaf-stadium-black); }
+  .portrait img { width: 100%; height: 100%; object-fit: cover; }
+  .meta { display: flex; flex-direction: column; gap: 8px; }
+  .name { font-family: 'Montserrat'; font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 18px; line-height: 1; letter-spacing: -0.01em; color: var(--cdaf-stadium-black); }
+  .role { font-family: 'Open Sans'; font-size: 12px; color: var(--fg2); }
+  .cta {
+    align-self: flex-start;
+    font-family: 'Montserrat'; font-weight: 800; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 8px 12px; border-radius: 4px;
+    background: transparent; color: var(--cdaf-stadium-black);
+    border: 2px solid var(--cdaf-impact-lime);
+  }
+  .card-dark { background: var(--cdaf-court-charcoal); border-color: var(--cdaf-stadium-black); color: #fff; }
+  .card-dark .name { color: #fff; }
+  .card-dark .role { color: #cfd3d6; }
+  .card-dark .cta { background: var(--cdaf-impact-lime); border-color: var(--cdaf-impact-lime); color: var(--cdaf-stadium-black); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="portrait"><img src="https://centrodeportivoaf.com/wp-content/uploads/2025/04/leo.jpg" alt=""></div>
+    <div class="meta">
+      <div class="name">Leo Ruiz</div>
+      <div class="role">Entrenador Padel</div>
+      <button class="cta">VER PERFIL</button>
+    </div>
+  </div>
+  <div class="card card-dark">
+    <div class="portrait"><img src="https://centrodeportivoaf.com/wp-content/uploads/2025/01/joaquin.jpg" alt=""></div>
+    <div class="meta">
+      <div class="name">Joaquin Della&nbsp;Mea</div>
+      <div class="role">Director de Padel</div>
+      <button class="cta">VER PERFIL</button>
+    </div>
+  </div>
+</body>
+</html>

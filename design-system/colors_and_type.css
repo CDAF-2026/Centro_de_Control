@@ -1,0 +1,253 @@
+/* =========================================================================
+   Centro Deportivo Alejandro Falla — Colors & Type tokens
+   "Impact Lime Athletic System"
+
+   Brand DNA: high-velocity movement, professional precision, premium sports
+   facility. Anchored by the tension between vibrant Impact Lime and grounded
+   industrial Court Charcoal.
+   ========================================================================= */
+
+/* ---- Webfonts (Google substitutes — see fonts/README) -------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800;1,900&family=Open+Sans:wght@400;600;700&display=swap');
+
+:root {
+  /* ============== BRAND CORE ============================================ */
+  --cdaf-impact-lime:     #D4E157;  /* Primary — energy, the ball, action  */
+  --cdaf-impact-lime-dim: #C2CF47;  /* Lime, dimmed (hover-darker, fixed)  */
+  --cdaf-impact-lime-fix: #DFEC60;  /* Lime, fixed brighter accent         */
+  --cdaf-court-charcoal:  #37474F;  /* Secondary — premium foundation     */
+  --cdaf-stadium-black:   #1A1C1E;  /* High-impact dark surface           */
+  --cdaf-athletic-white:  #FFFFFF;  /* Pure white                          */
+  --cdaf-surface-gray:    #F5F7F8;  /* Subtle grouping background          */
+
+  /* ============== SURFACE LAYERS (M3-style tonal) ====================== */
+  --cdaf-surface:                   #F9F9F9;
+  --cdaf-surface-dim:               #DADADA;
+  --cdaf-surface-bright:            #F9F9F9;
+  --cdaf-surface-container-lowest:  #FFFFFF;
+  --cdaf-surface-container-low:     #F3F3F4;
+  --cdaf-surface-container:         #EEEEEE;
+  --cdaf-surface-container-high:    #E8E8E8;
+  --cdaf-surface-container-highest: #E2E2E2;
+  --cdaf-surface-variant:           #E2E2E2;
+  --cdaf-inverse-surface:           #2F3131;
+  --cdaf-inverse-on-surface:        #F0F1F1;
+
+  /* ============== ON-COLOR / TEXT ====================================== */
+  --cdaf-on-surface:          #1A1C1C;
+  --cdaf-on-surface-variant:  #474836;
+  --cdaf-outline:             #787864;
+  --cdaf-outline-variant:     #C8C8B1;
+
+  /* ============== PRIMARY / SECONDARY / TERTIARY ======================= */
+  --cdaf-primary:               #5B6300;    /* Lime-derived dark accent  */
+  --cdaf-on-primary:            #FFFFFF;
+  --cdaf-primary-container:     #D4E157;    /* === Impact Lime           */
+  --cdaf-on-primary-container:  #5B6300;
+  --cdaf-inverse-primary:       #C2CF47;
+
+  --cdaf-secondary:               #506169;
+  --cdaf-on-secondary:            #FFFFFF;
+  --cdaf-secondary-container:     #D1E2EC;
+  --cdaf-on-secondary-container:  #55656D;
+
+  --cdaf-tertiary:               #3E6280;
+  --cdaf-on-tertiary:            #FFFFFF;
+  --cdaf-tertiary-container:     #B8DCFF;
+  --cdaf-on-tertiary-container:  #3E617F;
+
+  /* ============== SEMANTIC ============================================== */
+  --cdaf-error:               #BA1A1A;
+  --cdaf-on-error:            #FFFFFF;
+  --cdaf-error-container:     #FFDAD6;
+  --cdaf-on-error-container:  #93000A;
+  --cdaf-success:             var(--cdaf-impact-lime);
+  --cdaf-warning:             #F2B53D;
+
+  /* ============== SHORT-NAME ALIASES (for fg1, bg1 ergonomics) ========== */
+  --fg1: var(--cdaf-on-surface);          /* primary text on light       */
+  --fg2: var(--cdaf-on-surface-variant);  /* muted text                  */
+  --fg3: var(--cdaf-outline);             /* tertiary / meta             */
+  --fg-on-dark: var(--cdaf-athletic-white);
+
+  --bg1: var(--cdaf-surface);             /* page background             */
+  --bg2: var(--cdaf-surface-container);   /* raised surface              */
+  --bg3: var(--cdaf-surface-container-low);
+  --bg-dark: var(--cdaf-stadium-black);   /* hero / dark sections        */
+  --bg-charcoal: var(--cdaf-court-charcoal);
+
+  --accent: var(--cdaf-impact-lime);
+  --accent-fg: var(--cdaf-stadium-black); /* text ON lime                */
+
+  /* ============== TYPE FAMILIES ======================================== */
+  --font-display: 'Montserrat', 'Helvetica Neue', Arial, sans-serif;
+  --font-body:    'Open Sans', system-ui, -apple-system, Segoe UI, sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ============== TYPE SCALE (desktop) ================================= */
+  /* display: heavy/italic Montserrat — brand voice                      */
+  --type-display-lg-size:    48px;
+  --type-display-lg-line:    52px;
+  --type-display-lg-weight:  900;
+  --type-display-lg-track:   -0.02em;
+
+  --type-headline-lg-size:   32px;
+  --type-headline-lg-line:   40px;
+  --type-headline-lg-weight: 800;
+
+  --type-headline-md-size:   24px;
+  --type-headline-md-line:   32px;
+  --type-headline-md-weight: 700;
+
+  --type-headline-sm-size:   20px;
+  --type-headline-sm-line:   28px;
+  --type-headline-sm-weight: 700;
+
+  --type-body-lg-size:       18px;
+  --type-body-lg-line:       28px;
+
+  --type-body-md-size:       16px;
+  --type-body-md-line:       24px;
+
+  --type-label-lg-size:      14px;
+  --type-label-lg-line:      20px;
+  --type-label-lg-weight:    700;
+
+  --type-label-sm-size:      12px;
+  --type-label-sm-line:      16px;
+  --type-label-sm-weight:    600;
+
+  /* ============== SHAPE — soft, 4px-rooted ============================ */
+  --radius-sm:    2px;    /* chips, status badges       */
+  --radius:       4px;    /* DEFAULT — buttons, inputs  */
+  --radius-md:    6px;
+  --radius-lg:    8px;    /* large cards, images        */
+  --radius-xl:    12px;
+  --radius-full:  9999px; /* avatars, pill circles      */
+
+  /* ============== SPACING (8px base) ================================== */
+  --space-unit:   8px;
+  --space-1:      4px;
+  --space-2:      8px;
+  --space-3:      12px;
+  --space-4:      16px;
+  --space-5:      20px;
+  --space-6:      24px;     /* gutter                        */
+  --space-8:      32px;
+  --space-10:     40px;     /* desktop margin                */
+  --space-12:     48px;
+  --space-16:     64px;
+  --space-20:     80px;
+
+  --container-max: 1280px;
+  --gutter:        24px;
+  --margin-mobile: 16px;
+  --margin-desktop: 40px;
+
+  /* ============== ELEVATION =========================================== */
+  /* Prefer 1px charcoal borders over heavy shadows. When shadows are used,
+     keep them low-opacity / high-blur to retain the technical feel.       */
+  --elev-1: 0 1px 2px rgba(26, 28, 30, 0.04);
+  --elev-2: 0 2px 8px rgba(26, 28, 30, 0.06);
+  --elev-3: 0 6px 24px rgba(26, 28, 30, 0.08);
+  --border-hairline: 1px solid var(--cdaf-court-charcoal);
+  --border-soft:     1px solid var(--cdaf-outline-variant);
+
+  /* ============== MOTION ============================================== */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);   /* default easing      */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast:    120ms;
+  --dur:         200ms;
+  --dur-slow:    320ms;
+  --hover-lift:  translateY(-4px);  /* card hover signature              */
+}
+
+/* =========================================================================
+   SEMANTIC ELEMENT STYLES — drop these on a page and headings/body align
+   to the system. Pages can also opt in via the .cdaf-typography wrapper.
+   ========================================================================= */
+
+body, .cdaf-body {
+  font-family: var(--font-body);
+  font-size: var(--type-body-md-size);
+  line-height: var(--type-body-md-line);
+  color: var(--fg1);
+  background: var(--bg1);
+}
+
+.cdaf-typography h1, .cdaf-display {
+  font-family: var(--font-display);
+  font-weight: var(--type-display-lg-weight);
+  font-size: var(--type-display-lg-size);
+  line-height: var(--type-display-lg-line);
+  letter-spacing: var(--type-display-lg-track);
+  font-style: italic;            /* signature italic "speed" treatment */
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cdaf-typography h2, .cdaf-headline-lg {
+  font-family: var(--font-display);
+  font-weight: var(--type-headline-lg-weight);
+  font-size: var(--type-headline-lg-size);
+  line-height: var(--type-headline-lg-line);
+  font-style: italic;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cdaf-typography h3, .cdaf-headline-md {
+  font-family: var(--font-display);
+  font-weight: var(--type-headline-md-weight);
+  font-size: var(--type-headline-md-size);
+  line-height: var(--type-headline-md-line);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.cdaf-typography h4, .cdaf-headline-sm {
+  font-family: var(--font-display);
+  font-weight: var(--type-headline-sm-weight);
+  font-size: var(--type-headline-sm-size);
+  line-height: var(--type-headline-sm-line);
+  margin: 0;
+}
+
+.cdaf-typography p, .cdaf-body-lg {
+  font-family: var(--font-body);
+  font-size: var(--type-body-lg-size);
+  line-height: var(--type-body-lg-line);
+  margin: 0;
+}
+
+.cdaf-body-md {
+  font-family: var(--font-body);
+  font-size: var(--type-body-md-size);
+  line-height: var(--type-body-md-line);
+}
+
+.cdaf-label-lg, .cdaf-eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--type-label-lg-size);
+  line-height: var(--type-label-lg-line);
+  font-weight: var(--type-label-lg-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cdaf-label-sm {
+  font-family: var(--font-body);
+  font-size: var(--type-label-sm-size);
+  line-height: var(--type-label-sm-line);
+  font-weight: var(--type-label-sm-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Mobile display step-down */
+@media (max-width: 640px) {
+  .cdaf-typography h1, .cdaf-display {
+    font-size: 36px;
+    line-height: 40px;
+  }
+}

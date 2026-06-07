@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_preview.css">
+<style>
+  body { background: var(--cdaf-surface-gray); padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .sw {
+    border-radius: 4px;
+    padding: 10px 10px 12px;
+    min-height: 96px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    border: 1px solid var(--cdaf-outline-variant);
+  }
+  .sw .name {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 10px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .sw .hex {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    opacity: 0.7;
+  }
+  .label-eyebrow { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <div class="label-eyebrow">Surface scale · light only (dark mode not in scope)</div>
+  <div class="grid">
+    <div class="sw" style="background:#FFFFFF"><div class="name">Lowest</div><div class="hex">#FFFFFF</div></div>
+    <div class="sw" style="background:#F9F9F9"><div class="name">Surface</div><div class="hex">#F9F9F9</div></div>
+    <div class="sw" style="background:#F5F7F8"><div class="name">Sf-Gray</div><div class="hex">#F5F7F8</div></div>
+    <div class="sw" style="background:#F3F3F4"><div class="name">Low</div><div class="hex">#F3F3F4</div></div>
+    <div class="sw" style="background:#EEEEEE"><div class="name">Default</div><div class="hex">#EEEEEE</div></div>
+    <div class="sw" style="background:#E8E8E8"><div class="name">High</div><div class="hex">#E8E8E8</div></div>
+    <div class="sw" style="background:#E2E2E2"><div class="name">Highest</div><div class="hex">#E2E2E2</div></div>
+  </div>
+  <div style="height:14px"></div>
+  <div class="label-eyebrow">Text / outline on light</div>
+  <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="sw" style="background:#1A1C1C;color:#fff"><div class="name">On-surface</div><div class="hex">#1A1C1C</div></div>
+    <div class="sw" style="background:#474836;color:#fff"><div class="name">On-sf var</div><div class="hex">#474836</div></div>
+    <div class="sw" style="background:#787864;color:#fff"><div class="name">Outline</div><div class="hex">#787864</div></div>
+    <div class="sw" style="background:#C8C8B1"><div class="name">Outl var</div><div class="hex">#C8C8B1</div></div>
+  </div>
+</body>
+</html>
