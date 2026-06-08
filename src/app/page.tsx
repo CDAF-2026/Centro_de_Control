@@ -18,8 +18,14 @@ export default function Home() {
       <p className="max-w-md text-white/70">
         Plataforma de gestión y CRM del club. En construcción.
       </p>
-      <div className="flex gap-3">
-        <Link href="/styleguide" className={buttonVariants()}>
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <Link href="/login" className={buttonVariants()}>
+          Ingresar
+        </Link>
+        <Link
+          href="/styleguide"
+          className="text-sm text-white/70 underline-offset-4 hover:text-white hover:underline"
+        >
           Ver sistema de diseño
         </Link>
       </div>

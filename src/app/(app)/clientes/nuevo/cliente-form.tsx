@@ -69,7 +69,14 @@ export function ClienteForm() {
         <Field label="Celular" name="celular" error={fe.celular} />
         <Field label="Correo" name="email" type="email" error={fe.email} />
       </div>
-      <Field label="Contacto de emergencia" name="contactoEmergencia" error={fe.contactoEmergencia} />
+      <fieldset className="space-y-3 rounded-lg border p-4">
+        <legend className="cdaf-eyebrow px-1">Contacto de emergencia</legend>
+        <Field label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre} />
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular} />
+          <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco} />
+        </div>
+      </fieldset>
 
       {menor && (
         <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">

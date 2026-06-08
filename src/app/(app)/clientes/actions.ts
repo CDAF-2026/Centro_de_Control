@@ -66,7 +66,9 @@ export async function createCliente(
       es_menor: menor,
       celular: d.celular || null,
       email: d.email || null,
-      contacto_emergencia: d.contactoEmergencia || null,
+      emergencia_nombre: d.emergenciaNombre || null,
+      emergencia_celular: d.emergenciaCelular || null,
+      emergencia_parentesco: d.emergenciaParentesco || null,
       acudiente_id: acudienteId,
     })
     .select("id")

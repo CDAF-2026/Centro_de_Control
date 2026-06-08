@@ -131,7 +131,9 @@ export type Database = {
           es_menor: boolean;
           celular: string | null;
           email: string | null;
-          contacto_emergencia: string | null;
+          emergencia_nombre: string | null;
+          emergencia_celular: string | null;
+          emergencia_parentesco: string | null;
           acudiente_id: number | null;
           estado: ClienteEstado;
           created_at: string;
@@ -146,7 +148,9 @@ export type Database = {
           es_menor?: boolean;
           celular?: string | null;
           email?: string | null;
-          contacto_emergencia?: string | null;
+          emergencia_nombre?: string | null;
+          emergencia_celular?: string | null;
+          emergencia_parentesco?: string | null;
           acudiente_id?: number | null;
           estado?: ClienteEstado;
           created_at?: string;
@@ -161,7 +165,9 @@ export type Database = {
           es_menor?: boolean;
           celular?: string | null;
           email?: string | null;
-          contacto_emergencia?: string | null;
+          emergencia_nombre?: string | null;
+          emergencia_celular?: string | null;
+          emergencia_parentesco?: string | null;
           acudiente_id?: number | null;
           estado?: ClienteEstado;
           created_at?: string;
