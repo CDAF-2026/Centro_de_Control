@@ -50,6 +50,18 @@ function canonHeader(h: string): string {
   return SYNONYMS[n] ?? n;
 }
 
+/** Salta líneas previas (título, nombre de archivo…) hasta la fila con nombres + apellidos. */
+function recortarHastaEncabezado(text: string): string {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const tokens = lines[i].split(/[,;\t|]/).map((t) => canonHeader(t));
+    if (tokens.includes("nombres") && tokens.includes("apellidos")) {
+      return lines.slice(i).join("\n");
+    }
+  }
+  return text;
+}
+
 function normalizarFecha(s?: string): string | null {
   const t = (s ?? "").trim();
   if (!t) return null;
@@ -71,6 +83,8 @@ export async function importarClientesCsv(
 
   let text = await file.text();
   text = text.replace(/^﻿/, ""); // quitar BOM
+
+  text = recortarHastaEncabezado(text);
 
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
