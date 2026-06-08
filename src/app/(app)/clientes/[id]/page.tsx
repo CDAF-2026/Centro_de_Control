@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
+import { ServiciosCliente } from "./servicios-cliente";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -66,6 +67,53 @@ export default async function ClienteDetallePage({
   const pagoById = new Map(pagosData.map((p) => [p.id, p]));
   const totalConciliado = pagosData.reduce((s, p) => s + p.monto, 0);
 
+  const { data: inscripciones } = await supabase
+    .from("inscripciones")
+    .select("id, academia_id, plan_frecuencia, descuento_pct")
+    .eq("cliente_id", Number(id))
+    .eq("activa", true);
+  const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
+  const { data: acaData } = acaIds.length
+    ? await supabase.from("academias").select("id, nombre").in("id", acaIds)
+    : { data: [] as { id: number; nombre: string }[] };
+  const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
+  const inscripcionesView = (inscripciones ?? []).map((i) => ({
+    id: i.id,
+    plan_frecuencia: i.plan_frecuencia,
+    descuento_pct: i.descuento_pct,
+    academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
+  }));
+
+  const { data: pqCli } = await supabase
+    .from("paquetes_cliente")
+    .select("id, catalogo_id, num_clases, clases_consumidas, estado, descuento_pct")
+    .eq("cliente_id", Number(id))
+    .order("created_at", { ascending: false });
+  const catIds = (pqCli ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null);
+  const { data: catNames } = catIds.length
+    ? await supabase.from("paquetes_catalogo").select("id, nombre").in("id", catIds)
+    : { data: [] as { id: number; nombre: string }[] };
+  const catNameById = new Map((catNames ?? []).map((c) => [c.id, c.nombre]));
+  const paquetesView = (pqCli ?? []).map((p) => ({
+    id: p.id,
+    num_clases: p.num_clases,
+    clases_consumidas: p.clases_consumidas,
+    estado: p.estado,
+    descuento_pct: p.descuento_pct,
+    nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete",
+  }));
+
+  const { data: academiasDisponibles } = await supabase
+    .from("academias")
+    .select("id, nombre")
+    .eq("activa", true)
+    .order("codigo");
+  const { data: catalogoActivo } = await supabase
+    .from("paquetes_catalogo")
+    .select("id, nombre, num_clases")
+    .eq("activo", true)
+    .order("num_clases");
+
   const puedeEditar = can(profile.role, "clientes", "edit");
 
   return (
@@ -123,6 +171,22 @@ export default async function ClienteDetallePage({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Servicios contratados</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ServiciosCliente
+            clienteId={cliente.id}
+            inscripciones={inscripcionesView}
+            paquetes={paquetesView}
+            academiasDisponibles={academiasDisponibles ?? []}
+            catalogo={catalogoActivo ?? []}
+            puedeEditar={puedeEditar}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

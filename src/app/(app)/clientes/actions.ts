@@ -12,6 +12,7 @@ const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
 
 export type ClienteFormState = {
   error?: string;
+  ok?: string;
   fieldErrors?: Record<string, string>;
 };
 
@@ -178,4 +179,75 @@ export async function deleteDocumento(formData: FormData): Promise<void> {
     entityId: String(clienteId),
   });
   revalidatePath(`/clientes/${clienteId}`);
+}
+
+/** Inscribe al cliente en una academia (desde la ficha del cliente). */
+export async function inscribirEnAcademia(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  const clienteId = Number(formData.get("clienteId"));
+  const academiaId = Number(formData.get("academiaId"));
+  const plan = Number(formData.get("plan"));
+  const descuento = Number(formData.get("descuento") || 0);
+  if (!academiaId) return { error: "Selecciona una academia." };
+  if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("inscripciones").insert({
+    academia_id: academiaId,
+    cliente_id: clienteId,
+    plan_frecuencia: plan,
+    descuento_pct: descuento,
+  });
+  if (error) {
+    return { error: /duplicate|unique/i.test(error.message) ? "Ya está inscrito en esa academia." : error.message };
+  }
+  await logAudit({
+    action: "academia.inscribir",
+    entity: "inscripciones",
+    entityId: String(academiaId),
+    after: { cliente_id: clienteId, plan, descuento_pct: descuento },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: "Inscrito en la academia." };
+}
+
+/** Asigna un paquete del catálogo al cliente (crea la instancia con su saldo). */
+export async function asignarPaquete(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(["superadmin", "coord_admin", "recepcion"]);
+  const clienteId = Number(formData.get("clienteId"));
+  const catalogoId = Number(formData.get("catalogoId"));
+  const descuento = Number(formData.get("descuento") || 0);
+  if (!catalogoId) return { error: "Selecciona un paquete." };
+
+  const supabase = await createClient();
+  const { data: cat } = await supabase
+    .from("paquetes_catalogo")
+    .select("num_clases")
+    .eq("id", catalogoId)
+    .single();
+  if (!cat) return { error: "Paquete no encontrado." };
+
+  const { error } = await supabase.from("paquetes_cliente").insert({
+    cliente_id: clienteId,
+    catalogo_id: catalogoId,
+    num_clases: cat.num_clases,
+    descuento_pct: descuento,
+    estado: "activo",
+  });
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "paquete.asignar",
+    entity: "paquetes_cliente",
+    entityId: String(clienteId),
+    after: { catalogo_id: catalogoId, num_clases: cat.num_clases, descuento_pct: descuento },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: "Paquete asignado." };
 }
