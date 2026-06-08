@@ -18,11 +18,43 @@ export type ImportState = {
   error?: string;
 };
 
+/** Normaliza un encabezado: minúsculas, sin acentos, espacios/puntos → "_". */
+function normHeader(h: string): string {
+  return h
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\s.]+/g, "_");
+}
+
+/** Sinónimos de encabezado → nombre canónico de columna. */
+const SYNONYMS: Record<string, string> = {
+  nombre: "nombres", nombres: "nombres", primer_nombre: "nombres",
+  apellido: "apellidos", apellidos: "apellidos",
+  documento: "documento", cedula: "documento", identificacion: "documento", cc: "documento", numero_documento: "documento", no_documento: "documento", doc: "documento",
+  fecha_nacimiento: "fecha_nacimiento", nacimiento: "fecha_nacimiento", fecha_de_nacimiento: "fecha_nacimiento", fdn: "fecha_nacimiento",
+  celular: "celular", telefono: "celular", movil: "celular", tel: "celular", cel: "celular",
+  correo: "email", email: "email", e_mail: "email", correo_electronico: "email",
+  emergencia_nombre: "emergencia_nombre", contacto_emergencia: "emergencia_nombre", emergencia: "emergencia_nombre", contacto_de_emergencia: "emergencia_nombre",
+  emergencia_celular: "emergencia_celular", emergencia_telefono: "emergencia_celular",
+  emergencia_parentesco: "emergencia_parentesco", parentesco_emergencia: "emergencia_parentesco",
+  acudiente_nombre: "acudiente_nombre", acudiente: "acudiente_nombre", nombre_acudiente: "acudiente_nombre",
+  acudiente_documento: "acudiente_documento", documento_acudiente: "acudiente_documento",
+  acudiente_telefono: "acudiente_telefono", acudiente_celular: "acudiente_telefono",
+  acudiente_parentesco: "acudiente_parentesco", parentesco_acudiente: "acudiente_parentesco", parentesco: "acudiente_parentesco",
+};
+
+function canonHeader(h: string): string {
+  const n = normHeader(h);
+  return SYNONYMS[n] ?? n;
+}
+
 function normalizarFecha(s?: string): string | null {
   const t = (s ?? "").trim();
   if (!t) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
-  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // DD/MM/AAAA
+  const m = t.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/); // DD/MM/AAAA o DD-MM-AAAA
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   return t;
 }
@@ -37,14 +69,27 @@ export async function importarClientesCsv(
   if (!(file instanceof File) || file.size === 0) return { error: "Selecciona un archivo .csv." };
   if (file.size > 5 * 1024 * 1024) return { error: "El archivo supera 5 MB." };
 
-  const text = await file.text();
+  let text = await file.text();
+  text = text.replace(/^﻿/, ""); // quitar BOM
+
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (h) => h.trim().toLowerCase(),
+    delimitersToGuess: [",", ";", "\t", "|"],
+    transformHeader: (h) => canonHeader(h),
   });
   const rows = parsed.data ?? [];
+  const fields = parsed.meta?.fields ?? [];
+
   if (rows.length === 0) return { error: "El CSV no tiene filas de datos." };
+  if (!fields.includes("nombres") || !fields.includes("apellidos")) {
+    return {
+      error:
+        `No reconocí las columnas obligatorias "nombres" y "apellidos". ` +
+        `Columnas detectadas: ${fields.join(" | ") || "(ninguna)"}. ` +
+        `Descarga y usa la plantilla (revisa que la primera fila sea el encabezado).`,
+    };
+  }
 
   const supabase = await createClient();
   const errores: { fila: number; motivo: string }[] = [];
@@ -52,7 +97,7 @@ export async function importarClientesCsv(
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    const fila = i + 2; // fila 1 = encabezado
+    const fila = i + 2;
     const nombres = (r.nombres ?? "").trim();
     const apellidos = (r.apellidos ?? "").trim();
     if (!nombres || !apellidos) {
