@@ -31,9 +31,14 @@ export default async function ClientesPage({
       <div className="flex items-center justify-between gap-3">
         <h1 className="cdaf-headline">Clientes / Deportistas</h1>
         {puedeEditar && (
-          <Link href="/clientes/nuevo" className={buttonVariants()}>
-            + Nuevo cliente
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/clientes/importar" className={buttonVariants({ variant: "outline" })}>
+              Importar CSV
+            </Link>
+            <Link href="/clientes/nuevo" className={buttonVariants()}>
+              + Nuevo cliente
+            </Link>
+          </div>
         )}
       </div>
 
