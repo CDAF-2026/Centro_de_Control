@@ -17,7 +17,7 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, profesor_id")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
@@ -49,17 +49,33 @@ export default async function CerrarClasePage({
     .eq("clase_id", claseId);
   const presentes = (asis ?? []).filter((a) => a.presente).map((a) => a.cliente_id);
 
+  let profesorNombre: string | null = null;
+  if (clase.profesor_id) {
+    const { data: p } = await supabase.from("profiles").select("nombre").eq("id", clase.profesor_id).single();
+    profesorNombre = p?.nombre ?? null;
+  }
+  let academiaNombre: string | null = null;
+  if (clase.tipo === "academia" && clase.academia_id) {
+    const { data: a } = await supabase.from("academias").select("nombre").eq("id", clase.academia_id).single();
+    academiaNombre = a?.nombre ?? null;
+  }
+  const titulo =
+    clase.tipo === "academia"
+      ? `Academia: ${academiaNombre ?? "—"}`
+      : deportistas[0]?.nombre ?? "Sin deportista";
+
   return (
     <div className="max-w-md space-y-6">
       <div>
         <Link href="/cierre" className="text-muted-foreground text-sm hover:underline">
           ← Pendientes
         </Link>
-        <h1 className="cdaf-headline mt-1">Cerrar clase</h1>
+        <p className="cdaf-eyebrow text-muted-foreground mt-1">Cerrar clase</p>
+        <h1 className="cdaf-headline">{titulo}</h1>
         <p className="text-muted-foreground text-sm">
           {clase.fecha} {clase.hora_inicio?.slice(0, 5) ?? ""} ·{" "}
           {clase.tipo === "academia" ? "Academia" : "Individual"}
-          {clase.deporte ? ` · ${clase.deporte}` : ""}
+          {clase.deporte ? ` · ${clase.deporte}` : ""} · Profe: {profesorNombre ?? "—"}
         </p>
       </div>
       <CierreForm
