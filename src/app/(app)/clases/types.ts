@@ -1,7 +1,9 @@
 export type CalEvento = {
   id: string;
   dia: number;
-  hora: string; // HH:mm (chip + orden)
+  hora: string; // HH:mm (inicio)
+  horaFin: string; // HH:mm (fin; "" si no hay)
+  cancha: string | null;
   deporte: "tenis" | "padel" | null;
   fuente: "interna" | "easycancha";
   cancelada: boolean;

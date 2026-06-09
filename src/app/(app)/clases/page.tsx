@@ -113,6 +113,8 @@ export default async function ClasesPage({
       id: `int-${c.id}`,
       dia: Number(c.fecha.slice(8, 10)),
       hora,
+      horaFin,
+      cancha: c.cancha ?? null,
       deporte: c.deporte,
       fuente: "interna",
       cancelada: c.estado === "cancelada" || c.estado === "no_show",
@@ -150,6 +152,8 @@ export default async function ClasesPage({
         id: `ec-${b.id}`,
         dia: Number(b.localDate.slice(8, 10)),
         hora,
+        horaFin: fin,
+        cancha: b.courtName ?? null,
         deporte: depB,
         fuente: "easycancha" as const,
         cancelada: b.status === "CANCELLED" || b.status === "EXCHANGED",
@@ -239,7 +243,7 @@ export default async function ClasesPage({
       {vista === "mes" ? (
         <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventos} />
       ) : (
-        <DayView eventos={eventos} />
+        <DayView eventos={eventos} esHoy={date === todayIso} />
       )}
 
       <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
