@@ -58,10 +58,12 @@ export default async function ClasesPage({
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayIso;
   const [dy, dm, dd] = date.split("-").map(Number);
-  const year = vista === "dia" ? dy : Number(sp.year) || now.getFullYear();
-  const month = vista === "dia" ? dm : Number(sp.month) || now.getMonth() + 1;
+  // Día y Profesor giran en torno a una fecha; Mes usa year/month sueltos.
+  const year = vista === "mes" ? Number(sp.year) || now.getFullYear() : dy;
+  const month = vista === "mes" ? Number(sp.month) || now.getMonth() + 1 : dm;
 
-  // Rango a consultar (día solo en vista Día; mes en Mes y Profesor)
+  // Rango a consultar: Día = un día; Mes y Profesor = el mes
+  // (en Profesor traemos el mes para listar profesores; se muestra solo el día elegido)
   let first: string, last: string;
   if (vista === "dia") {
     first = last = date;
@@ -176,7 +178,7 @@ export default async function ClasesPage({
 
   const eventos = [...internas, ...ecEventos];
 
-  // Vista Profesor: lista de profesores + filtrado
+  // Vista Profesor: lista de profesores (del mes) + filtrado al día elegido
   let professors: string[] = [];
   if (vista === "profesor") {
     const { data: pf } = await supabase.from("profiles").select("nombre").eq("role", "profesor");
@@ -184,15 +186,21 @@ export default async function ClasesPage({
     const deEC = eventos.filter((e) => e.fuente === "easycancha" && e.profesor).map((e) => e.profesor as string);
     professors = [...new Set([...internos, ...deEC])].sort((a, b) => a.localeCompare(b, "es"));
   }
-  const eventosVista = vista === "profesor" ? (selProf ? eventos.filter((e) => e.profesor === selProf) : []) : eventos;
+
+  const eventosVista =
+    vista === "mes" || vista === "dia"
+      ? eventos
+      : selProf
+        ? eventos.filter((e) => e.dia === dd && e.profesor === selProf)
+        : [];
 
   // Navegación + cambio de vista
   const navMes = (y: number, m: number) => `/clases?vista=mes&year=${y}&month=${m}${dep}`;
   const navDia = (d: string) => `/clases?vista=dia&date=${d}${dep}`;
   const profQ = selProf ? `&profesor=${encodeURIComponent(selProf)}` : "";
-  const navProf = (y: number, m: number) => `/clases?vista=profesor&year=${y}&month=${m}${profQ}${dep}`;
-  const navMonth = vista === "profesor" ? navProf : navMes;
-  const diaDate = vista === "dia" ? date : todayIso;
+  const navProf = (d: string) => `/clases?vista=profesor&date=${d}${profQ}${dep}`;
+  const navDay = vista === "profesor" ? navProf : navDia;
+  const diaDate = vista === "mes" ? todayIso : date;
   const prevM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const nextM = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
 
@@ -210,7 +218,7 @@ export default async function ClasesPage({
           <div className="flex items-center gap-1">
             <Link href={navMes(year, month)} className={tabCls(vista === "mes")}>Mes</Link>
             <Link href={navDia(diaDate)} className={tabCls(vista === "dia")}>Día</Link>
-            <Link href={navProf(year, month)} className={tabCls(vista === "profesor")}>Profesor</Link>
+            <Link href={navProf(diaDate)} className={tabCls(vista === "profesor")}>Profesor</Link>
           </div>
           {puedeCrear && (
             <Link href="/clases/nueva" className={buttonVariants()}>+ Nueva clase</Link>
@@ -220,38 +228,38 @@ export default async function ClasesPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          {vista === "dia" ? (
+          {vista === "mes" ? (
             <>
-              <Link href={navDia(shiftDay(date, -1))} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
-              <span className="cdaf-title">{fmtDia}</span>
-              <Link href={navDia(shiftDay(date, 1))} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
-              {date !== todayIso && (
-                <Link href={navDia(todayIso)} className={buttonVariants({ variant: "outline", size: "sm" })}>Hoy</Link>
-              )}
+              <Link href={navMes(prevM.y, prevM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
+              <span className="cdaf-title">{MESES[month - 1]} {year}</span>
+              <Link href={navMes(nextM.y, nextM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
             </>
           ) : (
             <>
-              <Link href={navMonth(prevM.y, prevM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
-              <span className="cdaf-title">{MESES[month - 1]} {year}</span>
-              <Link href={navMonth(nextM.y, nextM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
+              <Link href={navDay(shiftDay(date, -1))} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
+              <span className="cdaf-title">{fmtDia}</span>
+              <Link href={navDay(shiftDay(date, 1))} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
+              {date !== todayIso && (
+                <Link href={navDay(todayIso)} className={buttonVariants({ variant: "outline", size: "sm" })}>Hoy</Link>
+              )}
             </>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {vista === "profesor" && (
-            <ProfesorPicker professors={professors} selected={selProf} year={year} month={month} deporte={deporte} />
+            <ProfesorPicker professors={professors} selected={selProf} date={date} deporte={deporte} />
           )}
           <form className="flex items-center gap-2">
             <input type="hidden" name="vista" value={vista} />
-            {vista === "dia" ? (
-              <input type="hidden" name="date" value={date} />
-            ) : (
+            {vista === "mes" ? (
               <>
                 <input type="hidden" name="year" value={year} />
                 <input type="hidden" name="month" value={month} />
-                {vista === "profesor" && <input type="hidden" name="profesor" value={selProf} />}
               </>
+            ) : (
+              <input type="hidden" name="date" value={date} />
             )}
+            {vista === "profesor" && <input type="hidden" name="profesor" value={selProf} />}
             <select name="deporte" defaultValue={deporte} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
               <option value="">Todos</option>
               <option value="tenis">Tenis</option>
@@ -268,14 +276,14 @@ export default async function ClasesPage({
         </p>
       )}
 
-      {vista === "dia" ? (
-        <DayView eventos={eventosVista} esHoy={date === todayIso} />
+      {vista === "mes" ? (
+        <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventosVista} />
       ) : vista === "profesor" && !selProf ? (
         <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-          Elige un profesor para ver su calendario.
+          Elige un profesor para ver su día.
         </p>
       ) : (
-        <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventosVista} />
+        <DayView eventos={eventosVista} esHoy={date === todayIso} />
       )}
 
       <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
@@ -283,7 +291,8 @@ export default async function ClasesPage({
         <span><span className="bg-lime/60 mr-1 inline-block size-3 rounded align-middle" /> Pádel</span>
         <span><span className="border-foreground/40 mr-1 inline-block size-3 rounded border-l-2 align-middle" /> Reserva EasyCancha</span>
         <span className="line-through opacity-60">Cancelada</span>
-        {vista === "profesor" && selProf && <span>· Mostrando solo: <strong>{selProf}</strong></span>}
+        {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
+        {vista === "profesor" && selProf && <span>· Día de: <strong>{selProf}</strong></span>}
       </div>
     </div>
   );
