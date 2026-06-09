@@ -2,7 +2,7 @@
 
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { AsignarPaquete } from "./asignar-paquete";
+import { MaterializarReserva } from "./asignar-paquete";
 import type { CalEvento } from "./types";
 
 const TONE: Record<string, "secondary" | "outline" | "destructive"> = {
@@ -31,7 +31,7 @@ export function EventoDetalle({ ev, canAssign = false }: { ev: CalEvento; canAss
           <Badge variant={TONE[ev.estadoTone]}>{ev.estadoLabel}</Badge>
         </p>
       </div>
-      {canAssign && ev.ec && !ev.cancelada && <AsignarPaquete ev={ev} />}
+      {canAssign && ev.ec && !ev.cancelada && <MaterializarReserva ev={ev} />}
     </>
   );
 }
