@@ -25,9 +25,12 @@ export function DayView({ eventos, esHoy }: { eventos: CalEvento[]; esHoy: boole
     );
   }
 
+  // Horario base del club; se amplía si hay reservas fuera de ese rango.
+  const HORA_INICIO = 6;
+  const HORA_FIN = 22;
   const horasNum = conHora.map((e) => parseInt(e.hora.slice(0, 2), 10)).filter((n) => !Number.isNaN(n));
-  const minH = horasNum.length ? Math.min(...horasNum) : 7;
-  const maxH = horasNum.length ? Math.max(...horasNum) : 20;
+  const minH = Math.min(HORA_INICIO, ...(horasNum.length ? horasNum : [HORA_INICIO]));
+  const maxH = Math.max(HORA_FIN, ...(horasNum.length ? horasNum : [HORA_FIN]));
   const franjas = Array.from({ length: maxH - minH + 1 }, (_, i) => minH + i);
 
   const byHora = new Map<number, CalEvento[]>();
