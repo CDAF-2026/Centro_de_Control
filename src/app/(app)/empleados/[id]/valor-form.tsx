@@ -15,7 +15,7 @@ export function ValorClaseForm({ profesorId }: { profesorId: string }) {
     <form action={action} className="flex flex-wrap items-end gap-3">
       <input type="hidden" name="profesorId" value={profesorId} />
       <div className="space-y-1.5">
-        <Label htmlFor="valor">Nuevo valor de clase (COP)</Label>
+        <Label htmlFor="valor">Nuevo valor por hora (COP)</Label>
         <Input id="valor" name="valor" type="number" min={0} required className="w-48" />
       </div>
       <Button type="submit" disabled={pending}>

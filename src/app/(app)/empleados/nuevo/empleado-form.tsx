@@ -62,7 +62,7 @@ export function EmpleadoForm() {
         </select>
       </div>
       {role === "profesor" && (
-        <Field label="Valor de clase (COP)" name="valorClase" type="number" error={fe.valorClase} required />
+        <Field label="Valor por hora (COP)" name="valorClase" type="number" error={fe.valorClase} required />
       )}
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       <Button type="submit" disabled={pending}>

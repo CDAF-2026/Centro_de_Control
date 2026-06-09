@@ -374,6 +374,7 @@ export type Database = {
           descuento_pct: number;
           estado: ClaseEstado;
           registrada_por: string | null;
+          easycancha_booking_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -394,6 +395,7 @@ export type Database = {
           descuento_pct?: number;
           estado?: ClaseEstado;
           registrada_por?: string | null;
+          easycancha_booking_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

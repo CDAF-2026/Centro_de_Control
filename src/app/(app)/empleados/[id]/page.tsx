@@ -83,11 +83,11 @@ export default async function EmpleadoDetallePage({
       {emp.role === "profesor" && (
         <Card>
           <CardHeader>
-            <CardTitle>Valor de clase</CardTitle>
+            <CardTitle>Valor por hora</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-2xl font-semibold">
-              {valorActual != null ? COP.format(valorActual) : "Sin definir"}
+              {valorActual != null ? `${COP.format(valorActual)} / hora` : "Sin definir"}
             </p>
 
             {esSuperadmin && <ValorClaseForm profesorId={emp.id} />}

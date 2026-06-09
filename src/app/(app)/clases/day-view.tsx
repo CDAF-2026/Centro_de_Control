@@ -11,7 +11,7 @@ function chipClass(e: CalEvento) {
   return `${eventoBg(e)}${cancel}${ec}`;
 }
 
-export function DayView({ eventos, esHoy }: { eventos: CalEvento[]; esHoy: boolean }) {
+export function DayView({ eventos, esHoy, canAssign = false }: { eventos: CalEvento[]; esHoy: boolean; canAssign?: boolean }) {
   const [sel, setSel] = useState<CalEvento | null>(null);
 
   const conHora = eventos.filter((e) => e.hora);
@@ -76,7 +76,7 @@ export function DayView({ eventos, esHoy }: { eventos: CalEvento[]; esHoy: boole
       </div>
 
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent>{sel && <EventoDetalle ev={sel} />}</DialogContent>
+        <DialogContent>{sel && <EventoDetalle ev={sel} canAssign={canAssign} />}</DialogContent>
       </Dialog>
     </>
   );

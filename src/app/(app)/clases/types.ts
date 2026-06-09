@@ -1,6 +1,7 @@
 export type CalEvento = {
   id: string;
   dia: number;
+  fecha: string; // YYYY-MM-DD
   hora: string; // HH:mm (inicio)
   horaFin: string; // HH:mm (fin; "" si no hay)
   cancha: string | null;
@@ -14,6 +15,15 @@ export type CalEvento = {
   estadoLabel: string;
   estadoTone: "ok" | "warn" | "bad";
   detalles: [string, string][];
+  /** Datos de la reserva EasyCancha (solo eventos no materializados) para "Asignar a paquete". */
+  ec?: {
+    bookingId: string;
+    email: string;
+    nombres: string;
+    apellidos: string;
+    telefono: string;
+    profesorMatched: string | null;
+  };
 };
 
 /** Color de fondo del chip según deporte. */

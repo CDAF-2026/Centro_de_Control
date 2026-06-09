@@ -80,13 +80,15 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id, easycancha_booking_id")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
   if (deporte) q = q.eq("deporte", deporte);
   const { data: clases } = await q;
   const lista = clases ?? [];
+  // Reservas EC ya materializadas en clases → no duplicarlas en el calendario.
+  const materializedIds = new Set(lista.map((c) => c.easycancha_booking_id).filter((x): x is string => !!x));
 
   const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
   const cliIds = [...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
@@ -120,6 +122,7 @@ export default async function ClasesPage({
     return {
       id: `int-${c.id}`,
       dia: Number(c.fecha.slice(8, 10)),
+      fecha: c.fecha,
       hora,
       horaFin,
       cancha: c.cancha ?? null,
@@ -144,7 +147,7 @@ export default async function ClasesPage({
   const { bookings, error: ecError } = await getBookings({ from: first, to: last });
   const ecEventos: CalEvento[] = bookings
     .map((b) => ({ b, depB: deporteDeSport(b.sportName) }))
-    .filter(({ depB }) => !deporte || depB === deporte)
+    .filter(({ b, depB }) => (!deporte || depB === deporte) && !materializedIds.has(b.id))
     .map(({ b, depB }) => {
       const hora = (b.localStartTime ?? "").slice(0, 5);
       const fin = (b.localEndTime ?? "").slice(0, 5);
@@ -162,6 +165,7 @@ export default async function ClasesPage({
       return {
         id: `ec-${b.id}`,
         dia: Number(b.localDate.slice(8, 10)),
+        fecha: b.localDate,
         hora,
         horaFin: fin,
         cancha: b.courtName ?? null,
@@ -175,6 +179,14 @@ export default async function ClasesPage({
         estadoLabel: est.label,
         estadoTone: est.tone,
         detalles: det,
+        ec: {
+          bookingId: b.id,
+          email: b.userEmail ?? "",
+          nombres: b.userFirstName ?? "",
+          apellidos: b.userLastName ?? "",
+          telefono: b.userPhone ?? "",
+          profesorMatched: profesor,
+        },
       };
     });
 
@@ -307,7 +319,7 @@ export default async function ClasesPage({
       )}
 
       {vista === "mes" ? (
-        <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventosVista} />
+        <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventosVista} canAssign={puedeCrear} />
       ) : vista === "profesor" && !selProf ? (
         <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
           Elige un profesor para ver su día.
@@ -317,7 +329,7 @@ export default async function ClasesPage({
           Elige una cancha para ver su día.
         </p>
       ) : (
-        <DayView eventos={eventosVista} esHoy={date === todayIso} />
+        <DayView eventos={eventosVista} esHoy={date === todayIso} canAssign={puedeCrear} />
       )}
 
       <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">

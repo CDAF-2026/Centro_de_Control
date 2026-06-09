@@ -2,6 +2,7 @@
 
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { AsignarPaquete } from "./asignar-paquete";
 import type { CalEvento } from "./types";
 
 const TONE: Record<string, "secondary" | "outline" | "destructive"> = {
@@ -11,7 +12,7 @@ const TONE: Record<string, "secondary" | "outline" | "destructive"> = {
 };
 
 /** Cuerpo del modal de detalle de un evento (clase interna o reserva EasyCancha). */
-export function EventoDetalle({ ev }: { ev: CalEvento }) {
+export function EventoDetalle({ ev, canAssign = false }: { ev: CalEvento; canAssign?: boolean }) {
   return (
     <>
       <DialogHeader>
@@ -30,6 +31,7 @@ export function EventoDetalle({ ev }: { ev: CalEvento }) {
           <Badge variant={TONE[ev.estadoTone]}>{ev.estadoLabel}</Badge>
         </p>
       </div>
+      {canAssign && ev.ec && !ev.cancelada && <AsignarPaquete ev={ev} />}
     </>
   );
 }

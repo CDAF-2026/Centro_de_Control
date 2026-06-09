@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
@@ -6,6 +7,15 @@ import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+/** Horas de una clase a partir de hora_inicio/hora_fin (HH:MM[:SS]). Default 1h. */
+export function horasClase(ini: string | null, fin: string | null): number {
+  if (!ini || !fin) return 1;
+  const [h1, m1] = ini.split(":").map(Number);
+  const [h2, m2] = fin.split(":").map(Number);
+  const mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
+  return mins > 0 ? mins / 60 : 1;
+}
 
 function rangoMesActual() {
   const now = new Date();
@@ -47,21 +57,26 @@ export default async function LiquidacionPage({
   // "Lo que no está marcado no se paga": solo clases realizadas.
   const { data: realizadas } = await supabase
     .from("clases")
-    .select("profesor_id")
+    .select("profesor_id, hora_inicio, hora_fin")
     .eq("estado", "realizada")
     .gte("fecha", desde)
     .lte("fecha", hasta);
-  const conteo = new Map<string, number>();
+  const conteo = new Map<string, { clases: number; horas: number }>();
   for (const c of realizadas ?? []) {
-    if (c.profesor_id) conteo.set(c.profesor_id, (conteo.get(c.profesor_id) ?? 0) + 1);
+    if (!c.profesor_id) continue;
+    const acc = conteo.get(c.profesor_id) ?? { clases: 0, horas: 0 };
+    acc.clases += 1;
+    acc.horas += horasClase(c.hora_inicio, c.hora_fin);
+    conteo.set(c.profesor_id, acc);
   }
 
   const filas = (profesores ?? []).map((p) => {
-    const clases = conteo.get(p.id) ?? 0;
+    const acc = conteo.get(p.id) ?? { clases: 0, horas: 0 };
     const valor = valorPorProfesor.get(p.id) ?? 0;
-    return { id: p.id, nombre: p.nombre ?? "—", clases, valor, total: clases * valor };
+    return { id: p.id, nombre: p.nombre ?? "—", clases: acc.clases, horas: acc.horas, valor, total: acc.horas * valor };
   });
   const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
+  const qs = `?desde=${desde}&hasta=${hasta}`;
 
   return (
     <div className="space-y-6">
@@ -84,41 +99,46 @@ export default async function LiquidacionPage({
           <thead className="bg-muted/50 text-left">
             <tr>
               <th className="px-4 py-2 font-semibold">Profesor</th>
-              <th className="px-4 py-2 text-right font-semibold">Clases realizadas</th>
-              <th className="px-4 py-2 text-right font-semibold">Valor/clase</th>
+              <th className="px-4 py-2 text-right font-semibold">Clases</th>
+              <th className="px-4 py-2 text-right font-semibold">Horas</th>
+              <th className="px-4 py-2 text-right font-semibold">Valor/hora</th>
               <th className="px-4 py-2 text-right font-semibold">Total a liquidar</th>
+              <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody>
             {filas.map((f) => (
               <tr key={f.id} className="border-t">
-                <td className="px-4 py-2">{f.nombre}</td>
+                <td className="px-4 py-2 font-medium">{f.nombre}</td>
                 <td className="px-4 py-2 text-right">{f.clases}</td>
+                <td className="px-4 py-2 text-right">{f.horas.toLocaleString("es-CO", { maximumFractionDigits: 1 })}</td>
                 <td className="px-4 py-2 text-right">{COP.format(f.valor)}</td>
                 <td className="px-4 py-2 text-right font-medium">{COP.format(f.total)}</td>
+                <td className="px-4 py-2 text-right">
+                  <Link href={`/liquidacion/${f.id}${qs}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Ver detalle
+                  </Link>
+                </td>
               </tr>
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-muted-foreground px-4 py-6 text-center">
-                  No hay profesores.
-                </td>
+                <td colSpan={6} className="text-muted-foreground px-4 py-6 text-center">No hay profesores.</td>
               </tr>
             )}
           </tbody>
           <tfoot>
             <tr className="border-t-2 font-semibold">
-              <td className="px-4 py-2" colSpan={3}>
-                Total del periodo
-              </td>
+              <td className="px-4 py-2" colSpan={4}>Total del periodo</td>
               <td className="px-4 py-2 text-right">{COP.format(totalGeneral)}</td>
+              <td className="px-4 py-2" />
             </tr>
           </tfoot>
         </table>
       </div>
       <p className="text-muted-foreground text-xs">
-        Solo se cuentan clases <strong>registradas como realizadas</strong>. El valor es el vigente
-        por profesor.
+        Solo se cuentan clases <strong>registradas como realizadas</strong>. Total = horas × valor/hora vigente
+        del profesor. Entra al detalle para ver cada clase.
       </p>
     </div>
   );

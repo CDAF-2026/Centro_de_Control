@@ -19,11 +19,13 @@ export function CalendarGrid({
   month,
   deporte,
   eventos,
+  canAssign = false,
 }: {
   year: number;
   month: number;
   deporte: string;
   eventos: CalEvento[];
+  canAssign?: boolean;
 }) {
   const [sel, setSel] = useState<CalEvento | null>(null);
 
@@ -93,7 +95,7 @@ export function CalendarGrid({
       </div>
 
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent>{sel && <EventoDetalle ev={sel} />}</DialogContent>
+        <DialogContent>{sel && <EventoDetalle ev={sel} canAssign={canAssign} />}</DialogContent>
       </Dialog>
     </>
   );
