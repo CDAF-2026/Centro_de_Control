@@ -7,6 +7,7 @@ import { getBookings, deporteDeSport, profesorDeCancha } from "@/lib/easycancha/
 import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
+import { CourtPicker } from "./court-picker";
 import type { CalEvento } from "./types";
 
 const MESES = [
@@ -39,31 +40,32 @@ const EST_EC: Record<string, { label: string; tone: "ok" | "warn" | "bad" }> = {
   EXCHANGED: { label: "Reprogramada", tone: "bad" },
 };
 
-type Vista = "mes" | "dia" | "profesor";
+type Vista = "mes" | "dia" | "profesor" | "cancha";
 
 export default async function ClasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vista?: string; year?: string; month?: string; date?: string; deporte?: string; profesor?: string }>;
+  searchParams: Promise<{ vista?: string; year?: string; month?: string; date?: string; deporte?: string; profesor?: string; cancha?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("clases"));
   const sp = await searchParams;
   const now = new Date();
   const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  const vista: Vista = sp.vista === "dia" ? "dia" : sp.vista === "profesor" ? "profesor" : "mes";
+  const vista: Vista =
+    sp.vista === "dia" ? "dia" : sp.vista === "profesor" ? "profesor" : sp.vista === "cancha" ? "cancha" : "mes";
   const deporte = sp.deporte === "tenis" || sp.deporte === "padel" ? sp.deporte : "";
   const dep = deporte ? `&deporte=${deporte}` : "";
   const selProf = (sp.profesor ?? "").trim();
+  const selCancha = (sp.cancha ?? "").trim();
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayIso;
   const [dy, dm, dd] = date.split("-").map(Number);
-  // Día y Profesor giran en torno a una fecha; Mes usa year/month sueltos.
+  // Día/Profesor/Cancha giran en torno a una fecha; Mes usa year/month sueltos.
   const year = vista === "mes" ? Number(sp.year) || now.getFullYear() : dy;
   const month = vista === "mes" ? Number(sp.month) || now.getMonth() + 1 : dm;
 
-  // Rango a consultar: Día = un día; Mes y Profesor = el mes
-  // (en Profesor traemos el mes para listar profesores; se muestra solo el día elegido)
+  // Rango: Día = un día; Mes/Profesor/Cancha = el mes (los selectores listan todo el mes).
   let first: string, last: string;
   if (vista === "dia") {
     first = last = date;
@@ -178,26 +180,51 @@ export default async function ClasesPage({
 
   const eventos = [...internas, ...ecEventos];
 
-  // Vista Profesor: lista de profesores con clases en el mes + filtrado al día elegido
+  // Vista Profesor: profesores con clases en el mes
   let professors: string[] = [];
   if (vista === "profesor") {
     professors = [...new Set(eventos.filter((e) => e.profesor).map((e) => e.profesor as string))]
       .sort((a, b) => a.localeCompare(b, "es"));
   }
 
+  // Vista Cancha: canchas del mes, agrupadas por deporte (según sus reservas)
+  let courtsTenis: string[] = [], courtsPadel: string[] = [], courtsOtras: string[] = [];
+  if (vista === "cancha") {
+    const m = new Map<string, { t: number; p: number }>();
+    for (const e of eventos) {
+      const c = e.cancha?.trim();
+      if (!c) continue;
+      const r = m.get(c) ?? { t: 0, p: 0 };
+      if (e.deporte === "tenis") r.t++;
+      else if (e.deporte === "padel") r.p++;
+      m.set(c, r);
+    }
+    const byNum = (a: string, b: string) => a.localeCompare(b, "es", { numeric: true });
+    for (const [c, r] of m) {
+      if (r.t === 0 && r.p === 0) courtsOtras.push(c);
+      else if (r.t >= r.p) courtsTenis.push(c);
+      else courtsPadel.push(c);
+    }
+    courtsTenis.sort(byNum);
+    courtsPadel.sort(byNum);
+    courtsOtras.sort(byNum);
+  }
+
   const eventosVista =
     vista === "mes" || vista === "dia"
       ? eventos
-      : selProf
-        ? eventos.filter((e) => e.dia === dd && e.profesor === selProf)
-        : [];
+      : vista === "profesor"
+        ? (selProf ? eventos.filter((e) => e.dia === dd && e.profesor === selProf) : [])
+        : (selCancha ? eventos.filter((e) => e.dia === dd && e.cancha === selCancha) : []);
 
   // Navegación + cambio de vista
   const navMes = (y: number, m: number) => `/clases?vista=mes&year=${y}&month=${m}${dep}`;
   const navDia = (d: string) => `/clases?vista=dia&date=${d}${dep}`;
   const profQ = selProf ? `&profesor=${encodeURIComponent(selProf)}` : "";
+  const canchaQ = selCancha ? `&cancha=${encodeURIComponent(selCancha)}` : "";
   const navProf = (d: string) => `/clases?vista=profesor&date=${d}${profQ}${dep}`;
-  const navDay = vista === "profesor" ? navProf : navDia;
+  const navCancha = (d: string) => `/clases?vista=cancha&date=${d}${canchaQ}${dep}`;
+  const navDay = vista === "profesor" ? navProf : vista === "cancha" ? navCancha : navDia;
   const diaDate = vista === "mes" ? todayIso : date;
   const prevM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const nextM = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
@@ -212,11 +239,12 @@ export default async function ClasesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="cdaf-headline">Clases · Calendario</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1">
             <Link href={navMes(year, month)} className={tabCls(vista === "mes")}>Mes</Link>
             <Link href={navDia(diaDate)} className={tabCls(vista === "dia")}>Día</Link>
             <Link href={navProf(diaDate)} className={tabCls(vista === "profesor")}>Profesor</Link>
+            <Link href={navCancha(diaDate)} className={tabCls(vista === "cancha")}>Cancha</Link>
           </div>
           {puedeCrear && (
             <Link href="/clases/nueva" className={buttonVariants()}>+ Nueva clase</Link>
@@ -247,6 +275,9 @@ export default async function ClasesPage({
           {vista === "profesor" && (
             <ProfesorPicker professors={professors} selected={selProf} date={date} deporte={deporte} />
           )}
+          {vista === "cancha" && (
+            <CourtPicker tenis={courtsTenis} padel={courtsPadel} otras={courtsOtras} selected={selCancha} date={date} deporte={deporte} />
+          )}
           <form className="flex items-center gap-2">
             <input type="hidden" name="vista" value={vista} />
             {vista === "mes" ? (
@@ -258,6 +289,7 @@ export default async function ClasesPage({
               <input type="hidden" name="date" value={date} />
             )}
             {vista === "profesor" && <input type="hidden" name="profesor" value={selProf} />}
+            {vista === "cancha" && <input type="hidden" name="cancha" value={selCancha} />}
             <select name="deporte" defaultValue={deporte} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
               <option value="">Todos</option>
               <option value="tenis">Tenis</option>
@@ -280,6 +312,10 @@ export default async function ClasesPage({
         <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
           Elige un profesor para ver su día.
         </p>
+      ) : vista === "cancha" && !selCancha ? (
+        <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
+          Elige una cancha para ver su día.
+        </p>
       ) : (
         <DayView eventos={eventosVista} esHoy={date === todayIso} />
       )}
@@ -291,6 +327,7 @@ export default async function ClasesPage({
         <span className="line-through opacity-60">Cancelada</span>
         {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
         {vista === "profesor" && selProf && <span>· Día de: <strong>{selProf}</strong></span>}
+        {vista === "cancha" && selCancha && <span>· Cancha: <strong>{selCancha}</strong></span>}
       </div>
     </div>
   );
