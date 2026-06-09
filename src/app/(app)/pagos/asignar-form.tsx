@@ -7,6 +7,17 @@ import { Input } from "@/components/ui/input";
 
 const initial: PagoState = {};
 
+const SERVICIOS = [
+  "Academia Tenis",
+  "Academia Padel",
+  "Paquete de clases Padel",
+  "Paquete de clases Tenis",
+  "Cafetería",
+  "Alquiler Raqueta",
+  "Alquiler Padel",
+  "Torneo",
+];
+
 export function AsignarForm({
   pagoId,
   clientes,
@@ -24,7 +35,12 @@ export function AsignarForm({
           <option key={c.id} value={c.id}>{c.apellidos}, {c.nombres}</option>
         ))}
       </select>
-      <Input name="servicio" placeholder="Servicio" className="h-8 w-36 text-xs" />
+      <select name="servicio" required className="border-input bg-background h-8 w-44 rounded-md border px-2 text-xs">
+        <option value="">Servicio…</option>
+        {SERVICIOS.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
       <Input name="periodos" placeholder="ene, feb…" className="h-8 w-28 text-xs" />
       <Button type="submit" size="sm" disabled={pending}>Asignar</Button>
       {state.error && <span className="text-destructive w-full text-xs">{state.error}</span>}
