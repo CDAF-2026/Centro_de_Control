@@ -10,44 +10,56 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
-export type ClaseCal = {
-  id: number;
+export type CalEvento = {
+  id: string;
   dia: number;
-  fecha: string;
-  hora: string;
-  horaFin: string;
-  tipo: "academia" | "individual";
+  hora: string; // HH:mm (chip + orden)
   deporte: "tenis" | "padel" | null;
-  estado: "programada" | "realizada" | "cancelada" | "no_show";
-  cancha: string | null;
-  titulo: string;
-  profesor: string;
+  fuente: "interna" | "easycancha";
+  cancelada: boolean;
+  chip: string; // etiqueta corta en la celda
+  titulo: string; // título del modal
+  subtitulo: string; // subtítulo del modal
+  estadoLabel: string;
+  estadoTone: "ok" | "warn" | "bad";
+  detalles: [string, string][];
 };
 
 const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const ESTADO_LABEL: Record<string, string> = {
-  programada: "Programada",
-  realizada: "Realizada",
-  cancelada: "Cancelada",
-  no_show: "No-show",
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+const TONE: Record<string, "secondary" | "outline" | "destructive"> = {
+  ok: "secondary",
+  warn: "outline",
+  bad: "destructive",
 };
 
-function estadoVariant(e: string): "secondary" | "outline" | "destructive" {
-  if (e === "realizada") return "secondary";
-  if (e === "programada") return "outline";
-  return "destructive";
+function chipClass(ev: CalEvento) {
+  const base =
+    ev.deporte === "tenis"
+      ? "bg-chart-3/20"
+      : ev.deporte === "padel"
+        ? "bg-lime/30"
+        : "bg-muted";
+  const cancel = ev.cancelada ? " line-through opacity-50" : "";
+  const ec = ev.fuente === "easycancha" ? " border-foreground/30 border-l-2" : "";
+  return `${base}${cancel}${ec}`;
 }
 
 export function CalendarGrid({
   year,
   month,
-  clases,
+  eventos,
 }: {
   year: number;
   month: number;
-  clases: ClaseCal[];
+  eventos: CalEvento[];
 }) {
-  const [sel, setSel] = useState<ClaseCal | null>(null);
+  const [selEvento, setSelEvento] = useState<CalEvento | null>(null);
+  const [selDia, setSelDia] = useState<number | null>(null);
 
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstWeekday = new Date(year, month - 1, 1).getDay();
@@ -57,11 +69,19 @@ export function CalendarGrid({
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const byDay = new Map<number, ClaseCal[]>();
-  for (const c of clases) {
-    if (!byDay.has(c.dia)) byDay.set(c.dia, []);
-    byDay.get(c.dia)!.push(c);
+  const byDay = new Map<number, CalEvento[]>();
+  for (const e of eventos) {
+    if (!byDay.has(e.dia)) byDay.set(e.dia, []);
+    byDay.get(e.dia)!.push(e);
   }
+  for (const arr of byDay.values()) arr.sort((a, b) => a.hora.localeCompare(b.hora));
+
+  const open = !!selEvento || selDia != null;
+  const cerrar = () => {
+    setSelEvento(null);
+    setSelDia(null);
+  };
+  const delDia = selDia != null ? byDay.get(selDia) ?? [] : [];
 
   return (
     <>
@@ -69,67 +89,106 @@ export function CalendarGrid({
         {DOW.map((d) => (
           <div key={d} className="bg-muted px-2 py-1 text-center text-xs font-semibold">{d}</div>
         ))}
-        {cells.map((day, i) => (
-          <div key={i} className="bg-card min-h-24 p-1">
-            {day && (
-              <>
-                <div className="text-muted-foreground text-xs">{day}</div>
-                <div className="space-y-0.5">
-                  {(byDay.get(day) ?? []).slice(0, 4).map((c) => (
+        {cells.map((day, i) => {
+          const items = day ? byDay.get(day) ?? [] : [];
+          return (
+            <div key={i} className="bg-card min-h-24 p-1">
+              {day && (
+                <>
+                  {items.length > 0 ? (
                     <button
-                      key={c.id}
                       type="button"
-                      onClick={() => setSel(c)}
-                      className={`hover:ring-lime block w-full truncate rounded px-1 text-left text-xs hover:ring-2 ${
-                        c.deporte === "tenis" ? "bg-chart-3/20" : "bg-lime/30"
-                      }`}
+                      onClick={() => setSelDia(day)}
+                      className="text-muted-foreground hover:text-foreground text-xs font-medium"
                     >
-                      {c.hora} {c.tipo === "academia" ? "Acad." : "Ind."}
+                      {day}
                     </button>
-                  ))}
-                  {(byDay.get(day)?.length ?? 0) > 4 && (
-                    <div className="text-muted-foreground text-xs">
-                      +{byDay.get(day)!.length - 4} más
-                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-xs">{day}</div>
                   )}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
+                  <div className="space-y-0.5">
+                    {items.slice(0, 3).map((e) => (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => setSelEvento(e)}
+                        title={`${e.hora} · ${e.titulo}`}
+                        className={`hover:ring-lime block w-full truncate rounded px-1 text-left text-xs hover:ring-2 ${chipClass(e)}`}
+                      >
+                        {e.chip}
+                      </button>
+                    ))}
+                    {items.length > 3 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelDia(day)}
+                        className="text-muted-foreground hover:text-foreground w-full text-left text-xs"
+                      >
+                        +{items.length - 3} más
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent>
-          {sel && (
+      <Dialog open={open} onOpenChange={(o) => !o && cerrar()}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          {selEvento ? (
             <>
               <DialogHeader>
-                <DialogTitle>{sel.titulo}</DialogTitle>
-                <DialogDescription>
-                  {sel.tipo === "academia" ? "Clase de academia" : "Clase individual"}
-                  {sel.deporte ? ` · ${sel.deporte}` : ""}
-                </DialogDescription>
+                <DialogTitle>{selEvento.titulo}</DialogTitle>
+                <DialogDescription>{selEvento.subtitulo}</DialogDescription>
               </DialogHeader>
               <div className="space-y-1.5 text-sm">
-                <p>
-                  <span className="text-muted-foreground">Fecha y hora: </span>
-                  {sel.fecha} · {sel.hora}
-                  {sel.horaFin ? `–${sel.horaFin}` : ""}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Profesor: </span>
-                  {sel.profesor}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Cancha: </span>
-                  {sel.cancha ?? "—"}
-                </p>
-                <p className="flex items-center gap-2">
+                {selEvento.detalles.map(([k, v]) => (
+                  <p key={k}>
+                    <span className="text-muted-foreground">{k}: </span>
+                    {v}
+                  </p>
+                ))}
+                <p className="flex items-center gap-2 pt-1">
                   <span className="text-muted-foreground">Estado:</span>
-                  <Badge variant={estadoVariant(sel.estado)}>
-                    {ESTADO_LABEL[sel.estado] ?? sel.estado}
-                  </Badge>
+                  <Badge variant={TONE[selEvento.estadoTone]}>{selEvento.estadoLabel}</Badge>
                 </p>
+              </div>
+              {selDia != null && (
+                <button
+                  type="button"
+                  onClick={() => setSelEvento(null)}
+                  className="text-muted-foreground hover:text-foreground mt-2 text-left text-xs"
+                >
+                  ← Volver al día
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {selDia} de {MESES[month - 1]} {year}
+                </DialogTitle>
+                <DialogDescription>
+                  {delDia.length} {delDia.length === 1 ? "reserva/clase" : "reservas/clases"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-1">
+                {delDia.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setSelEvento(e)}
+                    className="hover:bg-muted flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm"
+                  >
+                    <span className={`inline-block size-2.5 shrink-0 rounded-full ${e.deporte === "tenis" ? "bg-chart-3" : e.deporte === "padel" ? "bg-lime" : "bg-muted-foreground"}`} />
+                    <span className="text-muted-foreground w-12 shrink-0 tabular-nums">{e.hora}</span>
+                    <span className={`flex-1 truncate ${e.cancelada ? "line-through opacity-60" : ""}`}>{e.titulo}</span>
+                    <span className="text-muted-foreground shrink-0 text-xs">{e.estadoLabel}</span>
+                  </button>
+                ))}
               </div>
             </>
           )}
