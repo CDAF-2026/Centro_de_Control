@@ -178,13 +178,11 @@ export default async function ClasesPage({
 
   const eventos = [...internas, ...ecEventos];
 
-  // Vista Profesor: lista de profesores (del mes) + filtrado al día elegido
+  // Vista Profesor: lista de profesores con clases en el mes + filtrado al día elegido
   let professors: string[] = [];
   if (vista === "profesor") {
-    const { data: pf } = await supabase.from("profiles").select("nombre").eq("role", "profesor");
-    const internos = (pf ?? []).map((p) => p.nombre).filter((x): x is string => !!x);
-    const deEC = eventos.filter((e) => e.fuente === "easycancha" && e.profesor).map((e) => e.profesor as string);
-    professors = [...new Set([...internos, ...deEC])].sort((a, b) => a.localeCompare(b, "es"));
+    professors = [...new Set(eventos.filter((e) => e.profesor).map((e) => e.profesor as string))]
+      .sort((a, b) => a.localeCompare(b, "es"));
   }
 
   const eventosVista =

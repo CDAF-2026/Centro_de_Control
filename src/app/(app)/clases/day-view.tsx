@@ -17,17 +17,9 @@ export function DayView({ eventos, esHoy }: { eventos: CalEvento[]; esHoy: boole
   const conHora = eventos.filter((e) => e.hora);
   const sinHora = eventos.filter((e) => !e.hora);
 
-  if (conHora.length === 0 && sinHora.length === 0) {
-    return (
-      <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-        No hay clases ni reservas este día.
-      </p>
-    );
-  }
-
-  // Horario base del club; se amplía si hay reservas fuera de ese rango.
-  const HORA_INICIO = 6;
-  const HORA_FIN = 22;
+  // Horario del club; se amplía si hay reservas fuera de ese rango.
+  const HORA_INICIO = 7;
+  const HORA_FIN = 21;
   const horasNum = conHora.map((e) => parseInt(e.hora.slice(0, 2), 10)).filter((n) => !Number.isNaN(n));
   const minH = Math.min(HORA_INICIO, ...(horasNum.length ? horasNum : [HORA_INICIO]));
   const maxH = Math.max(HORA_FIN, ...(horasNum.length ? horasNum : [HORA_FIN]));
