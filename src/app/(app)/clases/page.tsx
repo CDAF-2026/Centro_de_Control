@@ -4,7 +4,9 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { getBookings, deporteDeSport } from "@/lib/easycancha/client";
-import { CalendarGrid, type CalEvento } from "./calendar-grid";
+import { CalendarGrid } from "./calendar-grid";
+import { DayView } from "./day-view";
+import type { CalEvento } from "./types";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -13,6 +15,13 @@ const MESES = [
 
 const cop = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const shiftDay = (iso: string, delta: number) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+};
 
 const EST_INTERNA: Record<string, { label: string; tone: "ok" | "warn" | "bad" }> = {
   realizada: { label: "Realizada", tone: "ok" },
@@ -32,19 +41,33 @@ const EST_EC: Record<string, { label: string; tone: "ok" | "warn" | "bad" }> = {
 export default async function ClasesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string; deporte?: string }>;
+  searchParams: Promise<{ vista?: string; year?: string; month?: string; date?: string; deporte?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("clases"));
   const sp = await searchParams;
   const now = new Date();
-  const year = Number(sp.year) || now.getFullYear();
-  const month = Number(sp.month) || now.getMonth() + 1;
-  const deporte = sp.deporte === "tenis" || sp.deporte === "padel" ? sp.deporte : "";
+  const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  const mm = String(month).padStart(2, "0");
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const first = `${year}-${mm}-01`;
-  const last = `${year}-${mm}-${String(daysInMonth).padStart(2, "0")}`;
+  const vista = sp.vista === "dia" ? "dia" : "mes";
+  const deporte = sp.deporte === "tenis" || sp.deporte === "padel" ? sp.deporte : "";
+  const dep = deporte ? `&deporte=${deporte}` : "";
+
+  // Fecha del día (vista día) y, de ahí, el mes
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayIso;
+  const [dy, dm, dd] = date.split("-").map(Number);
+  const year = vista === "mes" ? Number(sp.year) || now.getFullYear() : dy;
+  const month = vista === "mes" ? Number(sp.month) || now.getMonth() + 1 : dm;
+
+  // Rango a consultar según la vista
+  let first: string, last: string;
+  if (vista === "dia") {
+    first = last = date;
+  } else {
+    const mm = pad(month);
+    const dim = new Date(year, month, 0).getDate();
+    first = `${year}-${mm}-01`;
+    last = `${year}-${mm}-${pad(dim)}`;
+  }
 
   // 1) Clases internas (CDAF)
   const supabase = await createClient();
@@ -109,9 +132,9 @@ export default async function ClasesPage({
   // 2) Reservas de EasyCancha
   const { bookings, error: ecError } = await getBookings({ from: first, to: last });
   const ecEventos: CalEvento[] = bookings
-    .map((b) => ({ b, dep: deporteDeSport(b.sportName) }))
-    .filter(({ dep }) => !deporte || dep === deporte)
-    .map(({ b, dep }) => {
+    .map((b) => ({ b, depB: deporteDeSport(b.sportName) }))
+    .filter(({ depB }) => !deporte || depB === deporte)
+    .map(({ b, depB }) => {
       const hora = (b.localStartTime ?? "").slice(0, 5);
       const fin = (b.localEndTime ?? "").slice(0, 5);
       const nombre = `${b.userFirstName ?? ""} ${b.userLastName ?? ""}`.trim() || "Reserva";
@@ -127,7 +150,7 @@ export default async function ClasesPage({
         id: `ec-${b.id}`,
         dia: Number(b.localDate.slice(8, 10)),
         hora,
-        deporte: dep,
+        deporte: depB,
         fuente: "easycancha" as const,
         cancelada: b.status === "CANCELLED" || b.status === "EXCHANGED",
         chip: `${hora} ${b.userLastName || b.userFirstName || b.sportName || "Reserva"}`,
@@ -141,29 +164,63 @@ export default async function ClasesPage({
 
   const eventos = [...internas, ...ecEventos];
 
-  const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
-  const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
-  const nav = (y: number, m: number) => `/clases?year=${y}&month=${m}${deporte ? `&deporte=${deporte}` : ""}`;
+  // Navegación + cambio de vista
+  const navMes = (y: number, m: number) => `/clases?vista=mes&year=${y}&month=${m}${dep}`;
+  const navDia = (d: string) => `/clases?vista=dia&date=${d}${dep}`;
+  const prevM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
+  const nextM = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
+  const verMes = navMes(year, month);
+  const verDia = navDia(vista === "dia" ? date : todayIso);
+
+  const fmtDiaRaw = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(dy, dm - 1, dd));
+  const fmtDia = fmtDiaRaw.charAt(0).toUpperCase() + fmtDiaRaw.slice(1);
+
   const puedeCrear = can(profile.role, "clases", "edit");
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="cdaf-headline">Clases · Calendario</h1>
-        {puedeCrear && (
-          <Link href="/clases/nueva" className={buttonVariants()}>+ Nueva clase</Link>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Link href={verMes} className={buttonVariants({ variant: vista === "mes" ? "default" : "outline", size: "sm" })}>Mes</Link>
+            <Link href={verDia} className={buttonVariants({ variant: vista === "dia" ? "default" : "outline", size: "sm" })}>Día</Link>
+          </div>
+          {puedeCrear && (
+            <Link href="/clases/nueva" className={buttonVariants()}>+ Nueva clase</Link>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Link href={nav(prev.y, prev.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
-          <span className="cdaf-title">{MESES[month - 1]} {year}</span>
-          <Link href={nav(next.y, next.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
+          {vista === "mes" ? (
+            <>
+              <Link href={navMes(prevM.y, prevM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
+              <span className="cdaf-title">{MESES[month - 1]} {year}</span>
+              <Link href={navMes(nextM.y, nextM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
+            </>
+          ) : (
+            <>
+              <Link href={navDia(shiftDay(date, -1))} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
+              <span className="cdaf-title">{fmtDia}</span>
+              <Link href={navDia(shiftDay(date, 1))} className={buttonVariants({ variant: "outline", size: "sm" })}>→</Link>
+              {date !== todayIso && (
+                <Link href={navDia(todayIso)} className={buttonVariants({ variant: "outline", size: "sm" })}>Hoy</Link>
+              )}
+            </>
+          )}
         </div>
         <form className="flex items-center gap-2">
-          <input type="hidden" name="year" value={year} />
-          <input type="hidden" name="month" value={month} />
+          <input type="hidden" name="vista" value={vista} />
+          {vista === "mes" ? (
+            <>
+              <input type="hidden" name="year" value={year} />
+              <input type="hidden" name="month" value={month} />
+            </>
+          ) : (
+            <input type="hidden" name="date" value={date} />
+          )}
           <select name="deporte" defaultValue={deporte} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
             <option value="">Todos</option>
             <option value="tenis">Tenis</option>
@@ -179,14 +236,18 @@ export default async function ClasesPage({
         </p>
       )}
 
-      <CalendarGrid year={year} month={month} eventos={eventos} />
+      {vista === "mes" ? (
+        <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventos} />
+      ) : (
+        <DayView eventos={eventos} />
+      )}
 
       <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
         <span><span className="bg-chart-3/40 mr-1 inline-block size-3 rounded align-middle" /> Tenis</span>
         <span><span className="bg-lime/60 mr-1 inline-block size-3 rounded align-middle" /> Pádel</span>
         <span><span className="border-foreground/40 mr-1 inline-block size-3 rounded border-l-2 align-middle" /> Reserva EasyCancha</span>
         <span className="line-through opacity-60">Cancelada</span>
-        <span>· Haz clic en el día o en “+N más” para ver todo.</span>
+        {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
       </div>
     </div>
   );
