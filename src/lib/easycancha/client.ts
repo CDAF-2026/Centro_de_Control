@@ -48,6 +48,21 @@ export function deporteDeSport(sportName: string | null): "tenis" | "padel" | nu
 }
 
 /**
+ * Extrae el profesor desde el nombre de cancha de EasyCancha.
+ * Las clases vienen como "Profesor Leo Ruíz Cancha 3" / "Entrenador Cristian - Cancha 1";
+ * los alquileres de cancha abierta ("Cancha 2") devuelven null.
+ */
+export function profesorDeCancha(courtName: string | null): string | null {
+  if (!courtName) return null;
+  if (!/(profesor|entrenador|profe)/i.test(courtName)) return null;
+  const s = courtName
+    .replace(/[\s\-–—]*cancha\s*\d+.*$/i, "")
+    .replace(/[\s\-–—]+$/, "")
+    .trim();
+  return s || courtName.trim();
+}
+
+/**
  * Trae las reservas del club para un periodo [from, to] (YYYY-MM-DD, inclusivos).
  * Devuelve `error` (no lanza) para que el calendario degrade con elegancia.
  * Cachea 5 min por URL para no golpear la API en cada navegación de mes.

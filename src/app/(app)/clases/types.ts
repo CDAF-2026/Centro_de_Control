@@ -4,6 +4,7 @@ export type CalEvento = {
   hora: string; // HH:mm (inicio)
   horaFin: string; // HH:mm (fin; "" si no hay)
   cancha: string | null;
+  profesor: string | null;
   deporte: "tenis" | "padel" | null;
   fuente: "interna" | "easycancha";
   cancelada: boolean;
