@@ -3,20 +3,12 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
+import { CalendarGrid, type ClaseCal } from "./calendar-grid";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
-const DOW = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-type ClaseCell = {
-  id: number;
-  fecha: string;
-  deporte: "tenis" | "padel" | null;
-  tipo: "academia" | "individual";
-  hora_inicio: string | null;
-};
 
 export default async function ClasesPage({
   searchParams,
@@ -27,7 +19,7 @@ export default async function ClasesPage({
   const sp = await searchParams;
   const now = new Date();
   const year = Number(sp.year) || now.getFullYear();
-  const month = Number(sp.month) || now.getMonth() + 1; // 1–12
+  const month = Number(sp.month) || now.getMonth() + 1;
   const deporte = sp.deporte === "tenis" || sp.deporte === "padel" ? sp.deporte : "";
 
   const mm = String(month).padStart(2, "0");
@@ -38,32 +30,59 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, deporte, tipo, hora_inicio")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
   if (deporte) q = q.eq("deporte", deporte);
   const { data: clases } = await q;
+  const lista = clases ?? [];
 
-  const byDay = new Map<number, ClaseCell[]>();
-  for (const c of (clases ?? []) as ClaseCell[]) {
-    const day = Number(c.fecha.slice(8, 10));
-    if (!byDay.has(day)) byDay.set(day, []);
-    byDay.get(day)!.push(c);
+  // Nombres de profesor / deportista / academia
+  const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
+  const cliIds = [...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
+  const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
+
+  const profName = new Map<string, string>();
+  if (profIds.length) {
+    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
+    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+  }
+  const cliName = new Map<number, string>();
+  if (cliIds.length) {
+    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
+    for (const c of data ?? []) cliName.set(c.id, `${c.nombres} ${c.apellidos}`);
+  }
+  const acaName = new Map<number, string>();
+  if (acaIds.length) {
+    const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
+    for (const a of data ?? []) acaName.set(a.id, a.nombre);
   }
 
-  const firstWeekday = new Date(year, month - 1, 1).getDay(); // 0=Dom
-  const offset = (firstWeekday + 6) % 7; // lunes primero
-  const cells: (number | null)[] = [
-    ...Array(offset).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
+  const clasesCal: ClaseCal[] = lista.map((c) => ({
+    id: c.id,
+    dia: Number(c.fecha.slice(8, 10)),
+    fecha: c.fecha,
+    hora: c.hora_inicio?.slice(0, 5) ?? "",
+    horaFin: c.hora_fin?.slice(0, 5) ?? "",
+    tipo: c.tipo,
+    deporte: c.deporte,
+    estado: c.estado,
+    cancha: c.cancha,
+    titulo:
+      c.tipo === "academia"
+        ? c.academia_id
+          ? acaName.get(c.academia_id) ?? "Academia"
+          : "Academia"
+        : c.cliente_id
+          ? cliName.get(c.cliente_id) ?? "Sin deportista"
+          : "Sin deportista",
+    profesor: c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "—",
+  }));
 
   const prev = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const next = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
-  const nav = (y: number, m: number) =>
-    `/clases?year=${y}&month=${m}${deporte ? `&deporte=${deporte}` : ""}`;
-
+  const nav = (y: number, m: number) => `/clases?year=${y}&month=${m}${deporte ? `&deporte=${deporte}` : ""}`;
   const puedeCrear = can(profile.role, "clases", "edit");
 
   return (
@@ -93,36 +112,7 @@ export default async function ClasesPage({
         </form>
       </div>
 
-      <div className="bg-border grid grid-cols-7 gap-px overflow-hidden rounded-lg border">
-        {DOW.map((d) => (
-          <div key={d} className="bg-muted px-2 py-1 text-center text-xs font-semibold">{d}</div>
-        ))}
-        {cells.map((day, i) => (
-          <div key={i} className="bg-card min-h-24 p-1">
-            {day && (
-              <>
-                <div className="text-muted-foreground text-xs">{day}</div>
-                <div className="space-y-0.5">
-                  {(byDay.get(day) ?? []).slice(0, 4).map((c) => (
-                    <div
-                      key={c.id}
-                      className={`truncate rounded px-1 text-xs ${
-                        c.deporte === "tenis" ? "bg-chart-3/20" : "bg-lime/30"
-                      }`}
-                      title={`${c.tipo} · ${c.deporte ?? ""}`}
-                    >
-                      {c.hora_inicio?.slice(0, 5) ?? ""} {c.tipo === "academia" ? "Acad." : "Ind."}
-                    </div>
-                  ))}
-                  {(byDay.get(day)?.length ?? 0) > 4 && (
-                    <div className="text-muted-foreground text-xs">+{byDay.get(day)!.length - 4} más</div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+      <CalendarGrid year={year} month={month} clases={clasesCal} />
 
       <div className="text-muted-foreground flex gap-4 text-xs">
         <span><span className="bg-chart-3/40 mr-1 inline-block size-3 rounded align-middle" /> Tenis</span>
