@@ -34,6 +34,7 @@ export async function createClaseIndividual(
     .insert({
       tipo: "individual",
       cliente_id: d.clienteId,
+      paquete_cliente_id: d.paqueteClienteId ? Number(d.paqueteClienteId) : null,
       profesor_id: d.profesorId || null,
       deporte: d.deporte,
       nivel: d.nivel || null,

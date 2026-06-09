@@ -63,11 +63,12 @@ export async function createEmpleado(
 
   // 3) Valor de clase inicial para profesores.
   if (d.role === "profesor" && d.valorClase) {
-    await supabase.from("profesor_valor_clase").insert({
+    const { error: vErr } = await supabase.from("profesor_valor_clase").insert({
       profesor_id: userId,
       valor: parseInt(d.valorClase, 10),
       created_by: sa.id,
     });
+    if (vErr) return { error: `Empleado creado, pero falló el valor de clase: ${vErr.message}` };
   }
 
   await logAudit({

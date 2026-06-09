@@ -11,4 +11,5 @@ export const createClaseSchema = z.object({
   horaFin: z.string().trim().optional(),
   precio: z.coerce.number().int().min(0).default(0),
   descuento: z.coerce.number().min(0).max(100).default(0),
+  paqueteClienteId: z.string().trim().optional(),
 });
