@@ -87,6 +87,83 @@ export async function createCliente(
   redirect(`/clientes/${cli.id}`);
 }
 
+/** Edita los datos de un cliente existente (auditado). */
+export async function updateCliente(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(WRITE_ROLES);
+  const id = Number(formData.get("id"));
+  if (!id) return { error: "Cliente inválido." };
+
+  const parsed = createClienteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    return { error: "Revisa los campos.", fieldErrors };
+  }
+  const d = parsed.data;
+  const menor = esMenorDeEdad(d.fechaNacimiento);
+
+  const supabase = await createClient();
+  const { data: actual } = await supabase.from("clientes").select("acudiente_id").eq("id", id).maybeSingle();
+  if (!actual) return { error: "Cliente no encontrado." };
+  let acudienteId = actual.acudiente_id;
+
+  // Regla dura: un menor exige acudiente (existente o diligenciado ahora).
+  if (menor && !d.acudienteNombre && !acudienteId) {
+    return {
+      error: "Los menores de edad requieren acudiente.",
+      fieldErrors: { acudienteNombre: "Nombre del acudiente obligatorio para menores" },
+    };
+  }
+
+  // Crear o actualizar el acudiente si se diligenció.
+  if (d.acudienteNombre) {
+    const fields = {
+      nombre: d.acudienteNombre,
+      documento: d.acudienteDocumento || null,
+      telefono: d.acudienteTelefono || null,
+      parentesco: d.acudienteParentesco || null,
+    };
+    if (acudienteId) {
+      await supabase.from("acudientes").update(fields).eq("id", acudienteId);
+    } else {
+      const { data: ac, error: acErr } = await supabase.from("acudientes").insert(fields).select("id").single();
+      if (acErr || !ac) return { error: acErr?.message ?? "No se pudo guardar el acudiente." };
+      acudienteId = ac.id;
+    }
+  }
+
+  const { error } = await supabase
+    .from("clientes")
+    .update({
+      nombres: d.nombres,
+      apellidos: d.apellidos,
+      documento: d.documento || null,
+      fecha_nacimiento: d.fechaNacimiento || null,
+      es_menor: menor,
+      celular: d.celular || null,
+      email: d.email || null,
+      emergencia_nombre: d.emergenciaNombre || null,
+      emergencia_celular: d.emergenciaCelular || null,
+      emergencia_parentesco: d.emergenciaParentesco || null,
+      acudiente_id: acudienteId,
+    })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "cliente.update",
+    entity: "clientes",
+    entityId: String(id),
+    after: { nombres: d.nombres, apellidos: d.apellidos, es_menor: menor },
+  });
+  revalidatePath("/clientes");
+  revalidatePath(`/clientes/${id}`);
+  redirect(`/clientes/${id}`);
+}
+
 /** Activa/retira un cliente (auditado). */
 export async function toggleEstado(
   _prev: ClienteFormState,

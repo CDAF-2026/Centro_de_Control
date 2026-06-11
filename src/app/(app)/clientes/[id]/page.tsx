@@ -5,6 +5,7 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
@@ -126,7 +127,14 @@ export default async function ClienteDetallePage({
           <h1 className="cdaf-headline">
             {cliente.nombres} {cliente.apellidos}
           </h1>
-          {puedeEditar && <EstadoForm id={cliente.id} estado={cliente.estado} />}
+          {puedeEditar && (
+            <div className="flex items-center gap-2">
+              <Link href={`/clientes/${cliente.id}/editar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Editar
+              </Link>
+              <EstadoForm id={cliente.id} estado={cliente.estado} />
+            </div>
+          )}
         </div>
         <div className="mt-2 flex items-center gap-2">
           {cliente.estado === "activo" ? (
