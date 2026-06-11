@@ -78,6 +78,16 @@ export function ClienteForm() {
         </div>
       </fieldset>
 
+      <fieldset className="space-y-2 rounded-lg border p-4">
+        <legend className="cdaf-eyebrow px-1">Deportes</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="deportes" value="tenis" className="size-4" /> Tenis
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="deportes" value="padel" className="size-4" /> Pádel
+        </label>
+      </fieldset>
+
       {menor && (
         <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">
           <legend className="cdaf-eyebrow px-1">

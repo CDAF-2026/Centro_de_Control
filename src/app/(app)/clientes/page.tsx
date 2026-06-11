@@ -4,26 +4,45 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { SyncClientesButton } from "./sync-clientes-button";
+import { ClienteBuscador } from "./cliente-buscador";
+
+const PAGE_SIZE = 30;
 
 export default async function ClientesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; estado?: string }>;
+  searchParams: Promise<{ q?: string; estado?: string; page?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("clientes"));
-  const { q = "", estado = "" } = await searchParams;
+  const { q = "", estado = "", page: pageRaw } = await searchParams;
   const safe = q.replace(/[%,()*]/g, "").trim();
+  const page = Math.max(1, Number(pageRaw) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   const supabase = await createClient();
   let query = supabase
     .from("clientes")
-    .select("id, nombres, apellidos, documento, celular, estado, es_menor")
-    .order("apellidos");
+    .select("id, nombres, apellidos, celular, estado, es_menor, deportes", { count: "exact" })
+    .order("apellidos")
+    .range(from, to);
   if (safe) query = query.or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%,documento.ilike.%${safe}%`);
   if (estado === "activo" || estado === "retirado") query = query.eq("estado", estado);
-  const { data: clientes } = await query;
+  const { data: clientes, count } = await query;
+
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const desde = total === 0 ? 0 : from + 1;
+  const hasta = Math.min(from + PAGE_SIZE, total);
+  const pageHref = (n: number) => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (estado) p.set("estado", estado);
+    if (n > 1) p.set("page", String(n));
+    const s = p.toString();
+    return s ? `/clientes?${s}` : "/clientes";
+  };
 
   const puedeEditar = can(profile.role, "clientes", "edit");
 
@@ -45,7 +64,7 @@ export default async function ClientesPage({
       </div>
 
       <form className="flex flex-wrap items-center gap-3">
-        <Input name="q" defaultValue={q} placeholder="Buscar por nombre o documento…" className="max-w-xs" />
+        <ClienteBuscador defaultValue={q} />
         <select
           name="estado"
           defaultValue={estado}
@@ -65,8 +84,8 @@ export default async function ClientesPage({
           <thead className="bg-muted/50 text-left">
             <tr>
               <th className="px-4 py-2 font-semibold">Nombre</th>
-              <th className="px-4 py-2 font-semibold">Documento</th>
               <th className="px-4 py-2 font-semibold">Celular</th>
+              <th className="px-4 py-2 font-semibold">Deportes</th>
               <th className="px-4 py-2 font-semibold">Estado</th>
             </tr>
           </thead>
@@ -78,13 +97,21 @@ export default async function ClientesPage({
                     {c.apellidos}, {c.nombres}
                   </Link>
                   {c.es_menor && (
-                    <Badge variant="outline" className="ml-2">
-                      Menor
-                    </Badge>
+                    <Badge variant="outline" className="ml-2">Menor</Badge>
                   )}
                 </td>
-                <td className="px-4 py-2">{c.documento ?? "—"}</td>
                 <td className="px-4 py-2">{c.celular ?? "—"}</td>
+                <td className="px-4 py-2">
+                  {(c.deportes ?? []).length > 0 ? (
+                    <span className="flex flex-wrap gap-1">
+                      {(c.deportes ?? []).map((d) => (
+                        <Badge key={d} variant="outline">{d === "tenis" ? "Tenis" : "Pádel"}</Badge>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   {c.estado === "activo" ? (
                     <Badge variant="secondary">Activo</Badge>
@@ -103,6 +130,24 @@ export default async function ClientesPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">
+          {total === 0 ? "0 clientes" : `${desde}–${hasta} de ${total} · Página ${page} de ${totalPages}`}
+        </span>
+        <div className="flex items-center gap-2">
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>← Anterior</Link>
+          ) : (
+            <span className={`${buttonVariants({ variant: "outline", size: "sm" })} pointer-events-none opacity-40`}>← Anterior</span>
+          )}
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className={buttonVariants({ variant: "outline", size: "sm" })}>Siguiente →</Link>
+          ) : (
+            <span className={`${buttonVariants({ variant: "outline", size: "sm" })} pointer-events-none opacity-40`}>Siguiente →</span>
+          )}
+        </div>
       </div>
     </div>
   );

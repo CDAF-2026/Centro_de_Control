@@ -20,6 +20,7 @@ export type ClienteEditable = {
   emergencia_nombre: string | null;
   emergencia_celular: string | null;
   emergencia_parentesco: string | null;
+  deportes: string[];
 };
 
 export type AcudienteEditable = {
@@ -82,6 +83,16 @@ export function EditarClienteForm({ cliente, acudiente }: { cliente: ClienteEdit
           <Field label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular} defaultValue={cliente.emergencia_celular ?? ""} />
           <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco} defaultValue={cliente.emergencia_parentesco ?? ""} />
         </div>
+      </fieldset>
+
+      <fieldset className="space-y-2 rounded-lg border p-4">
+        <legend className="cdaf-eyebrow px-1">Deportes</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="deportes" value="tenis" defaultChecked={cliente.deportes.includes("tenis")} className="size-4" /> Tenis
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="deportes" value="padel" defaultChecked={cliente.deportes.includes("padel")} className="size-4" /> Pádel
+        </label>
       </fieldset>
 
       {menor && (

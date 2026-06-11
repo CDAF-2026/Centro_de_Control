@@ -7,9 +7,15 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
 import { getBookings, type EcBooking } from "@/lib/easycancha/client";
-import type { AppRole } from "@/lib/database.types";
+import type { AppRole, Deporte } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
+
+/** Lee los checkboxes de deportes del formulario (tenis/padel). */
+function leerDeportes(formData: FormData): Deporte[] {
+  const vals = formData.getAll("deportes");
+  return (["tenis", "padel"] as const).filter((dep) => vals.includes(dep));
+}
 
 export type ClienteFormState = {
   error?: string;
@@ -71,6 +77,7 @@ export async function createCliente(
       emergencia_nombre: d.emergenciaNombre || null,
       emergencia_celular: d.emergenciaCelular || null,
       emergencia_parentesco: d.emergenciaParentesco || null,
+      deportes: leerDeportes(formData),
       acudiente_id: acudienteId,
     })
     .select("id")
@@ -149,6 +156,7 @@ export async function updateCliente(
       emergencia_nombre: d.emergenciaNombre || null,
       emergencia_celular: d.emergenciaCelular || null,
       emergencia_parentesco: d.emergenciaParentesco || null,
+      deportes: leerDeportes(formData),
       acudiente_id: acudienteId,
     })
     .eq("id", id);
@@ -381,4 +389,21 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   await logAudit({ action: "cliente.sync_easycancha", entity: "clientes", after: { agregados: insertados } });
   revalidatePath("/clientes");
   return { ok: insertados > 0 ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha.` : "Sin clientes nuevos: todo al día." };
+}
+
+/** Sugerencias para el buscador con autocompletar (máx 8). */
+export async function buscarClientes(
+  q: string,
+): Promise<{ id: number; nombres: string; apellidos: string; celular: string | null }[]> {
+  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  const safe = q.replace(/[%,()*]/g, "").trim();
+  if (safe.length < 2) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("clientes")
+    .select("id, nombres, apellidos, celular")
+    .or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%,documento.ilike.%${safe}%`)
+    .order("apellidos")
+    .limit(8);
+  return data ?? [];
 }

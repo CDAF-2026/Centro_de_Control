@@ -135,6 +135,7 @@ export type Database = {
           emergencia_celular: string | null;
           emergencia_parentesco: string | null;
           acudiente_id: number | null;
+          deportes: Deporte[];
           estado: ClienteEstado;
           created_at: string;
           updated_at: string;
@@ -152,6 +153,7 @@ export type Database = {
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
           acudiente_id?: number | null;
+          deportes?: Deporte[];
           estado?: ClienteEstado;
           created_at?: string;
           updated_at?: string;
@@ -169,6 +171,7 @@ export type Database = {
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
           acudiente_id?: number | null;
+          deportes?: Deporte[];
           estado?: ClienteEstado;
           created_at?: string;
           updated_at?: string;

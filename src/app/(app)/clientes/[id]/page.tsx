@@ -24,7 +24,7 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, estado, acudiente_id",
+      "id, nombres, apellidos, documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
@@ -155,6 +155,7 @@ export default async function ClienteDetallePage({
           <Dato label="Fecha de nacimiento" valor={cliente.fecha_nacimiento} />
           <Dato label="Celular" valor={cliente.celular} />
           <Dato label="Correo" valor={cliente.email} />
+          <Dato label="Deportes" valor={(cliente.deportes ?? []).map((d) => (d === "tenis" ? "Tenis" : "Pádel")).join(" · ") || null} />
           <Dato
             label="Contacto de emergencia"
             valor={
