@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { SyncClientesButton } from "./sync-clientes-button";
 
 export default async function ClientesPage({
   searchParams,
@@ -31,7 +32,8 @@ export default async function ClientesPage({
       <div className="flex items-center justify-between gap-3">
         <h1 className="cdaf-headline">Clientes / Deportistas</h1>
         {puedeEditar && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <SyncClientesButton />
             <Link href="/clientes/importar" className={buttonVariants({ variant: "outline" })}>
               Importar CSV
             </Link>

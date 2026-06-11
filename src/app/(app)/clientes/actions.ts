@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
+import { getBookings, type EcBooking } from "@/lib/easycancha/client";
 import type { AppRole } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
@@ -327,4 +328,57 @@ export async function asignarPaquete(
   });
   revalidatePath(`/clientes/${clienteId}`);
   return { ok: "Paquete asignado." };
+}
+
+/**
+ * Sincroniza SOLO clientes nuevos desde EasyCancha (los que aún no existen por correo).
+ * NUNCA borra ni actualiza los existentes → conserva la edición manual.
+ */
+export async function sincronizarClientesEC(): Promise<ClienteFormState> {
+  await requireRole(WRITE_ROLES);
+  const supabase = await createClient();
+
+  // Traer 3 meses (mes a mes, por el límite de la API).
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const bookings: EcBooking[] = [];
+  let ecErr: string | null = null;
+  for (let i = 0; i < 3; i++) {
+    const y = now.getFullYear(), m = now.getMonth() + i;
+    const first = new Date(y, m, 1), last = new Date(y, m + 1, 0);
+    const f = `${first.getFullYear()}-${pad(first.getMonth() + 1)}-01`;
+    const t = `${last.getFullYear()}-${pad(last.getMonth() + 1)}-${pad(last.getDate())}`;
+    const { bookings: bk, error } = await getBookings({ from: f, to: t });
+    if (error) ecErr = error;
+    else bookings.push(...bk);
+  }
+  if (!bookings.length && ecErr) return { error: `No se pudo consultar EasyCancha: ${ecErr}` };
+
+  const { data: ex } = await supabase.from("clientes").select("email");
+  const emailsBD = new Set((ex ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
+
+  const vistos = new Set<string>();
+  const nuevos = [];
+  for (const b of bookings) {
+    const email = (b.userEmail ?? "").trim().toLowerCase();
+    if (!email || emailsBD.has(email) || vistos.has(email)) continue;
+    vistos.add(email);
+    nuevos.push({
+      nombres: (b.userFirstName ?? "").trim() || "(sin nombre)",
+      apellidos: (b.userLastName ?? "").trim() || "",
+      email,
+      celular: (b.userPhone ?? "").trim() || null,
+      es_menor: false,
+    });
+  }
+
+  let insertados = 0;
+  for (let i = 0; i < nuevos.length; i += 500) {
+    const { error } = await supabase.from("clientes").insert(nuevos.slice(i, i + 500));
+    if (!error) insertados += Math.min(500, nuevos.length - i);
+  }
+
+  await logAudit({ action: "cliente.sync_easycancha", entity: "clientes", after: { agregados: insertados } });
+  revalidatePath("/clientes");
+  return { ok: insertados > 0 ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha.` : "Sin clientes nuevos: todo al día." };
 }
