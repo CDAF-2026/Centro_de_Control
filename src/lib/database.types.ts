@@ -20,6 +20,7 @@ export type AppRole =
 export type ClienteEstado = "activo" | "retirado";
 
 export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
+export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 
 export type Deporte = "tenis" | "padel";
 export type ClaseTipo = "academia" | "individual";
@@ -184,6 +185,36 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      empleado_documentos: {
+        Row: {
+          id: number;
+          empleado_id: string;
+          tipo: EmpleadoDocumentoTipo;
+          nombre_archivo: string;
+          storage_path: string;
+          uploaded_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          empleado_id: string;
+          tipo?: EmpleadoDocumentoTipo;
+          nombre_archivo: string;
+          storage_path: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          empleado_id?: string;
+          tipo?: EmpleadoDocumentoTipo;
+          nombre_archivo?: string;
+          storage_path?: string;
+          uploaded_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       cliente_documentos: {
         Row: {

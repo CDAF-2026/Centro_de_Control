@@ -23,6 +23,14 @@ export const createEmpleadoSchema = z
     { message: "Valor de clase (número en COP) requerido para profesores", path: ["valorClase"] },
   );
 
+export const updateEmpleadoSchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string().trim().min(2, "Nombre requerido"),
+  email: z.string().trim().email("Email inválido"),
+  documento: z.string().trim().optional(),
+  telefono: z.string().trim().optional(),
+});
+
 export const valorClaseSchema = z.object({
   profesorId: z.string().uuid(),
   valor: z.coerce.number().int().min(0, "Valor inválido"),

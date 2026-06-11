@@ -39,7 +39,7 @@ export function EmpleadoForm() {
   return (
     <form action={action} className="space-y-4">
       <Field label="Nombre" name="nombre" error={fe.nombre} required />
-      <Field label="Correo" name="email" type="email" error={fe.email} required />
+      <Field label="Correo electrónico" name="email" type="email" error={fe.email} required />
       <Field label="Contraseña inicial" name="password" type="password" error={fe.password} required />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Documento" name="documento" error={fe.documento} />
@@ -64,6 +64,10 @@ export function EmpleadoForm() {
       {role === "profesor" && (
         <Field label="Valor por hora (COP)" name="valorClase" type="number" error={fe.valorClase} required />
       )}
+      <div className="space-y-1.5">
+        <Label htmlFor="contrato">Contrato (PDF o imagen, opcional)</Label>
+        <Input id="contrato" name="contrato" type="file" />
+      </div>
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Creando…" : "Crear empleado"}

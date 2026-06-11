@@ -11,7 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ValorClaseForm } from "./valor-form";
+import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
 
 const COP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -35,6 +38,22 @@ export default async function EmpleadoDetallePage({
     .single();
   if (!emp) notFound();
 
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const email = authUser?.user?.email ?? "—";
+
+  const { data: docsRaw } = await supabase
+    .from("empleado_documentos")
+    .select("id, tipo, nombre_archivo, storage_path")
+    .eq("empleado_id", id)
+    .order("created_at", { ascending: false });
+  const docs: EmpDocItem[] = await Promise.all(
+    (docsRaw ?? []).map(async (d) => {
+      const { data: signed } = await supabase.storage.from("empleado-docs").createSignedUrl(d.storage_path, 3600);
+      return { ...d, url: signed?.signedUrl ?? null };
+    }),
+  );
+
   let historial: { valor: number; vigente_desde: string }[] = [];
   if (emp.role === "profesor") {
     const { data } = await supabase
@@ -46,6 +65,7 @@ export default async function EmpleadoDetallePage({
   }
   const valorActual = historial[0]?.valor ?? null;
   const esSuperadmin = profile.role === "superadmin";
+  const esAdmin = esSuperadmin || profile.role === "coord_admin";
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -53,7 +73,14 @@ export default async function EmpleadoDetallePage({
         <Link href="/empleados" className="text-muted-foreground text-sm hover:underline">
           ← Empleados
         </Link>
-        <h1 className="cdaf-headline mt-1">{emp.nombre ?? "Empleado"}</h1>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <h1 className="cdaf-headline">{emp.nombre ?? "Empleado"}</h1>
+          {esSuperadmin && (
+            <Link href={`/empleados/${emp.id}/editar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Editar
+            </Link>
+          )}
+        </div>
         <div className="mt-2 flex items-center gap-2">
           <Badge variant="secondary">{ROLE_LABEL[emp.role]}</Badge>
           {emp.activo ? (
@@ -69,6 +96,10 @@ export default async function EmpleadoDetallePage({
           <CardTitle>Datos</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
+          <div className="col-span-2">
+            <p className="text-muted-foreground">Correo electrónico</p>
+            <p className="break-all">{email}</p>
+          </div>
           <div>
             <p className="text-muted-foreground">Documento</p>
             <p>{emp.documento ?? "—"}</p>
@@ -79,6 +110,17 @@ export default async function EmpleadoDetallePage({
           </div>
         </CardContent>
       </Card>
+
+      {esAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Documentos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EmpleadoDocumentos empleadoId={emp.id} docs={docs} puedeEditar={esAdmin} />
+          </CardContent>
+        </Card>
+      )}
 
       {emp.role === "profesor" && (
         <Card>
