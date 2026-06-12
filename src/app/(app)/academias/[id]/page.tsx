@@ -10,6 +10,7 @@ import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { ProgramarForm } from "./programar-form";
 import { ClaseAcademiaRow } from "./clase-academia-row";
+import { EliminarAcademiaButton } from "./eliminar-academia-button";
 
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -81,9 +82,12 @@ export default async function AcademiaDetallePage({
             <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
           </div>
           {puedeGestionar && (
-            <Link href={`/academias/${a.id}/editar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              Editar
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href={`/academias/${a.id}/editar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Editar
+              </Link>
+              <EliminarAcademiaButton academiaId={a.id} />
+            </div>
           )}
         </div>
         <p className="text-muted-foreground font-mono text-xs">{a.codigo}</p>

@@ -270,3 +270,22 @@ export async function cancelarClase(
   revalidatePath("/clases");
   return { ok: "Clase cancelada." };
 }
+
+/** Elimina una academia. Conserva el historial: las clases NO programadas (realizadas/
+ *  canceladas) se desligan (quedan para liquidación). Las futuras e inscripciones se borran. */
+export async function eliminarAcademia(academiaId: number): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  if (!academiaId) return { error: "Academia inválida." };
+  const supabase = await createClient();
+
+  // Preservar historial: desliga clases ya realizadas/canceladas (no se borran en cascada).
+  await supabase.from("clases").update({ academia_id: null }).eq("academia_id", academiaId).neq("estado", "programada");
+
+  // Borra la academia (cascada: clases programadas + inscripciones; lista de espera se desliga).
+  const { error } = await supabase.from("academias").delete().eq("id", academiaId);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "academia.delete", entity: "academias", entityId: String(academiaId) });
+  revalidatePath("/academias");
+  redirect("/academias");
+}
