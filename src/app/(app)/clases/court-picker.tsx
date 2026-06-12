@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 
+type Court = { key: string; label: string };
+
 export function CourtPicker({
   tenis,
   padel,
@@ -10,9 +12,9 @@ export function CourtPicker({
   date,
   deporte,
 }: {
-  tenis: string[];
-  padel: string[];
-  otras: string[];
+  tenis: Court[];
+  padel: Court[];
+  otras: Court[];
   selected: string;
   date: string;
   deporte: string;
@@ -32,17 +34,17 @@ export function CourtPicker({
       <option value="">— Elige una cancha —</option>
       {tenis.length > 0 && (
         <optgroup label="Canchas de tenis">
-          {tenis.map((c) => <option key={c} value={c}>{c}</option>)}
+          {tenis.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </optgroup>
       )}
       {padel.length > 0 && (
         <optgroup label="Canchas de pádel">
-          {padel.map((c) => <option key={c} value={c}>{c}</option>)}
+          {padel.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </optgroup>
       )}
       {otras.length > 0 && (
         <optgroup label="Otras">
-          {otras.map((c) => <option key={c} value={c}>{c}</option>)}
+          {otras.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
         </optgroup>
       )}
     </select>

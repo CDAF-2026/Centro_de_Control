@@ -8,7 +8,7 @@ import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
 import { CourtPicker } from "./court-picker";
-import type { CalEvento } from "./types";
+import { courtInfo, type CalEvento } from "./types";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -126,6 +126,8 @@ export default async function ClasesPage({
       hora,
       horaFin,
       cancha: c.cancha ?? null,
+      courtKey: courtInfo(c.cancha, c.deporte).key,
+      courtLabel: courtInfo(c.cancha, c.deporte).label,
       profesor,
       deporte: c.deporte,
       fuente: "interna",
@@ -169,6 +171,8 @@ export default async function ClasesPage({
         hora,
         horaFin: fin,
         cancha: b.courtName ?? null,
+        courtKey: courtInfo(b.courtName, depB).key,
+        courtLabel: courtInfo(b.courtName, depB).label,
         profesor,
         deporte: depB,
         fuente: "easycancha" as const,
@@ -199,27 +203,25 @@ export default async function ClasesPage({
       .sort((a, b) => a.localeCompare(b, "es"));
   }
 
-  // Vista Cancha: canchas del mes, agrupadas por deporte (según sus reservas)
-  let courtsTenis: string[] = [], courtsPadel: string[] = [], courtsOtras: string[] = [];
+  // Vista Cancha: canchas FÍSICAS del mes (Cancha N), separadas por deporte.
+  type Court = { key: string; label: string };
+  let courtsTenis: Court[] = [], courtsPadel: Court[] = [], courtsOtras: Court[] = [];
   if (vista === "cancha") {
-    const m = new Map<string, { t: number; p: number }>();
+    const seen = new Map<string, { label: string; dep: "tenis" | "padel" | null }>();
     for (const e of eventos) {
-      const c = e.cancha?.trim();
-      if (!c) continue;
-      const r = m.get(c) ?? { t: 0, p: 0 };
-      if (e.deporte === "tenis") r.t++;
-      else if (e.deporte === "padel") r.p++;
-      m.set(c, r);
+      if (!e.courtKey || seen.has(e.courtKey)) continue;
+      seen.set(e.courtKey, { label: e.courtLabel, dep: e.deporte });
     }
-    const byNum = (a: string, b: string) => a.localeCompare(b, "es", { numeric: true });
-    for (const [c, r] of m) {
-      if (r.t === 0 && r.p === 0) courtsOtras.push(c);
-      else if (r.t >= r.p) courtsTenis.push(c);
-      else courtsPadel.push(c);
+    const byLabel = (a: Court, b: Court) => a.label.localeCompare(b.label, "es", { numeric: true });
+    for (const [key, v] of seen) {
+      const court = { key, label: v.label };
+      if (v.dep === "tenis") courtsTenis.push(court);
+      else if (v.dep === "padel") courtsPadel.push(court);
+      else courtsOtras.push(court);
     }
-    courtsTenis.sort(byNum);
-    courtsPadel.sort(byNum);
-    courtsOtras.sort(byNum);
+    courtsTenis.sort(byLabel);
+    courtsPadel.sort(byLabel);
+    courtsOtras.sort(byLabel);
   }
 
   const eventosVista =
@@ -227,7 +229,11 @@ export default async function ClasesPage({
       ? eventos
       : vista === "profesor"
         ? (selProf ? eventos.filter((e) => e.dia === dd && e.profesor === selProf) : [])
-        : (selCancha ? eventos.filter((e) => e.dia === dd && e.cancha === selCancha) : []);
+        : (selCancha ? eventos.filter((e) => e.dia === dd && e.courtKey === selCancha) : []);
+
+  const selCanchaLabel = selCancha
+    ? `${eventos.find((e) => e.courtKey === selCancha)?.courtLabel ?? "Cancha"}${selCancha.startsWith("padel") ? " · pádel" : selCancha.startsWith("tenis") ? " · tenis" : ""}`
+    : "";
 
   // Navegación + cambio de vista
   const navMes = (y: number, m: number) => `/clases?vista=mes&year=${y}&month=${m}${dep}`;
@@ -339,7 +345,7 @@ export default async function ClasesPage({
         <span className="line-through opacity-60">Cancelada</span>
         {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
         {vista === "profesor" && selProf && <span>· Día de: <strong>{selProf}</strong></span>}
-        {vista === "cancha" && selCancha && <span>· Cancha: <strong>{selCancha}</strong></span>}
+        {vista === "cancha" && selCancha && <span>· Cancha: <strong>{selCanchaLabel}</strong></span>}
       </div>
     </div>
   );
