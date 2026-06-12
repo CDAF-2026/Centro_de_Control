@@ -15,6 +15,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ValorClaseForm } from "./valor-form";
 import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
+import { correoVisible } from "@/lib/empleado";
 
 const COP = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -40,7 +41,7 @@ export default async function EmpleadoDetallePage({
 
   const admin = createAdminClient();
   const { data: authUser } = await admin.auth.admin.getUserById(id);
-  const email = authUser?.user?.email ?? "—";
+  const email = correoVisible(authUser?.user?.email);
 
   const { data: docsRaw } = await supabase
     .from("empleado_documentos")
@@ -98,7 +99,7 @@ export default async function EmpleadoDetallePage({
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <div className="col-span-2">
             <p className="text-muted-foreground">Correo electrónico</p>
-            <p className="break-all">{email}</p>
+            <p className="break-all">{email || "Sin correo"}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Documento</p>

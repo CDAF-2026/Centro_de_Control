@@ -26,7 +26,7 @@ export const createEmpleadoSchema = z
 export const updateEmpleadoSchema = z.object({
   id: z.string().uuid(),
   nombre: z.string().trim().min(2, "Nombre requerido"),
-  email: z.string().trim().email("Email inválido"),
+  email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   documento: z.string().trim().optional(),
   telefono: z.string().trim().optional(),
 });

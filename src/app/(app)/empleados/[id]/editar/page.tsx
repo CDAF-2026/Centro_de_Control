@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EditarEmpleadoForm } from "../editar-empleado-form";
+import { correoVisible } from "@/lib/empleado";
 
 export default async function EditarEmpleadoPage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(["superadmin"]);
@@ -19,7 +20,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
 
   const admin = createAdminClient();
   const { data: u } = await admin.auth.admin.getUserById(id);
-  const email = u?.user?.email ?? "";
+  const email = correoVisible(u?.user?.email);
 
   return (
     <div className="max-w-xl space-y-6">

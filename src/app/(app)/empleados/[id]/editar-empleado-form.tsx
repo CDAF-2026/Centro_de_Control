@@ -38,7 +38,7 @@ export function EditarEmpleadoForm({ empleado }: { empleado: EmpleadoEditable })
     <form action={action} className="space-y-4">
       <input type="hidden" name="id" value={empleado.id} />
       <Field label="Nombre" name="nombre" error={fe.nombre} required defaultValue={empleado.nombre} />
-      <Field label="Correo electrónico" name="email" type="email" error={fe.email} required defaultValue={empleado.email} />
+      <Field label="Correo electrónico (vacío si no tiene)" name="email" type="email" error={fe.email} defaultValue={empleado.email} />
       <div className="grid grid-cols-2 gap-4">
         <Field label="Documento" name="documento" error={fe.documento} defaultValue={empleado.documento ?? ""} />
         <Field label="Teléfono" name="telefono" error={fe.telefono} defaultValue={empleado.telefono ?? ""} />

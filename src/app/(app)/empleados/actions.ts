@@ -145,11 +145,13 @@ export async function updateEmpleado(
   }
   const d = parsed.data;
 
-  // Correo (vía Admin API).
-  const admin = createAdminClient();
-  const { error: eErr } = await admin.auth.admin.updateUserById(d.id, { email: d.email });
-  if (eErr) {
-    return { error: /registered|exists/i.test(eErr.message) ? "Ese correo ya está en uso." : eErr.message };
+  // Correo (vía Admin API) — solo si se especificó uno (los profesores sin correo real quedan vacíos).
+  if (d.email) {
+    const admin = createAdminClient();
+    const { error: eErr } = await admin.auth.admin.updateUserById(d.id, { email: d.email });
+    if (eErr) {
+      return { error: /registered|exists/i.test(eErr.message) ? "Ese correo ya está en uso." : eErr.message };
+    }
   }
 
   // Perfil.
