@@ -12,6 +12,8 @@ const SERVICIOS = [
   "Academia Padel",
   "Paquete de clases Padel",
   "Paquete de clases Tenis",
+  "Clase particular de tenis",
+  "Clase particular de pádel",
   "Cafetería",
   "Alquiler Raqueta",
   "Alquiler Padel",
