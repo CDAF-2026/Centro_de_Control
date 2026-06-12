@@ -121,6 +121,6 @@ export async function cerrarClase(
   revalidatePath("/cierre");
   revalidatePath(`/cierre/${claseId}`);
   revalidatePath("/liquidacion");
-  // Tras registrar (realizada/cancelada/no-show) volvemos al listado de pendientes.
-  redirect("/cierre");
+  // Tras registrar (realizada/cancelada/no-show) volvemos al listado con aviso de éxito.
+  redirect(`/cierre?ok=${estado}`);
 }

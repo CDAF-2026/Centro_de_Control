@@ -4,9 +4,15 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { CierreToast } from "./cierre-toast";
 
-export default async function CierrePage() {
+export default async function CierrePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string }>;
+}) {
   const profile = await requireRole(rolesForModule("cierre_clase"));
+  const { ok } = await searchParams;
   const esProfesor = profile.role === "profesor";
 
   const supabase = await createClient();
@@ -46,6 +52,7 @@ export default async function CierrePage() {
 
   return (
     <div className="space-y-6">
+      {ok && <CierreToast estado={ok} />}
       <h1 className="cdaf-headline">
         {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
       </h1>
