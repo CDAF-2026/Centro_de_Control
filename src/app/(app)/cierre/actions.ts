@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireProfile } from "@/lib/auth";
+import { requireProfile, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/resend";
@@ -123,4 +123,53 @@ export async function cerrarClase(
   revalidatePath("/liquidacion");
   // Tras registrar (realizada/cancelada/no-show) volvemos al listado con aviso de éxito.
   redirect(`/cierre?ok=${estado}`);
+}
+
+/**
+ * Deshace el cierre de una clase (solo superadministrador): vuelve a "programada" para
+ * poder cerrarla de nuevo. Si estaba realizada y ligada a un paquete, RESTAURA el consumo.
+ */
+export async function reabrirCierre(claseId: number): Promise<CierreState> {
+  await requireRole(["superadmin"]);
+  if (!claseId) return { error: "Clase inválida." };
+
+  const supabase = await createClient();
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, estado, paquete_cliente_id")
+    .eq("id", claseId)
+    .single();
+  if (!clase) return { error: "Clase no encontrada." };
+  if (clase.estado === "programada") return { error: "La clase ya está abierta (pendiente de cierre)." };
+
+  // Restaurar consumo del paquete solo si la clase estaba realizada (lo que consumió saldo).
+  if (clase.estado === "realizada" && clase.paquete_cliente_id) {
+    const { data: pq } = await supabase
+      .from("paquetes_cliente")
+      .select("num_clases, clases_consumidas")
+      .eq("id", clase.paquete_cliente_id)
+      .single();
+    if (pq) {
+      const consumidas = Math.max(0, pq.clases_consumidas - 1);
+      await supabase
+        .from("paquetes_cliente")
+        .update({ clases_consumidas: consumidas, estado: consumidas >= pq.num_clases ? "agotado" : "activo" })
+        .eq("id", clase.paquete_cliente_id);
+    }
+  }
+
+  // Vuelve a pendiente y limpia la asistencia registrada.
+  await supabase.from("asistencias").delete().eq("clase_id", claseId);
+  const { error } = await supabase
+    .from("clases")
+    .update({ estado: "programada", registrada_por: null })
+    .eq("id", claseId);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "clase.reabrir", entity: "clases", entityId: String(claseId), after: { desde: clase.estado, a: "programada" } });
+  revalidatePath("/cierre");
+  revalidatePath("/cierre/cerradas");
+  revalidatePath("/liquidacion");
+  revalidatePath("/clases");
+  return { ok: "Cierre deshecho. La clase volvió a pendientes." };
 }

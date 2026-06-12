@@ -14,6 +14,7 @@ export default async function CierrePage({
   const profile = await requireRole(rolesForModule("cierre_clase"));
   const { ok } = await searchParams;
   const esProfesor = profile.role === "profesor";
+  const esSuperadmin = profile.role === "superadmin";
 
   const supabase = await createClient();
   let q = supabase
@@ -53,9 +54,16 @@ export default async function CierrePage({
   return (
     <div className="space-y-6">
       {ok && <CierreToast estado={ok} />}
-      <h1 className="cdaf-headline">
-        {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
-      </h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="cdaf-headline">
+          {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
+        </h1>
+        {esSuperadmin && (
+          <Link href="/cierre/cerradas" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Clases cerradas
+          </Link>
+        )}
+      </div>
 
       {lista.length === 0 && <p className="text-muted-foreground">No hay clases pendientes. 🎾</p>}
 
