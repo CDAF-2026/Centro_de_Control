@@ -181,3 +181,92 @@ export async function generarProgramacion(
   revalidatePath(`/academias/${academiaId}`);
   return { ok: `${rows.length} clases programadas.` };
 }
+
+/** Edita los datos de una academia existente. */
+export async function updateAcademia(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  const id = Number(formData.get("id"));
+  if (!id) return { error: "Academia inválida." };
+  const parsed = createAcademiaSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] = i.message;
+    return { error: "Revisa los campos.", fieldErrors };
+  }
+  const d = parsed.data;
+  const dias = formData.getAll("dias").map((x) => Number(x)).filter((n) => n >= 0 && n <= 6);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("academias")
+    .update({
+      nombre: d.nombre,
+      deporte: d.deporte,
+      nivel: d.nivel || null,
+      profesor_id: d.profesorId || null,
+      cancha: d.cancha || null,
+      precio: d.precio,
+      matricula: d.matricula,
+      periodo_inicio: d.periodoInicio || null,
+      periodo_fin: d.periodoFin || null,
+      dias_semana: dias,
+      hora_inicio: d.horaInicio || null,
+      hora_fin: d.horaFin || null,
+    })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "academia.update", entity: "academias", entityId: String(id), after: { nombre: d.nombre } });
+  revalidatePath("/academias");
+  revalidatePath(`/academias/${id}`);
+  redirect(`/academias/${id}`);
+}
+
+/** Reprograma una clase puntual (cambio espontáneo): cambia fecha y/u hora. */
+export async function reprogramarClase(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  const claseId = Number(formData.get("claseId"));
+  const academiaId = Number(formData.get("academiaId"));
+  const fecha = String(formData.get("fecha") || "");
+  const horaInicio = String(formData.get("horaInicio") || "") || null;
+  const horaFin = String(formData.get("horaFin") || "") || null;
+  if (!claseId || !fecha) return { error: "Fecha requerida." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clases")
+    .update({ fecha, hora_inicio: horaInicio, hora_fin: horaFin })
+    .eq("id", claseId);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "clase.reprogramar", entity: "clases", entityId: String(claseId), after: { fecha, horaInicio, horaFin } });
+  revalidatePath(`/academias/${academiaId}`);
+  revalidatePath("/clases");
+  return { ok: "Clase reprogramada." };
+}
+
+/** Cancela una clase puntual (no la borra: queda como cancelada). */
+export async function cancelarClase(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(GESTION);
+  const claseId = Number(formData.get("claseId"));
+  const academiaId = Number(formData.get("academiaId"));
+  if (!claseId) return { error: "Clase inválida." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("clases").update({ estado: "cancelada" }).eq("id", claseId);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "clase.cancelar", entity: "clases", entityId: String(claseId), after: { estado: "cancelada" } });
+  revalidatePath(`/academias/${academiaId}`);
+  revalidatePath("/clases");
+  return { ok: "Clase cancelada." };
+}

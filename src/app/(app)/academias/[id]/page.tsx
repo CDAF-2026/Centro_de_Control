@@ -5,9 +5,11 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { ProgramarForm } from "./programar-form";
+import { ClaseAcademiaRow } from "./clase-academia-row";
 
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -55,8 +57,16 @@ export default async function AcademiaDetallePage({
   const puedeGestionar = can(profile.role, "academias", "edit");
   const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
 
-  const { data: clientesActivos } = puedeInscribir
-    ? await supabase.from("clientes").select("id, nombres, apellidos").eq("estado", "activo").order("apellidos")
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data: proximas } = puedeGestionar
+    ? await supabase
+        .from("clases")
+        .select("id, fecha, hora_inicio, hora_fin")
+        .eq("academia_id", academiaId)
+        .eq("estado", "programada")
+        .gte("fecha", hoy)
+        .order("fecha")
+        .limit(40)
     : { data: [] };
 
   return (
@@ -65,9 +75,16 @@ export default async function AcademiaDetallePage({
         <Link href="/academias" className="text-muted-foreground text-sm hover:underline">
           ← Academias
         </Link>
-        <div className="mt-1 flex items-center gap-3">
-          <h1 className="cdaf-headline">{a.nombre}</h1>
-          <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="cdaf-headline">{a.nombre}</h1>
+            <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
+          </div>
+          {puedeGestionar && (
+            <Link href={`/academias/${a.id}/editar`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Editar
+            </Link>
+          )}
         </div>
         <p className="text-muted-foreground font-mono text-xs">{a.codigo}</p>
       </div>
@@ -99,6 +116,28 @@ export default async function AcademiaDetallePage({
         </CardContent>
       </Card>
 
+      {puedeGestionar && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Próximas clases ({proximas?.length ?? 0})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-2 text-xs">
+              Cambios espontáneos: mueve la fecha/hora de una clase puntual o cancélala (no afecta las demás).
+            </p>
+            {(proximas ?? []).length > 0 ? (
+              <ul>
+                {(proximas ?? []).map((c) => (
+                  <ClaseAcademiaRow key={c.id} academiaId={academiaId} clase={c} />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-sm">No hay clases programadas próximas. Usa “Generar programación”.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Inscritos ({inscripciones?.length ?? 0})</CardTitle>
@@ -121,7 +160,7 @@ export default async function AcademiaDetallePage({
           )}
           {puedeInscribir && (
             <div className="border-t pt-4">
-              <InscribirForm academiaId={academiaId} clientes={clientesActivos ?? []} />
+              <InscribirForm academiaId={academiaId} />
             </div>
           )}
         </CardContent>
