@@ -142,7 +142,7 @@ export default async function AcademiaDetallePage({
         </Card>
       )}
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>Inscritos ({inscripciones?.length ?? 0})</CardTitle>
         </CardHeader>
