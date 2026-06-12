@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
+import { sendEmail } from "@/lib/email/resend";
+import { claseConfirmadaEmail } from "@/lib/email/clase-confirmada";
 
 export type CierreState = { error?: string; ok?: string };
 
@@ -22,7 +24,7 @@ export async function cerrarClase(
   const supabase = await createClient();
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, profesor_id, fecha, hora_inicio, paquete_cliente_id")
+    .select("id, profesor_id, fecha, hora_inicio, deporte, cliente_id, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) return { error: "Clase no encontrada." };
@@ -61,6 +63,7 @@ export async function cerrarClase(
   }
 
   // Consumo de paquete (si la clase está ligada a uno y se dictó).
+  let paqueteInfo: { restante: number; total: number } | null = null;
   if (estado === "realizada" && clase.paquete_cliente_id) {
     const { data: pq } = await supabase
       .from("paquetes_cliente")
@@ -76,6 +79,35 @@ export async function cerrarClase(
           estado: consumidas >= pq.num_clases ? "agotado" : "activo",
         })
         .eq("id", clase.paquete_cliente_id);
+      paqueteInfo = { restante: pq.num_clases - consumidas, total: pq.num_clases };
+    }
+  }
+
+  // Notificación al cliente: clase confirmada + saldo del paquete (no bloquea el cierre).
+  if (estado === "realizada") {
+    const presentes = deportistas.filter((cid) => formData.get(`presente_${cid}`) === "on");
+    if (presentes.length) {
+      const { data: cls } = await supabase.from("clientes").select("id, nombres, email").in("id", presentes);
+      let profesorNombre: string | null = null;
+      if (clase.profesor_id) {
+        const { data: pr } = await supabase.from("profiles").select("nombre").eq("id", clase.profesor_id).single();
+        profesorNombre = pr?.nombre ?? null;
+      }
+      for (const c of cls ?? []) {
+        if (!c.email) continue;
+        const conSaldo = !!paqueteInfo && clase.cliente_id === c.id;
+        const { subject, html } = claseConfirmadaEmail({
+          nombre: c.nombres,
+          deporte: clase.deporte,
+          fecha: clase.fecha,
+          hora: clase.hora_inicio?.slice(0, 5) ?? "",
+          profesor: profesorNombre,
+          saldo: conSaldo ? paqueteInfo!.restante : null,
+          total: conSaldo ? paqueteInfo!.total : null,
+        });
+        const r = await sendEmail({ to: c.email, subject, html });
+        if (!r.ok) console.error("correo cierre:", r.error);
+      }
     }
   }
 
