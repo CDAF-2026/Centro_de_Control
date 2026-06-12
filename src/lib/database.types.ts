@@ -349,6 +349,7 @@ export type Database = {
           deporte: Deporte | null;
           num_clases: number;
           precio: number;
+          descuento_pct: number;
           activo: boolean;
           created_at: string;
         };
@@ -358,6 +359,7 @@ export type Database = {
           deporte?: Deporte | null;
           num_clases: number;
           precio?: number;
+          descuento_pct?: number;
           activo?: boolean;
           created_at?: string;
         };
