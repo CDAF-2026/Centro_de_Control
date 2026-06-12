@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
@@ -120,5 +121,6 @@ export async function cerrarClase(
   revalidatePath("/cierre");
   revalidatePath(`/cierre/${claseId}`);
   revalidatePath("/liquidacion");
-  return { ok: "Clase registrada." };
+  // Tras registrar (realizada/cancelada/no-show) volvemos al listado de pendientes.
+  redirect("/cierre");
 }
