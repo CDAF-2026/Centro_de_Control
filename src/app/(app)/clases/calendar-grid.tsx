@@ -48,6 +48,10 @@ export function CalendarGrid({
   const dep = deporte ? `&deporte=${deporte}` : "";
   const dayHref = (d: number) => `/clases?vista=dia&date=${year}-${mm}-${String(d).padStart(2, "0")}${dep}`;
 
+  const now = new Date();
+  const esMesActual = year === now.getFullYear() && month === now.getMonth() + 1;
+  const hoyDia = now.getDate();
+
   return (
     <>
       <div className="bg-border grid grid-cols-7 gap-px overflow-hidden rounded-lg border">
@@ -56,13 +60,19 @@ export function CalendarGrid({
         ))}
         {cells.map((day, i) => {
           const items = day ? byDay.get(day) ?? [] : [];
+          const esHoy = !!day && esMesActual && day === hoyDia;
           return (
-            <div key={i} className="bg-card min-h-24 p-1">
+            <div key={i} className={`min-h-24 p-1 ${esHoy ? "bg-lime/10 ring-lime ring-2 ring-inset" : "bg-card"}`}>
               {day && (
                 <>
                   <Link
                     href={dayHref(day)}
-                    className="text-muted-foreground hover:text-foreground inline-block text-xs font-medium"
+                    title={esHoy ? "Hoy" : undefined}
+                    className={
+                      esHoy
+                        ? "inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-lime px-1 text-xs font-bold text-[#1a1c1e]"
+                        : "text-muted-foreground hover:text-foreground inline-block text-xs font-medium"
+                    }
                   >
                     {day}
                   </Link>
