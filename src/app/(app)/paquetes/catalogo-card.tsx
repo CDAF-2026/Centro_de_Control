@@ -26,8 +26,8 @@ const SELECT = "border-input bg-background h-8 w-full rounded-md border px-2 tex
 export function CatalogoCard({ paquete, puedeConfig }: { paquete: PaqueteCatalogo; puedeConfig: boolean }) {
   const [editando, setEditando] = useState(false);
   const [state, action, pending] = useActionState(updateCatalogo, init);
-  const [precio, setPrecio] = useState(paquete.precio);
-  const [descuento, setDescuento] = useState(paquete.descuento_pct);
+  const [precio, setPrecio] = useState(String(paquete.precio));
+  const [descuento, setDescuento] = useState(String(paquete.descuento_pct));
   const fe = state.fieldErrors ?? {};
 
   if (puedeConfig && editando) {
@@ -42,7 +42,7 @@ export function CatalogoCard({ paquete, puedeConfig }: { paquete: PaqueteCatalog
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">N.º clases</Label>
-            <Input name="numClases" type="number" min={1} defaultValue={paquete.num_clases} className="h-8 text-sm" />
+            <Input name="numClases" type="number" min={1} defaultValue={String(paquete.num_clases)} className="h-8 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Deporte</Label>
@@ -56,14 +56,14 @@ export function CatalogoCard({ paquete, puedeConfig }: { paquete: PaqueteCatalog
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <Label className="text-xs">Precio total</Label>
-            <Input name="precio" type="number" min={0} value={precio} onChange={(e) => setPrecio(Number(e.target.value) || 0)} className="h-8 text-sm" />
+            <Input name="precio" type="number" min={0} value={precio} onChange={(e) => setPrecio(e.target.value)} className="h-8 text-sm" />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Descuento %</Label>
-            <Input name="descuento" type="number" min={0} max={100} value={descuento} onChange={(e) => setDescuento(Number(e.target.value) || 0)} className="h-8 text-sm" />
+            <Input name="descuento" type="number" min={0} max={100} value={descuento} onChange={(e) => setDescuento(e.target.value)} className="h-8 text-sm" />
           </div>
         </div>
-        <p className="text-sm">Precio final: <strong>{COP.format(precioFinal(precio, descuento))}</strong></p>
+        <p className="text-sm">Precio final: <strong>{COP.format(precioFinal(Number(precio) || 0, Number(descuento) || 0))}</strong></p>
         <div className="space-y-1">
           <Label className="text-xs">Estado</Label>
           <select name="activo" defaultValue={paquete.activo ? "true" : "false"} className={SELECT}>

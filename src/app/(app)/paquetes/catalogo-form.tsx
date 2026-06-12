@@ -13,8 +13,8 @@ const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP",
 export function CatalogoForm() {
   const [state, action, pending] = useActionState(createCatalogo, initial);
   const fe = state.fieldErrors ?? {};
-  const [precio, setPrecio] = useState(0);
-  const [descuento, setDescuento] = useState(0);
+  const [precio, setPrecio] = useState("");
+  const [descuento, setDescuento] = useState("");
 
   return (
     <form action={action} className="space-y-4">
@@ -41,16 +41,16 @@ export function CatalogoForm() {
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="precio">Precio total (COP)</Label>
-          <Input id="precio" name="precio" type="number" min={0} value={precio} onChange={(e) => setPrecio(Number(e.target.value) || 0)} />
+          <Input id="precio" name="precio" type="number" min={0} value={precio} onChange={(e) => setPrecio(e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="descuento">Descuento %</Label>
-          <Input id="descuento" name="descuento" type="number" min={0} max={100} value={descuento} onChange={(e) => setDescuento(Number(e.target.value) || 0)} />
+          <Input id="descuento" name="descuento" type="number" min={0} max={100} value={descuento} onChange={(e) => setDescuento(e.target.value)} />
         </div>
       </div>
       <p className="text-sm">
-        Precio final: <strong>{COP.format(precioFinal(precio, descuento))}</strong>
-        {descuento > 0 && <span className="text-muted-foreground"> ({descuento}% de descuento)</span>}
+        Precio final: <strong>{COP.format(precioFinal(Number(precio) || 0, Number(descuento) || 0))}</strong>
+        {Number(descuento) > 0 && <span className="text-muted-foreground"> ({descuento}% de descuento)</span>}
       </p>
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       {state.ok && <p className="text-primary text-sm">{state.ok}</p>}
