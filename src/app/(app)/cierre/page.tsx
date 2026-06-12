@@ -3,40 +3,58 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
+import { ClienteAutocomplete } from "@/components/cliente-autocomplete";
 import { CierreToast } from "./cierre-toast";
 
 export default async function CierrePage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string }>;
+  searchParams: Promise<{ ok?: string; profesor?: string; cliente?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("cierre_clase"));
-  const { ok } = await searchParams;
+  const sp = await searchParams;
   const esProfesor = profile.role === "profesor";
   const esSuperadmin = profile.role === "superadmin";
+  const profesorFilter = !esProfesor ? (sp.profesor || "") : "";
+  const clienteFilter = Number(sp.cliente) || 0;
 
   const supabase = await createClient();
+
   let q = supabase
     .from("clases")
     .select("id, fecha, hora_inicio, tipo, deporte, profesor_id, cliente_id, academia_id")
     .eq("estado", "programada")
     .order("fecha");
   if (esProfesor) q = q.eq("profesor_id", profile.id);
+  else if (profesorFilter) q = q.eq("profesor_id", profesorFilter);
+  if (clienteFilter) q = q.eq("cliente_id", clienteFilter);
   const { data: clases } = await q;
   const lista = clases ?? [];
 
+  // Listas para los filtros (solo staff que ve varias clases).
+  const profesores = !esProfesor
+    ? (await supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre")).data ?? []
+    : [];
+  let clienteFilterName = "";
+  if (clienteFilter) {
+    const { data } = await supabase.from("clientes").select("nombres, apellidos").eq("id", clienteFilter).maybeSingle();
+    if (data) clienteFilterName = `${data.apellidos}, ${data.nombres}`;
+  }
+
   // Nombres de profesor / deportista (individual) / academia
   const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
-  const cliIds = [
-    ...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null)),
-  ];
+  const cliIds = [...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
   const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
 
-  const profName = new Map<string, string>();
+  const profName = new Map<string, string>((profesores).map((p) => [p.id, p.nombre ?? "—"]));
   if (profIds.length) {
-    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
-    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+    const faltan = profIds.filter((id) => !profName.has(id));
+    if (faltan.length) {
+      const { data } = await supabase.from("profiles").select("id, nombre").in("id", faltan);
+      for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+    }
   }
   const cliName = new Map<number, string>();
   if (cliIds.length) {
@@ -50,22 +68,46 @@ export default async function CierrePage({
   }
 
   const now = Date.now();
+  const hayFiltro = !!profesorFilter || !!clienteFilter;
 
   return (
     <div className="space-y-6">
-      {ok && <CierreToast estado={ok} />}
-      <div className="flex items-center justify-between gap-3">
+      {sp.ok && <CierreToast estado={sp.ok} />}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="cdaf-headline">
           {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
         </h1>
         {esSuperadmin && (
-          <Link href="/cierre/cerradas" className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Clases cerradas
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/cierre/vencidas" className={buttonVariants({ variant: "outline", size: "sm" })}>Clases vencidas</Link>
+            <Link href="/cierre/cerradas" className={buttonVariants({ variant: "outline", size: "sm" })}>Clases cerradas</Link>
+          </div>
         )}
       </div>
 
-      {lista.length === 0 && <p className="text-muted-foreground">No hay clases pendientes. 🎾</p>}
+      {!esProfesor && (
+        <form className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="profesor">Profesor</Label>
+            <select id="profesor" name="profesor" defaultValue={profesorFilter} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
+              <option value="">Todos</option>
+              {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Cliente</Label>
+            <ClienteAutocomplete name="cliente" initialId={clienteFilter || undefined} initialLabel={clienteFilterName || undefined} />
+          </div>
+          <button type="submit" className={buttonVariants({ variant: "outline" })}>Filtrar</button>
+          {hayFiltro && <Link href="/cierre" className={buttonVariants({ variant: "ghost" })}>Limpiar</Link>}
+        </form>
+      )}
+
+      {lista.length === 0 && (
+        <p className="text-muted-foreground">
+          {hayFiltro ? "No hay clases pendientes con esos filtros." : "No hay clases pendientes. 🎾"}
+        </p>
+      )}
 
       <div className="space-y-2">
         {lista.map((c) => {
@@ -74,9 +116,7 @@ export default async function CierrePage({
           const quien =
             c.tipo === "academia"
               ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
-              : c.cliente_id
-                ? cliName.get(c.cliente_id) ?? "—"
-                : "Sin deportista";
+              : c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Sin deportista";
           const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin profesor";
           return (
             <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
@@ -87,13 +127,9 @@ export default async function CierrePage({
                   {c.tipo === "academia" ? "Academia" : "Individual"}
                   {c.deporte ? ` · ${c.deporte}` : ""} · Profe: {profe}
                 </p>
-                {vencida && (
-                  <Badge variant="destructive" className="mt-1">+24 h sin cerrar</Badge>
-                )}
+                {vencida && <Badge variant="destructive" className="mt-1">+24 h sin cerrar</Badge>}
               </div>
-              <Link href={`/cierre/${c.id}`} className={buttonVariants({ size: "sm" })}>
-                Cerrar
-              </Link>
+              <Link href={`/cierre/${c.id}`} className={buttonVariants({ size: "sm" })}>Cerrar</Link>
             </div>
           );
         })}

@@ -8,9 +8,19 @@ type Sug = { id: number; nombres: string; apellidos: string; celular: string | n
 
 /** Buscador con autocompletar para elegir un cliente dentro de un formulario.
  *  Pone el id elegido en un input oculto (name) para que se envíe con el form. */
-export function ClienteAutocomplete({ name = "clienteId" }: { name?: string }) {
+export function ClienteAutocomplete({
+  name = "clienteId",
+  initialId,
+  initialLabel,
+}: {
+  name?: string;
+  initialId?: number;
+  initialLabel?: string;
+}) {
   const [q, setQ] = useState("");
-  const [sel, setSel] = useState<{ id: number; label: string } | null>(null);
+  const [sel, setSel] = useState<{ id: number; label: string } | null>(
+    initialId && initialLabel ? { id: initialId, label: initialLabel } : null,
+  );
   const [sugs, setSugs] = useState<Sug[]>([]);
   const [open, setOpen] = useState(false);
   const [, start] = useTransition();
