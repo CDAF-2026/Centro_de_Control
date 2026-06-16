@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
+import { precioFinal } from "@/lib/validations/paquete";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -70,14 +71,15 @@ export default async function ClienteDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, plan_frecuencia, descuento_pct")
+    .select("id, academia_id, plan_frecuencia, descuento_pct, fecha_inscripcion")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
   const { data: acaData } = acaIds.length
-    ? await supabase.from("academias").select("id, nombre").in("id", acaIds)
-    : { data: [] as { id: number; nombre: string }[] };
+    ? await supabase.from("academias").select("id, nombre, precio, matricula").in("id", acaIds)
+    : { data: [] as { id: number; nombre: string; precio: number; matricula: number }[] };
   const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
+  const acaPrecioById = new Map((acaData ?? []).map((a) => [a.id, { precio: a.precio, matricula: a.matricula }]));
   const inscripcionesView = (inscripciones ?? []).map((i) => ({
     id: i.id,
     plan_frecuencia: i.plan_frecuencia,
@@ -92,9 +94,10 @@ export default async function ClienteDetallePage({
     .order("created_at", { ascending: false });
   const catIds = (pqCli ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null);
   const { data: catNames } = catIds.length
-    ? await supabase.from("paquetes_catalogo").select("id, nombre").in("id", catIds)
-    : { data: [] as { id: number; nombre: string }[] };
+    ? await supabase.from("paquetes_catalogo").select("id, nombre, precio, descuento_pct").in("id", catIds)
+    : { data: [] as { id: number; nombre: string; precio: number; descuento_pct: number }[] };
   const catNameById = new Map((catNames ?? []).map((c) => [c.id, c.nombre]));
+  const catFinById = new Map((catNames ?? []).map((c) => [c.id, { precio: c.precio, descuento_pct: c.descuento_pct }]));
   const paquetesView = (pqCli ?? []).map((p) => ({
     id: p.id,
     num_clases: p.num_clases,
@@ -116,6 +119,48 @@ export default async function ClienteDetallePage({
     .order("num_clases");
 
   const puedeEditar = can(profile.role, "clientes", "edit");
+
+  // ── Situación financiera: cruce de servicios contratados vs pagos (solo SA/CA) ──
+  const verFinanzas = can(profile.role, "cliente_finanzas");
+
+  // Valor de cada paquete = precio final del catálogo (con su descuento) menos el descuento de la asignación.
+  const paquetesFin = (pqCli ?? []).map((p) => {
+    const cat = p.catalogo_id ? catFinById.get(p.catalogo_id) : null;
+    const base = cat ? precioFinal(cat.precio, Number(cat.descuento_pct)) : 0;
+    const valor = Math.round(base * (1 - Number(p.descuento_pct) / 100));
+    return { id: p.id, nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete", valor };
+  });
+  const esperadoPaquetes = paquetesFin.reduce((s, p) => s + p.valor, 0);
+
+  // Valor esperado de cada academia: mensualidad×meses + matrícula×trimestres (matrícula sin descuento).
+  const academiasFin = (inscripciones ?? []).map((i) => {
+    const aca = acaPrecioById.get(i.academia_id);
+    const precio = aca?.precio ?? 0;
+    const matricula = aca?.matricula ?? 0;
+    const mensualidad = Math.round(precio * (1 - Number(i.descuento_pct) / 100));
+    const meses = mesesCorridos(i.fecha_inscripcion);
+    const trimestres = Math.ceil(meses / 3);
+    const esperado = mensualidad * meses + matricula * trimestres;
+    return { id: i.id, nombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`, meses, trimestres, matricula, esperado };
+  });
+  const esperadoAcademias = academiasFin.reduce((s, a) => s + a.esperado, 0);
+
+  // Pagos: imputar a academias / paquetes según la etiqueta de servicio; el resto es informativo.
+  let pagadoAcademias = 0;
+  let pagadoPaquetes = 0;
+  const otrosPagos: { servicio: string; periodos: string[]; monto: number; fecha: string }[] = [];
+  for (const a of asigns ?? []) {
+    const p = pagoById.get(a.pago_id);
+    const monto = p?.monto ?? 0;
+    const tipo = clasificarServicio(a.servicio);
+    if (tipo === "academia") pagadoAcademias += monto;
+    else if (tipo === "paquete") pagadoPaquetes += monto;
+    else otrosPagos.push({ servicio: a.servicio, periodos: a.periodos, monto, fecha: p?.fecha ?? "" });
+  }
+  const saldoAcademias = pagadoAcademias - esperadoAcademias;
+  const saldoPaquetes = pagadoPaquetes - esperadoPaquetes;
+  const hayAcademias = academiasFin.length > 0 || pagadoAcademias > 0;
+  const hayPaquetes = paquetesFin.length > 0 || pagadoPaquetes > 0;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -210,33 +255,93 @@ export default async function ClienteDetallePage({
         <CardHeader>
           <CardTitle>Situación financiera</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {asigns && asigns.length > 0 ? (
-            <>
-              <ul className="divide-y">
-                {asigns.map((a) => {
-                  const p = pagoById.get(a.pago_id);
-                  return (
-                    <li key={a.id} className="flex justify-between gap-3 py-2">
-                      <span>
-                        {a.servicio}
-                        {a.periodos.length > 0 && (
-                          <span className="text-muted-foreground"> · {a.periodos.join(", ")}</span>
-                        )}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {p ? `${COP.format(p.monto)} · ${p.fecha}` : ""}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <p className="font-semibold">Total conciliado: {COP.format(totalConciliado)}</p>
-            </>
+        <CardContent className="space-y-5 text-sm">
+          {!verFinanzas ? (
+            <p className="text-muted-foreground">Visible solo para administración.</p>
+          ) : !hayAcademias && !hayPaquetes && otrosPagos.length === 0 ? (
+            <p className="text-muted-foreground">Sin servicios contratados ni pagos registrados.</p>
           ) : (
-            <p className="text-muted-foreground">
-              Sin pagos conciliados (visible solo para administración).
-            </p>
+            <>
+              {hayAcademias && (
+                <section className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold">Academias</h3>
+                    <SaldoBadge saldo={saldoAcademias} />
+                  </div>
+                  {academiasFin.length > 0 ? (
+                    <ul className="divide-y">
+                      {academiasFin.map((a) => (
+                        <li key={a.id} className="flex justify-between gap-3 py-1.5">
+                          <span>
+                            {a.nombre}
+                            <span className="text-muted-foreground">
+                              {" · "}{a.meses} {a.meses === 1 ? "mes" : "meses"}
+                              {a.matricula > 0 ? ` · ${a.trimestres} matr.` : ""}
+                            </span>
+                          </span>
+                          <span className="text-muted-foreground">{COP.format(a.esperado)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">Sin academias activas; hay pagos de academia registrados.</p>
+                  )}
+                  <p className="text-muted-foreground">
+                    Esperado {COP.format(esperadoAcademias)} · Pagado {COP.format(pagadoAcademias)}
+                  </p>
+                </section>
+              )}
+
+              {hayPaquetes && (
+                <section className="space-y-2 border-t pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold">Paquetes</h3>
+                    <SaldoBadge saldo={saldoPaquetes} />
+                  </div>
+                  {paquetesFin.length > 0 ? (
+                    <ul className="divide-y">
+                      {paquetesFin.map((p) => (
+                        <li key={p.id} className="flex justify-between gap-3 py-1.5">
+                          <span>{p.nombre}</span>
+                          <span className="text-muted-foreground">{COP.format(p.valor)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">Sin paquetes asignados; hay pagos de paquete registrados.</p>
+                  )}
+                  <p className="text-muted-foreground">
+                    Esperado {COP.format(esperadoPaquetes)} · Pagado {COP.format(pagadoPaquetes)}
+                  </p>
+                </section>
+              )}
+
+              {otrosPagos.length > 0 && (
+                <section className="space-y-2 border-t pt-4">
+                  <h3 className="font-semibold">
+                    Otros pagos{" "}
+                    <span className="text-muted-foreground text-xs font-normal">(no afectan el saldo)</span>
+                  </h3>
+                  <ul className="divide-y">
+                    {otrosPagos.map((o, idx) => (
+                      <li key={idx} className="flex justify-between gap-3 py-1.5">
+                        <span>
+                          {o.servicio}
+                          {o.periodos.length > 0 && (
+                            <span className="text-muted-foreground"> · {o.periodos.join(", ")}</span>
+                          )}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {COP.format(o.monto)}{o.fecha ? ` · ${o.fecha}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <p className="border-t pt-3 font-semibold">Total conciliado: {COP.format(totalConciliado)}</p>
+            </>
           )}
         </CardContent>
       </Card>
@@ -251,4 +356,27 @@ function Dato({ label, valor }: { label: string; valor: string | null }) {
       <p>{valor ?? "—"}</p>
     </div>
   );
+}
+
+/** Meses corridos desde una fecha (incluye el mes inicial y el actual); mínimo 1. */
+function mesesCorridos(desde: string): number {
+  const d = new Date(`${desde}T00:00:00`);
+  const now = new Date();
+  const m = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()) + 1;
+  return Math.max(1, m);
+}
+
+/** Clasifica un pago por su etiqueta de servicio: solo academias y paquetes generan saldo. */
+function clasificarServicio(servicio: string): "academia" | "paquete" | "otro" {
+  const s = servicio.toLowerCase();
+  if (s.startsWith("academia")) return "academia";
+  if (s.startsWith("paquete")) return "paquete";
+  return "otro";
+}
+
+/** Badge de saldo: negativo = pendiente (debe), positivo = a favor, cero = al día. */
+function SaldoBadge({ saldo }: { saldo: number }) {
+  if (saldo < 0) return <Badge variant="destructive">Pendiente {COP.format(-saldo)}</Badge>;
+  if (saldo > 0) return <Badge variant="secondary">A favor {COP.format(saldo)}</Badge>;
+  return <Badge variant="outline">Al día</Badge>;
 }
