@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SuperadminDashboard } from "./superadmin-dashboard";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -55,8 +56,19 @@ function Kpi({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string }>;
+}) {
   const profile = await requireProfile();
+
+  if (profile.role === "superadmin") {
+    const sp = await searchParams;
+    const periodo = sp.periodo === "semana" || sp.periodo === "3m" ? sp.periodo : "mes";
+    return <SuperadminDashboard periodo={periodo} nombre={profile.nombre ?? "usuario"} />;
+  }
+
   const supabase = await createClient();
   const hoy = new Date().toISOString().slice(0, 10);
   const esProfesor = profile.role === "profesor";

@@ -1,0 +1,445 @@
+import Link from "next/link";
+import {
+  Wallet,
+  Users,
+  CalendarClock,
+  CalendarCheck,
+  TriangleAlert,
+  TrendingUp,
+  TrendingDown,
+  Trophy,
+  ArrowRight,
+  type LucideIcon,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
+import {
+  valorPaquete,
+  esperadoAcademia,
+  clasificarServicioPago,
+  familiaIngreso,
+  FAMILIAS_INGRESO,
+  type FamiliaIngreso,
+} from "@/lib/finanzas";
+import { PeriodoToggle } from "./periodo-toggle";
+import { IngresosChart, type ChartBucket } from "./ingresos-chart";
+
+const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const DAY = 86400000;
+const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const DOW = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"];
+const pad = (n: number) => String(n).padStart(2, "0");
+const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const ini = (nombre: string) => {
+  const p = nombre.trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "—";
+};
+
+type Periodo = "semana" | "mes" | "3m";
+type Bucket = { label: string; startIso: string; endIso: string };
+
+function rangoPeriodo(periodo: Periodo, now: Date) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayIso = iso(today);
+  let curStart: Date;
+  let buckets: Bucket[];
+
+  if (periodo === "semana") {
+    curStart = addDays(today, -6);
+    buckets = Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(curStart, i);
+      return { label: DOW[d.getDay()], startIso: iso(d), endIso: iso(d) };
+    });
+  } else if (periodo === "3m") {
+    curStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+    buckets = [0, 1, 2].map((k) => {
+      const s = new Date(today.getFullYear(), today.getMonth() - 2 + k, 1);
+      const eRaw = new Date(s.getFullYear(), s.getMonth() + 1, 0);
+      const endIso = iso(eRaw) > todayIso ? todayIso : iso(eRaw);
+      return { label: MES[s.getMonth()], startIso: iso(s), endIso };
+    });
+  } else {
+    curStart = addDays(today, -29);
+    buckets = [];
+    for (let s = curStart; iso(s) <= todayIso; s = addDays(s, 7)) {
+      const eRaw = addDays(s, 6);
+      const endIso = iso(eRaw) > todayIso ? todayIso : iso(eRaw);
+      buckets.push({ label: `${s.getDate()}/${s.getMonth() + 1}`, startIso: iso(s), endIso });
+    }
+  }
+
+  const spanDays = Math.round((today.getTime() - curStart.getTime()) / DAY) + 1;
+  const prevEnd = addDays(curStart, -1);
+  const prevStart = addDays(prevEnd, -(spanDays - 1));
+  return { curStartIso: iso(curStart), todayIso, prevStartIso: iso(prevStart), prevEndIso: iso(prevEnd), buckets };
+}
+
+export async function SuperadminDashboard({ periodo, nombre }: { periodo: Periodo; nombre: string }) {
+  const supabase = await createClient();
+  const now = new Date();
+  const { curStartIso, todayIso, prevStartIso, prevEndIso, buckets } = rangoPeriodo(periodo, now);
+
+  const [
+    pagosRes,
+    pqCliRes,
+    catsRes,
+    inscRes,
+    acasRes,
+    asgRes,
+    pendRes,
+    periodoRes,
+    clientesRes,
+  ] = await Promise.all([
+    supabase.from("pagos").select("id, monto, fecha, estado").eq("estado", "asignado").gte("fecha", prevStartIso),
+    supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
+    supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
+    supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion").eq("activa", true),
+    supabase.from("academias").select("id, precio, matricula"),
+    supabase.from("asignaciones_pago").select("cliente_id, servicio, pago_id"),
+    supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
+    supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", todayIso),
+    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
+  ]);
+
+  // ───────── Ingresos por tipo (periodo + previo) ─────────
+  const servicioByPago = new Map<number, string>();
+  for (const a of asgRes.data ?? []) servicioByPago.set(a.pago_id, a.servicio);
+
+  const famTotal = new Map<FamiliaIngreso, number>();
+  const perBucket = buckets.map(() => new Map<FamiliaIngreso, number>());
+  let periodTotal = 0;
+  let prevTotal = 0;
+  for (const p of pagosRes.data ?? []) {
+    const f = p.fecha;
+    if (f >= curStartIso && f <= todayIso) {
+      const fam = familiaIngreso(servicioByPago.get(p.id));
+      periodTotal += p.monto;
+      famTotal.set(fam, (famTotal.get(fam) ?? 0) + p.monto);
+      const bi = buckets.findIndex((b) => f >= b.startIso && f <= b.endIso);
+      if (bi >= 0) perBucket[bi].set(fam, (perBucket[bi].get(fam) ?? 0) + p.monto);
+    } else if (f >= prevStartIso && f <= prevEndIso) {
+      prevTotal += p.monto;
+    }
+  }
+  const bucketData: ChartBucket[] = buckets.map((b, i) => {
+    const segments = [...perBucket[i].entries()].map(([familia, monto]) => ({ familia, monto }));
+    return { label: b.label, total: segments.reduce((s, x) => s + x.monto, 0), segments };
+  });
+  const familiasLeyenda = FAMILIAS_INGRESO.filter((f) => (famTotal.get(f) ?? 0) > 0).map((f) => ({ nombre: f, total: famTotal.get(f)! }));
+  const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
+
+  // ───────── Cartera (saldos pendientes de todos los clientes) ─────────
+  const catMap = new Map((catsRes.data ?? []).map((c) => [c.id, c]));
+  const acaMap = new Map((acasRes.data ?? []).map((a) => [a.id, a]));
+  const montoByPago = new Map<number, number>();
+  for (const p of pagosRes.data ?? []) montoByPago.set(p.id, p.monto);
+  // los pagos de cartera pueden ser de cualquier fecha → traer los que falten
+  const faltantes = [...new Set((asgRes.data ?? []).map((a) => a.pago_id).filter((id) => !montoByPago.has(id)))];
+  if (faltantes.length) {
+    const { data } = await supabase.from("pagos").select("id, monto").in("id", faltantes);
+    for (const p of data ?? []) montoByPago.set(p.id, p.monto);
+  }
+
+  const esperadoByCli = new Map<number, number>();
+  const pagadoByCli = new Map<number, number>();
+  for (const pc of pqCliRes.data ?? []) {
+    const cat = pc.catalogo_id ? catMap.get(pc.catalogo_id) : null;
+    if (!cat) continue;
+    const v = valorPaquete(cat.precio, Number(cat.descuento_pct), Number(pc.descuento_pct));
+    esperadoByCli.set(pc.cliente_id, (esperadoByCli.get(pc.cliente_id) ?? 0) + v);
+  }
+  for (const i of inscRes.data ?? []) {
+    const aca = acaMap.get(i.academia_id);
+    if (!aca) continue;
+    const v = esperadoAcademia(aca.precio, aca.matricula, Number(i.descuento_pct), i.fecha_inscripcion);
+    esperadoByCli.set(i.cliente_id, (esperadoByCli.get(i.cliente_id) ?? 0) + v);
+  }
+  for (const a of asgRes.data ?? []) {
+    if (clasificarServicioPago(a.servicio) === "otro") continue;
+    pagadoByCli.set(a.cliente_id, (pagadoByCli.get(a.cliente_id) ?? 0) + (montoByPago.get(a.pago_id) ?? 0));
+  }
+  const deudores: { id: number; debe: number }[] = [];
+  for (const [cli, esp] of esperadoByCli) {
+    const saldo = (pagadoByCli.get(cli) ?? 0) - esp;
+    if (saldo < 0) deudores.push({ id: cli, debe: -saldo });
+  }
+  deudores.sort((a, b) => b.debe - a.debe);
+  const carteraTotal = deudores.reduce((s, d) => s + d.debe, 0);
+  const topDeudores = deudores.slice(0, 12);
+
+  // ───────── Clases por cerrar por profesor ─────────
+  const nowMs = now.getTime();
+  const pendByProf = new Map<string, { count: number; vencidas: number }>();
+  for (const c of pendRes.data ?? []) {
+    const key = c.profesor_id ?? "none";
+    const cur = pendByProf.get(key) ?? { count: 0, vencidas: 0 };
+    cur.count++;
+    const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime();
+    if (nowMs > dt + 24 * 3600 * 1000) cur.vencidas++;
+    pendByProf.set(key, cur);
+  }
+  const totalPend = (pendRes.data ?? []).length;
+  const totalVencidas = [...pendByProf.values()].reduce((s, v) => s + v.vencidas, 0);
+
+  // ───────── Cumplimiento + ranking (periodo) ─────────
+  const cump = { realizada: 0, programada: 0, cancelada: 0, no_show: 0 } as Record<string, number>;
+  const dictadasByProf = new Map<string, number>();
+  for (const c of periodoRes.data ?? []) {
+    cump[c.estado] = (cump[c.estado] ?? 0) + 1;
+    if (c.estado === "realizada" && c.profesor_id) dictadasByProf.set(c.profesor_id, (dictadasByProf.get(c.profesor_id) ?? 0) + 1);
+  }
+  const ranking = [...dictadasByProf.entries()].map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n).slice(0, 5);
+  const pctAsistencia = cump.realizada + cump.no_show > 0 ? Math.round((cump.realizada / (cump.realizada + cump.no_show)) * 100) : null;
+
+  // ───────── Nombres (profesores + deudores) ─────────
+  const profIds = [...new Set([...pendByProf.keys(), ...ranking.map((r) => r.id)].filter((k) => k !== "none"))];
+  const profName = new Map<string, string>();
+  if (profIds.length) {
+    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
+    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+  }
+  const cliName = new Map<number, string>();
+  if (topDeudores.length) {
+    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", topDeudores.map((d) => d.id));
+    for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
+  }
+
+  const pendList = [...pendByProf.entries()]
+    .map(([id, v]) => ({ id, nombre: id === "none" ? "Sin profesor asignado" : profName.get(id) ?? "—", ...v }))
+    .sort((a, b) => b.vencidas - a.vencidas || b.count - a.count);
+  const rankMax = Math.max(1, ...ranking.map((r) => r.n));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="cdaf-eyebrow text-muted-foreground">Hola, {nombre}</p>
+          <h1 className="cdaf-headline">Dashboard</h1>
+        </div>
+        <PeriodoToggle periodo={periodo} />
+      </div>
+
+      {totalVencidas > 0 && (
+        <div className="border-destructive/30 bg-destructive/[0.06] flex items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
+          <span className="flex items-center gap-2.5 text-sm">
+            <TriangleAlert className="text-destructive size-5 shrink-0" />
+            <span><strong>{totalVencidas}</strong> clase(s) sin cerrar hace más de 24 h.</span>
+          </span>
+          <Link href="/cierre/vencidas" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Ver vencidas</Link>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
+        <Stat label="Cartera por cobrar" value={COP.format(carteraTotal)} icon={TriangleAlert} tone="warn" sub={`${deudores.length} cliente(s)`} />
+        <Stat label="Clientes activos" value={String(clientesRes.count ?? 0)} icon={Users} />
+        <Stat label="Clases por cerrar" value={String(totalPend)} icon={CalendarClock} sub={totalVencidas > 0 ? `${totalVencidas} vencidas` : "al día"} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ingresos por tipo</CardTitle>
+          <CardDescription>Conciliado en el periodo · {COP.format(periodTotal)}</CardDescription>
+          {deltaPct !== null && (
+            <CardAction>
+              <span className={cn("inline-flex items-center gap-1 text-sm font-medium", deltaPct >= 0 ? "text-[#46530a]" : "text-destructive")}>
+                {deltaPct >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+                {deltaPct >= 0 ? "+" : ""}{deltaPct}% <span className="text-muted-foreground font-normal">vs. anterior</span>
+              </span>
+            </CardAction>
+          )}
+        </CardHeader>
+        <CardContent>
+          {periodTotal > 0 ? (
+            <IngresosChart buckets={bucketData} familias={familiasLeyenda} />
+          ) : (
+            <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Concilia pagos en la bolsa de pagos para verlos aquí." />
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Top deudores</CardTitle>
+            <CardDescription>Cartera por cobrar · {COP.format(carteraTotal)}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topDeudores.length === 0 ? (
+              <EmptyState icon={Wallet} title="Cartera al día" description="Nadie con saldo pendiente. 🎾" />
+            ) : (
+              <table className="cdaf-table">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-2">Cliente</th>
+                    <th className="px-2 py-2 text-right">Debe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topDeudores.map((d) => (
+                    <tr key={d.id}>
+                      <td className="px-2 py-2.5">
+                        <Link href={`/clientes/${d.id}`} className="font-medium hover:underline">{cliName.get(d.id) ?? `Cliente #${d.id}`}</Link>
+                      </td>
+                      <td className="text-destructive px-2 py-2.5 text-right font-medium tabular-nums">{COP.format(d.debe)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Clases por cerrar</CardTitle>
+            <CardDescription>Por profesor · {totalPend} pendiente(s)</CardDescription>
+            <CardAction>
+              <Link href="/cierre" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                Ir a cierres <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {pendList.length === 0 ? (
+              <EmptyState icon={CalendarCheck} title="No hay clases por cerrar" description="¡Todo al día!" />
+            ) : (
+              <ul className="divide-y">
+                {pendList.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold">{ini(p.nombre)}</span>
+                      <span className="min-w-0 leading-tight">
+                        <span className="block truncate text-sm font-medium">{p.nombre}</span>
+                        <span className="text-muted-foreground block text-xs">{p.count} pendiente(s)</span>
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {p.vencidas > 0 && <Badge variant="destructive">{p.vencidas} vencida(s)</Badge>}
+                      <Link
+                        href={p.id === "none" ? "/cierre" : `/cierre?profesor=${p.id}`}
+                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                      >
+                        Ver
+                      </Link>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Cumplimiento de clases</CardTitle>
+            <CardDescription>En el periodo seleccionado</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Linea label="Dictadas (realizadas)" value={cump.realizada ?? 0} />
+            <Linea label="Programadas" value={cump.programada ?? 0} />
+            <Linea label="Canceladas" value={cump.cancelada ?? 0} />
+            <Linea label="No-show" value={cump.no_show ?? 0} />
+            <div className="flex items-center justify-between border-t pt-2 font-medium">
+              <span>% asistencia</span>
+              <span className="tabular-nums">{pctAsistencia === null ? "—" : `${pctAsistencia}%`}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Ranking de profesores</CardTitle>
+            <CardDescription>Clases dictadas en el periodo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {ranking.length === 0 ? (
+              <EmptyState icon={Trophy} title="Sin clases dictadas" description="Aún no hay cierres en el periodo." />
+            ) : (
+              <ol className="space-y-2.5">
+                {ranking.map((r, idx) => (
+                  <li key={r.id} className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground w-4 shrink-0 text-center font-semibold tabular-nums">{idx + 1}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="mb-1 flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">{profName.get(r.id) ?? "—"}</span>
+                        <span className="text-muted-foreground tabular-nums">{r.n}</span>
+                      </span>
+                      <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
+                        <span className="bg-primary block h-full rounded-full" style={{ width: `${(r.n / rankMax) * 100}%` }} />
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  icon: Icon,
+  accent,
+  tone,
+  sub,
+  delta,
+}: {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+  accent?: boolean;
+  tone?: "warn";
+  sub?: string;
+  delta?: number | null;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="cdaf-eyebrow text-muted-foreground">{label}</p>
+          <p className="font-heading text-foreground mt-1.5 truncate text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+          {sub && <p className="text-muted-foreground mt-0.5 text-xs">{sub}</p>}
+          {typeof delta === "number" && (
+            <span className={cn("mt-1 inline-flex items-center gap-0.5 text-xs font-medium", delta >= 0 ? "text-[#46530a]" : "text-destructive")}>
+              {delta >= 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+              {delta >= 0 ? "+" : ""}{delta}%
+            </span>
+          )}
+        </div>
+        <span
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-xl",
+            accent
+              ? "bg-primary/15 text-charcoal ring-primary/25 ring-1"
+              : tone === "warn"
+                ? "bg-warning/15 text-[#8a5600]"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Linea({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
