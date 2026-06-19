@@ -160,6 +160,34 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  /* Selects nativos: foco consistente con los inputs */
+  select {
+    @apply transition-[color,box-shadow,border-color];
+  }
+  select:focus-visible {
+    @apply border-ring ring-ring/50 outline-none ring-3;
+  }
+}
+
+@layer components {
+  /* Tablas y listados densos: contenedor elevado + encabezado tipo marcador.
+     El encabezado en mayúsculas/tracking/color lo heredan los <th> por cascada,
+     así no hay que tocar cada celda. */
+  .cdaf-table-wrap {
+    @apply border-border bg-card overflow-x-auto rounded-xl border shadow-sm;
+  }
+  .cdaf-table {
+    @apply w-full text-sm;
+  }
+  .cdaf-table thead {
+    @apply bg-muted/50 text-muted-foreground text-left text-xs font-semibold tracking-wide uppercase;
+  }
+  .cdaf-table tbody tr {
+    @apply border-border hover:bg-muted/40 border-t transition-colors;
+  }
+  .cdaf-table tbody td {
+    @apply px-4 py-2.5 align-middle;
+  }
 }
 
 /* ===== Tipografía de marca (voz Montserrat itálica en mayúsculas) ===== */

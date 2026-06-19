@@ -94,9 +94,9 @@ export default async function LiquidacionPage({
         <button type="submit" className={buttonVariants()}>Calcular</button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left">
+      <div className="cdaf-table-wrap">
+        <table className="cdaf-table">
+          <thead>
             <tr>
               <th className="px-4 py-2 font-semibold">Profesor</th>
               <th className="px-4 py-2 text-right font-semibold">Clases</th>

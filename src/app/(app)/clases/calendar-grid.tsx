@@ -54,9 +54,9 @@ export function CalendarGrid({
 
   return (
     <>
-      <div className="bg-border grid grid-cols-7 gap-px overflow-hidden rounded-lg border">
+      <div className="bg-border grid grid-cols-7 gap-px overflow-hidden rounded-xl border shadow-sm">
         {DOW.map((d) => (
-          <div key={d} className="bg-muted px-2 py-1 text-center text-xs font-semibold">{d}</div>
+          <div key={d} className="bg-muted text-muted-foreground px-2 py-1.5 text-center text-xs font-semibold tracking-wide uppercase">{d}</div>
         ))}
         {cells.map((day, i) => {
           const items = day ? byDay.get(day) ?? [] : [];
@@ -83,7 +83,7 @@ export function CalendarGrid({
                         type="button"
                         onClick={() => setSel(e)}
                         title={`${e.hora} · ${e.titulo}`}
-                        className={`hover:ring-lime block w-full truncate rounded px-1 text-left text-xs hover:ring-2 ${chipClass(e)}`}
+                        className={`hover:ring-lime block w-full truncate rounded-md px-1.5 py-0.5 text-left text-xs shadow-xs hover:ring-2 ${chipClass(e)}`}
                       >
                         {e.chip}
                       </button>

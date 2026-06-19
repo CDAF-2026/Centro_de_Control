@@ -83,7 +83,7 @@ export function DayView({ eventos, esHoy, canAssign = false }: { eventos: CalEve
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border">
+      <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
         <div className="flex">
           {/* Columna de horas */}
           <div className="w-14 shrink-0">
@@ -108,7 +108,7 @@ export function DayView({ eventos, esHoy, canAssign = false }: { eventos: CalEve
                   type="button"
                   onClick={() => setSel(ev)}
                   title={`${ev.hora}${ev.horaFin ? `–${ev.horaFin}` : ""} · ${ev.titulo}`}
-                  className={`hover:ring-lime absolute overflow-hidden rounded px-1 py-0.5 text-left text-xs hover:z-30 hover:ring-2 ${eventoBg(ev)}${ev.cancelada ? " line-through opacity-50" : ""}${ev.fuente === "easycancha" ? " border-foreground/30 border-l-2" : ""}`}
+                  className={`hover:ring-lime absolute overflow-hidden rounded-md px-1.5 py-0.5 text-left text-xs shadow-xs hover:z-30 hover:ring-2 ${eventoBg(ev)}${ev.cancelada ? " line-through opacity-50" : ""}${ev.fuente === "easycancha" ? " border-foreground/30 border-l-2" : ""}`}
                   style={{
                     top,
                     height,

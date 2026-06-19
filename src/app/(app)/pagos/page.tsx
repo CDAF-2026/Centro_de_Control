@@ -82,9 +82,9 @@ export default async function PagosPage() {
       {(asignados ?? []).length > 0 && (
         <section className="space-y-3 border-t pt-6">
           <h2 className="cdaf-title">Conciliados (últimos)</h2>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-left">
+          <div className="cdaf-table-wrap">
+            <table className="cdaf-table">
+              <thead>
                 <tr>
                   <th className="px-4 py-2">Fecha</th>
                   <th className="px-4 py-2">Centro</th>

@@ -91,9 +91,9 @@ export default async function ClasesCerradasPage({
         <button type="submit" className={buttonVariants({ variant: "outline" })}>Filtrar</button>
       </form>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left">
+      <div className="cdaf-table-wrap">
+        <table className="cdaf-table">
+          <thead>
             <tr>
               <th className="px-3 py-2 font-semibold">Fecha</th>
               <th className="px-3 py-2 font-semibold">Profesor</th>
