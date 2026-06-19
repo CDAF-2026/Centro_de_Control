@@ -59,14 +59,22 @@ function Kpi({
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string }>;
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
 }) {
   const profile = await requireProfile();
 
   if (profile.role === "superadmin") {
     const sp = await searchParams;
-    const periodo = sp.periodo === "semana" || sp.periodo === "3m" ? sp.periodo : "mes";
-    return <SuperadminDashboard periodo={periodo} nombre={profile.nombre ?? "usuario"} />;
+    const periodo =
+      sp.periodo === "semana" || sp.periodo === "3m" || sp.periodo === "custom" ? sp.periodo : "mes";
+    return (
+      <SuperadminDashboard
+        periodo={periodo}
+        desde={sp.desde}
+        hasta={sp.hasta}
+        nombre={profile.nombre ?? "usuario"}
+      />
+    );
   }
 
   const supabase = await createClient();

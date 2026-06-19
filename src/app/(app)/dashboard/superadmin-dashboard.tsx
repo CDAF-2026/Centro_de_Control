@@ -31,8 +31,7 @@ import { IngresosChart } from "./ingresos-chart";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const DAY = 86400000;
-const MES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-const DOW = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"];
+const RE_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -41,49 +40,47 @@ const ini = (nombre: string) => {
   return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "—";
 };
 
-type Periodo = "semana" | "mes" | "3m";
-type Bucket = { label: string; startIso: string; endIso: string };
+type Periodo = "semana" | "mes" | "3m" | "custom";
 
-function rangoPeriodo(periodo: Periodo, now: Date) {
+function rangoPeriodo(periodo: Periodo, now: Date, desde?: string, hasta?: string) {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayIso = iso(today);
   let curStart: Date;
-  let buckets: Bucket[];
+  let curEnd = today;
 
-  if (periodo === "semana") {
+  if (periodo === "custom" && desde && hasta && RE_ISO.test(desde) && RE_ISO.test(hasta) && desde <= hasta) {
+    curStart = new Date(`${desde}T00:00:00`);
+    const h = new Date(`${hasta}T00:00:00`);
+    curEnd = iso(h) > todayIso ? today : h;
+  } else if (periodo === "semana") {
     curStart = addDays(today, -6);
-    buckets = Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(curStart, i);
-      return { label: DOW[d.getDay()], startIso: iso(d), endIso: iso(d) };
-    });
   } else if (periodo === "3m") {
     curStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-    buckets = [0, 1, 2].map((k) => {
-      const s = new Date(today.getFullYear(), today.getMonth() - 2 + k, 1);
-      const eRaw = new Date(s.getFullYear(), s.getMonth() + 1, 0);
-      const endIso = iso(eRaw) > todayIso ? todayIso : iso(eRaw);
-      return { label: MES[s.getMonth()], startIso: iso(s), endIso };
-    });
   } else {
     curStart = addDays(today, -29);
-    buckets = [];
-    for (let s = curStart; iso(s) <= todayIso; s = addDays(s, 7)) {
-      const eRaw = addDays(s, 6);
-      const endIso = iso(eRaw) > todayIso ? todayIso : iso(eRaw);
-      buckets.push({ label: `${s.getDate()}/${s.getMonth() + 1}`, startIso: iso(s), endIso });
-    }
   }
 
-  const spanDays = Math.round((today.getTime() - curStart.getTime()) / DAY) + 1;
+  const curEndIso = iso(curEnd);
+  const spanDays = Math.max(1, Math.round((curEnd.getTime() - curStart.getTime()) / DAY) + 1);
   const prevEnd = addDays(curStart, -1);
   const prevStart = addDays(prevEnd, -(spanDays - 1));
-  return { curStartIso: iso(curStart), todayIso, prevStartIso: iso(prevStart), prevEndIso: iso(prevEnd), buckets };
+  return { curStartIso: iso(curStart), curEndIso, todayIso, prevStartIso: iso(prevStart), prevEndIso: iso(prevEnd) };
 }
 
-export async function SuperadminDashboard({ periodo, nombre }: { periodo: Periodo; nombre: string }) {
+export async function SuperadminDashboard({
+  periodo,
+  nombre,
+  desde,
+  hasta,
+}: {
+  periodo: Periodo;
+  nombre: string;
+  desde?: string;
+  hasta?: string;
+}) {
   const supabase = await createClient();
   const now = new Date();
-  const { curStartIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now);
+  const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
 
   const [
     pagosRes,
@@ -96,14 +93,14 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
     periodoRes,
     clientesRes,
   ] = await Promise.all([
-    supabase.from("pagos").select("id, monto, fecha, estado, centro_costos").eq("estado", "asignado").gte("fecha", prevStartIso),
+    supabase.from("pagos").select("id, monto, fecha, estado, centro_costos").eq("estado", "asignado").gte("fecha", prevStartIso).lte("fecha", curEndIso),
     supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
     supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
     supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion").eq("activa", true),
     supabase.from("academias").select("id, precio, matricula"),
     supabase.from("asignaciones_pago").select("cliente_id, servicio, pago_id"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
-    supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", todayIso),
+    supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
   ]);
 
@@ -116,7 +113,7 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
   let prevTotal = 0;
   for (const p of pagosRes.data ?? []) {
     const f = p.fecha;
-    if (f >= curStartIso && f <= todayIso) {
+    if (f >= curStartIso && f <= curEndIso) {
       const servicio = servicioByPago.get(p.id);
       const fam = servicio ? familiaIngreso(servicio) : familiaDeCentro(p.centro_costos);
       periodTotal += p.monto;
@@ -218,7 +215,7 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
           <p className="cdaf-eyebrow text-muted-foreground">Hola, {nombre}</p>
           <h1 className="cdaf-headline">Dashboard</h1>
         </div>
-        <PeriodoToggle periodo={periodo} />
+        <PeriodoToggle periodo={periodo} desde={desde} hasta={hasta} />
       </div>
 
       {totalVencidas > 0 && (
@@ -241,7 +238,10 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
       <Card>
         <CardHeader>
           <CardTitle>Ingresos por tipo</CardTitle>
-          <CardDescription>Conciliado en el periodo · {COP.format(periodTotal)}</CardDescription>
+          <CardDescription>
+            Conciliado en el periodo · {COP.format(periodTotal)}
+            {periodo === "custom" ? ` · ${curStartIso} a ${curEndIso}` : ""}
+          </CardDescription>
           {deltaPct !== null && (
             <CardAction>
               <span className={cn("inline-flex items-center gap-1 text-sm font-medium", deltaPct >= 0 ? "text-[#46530a]" : "text-destructive")}>
