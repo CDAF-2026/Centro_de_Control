@@ -34,12 +34,6 @@ export default async function PagosPage() {
     .order("fecha", { ascending: false })
     .limit(20);
 
-  const { data: clientes } = await supabase
-    .from("clientes")
-    .select("id, nombres, apellidos")
-    .eq("estado", "activo")
-    .order("apellidos");
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -66,7 +60,7 @@ export default async function PagosPage() {
                 </div>
               </div>
               <div className="mt-2">
-                <AsignarForm pagoId={p.id} clientes={clientes ?? []} />
+                <AsignarForm pagoId={p.id} />
               </div>
             </div>
           ))}
