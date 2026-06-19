@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, LogOut } from "lucide-react";
+import { Menu, LogOut, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { can } from "@/lib/auth/permissions";
 import { logout } from "@/lib/auth/actions";
@@ -19,6 +19,12 @@ const ROLE_LABEL: Record<AppRole, string> = {
   profesor: "Profesor",
 };
 
+function iniciales(nombre: string) {
+  const partes = nombre.trim().split(/\s+/).filter(Boolean);
+  const ini = (partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "");
+  return ini.toUpperCase() || "U";
+}
+
 export function AppShell({
   role,
   nombre,
@@ -31,21 +37,44 @@ export function AppShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const items = NAV_ITEMS.filter((i) => can(role, i.module));
+  const current = items.find(
+    (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
+  );
+  const pageTitle = current?.label ?? "Centro de Control";
+  const PageIcon = current?.icon;
 
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
         className={cn(
-          "bg-sidebar text-sidebar-foreground fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform md:static md:translate-x-0",
+          "bg-sidebar text-sidebar-foreground border-sidebar-border fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r transition-transform duration-200 md:static md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="border-sidebar-border flex items-center gap-2 border-b px-5 py-4">
-          <Image src="/logo-cdaf.png" alt="CDAF" width={32} height={32} className="rounded" />
-          <span className="cdaf-eyebrow">Centro de Control</span>
+        {/* Marca */}
+        <div className="flex items-center gap-3 px-5 py-5">
+          <div className="bg-sidebar-primary/10 ring-sidebar-primary/25 flex size-9 shrink-0 items-center justify-center rounded-lg ring-1">
+            <Image src="/logo-cdaf.png" alt="CDAF" width={24} height={24} className="rounded" />
+          </div>
+          <div className="min-w-0 leading-tight">
+            <p className="cdaf-eyebrow text-sidebar-primary">Centro de Control</p>
+            <p className="text-sidebar-foreground/55 truncate text-xs">Alejandro Falla</p>
+          </div>
+          <button
+            type="button"
+            className="text-sidebar-foreground/70 hover:text-sidebar-foreground ml-auto md:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="Cerrar menú"
+          >
+            <X className="size-5" />
+          </button>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+
+        <p className="text-sidebar-foreground/40 px-5 pt-2 pb-1 text-[11px] font-semibold tracking-wider uppercase">
+          Menú
+        </p>
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-3">
           {items.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -55,28 +84,52 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                   active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-                    : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-accent/70 font-semibold text-white"
+                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-white/5",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                {active && (
+                  <span className="bg-sidebar-primary absolute top-1/2 left-0 h-5 w-1 -translate-y-1/2 rounded-r-full" />
+                )}
+                <Icon
+                  className={cn(
+                    "size-4 shrink-0 transition-colors",
+                    active
+                      ? "text-sidebar-primary"
+                      : "text-sidebar-foreground/45 group-hover:text-sidebar-foreground",
+                  )}
+                />
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <form action={logout} className="border-sidebar-border border-t p-3">
-          <button
-            type="submit"
-            className="hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
-          >
-            <LogOut className="size-4 shrink-0" />
-            Salir
-          </button>
-        </form>
+
+        {/* Identidad + salir */}
+        <div className="border-sidebar-border border-t p-3">
+          <div className="mb-1 flex items-center gap-3 px-3 py-2">
+            <span className="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+              {iniciales(nombre)}
+            </span>
+            <span className="min-w-0 leading-tight">
+              <span className="text-sidebar-foreground block truncate text-sm font-medium">{nombre}</span>
+              <span className="text-sidebar-foreground/50 block truncate text-xs">{ROLE_LABEL[role]}</span>
+            </span>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="text-sidebar-foreground/70 hover:text-sidebar-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/5"
+            >
+              <LogOut className="size-4 shrink-0" />
+              Salir
+            </button>
+          </form>
+        </div>
       </aside>
 
       {/* Overlay móvil */}
@@ -84,28 +137,45 @@ export function AppShell({
         <button
           type="button"
           aria-label="Cerrar menú"
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
+          className="bg-stadium/50 fixed inset-0 z-30 backdrop-blur-sm md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
 
       {/* Columna principal */}
-      <div className="flex flex-1 flex-col">
-        <header className="bg-card flex items-center gap-3 border-b px-4 py-3 md:px-6">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="bg-card/80 border-border sticky top-0 z-20 flex items-center gap-3 border-b px-4 py-3 backdrop-blur md:px-8">
           <button
             type="button"
-            className="md:hidden"
+            className="text-foreground md:hidden"
             onClick={() => setOpen(true)}
             aria-label="Abrir menú"
           >
             <Menu className="size-5" />
           </button>
-          <div className="flex-1" />
-          <span className="text-muted-foreground text-sm">
-            {nombre} · {ROLE_LABEL[role]}
-          </span>
+          <div className="flex min-w-0 items-center gap-2.5">
+            {PageIcon && (
+              <span className="bg-primary/15 text-charcoal ring-primary/25 hidden size-8 shrink-0 items-center justify-center rounded-lg ring-1 sm:flex">
+                <PageIcon className="size-4" />
+              </span>
+            )}
+            <span className="font-heading text-foreground truncate text-base font-semibold tracking-tight">
+              {pageTitle}
+            </span>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden text-right leading-tight sm:block">
+              <span className="text-foreground block text-sm font-medium">{nombre}</span>
+              <span className="text-muted-foreground block text-xs">{ROLE_LABEL[role]}</span>
+            </span>
+            <span className="bg-primary text-primary-foreground ring-primary/20 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2">
+              {iniciales(nombre)}
+            </span>
+          </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );

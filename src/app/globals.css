@@ -61,6 +61,16 @@
   --radius-2xl: calc(var(--radius) * 1.8);
 }
 
+/* ===== Profundidad CDAF — sombras suaves (una sola estrategia) ===== */
+@theme {
+  --shadow-2xs: 0 1px 2px 0 rgb(22 24 26 / 0.04);
+  --shadow-xs: 0 1px 2px 0 rgb(22 24 26 / 0.05);
+  --shadow-sm: 0 1px 2px -1px rgb(22 24 26 / 0.06), 0 1px 3px 0 rgb(22 24 26 / 0.05);
+  --shadow-md: 0 2px 6px -2px rgb(22 24 26 / 0.07), 0 8px 18px -6px rgb(22 24 26 / 0.08);
+  --shadow-lg: 0 10px 30px -10px rgb(22 24 26 / 0.16), 0 4px 10px -4px rgb(22 24 26 / 0.07);
+  --shadow-xl: 0 22px 44px -14px rgb(22 24 26 / 0.2);
+}
+
 :root {
   /* ===== Tokens de marca CDAF (Impact Lime Athletic System) ===== */
   --cdaf-impact-lime: #d4e157;
@@ -73,30 +83,30 @@
   --cdaf-warning: #f2b53d;
 
   /* ===== shadcn semantic → CDAF (modo claro) ===== */
-  --background: #f9f9f9;
-  --foreground: #1a1c1c;
+  --background: #f4f6f5; /* aire de cancha — casi blanco, frío suave */
+  --foreground: #16181a; /* tinta principal */
   --card: #ffffff;
-  --card-foreground: #1a1c1c;
+  --card-foreground: #16181a;
   --popover: #ffffff;
-  --popover-foreground: #1a1c1c;
+  --popover-foreground: #16181a;
   --primary: #d4e157; /* Impact Lime — CTA principal */
   --primary-foreground: #1a1c1e; /* texto oscuro sobre lima */
-  --secondary: #e8e8e8;
-  --secondary-foreground: #1a1c1c;
-  --muted: #eeeeee;
-  --muted-foreground: #474836;
-  --accent: #f3f3f4;
-  --accent-foreground: #1a1c1c;
+  --secondary: #eaedee;
+  --secondary-foreground: #1f2933;
+  --muted: #eef1f1;
+  --muted-foreground: #5c6b73; /* slate de cancha — texto secundario (antes olivo) */
+  --accent: #edf1f0;
+  --accent-foreground: #16181a;
   --destructive: #ba1a1a;
-  --border: #e2e2e2;
-  --input: #c8c8b1;
+  --border: #e4e8ea; /* hairline frío y suave */
+  --input: #d4d9dc; /* borde de control limpio (antes olivo) */
   --ring: #5b6300;
   --chart-1: #d4e157;
   --chart-2: #37474f;
   --chart-3: #3e6280;
   --chart-4: #506169;
   --chart-5: #f2b53d;
-  --radius: 0.25rem; /* 4px */
+  --radius: 0.5rem; /* 8px — crisp pero moderno (la marca conserva radios pequeños en la escala) */
 
   /* Sidebar oscuro premium (charcoal + lima) */
   --sidebar: #1a1c1e;
