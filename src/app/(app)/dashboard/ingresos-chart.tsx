@@ -1,67 +1,58 @@
+"use client";
+
+import { useState } from "react";
 import { COLOR_FAMILIA, type FamiliaIngreso } from "@/lib/finanzas";
+import { cn } from "@/lib/utils";
 
 const COP0 = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-const miles = (n: number) =>
-  n >= 1_000_000
-    ? `${(n / 1_000_000).toLocaleString("es-CO", { maximumFractionDigits: 1 })}M`
-    : n >= 1000
-      ? `${Math.round(n / 1000)}k`
-      : String(n);
 
-export type ChartBucket = {
-  label: string;
-  total: number;
-  segments: { familia: FamiliaIngreso; monto: number }[];
-};
-
-/** Gráfico de barras apiladas (CSS, sin dependencias) de ingresos por tipo en el tiempo. */
+/** Desglose de ingresos por tipo: barras horizontales ordenadas, fáciles de escanear. */
 export function IngresosChart({
-  buckets,
   familias,
+  total,
 }: {
-  buckets: ChartBucket[];
   familias: { nombre: FamiliaIngreso; total: number }[];
+  total: number;
 }) {
-  const max = Math.max(1, ...buckets.map((b) => b.total));
-  const H = 176;
-  return (
-    <div>
-      <div className="flex items-end justify-between gap-2" style={{ height: H }}>
-        {buckets.map((b, i) => (
-          <div key={i} className="flex flex-1 flex-col items-center justify-end gap-1">
-            <span className="text-muted-foreground text-[10px] tabular-nums">
-              {b.total > 0 ? miles(b.total) : ""}
-            </span>
-            <div
-              className="ring-foreground/[0.04] flex w-full max-w-[2.75rem] flex-col-reverse overflow-hidden rounded-md ring-1"
-              style={{ height: Math.max((b.total / max) * (H - 26), b.total > 0 ? 4 : 2) }}
-              title={`${b.label}: ${COP0.format(b.total)}`}
-            >
-              {b.total === 0 && <div className="bg-muted h-full w-full" />}
-              {b.segments
-                .filter((s) => s.monto > 0)
-                .map((s) => (
-                  <div
-                    key={s.familia}
-                    style={{ height: `${(s.monto / b.total) * 100}%`, backgroundColor: COLOR_FAMILIA[s.familia] }}
-                    title={`${s.familia}: ${COP0.format(s.monto)}`}
-                  />
-                ))}
-            </div>
-            <span className="text-muted-foreground text-[10px] whitespace-nowrap">{b.label}</span>
-          </div>
-        ))}
-      </div>
+  const [hover, setHover] = useState<FamiliaIngreso | null>(null);
+  const max = Math.max(1, ...familias.map((f) => f.total));
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t pt-3">
-        {familias.map((f) => (
-          <span key={f.nombre} className="flex items-center gap-1.5 text-xs">
-            <span className="size-2.5 rounded-sm" style={{ backgroundColor: COLOR_FAMILIA[f.nombre] }} />
-            <span className="text-muted-foreground">{f.nombre}</span>
-            <span className="font-medium tabular-nums">{COP0.format(f.total)}</span>
-          </span>
-        ))}
-      </div>
+  return (
+    <div className="space-y-1">
+      {familias.map((f) => {
+        const pct = total > 0 ? Math.round((f.total / total) * 100) : 0;
+        const activo = hover === f.nombre;
+        return (
+          <div
+            key={f.nombre}
+            onMouseEnter={() => setHover(f.nombre)}
+            onMouseLeave={() => setHover(null)}
+            className={cn(
+              "grid grid-cols-[7rem_1fr_auto] items-center gap-3 rounded-md px-2 py-1.5 transition-colors sm:grid-cols-[11rem_1fr_auto]",
+              activo && "bg-muted/60",
+            )}
+          >
+            <span className="flex items-center gap-2 text-sm" title={f.nombre}>
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: COLOR_FAMILIA[f.nombre] }} />
+              <span className="truncate">{f.nombre}</span>
+            </span>
+            <span className="bg-muted relative h-2.5 w-full overflow-hidden rounded-full">
+              <span
+                className="absolute inset-y-0 left-0 rounded-full transition-[width]"
+                style={{
+                  width: `${Math.max((f.total / max) * 100, 2)}%`,
+                  backgroundColor: COLOR_FAMILIA[f.nombre],
+                  filter: activo ? "brightness(1.08)" : undefined,
+                }}
+              />
+            </span>
+            <span className="text-right text-sm whitespace-nowrap tabular-nums">
+              <span className="font-medium">{COP0.format(f.total)}</span>
+              <span className="text-muted-foreground ml-1.5 text-xs">{pct}%</span>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

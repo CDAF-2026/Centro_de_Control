@@ -75,6 +75,22 @@ export function familiaIngreso(servicio: string | null | undefined): FamiliaIngr
   return "Otros";
 }
 
+/** Familia de ingreso a partir del centro de costos (fallback cuando el pago
+ *  no tiene asignación de servicio granular, p. ej. pagos demo). */
+export function familiaDeCentro(centro: string): FamiliaIngreso {
+  switch (centro) {
+    case "clase_particular":
+      return "Clases particulares";
+    case "cafeteria":
+      return "Cafetería";
+    case "academia_tenis":
+    case "academia_padel":
+      return "Academias";
+    default:
+      return "Otros";
+  }
+}
+
 /** Colores de marca por familia de ingreso (tokens --chart + extras). */
 export const COLOR_FAMILIA: Record<FamiliaIngreso, string> = {
   Academias: "#37474f",

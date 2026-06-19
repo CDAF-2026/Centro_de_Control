@@ -22,11 +22,12 @@ import {
   esperadoAcademia,
   clasificarServicioPago,
   familiaIngreso,
+  familiaDeCentro,
   FAMILIAS_INGRESO,
   type FamiliaIngreso,
 } from "@/lib/finanzas";
 import { PeriodoToggle } from "./periodo-toggle";
-import { IngresosChart, type ChartBucket } from "./ingresos-chart";
+import { IngresosChart } from "./ingresos-chart";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const DAY = 86400000;
@@ -82,7 +83,7 @@ function rangoPeriodo(periodo: Periodo, now: Date) {
 export async function SuperadminDashboard({ periodo, nombre }: { periodo: Periodo; nombre: string }) {
   const supabase = await createClient();
   const now = new Date();
-  const { curStartIso, todayIso, prevStartIso, prevEndIso, buckets } = rangoPeriodo(periodo, now);
+  const { curStartIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now);
 
   const [
     pagosRes,
@@ -95,7 +96,7 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
     periodoRes,
     clientesRes,
   ] = await Promise.all([
-    supabase.from("pagos").select("id, monto, fecha, estado").eq("estado", "asignado").gte("fecha", prevStartIso),
+    supabase.from("pagos").select("id, monto, fecha, estado, centro_costos").eq("estado", "asignado").gte("fecha", prevStartIso),
     supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
     supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
     supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion").eq("activa", true),
@@ -111,26 +112,22 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
   for (const a of asgRes.data ?? []) servicioByPago.set(a.pago_id, a.servicio);
 
   const famTotal = new Map<FamiliaIngreso, number>();
-  const perBucket = buckets.map(() => new Map<FamiliaIngreso, number>());
   let periodTotal = 0;
   let prevTotal = 0;
   for (const p of pagosRes.data ?? []) {
     const f = p.fecha;
     if (f >= curStartIso && f <= todayIso) {
-      const fam = familiaIngreso(servicioByPago.get(p.id));
+      const servicio = servicioByPago.get(p.id);
+      const fam = servicio ? familiaIngreso(servicio) : familiaDeCentro(p.centro_costos);
       periodTotal += p.monto;
       famTotal.set(fam, (famTotal.get(fam) ?? 0) + p.monto);
-      const bi = buckets.findIndex((b) => f >= b.startIso && f <= b.endIso);
-      if (bi >= 0) perBucket[bi].set(fam, (perBucket[bi].get(fam) ?? 0) + p.monto);
     } else if (f >= prevStartIso && f <= prevEndIso) {
       prevTotal += p.monto;
     }
   }
-  const bucketData: ChartBucket[] = buckets.map((b, i) => {
-    const segments = [...perBucket[i].entries()].map(([familia, monto]) => ({ familia, monto }));
-    return { label: b.label, total: segments.reduce((s, x) => s + x.monto, 0), segments };
-  });
-  const familiasLeyenda = FAMILIAS_INGRESO.filter((f) => (famTotal.get(f) ?? 0) > 0).map((f) => ({ nombre: f, total: famTotal.get(f)! }));
+  const familiasIngreso = FAMILIAS_INGRESO.map((f) => ({ nombre: f, total: famTotal.get(f) ?? 0 }))
+    .filter((t) => t.total > 0)
+    .sort((a, b) => b.total - a.total);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
   // ───────── Cartera (saldos pendientes de todos los clientes) ─────────
@@ -256,7 +253,7 @@ export async function SuperadminDashboard({ periodo, nombre }: { periodo: Period
         </CardHeader>
         <CardContent>
           {periodTotal > 0 ? (
-            <IngresosChart buckets={bucketData} familias={familiasLeyenda} />
+            <IngresosChart familias={familiasIngreso} total={periodTotal} />
           ) : (
             <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Concilia pagos en la bolsa de pagos para verlos aquí." />
           )}
