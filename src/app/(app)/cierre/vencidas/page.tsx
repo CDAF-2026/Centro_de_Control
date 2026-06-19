@@ -3,6 +3,8 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CalendarCheck } from "lucide-react";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -66,7 +68,7 @@ export default async function ClasesVencidasPage() {
       </div>
 
       {vencidas.length === 0 ? (
-        <p className="text-muted-foreground">No hay clases vencidas. 🎉</p>
+        <EmptyState icon={CalendarCheck} title="No hay clases vencidas" description="Todo se cerró a tiempo. 🎉" />
       ) : (
         <div className="space-y-2">
           {vencidas.map((c) => {

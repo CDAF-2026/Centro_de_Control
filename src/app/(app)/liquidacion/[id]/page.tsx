@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CalendarCheck } from "lucide-react";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -167,8 +169,8 @@ export default async function LiquidacionDetallePage({
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-muted-foreground px-3 py-6 text-center">
-                  No hay clases cerradas {todas ? "" : "en este periodo"}.
+                <td colSpan={8}>
+                  <EmptyState icon={CalendarCheck} title={`No hay clases cerradas${todas ? "" : " en este periodo"}`} />
                 </td>
               </tr>
             )}

@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { ClienteAutocomplete } from "@/components/cliente-autocomplete";
 import { CierreToast } from "./cierre-toast";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CalendarCheck } from "lucide-react";
 
 export default async function CierrePage({
   searchParams,
@@ -104,9 +106,11 @@ export default async function CierrePage({
       )}
 
       {lista.length === 0 && (
-        <p className="text-muted-foreground">
-          {hayFiltro ? "No hay clases pendientes con esos filtros." : "No hay clases pendientes. 🎾"}
-        </p>
+        <EmptyState
+          icon={CalendarCheck}
+          title={hayFiltro ? "No hay clases pendientes con esos filtros" : "No hay clases pendientes"}
+          description={hayFiltro ? "Prueba quitar los filtros." : "¡Todo al día! 🎾"}
+        />
       )}
 
       <div className="space-y-2">

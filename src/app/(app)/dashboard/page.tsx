@@ -16,6 +16,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -181,10 +182,11 @@ export default async function DashboardPage() {
               ))}
             </ul>
           ) : (
-            <div className="text-muted-foreground flex flex-col items-center gap-2 py-8 text-center text-sm">
-              <CalendarClock className="size-7 opacity-40" />
-              No hay clases próximas.
-            </div>
+            <EmptyState
+              icon={CalendarClock}
+              title="No hay clases próximas"
+              description="Cuando programes clases aparecerán aquí."
+            />
           )}
         </CardContent>
       </Card>

@@ -3,6 +3,8 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { CatalogoForm } from "./catalogo-form";
 import { CatalogoCard } from "./catalogo-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Package } from "lucide-react";
 
 export default async function PaquetesPage() {
   const profile = await requireRole(rolesForModule("paquetes"));
@@ -27,9 +29,9 @@ export default async function PaquetesPage() {
           <CatalogoCard key={p.id} paquete={p} puedeConfig={puedeConfig} />
         ))}
         {(!catalogo || catalogo.length === 0) && (
-          <p className="text-muted-foreground col-span-full py-6 text-center">
-            Sin paquetes configurados.
-          </p>
+          <div className="col-span-full">
+            <EmptyState icon={Package} title="Sin paquetes configurados" description="Crea el primero más abajo." />
+          </div>
         )}
       </div>
 

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { ReabrirButton } from "./reabrir-button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ClipboardCheck } from "lucide-react";
 
 const EST: Record<string, { label: string; variant: "secondary" | "outline" | "destructive" }> = {
   realizada: { label: "Realizada", variant: "secondary" },
@@ -123,7 +125,9 @@ export default async function ClasesCerradasPage({
             })}
             {lista.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-muted-foreground px-3 py-6 text-center">No hay clases cerradas con esos filtros.</td>
+                <td colSpan={6}>
+                  <EmptyState icon={ClipboardCheck} title="No hay clases cerradas" description="Prueba quitar los filtros." />
+                </td>
               </tr>
             )}
           </tbody>

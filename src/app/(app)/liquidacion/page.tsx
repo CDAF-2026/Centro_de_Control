@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Users } from "lucide-react";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -123,7 +125,9 @@ export default async function LiquidacionPage({
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-muted-foreground px-4 py-6 text-center">No hay profesores.</td>
+                <td colSpan={6}>
+                  <EmptyState icon={Users} title="No hay profesores para liquidar" description="Cuando se cierren clases en el periodo, aparecerán aquí." />
+                </td>
               </tr>
             )}
           </tbody>

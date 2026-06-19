@@ -4,6 +4,8 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { correoVisible } from "@/lib/empleado";
@@ -81,8 +83,8 @@ export default async function EmpleadosPage({
             })}
             {(!empleados || empleados.length === 0) && (
               <tr>
-                <td colSpan={4} className="text-muted-foreground px-4 py-6 text-center">
-                  Sin empleados que coincidan.
+                <td colSpan={4}>
+                  <EmptyState icon={Users} title="Sin empleados que coincidan" description="Ajusta la búsqueda o agrega un nuevo empleado." />
                 </td>
               </tr>
             )}

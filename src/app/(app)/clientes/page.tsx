@@ -6,6 +6,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SyncClientesButton } from "./sync-clientes-button";
 import { ClienteBuscador } from "./cliente-buscador";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Users } from "lucide-react";
 
 const PAGE_SIZE = 30;
 
@@ -123,8 +125,8 @@ export default async function ClientesPage({
             ))}
             {(!clientes || clientes.length === 0) && (
               <tr>
-                <td colSpan={4} className="text-muted-foreground px-4 py-6 text-center">
-                  Sin clientes que coincidan.
+                <td colSpan={4}>
+                  <EmptyState icon={Users} title="Sin clientes que coincidan" description="Ajusta la búsqueda o agrega un nuevo cliente." />
                 </td>
               </tr>
             )}

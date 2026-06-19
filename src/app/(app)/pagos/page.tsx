@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { DemoButton } from "./demo-button";
 import { PagoManualForm } from "./pago-manual-form";
 import { AsignarForm } from "./asignar-form";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Wallet } from "lucide-react";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const CENTRO_LABEL: Record<string, string> = {
@@ -69,7 +71,7 @@ export default async function PagosPage() {
             </div>
           ))}
           {(!sinAsignar || sinAsignar.length === 0) && (
-            <p className="text-muted-foreground text-sm">No hay pagos por conciliar.</p>
+            <EmptyState icon={Wallet} title="No hay pagos por conciliar" description="Importa pagos o agrega uno manual." />
           )}
         </div>
       </section>
