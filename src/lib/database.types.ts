@@ -29,6 +29,7 @@ export type PaqueteEstado = "activo" | "agotado" | "vencido";
 export type CentroCostos = "clase_particular" | "cafeteria" | "academia_tenis" | "academia_padel" | "otro";
 export type PagoEstado = "sin_asignar" | "asignado";
 export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
+export type AsistenciaEstado = "presente" | "ausente" | "excusa_medica" | "reposicion";
 
 export type Database = {
   public: {
@@ -323,6 +324,7 @@ export type Database = {
           plan_frecuencia: number;
           descuento_pct: number;
           fecha_inscripcion: string;
+          dias: number[];
           activa: boolean;
           created_at: string;
         };
@@ -333,6 +335,7 @@ export type Database = {
           plan_frecuencia: number;
           descuento_pct?: number;
           fecha_inscripcion?: string;
+          dias?: number[];
           activa?: boolean;
           created_at?: string;
         };
@@ -436,6 +439,7 @@ export type Database = {
           descuento_pct: number;
           estado: ClaseEstado;
           registrada_por: string | null;
+          asistentes_no_registrados: string | null;
           easycancha_booking_id: string | null;
           created_at: string;
           updated_at: string;
@@ -458,6 +462,7 @@ export type Database = {
           descuento_pct?: number;
           estado?: ClaseEstado;
           registrada_por?: string | null;
+          asistentes_no_registrados?: string | null;
           easycancha_booking_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -471,6 +476,7 @@ export type Database = {
           clase_id: number;
           cliente_id: number;
           presente: boolean;
+          estado: AsistenciaEstado;
           registrado_por: string | null;
           registrado_at: string;
         };
@@ -479,6 +485,7 @@ export type Database = {
           clase_id: number;
           cliente_id: number;
           presente?: boolean;
+          estado?: AsistenciaEstado;
           registrado_por?: string | null;
           registrado_at?: string;
         };
@@ -598,6 +605,7 @@ export type Database = {
       centro_costos: CentroCostos;
       pago_estado: PagoEstado;
       compensacion_tipo: CompensacionTipo;
+      asistencia_estado: AsistenciaEstado;
     };
     CompositeTypes: Record<string, never>;
   };
