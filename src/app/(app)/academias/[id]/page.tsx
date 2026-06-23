@@ -36,7 +36,7 @@ export default async function AcademiaDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, cliente_id, plan_frecuencia, descuento_pct")
+    .select("id, cliente_id, plan_frecuencia, descuento_pct, dias")
     .eq("academia_id", academiaId);
   const clienteIds = (inscripciones ?? []).map((i) => i.cliente_id);
   const { data: inscritosClientes } = clienteIds.length
@@ -153,6 +153,9 @@ export default async function AcademiaDetallePage({
                 <li key={i.id} className="flex items-center justify-between py-2">
                   <span>{nombrePorId.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`}</span>
                   <span className="text-muted-foreground">
+                    {i.dias && i.dias.length > 0 && (
+                      <>{[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · </>
+                    )}
                     {i.plan_frecuencia}×sem
                     {i.descuento_pct > 0 && ` · ${i.descuento_pct}% desc.`}
                   </span>
@@ -164,7 +167,7 @@ export default async function AcademiaDetallePage({
           )}
           {puedeInscribir && (
             <div className="border-t pt-4">
-              <InscribirForm academiaId={academiaId} />
+              <InscribirForm academiaId={academiaId} diasAcademia={a.dias_semana ?? []} />
             </div>
           )}
         </CardContent>

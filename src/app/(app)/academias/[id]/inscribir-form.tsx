@@ -8,9 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initial: AcademiaFormState = {};
+const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-export function InscribirForm({ academiaId }: { academiaId: number }) {
+export function InscribirForm({
+  academiaId,
+  diasAcademia,
+}: {
+  academiaId: number;
+  diasAcademia: number[];
+}) {
   const [state, action, pending] = useActionState(inscribirCliente, initial);
+  const dias = diasAcademia.length > 0 ? [...diasAcademia].sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 0];
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
@@ -30,6 +38,17 @@ export function InscribirForm({ academiaId }: { academiaId: number }) {
       <div className="space-y-1.5">
         <Label htmlFor="descuento">Desc. %</Label>
         <Input id="descuento" name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Días que asiste</Label>
+        <div className="flex flex-wrap items-center gap-2 py-1.5">
+          {dias.map((d) => (
+            <label key={d} className="flex items-center gap-1 text-sm">
+              <input type="checkbox" name="dias" value={d} className="accent-primary size-4" />
+              {DIA_LABEL[d]}
+            </label>
+          ))}
+        </div>
       </div>
       <Button type="submit" disabled={pending}>Inscribir</Button>
       {state.error && <p className="text-destructive w-full text-sm">{state.error}</p>}

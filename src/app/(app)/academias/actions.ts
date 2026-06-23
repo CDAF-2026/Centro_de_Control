@@ -81,6 +81,10 @@ export async function inscribirCliente(
   const clienteId = Number(formData.get("clienteId"));
   const plan = Number(formData.get("plan"));
   const descuento = Number(formData.get("descuento") || 0);
+  const dias = formData
+    .getAll("dias")
+    .map((d) => Number(d))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
   if (!clienteId) return { error: "Selecciona un cliente." };
   if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
   if (descuento < 0 || descuento > 100) return { error: "Descuento inválido." };
@@ -91,6 +95,7 @@ export async function inscribirCliente(
     cliente_id: clienteId,
     plan_frecuencia: plan,
     descuento_pct: descuento,
+    dias,
   });
   if (error) {
     return {
