@@ -131,6 +131,45 @@ export async function updateValorClase(
   return {};
 }
 
+/** Guarda la compensación del profesor (tipo + montos) y el valor por alumno de sus academias. */
+export async function guardarCompensacion(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin", "coord_admin"]);
+
+  const profesorId = String(formData.get("profesorId") || "");
+  const tipo = String(formData.get("tipo") || "");
+  if (!profesorId) return { error: "Falta el profesor." };
+  if (!["por_clase", "fijo_comision", "fisico"].includes(tipo)) return { error: "Tipo de compensación inválido." };
+
+  const num = (k: string) => Math.max(0, Math.round(Number(formData.get(k)) || 0));
+  const pct = Math.min(100, Math.max(0, Number(formData.get("pct_clase")) || 0));
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("profesor_compensacion").upsert({
+    profesor_id: profesorId,
+    tipo: tipo as "por_clase" | "fijo_comision" | "fisico",
+    pct_clase: pct,
+    salario_fijo: num("salario_fijo"),
+    pago_asistencia: num("pago_asistencia"),
+    comision_quincenal: num("comision_quincenal"),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) return { error: error.message };
+
+  // Valor por alumno de cada academia (campos academia_<id>).
+  for (const [k, v] of formData.entries()) {
+    if (!k.startsWith("academia_")) continue;
+    const acaId = Number(k.slice("academia_".length));
+    if (acaId) await supabase.from("academias").update({ valor_alumno: Math.max(0, Math.round(Number(v) || 0)) }).eq("id", acaId);
+  }
+
+  await logAudit({ action: "compensacion.update", entity: "profesor_compensacion", entityId: profesorId, after: { tipo } });
+  revalidatePath(`/empleados/${profesorId}`);
+  return { ok: "Compensación guardada." };
+}
+
 /** Edita datos del empleado (nombre, correo, documento, teléfono). Solo superadministrador. */
 export async function updateEmpleado(
   _prev: EmpleadoFormState,

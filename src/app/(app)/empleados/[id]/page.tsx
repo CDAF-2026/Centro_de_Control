@@ -7,21 +7,16 @@ import { ROLE_LABEL } from "@/lib/roles";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ValorClaseForm } from "./valor-form";
+import { CompensacionForm, type Comp } from "./compensacion-form";
 import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
 import { correoVisible } from "@/lib/empleado";
-
-const COP = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
 
 export default async function EmpleadoDetallePage({
   params,
@@ -55,18 +50,32 @@ export default async function EmpleadoDetallePage({
     }),
   );
 
-  let historial: { valor: number; vigente_desde: string }[] = [];
-  if (emp.role === "profesor") {
-    const { data } = await supabase
-      .from("profesor_valor_clase")
-      .select("valor, vigente_desde")
-      .eq("profesor_id", id)
-      .order("vigente_desde", { ascending: false });
-    historial = data ?? [];
-  }
-  const valorActual = historial[0]?.valor ?? null;
   const esSuperadmin = profile.role === "superadmin";
   const esAdmin = esSuperadmin || profile.role === "coord_admin";
+
+  let comp: Comp | null = null;
+  let misAcademias: { id: number; nombre: string; valor_alumno: number }[] = [];
+  if (emp.role === "profesor") {
+    const { data: c } = await supabase
+      .from("profesor_compensacion")
+      .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal")
+      .eq("profesor_id", id)
+      .maybeSingle();
+    comp = c ?? null;
+    const { data: acs } = await supabase
+      .from("academias")
+      .select("id, nombre, valor_alumno")
+      .eq("profesor_id", id)
+      .order("nombre");
+    misAcademias = acs ?? [];
+  }
+  const compDefault: Comp = comp ?? {
+    tipo: "por_clase",
+    pct_clase: 0,
+    salario_fijo: 0,
+    pago_asistencia: 0,
+    comision_quincenal: 0,
+  };
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -126,27 +135,14 @@ export default async function EmpleadoDetallePage({
       {emp.role === "profesor" && (
         <Card>
           <CardHeader>
-            <CardTitle>Valor por hora</CardTitle>
+            <CardTitle>Compensación</CardTitle>
+            <CardDescription>Cómo se le liquida a este profesor.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-2xl font-semibold">
-              {valorActual != null ? `${COP.format(valorActual)} / hora` : "Sin definir"}
-            </p>
-
-            {esSuperadmin && <ValorClaseForm profesorId={emp.id} />}
-
-            {historial.length > 0 && (
-              <div>
-                <p className="text-muted-foreground mb-1 text-sm">Historial</p>
-                <ul className="text-sm">
-                  {historial.map((h, i) => (
-                    <li key={i} className="flex justify-between border-b py-1 last:border-0">
-                      <span>{COP.format(h.valor)}</span>
-                      <span className="text-muted-foreground">desde {h.vigente_desde}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <CardContent>
+            {esAdmin ? (
+              <CompensacionForm profesorId={emp.id} comp={compDefault} academias={misAcademias} />
+            ) : (
+              <p className="text-muted-foreground text-sm">Solo administración puede ver o editar la compensación.</p>
             )}
           </CardContent>
         </Card>
