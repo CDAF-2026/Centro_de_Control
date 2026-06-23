@@ -28,6 +28,7 @@ export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido";
 export type CentroCostos = "clase_particular" | "cafeteria" | "academia_tenis" | "academia_padel" | "otro";
 export type PagoEstado = "sin_asignar" | "asignado";
+export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
 
 export type Database = {
   public: {
@@ -90,6 +91,28 @@ export type Database = {
           created_by?: string | null;
           created_at?: string;
         };
+        Relationships: [];
+      };
+      profesor_compensacion: {
+        Row: {
+          profesor_id: string;
+          tipo: CompensacionTipo;
+          pct_clase: number;
+          salario_fijo: number;
+          pago_asistencia: number;
+          comision_quincenal: number;
+          updated_at: string;
+        };
+        Insert: {
+          profesor_id: string;
+          tipo?: CompensacionTipo;
+          pct_clase?: number;
+          salario_fijo?: number;
+          pago_asistencia?: number;
+          comision_quincenal?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["profesor_compensacion"]["Insert"]>;
         Relationships: [];
       };
       acudientes: {
@@ -263,6 +286,7 @@ export type Database = {
           dias_semana: number[];
           hora_inicio: string | null;
           hora_fin: string | null;
+          valor_alumno: number;
           activa: boolean;
           created_at: string;
           updated_at: string;
@@ -283,6 +307,7 @@ export type Database = {
           dias_semana?: number[];
           hora_inicio?: string | null;
           hora_fin?: string | null;
+          valor_alumno?: number;
           activa?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -407,6 +432,7 @@ export type Database = {
           hora_inicio: string | null;
           hora_fin: string | null;
           precio: number | null;
+          valor_facturado: number | null;
           descuento_pct: number;
           estado: ClaseEstado;
           registrada_por: string | null;
@@ -428,6 +454,7 @@ export type Database = {
           hora_inicio?: string | null;
           hora_fin?: string | null;
           precio?: number | null;
+          valor_facturado?: number | null;
           descuento_pct?: number;
           estado?: ClaseEstado;
           registrada_por?: string | null;
@@ -570,6 +597,7 @@ export type Database = {
       paquete_estado: PaqueteEstado;
       centro_costos: CentroCostos;
       pago_estado: PagoEstado;
+      compensacion_tipo: CompensacionTipo;
     };
     CompositeTypes: Record<string, never>;
   };
