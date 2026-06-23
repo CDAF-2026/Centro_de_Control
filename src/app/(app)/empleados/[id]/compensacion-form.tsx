@@ -17,19 +17,12 @@ export type Comp = {
   salario_fijo: number;
   pago_asistencia: number;
   comision_quincenal: number;
+  valor_alumno_academia: number;
 };
 
-/** Configura la compensación del profesor: tipo + campos + valor por alumno de sus academias.
+/** Configura la compensación del profesor: tipo + campos + valor por alumno en academias.
  *  Todos los inputs viajan siempre (los no aplicables van ocultos) para no perder valores. */
-export function CompensacionForm({
-  profesorId,
-  comp,
-  academias,
-}: {
-  profesorId: string;
-  comp: Comp;
-  academias: { id: number; nombre: string; valor_alumno: number }[];
-}) {
+export function CompensacionForm({ profesorId, comp }: { profesorId: string; comp: Comp }) {
   const [state, action, pending] = useActionState(guardarCompensacion, init);
   const [tipo, setTipo] = useState<CompensacionTipo>(comp.tipo);
 
@@ -38,7 +31,7 @@ export function CompensacionForm({
       <input type="hidden" name="profesorId" value={profesorId} />
 
       <div className="space-y-1.5">
-        <Label htmlFor="tipo">Tipo de compensación</Label>
+        <Label htmlFor="tipo">Tipo de compensación (clases particulares y paquetes)</Label>
         <select
           id="tipo"
           name="tipo"
@@ -76,26 +69,21 @@ export function CompensacionForm({
         </div>
       </div>
 
-      {academias.length > 0 && (
-        <div className="space-y-2 border-t pt-3">
-          <Label>Pago por alumno en academias</Label>
-          <p className="text-muted-foreground -mt-1 text-xs">
-            Lo que gana por cada alumno presente en cada una de sus academias.
-          </p>
-          {academias.map((a) => (
-            <div key={a.id} className="flex items-center justify-between gap-3">
-              <span className="text-sm">{a.nombre}</span>
-              <Input
-                name={`academia_${a.id}`}
-                type="number"
-                min={0}
-                defaultValue={String(a.valor_alumno)}
-                className="w-40"
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Academias: tarifa transversal por alumno (aplica a cualquier academia que dicte) */}
+      <div className="space-y-1.5 border-t pt-3">
+        <Label htmlFor="valor_alumno_academia">Valor por alumno en academias (COP)</Label>
+        <Input
+          id="valor_alumno_academia"
+          name="valor_alumno_academia"
+          type="number"
+          min={0}
+          defaultValue={String(comp.valor_alumno_academia)}
+          className="w-48"
+        />
+        <p className="text-muted-foreground text-xs">
+          Lo que gana por cada alumno presente, en cualquier academia que dicte.
+        </p>
+      </div>
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar compensación"}</Button>

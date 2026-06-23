@@ -154,16 +154,10 @@ export async function guardarCompensacion(
     salario_fijo: num("salario_fijo"),
     pago_asistencia: num("pago_asistencia"),
     comision_quincenal: num("comision_quincenal"),
+    valor_alumno_academia: num("valor_alumno_academia"),
     updated_at: new Date().toISOString(),
   });
   if (error) return { error: error.message };
-
-  // Valor por alumno de cada academia (campos academia_<id>).
-  for (const [k, v] of formData.entries()) {
-    if (!k.startsWith("academia_")) continue;
-    const acaId = Number(k.slice("academia_".length));
-    if (acaId) await supabase.from("academias").update({ valor_alumno: Math.max(0, Math.round(Number(v) || 0)) }).eq("id", acaId);
-  }
 
   await logAudit({ action: "compensacion.update", entity: "profesor_compensacion", entityId: profesorId, after: { tipo } });
   revalidatePath(`/empleados/${profesorId}`);

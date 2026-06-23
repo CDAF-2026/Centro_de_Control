@@ -102,6 +102,7 @@ export type Database = {
           salario_fijo: number;
           pago_asistencia: number;
           comision_quincenal: number;
+          valor_alumno_academia: number;
           updated_at: string;
         };
         Insert: {
@@ -111,6 +112,7 @@ export type Database = {
           salario_fijo?: number;
           pago_asistencia?: number;
           comision_quincenal?: number;
+          valor_alumno_academia?: number;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profesor_compensacion"]["Insert"]>;

@@ -54,20 +54,13 @@ export default async function EmpleadoDetallePage({
   const esAdmin = esSuperadmin || profile.role === "coord_admin";
 
   let comp: Comp | null = null;
-  let misAcademias: { id: number; nombre: string; valor_alumno: number }[] = [];
   if (emp.role === "profesor") {
     const { data: c } = await supabase
       .from("profesor_compensacion")
-      .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal")
+      .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal, valor_alumno_academia")
       .eq("profesor_id", id)
       .maybeSingle();
     comp = c ?? null;
-    const { data: acs } = await supabase
-      .from("academias")
-      .select("id, nombre, valor_alumno")
-      .eq("profesor_id", id)
-      .order("nombre");
-    misAcademias = acs ?? [];
   }
   const compDefault: Comp = comp ?? {
     tipo: "por_clase",
@@ -75,6 +68,7 @@ export default async function EmpleadoDetallePage({
     salario_fijo: 0,
     pago_asistencia: 0,
     comision_quincenal: 0,
+    valor_alumno_academia: 0,
   };
 
   return (
@@ -140,7 +134,7 @@ export default async function EmpleadoDetallePage({
           </CardHeader>
           <CardContent>
             {esAdmin ? (
-              <CompensacionForm profesorId={emp.id} comp={compDefault} academias={misAcademias} />
+              <CompensacionForm profesorId={emp.id} comp={compDefault} />
             ) : (
               <p className="text-muted-foreground text-sm">Solo administración puede ver o editar la compensación.</p>
             )}
