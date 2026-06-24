@@ -10,6 +10,7 @@ export type CalEvento = {
   profesor: string | null;
   deporte: "tenis" | "padel" | null;
   fuente: "interna" | "easycancha";
+  esAcademia: boolean;
   cancelada: boolean;
   chip: string; // etiqueta corta en la celda
   titulo: string; // título del modal
@@ -28,13 +29,15 @@ export type CalEvento = {
   };
 };
 
-/** Color de fondo del chip según deporte. */
-export function eventoBg(ev: { deporte: "tenis" | "padel" | null }) {
+/** Color de fondo del chip: academia tiene su propio color; el resto, por deporte. */
+export function eventoBg(ev: { deporte: "tenis" | "padel" | null; esAcademia?: boolean }) {
+  if (ev.esAcademia) return "bg-[#8b7cf6]/20";
   return ev.deporte === "tenis" ? "bg-chart-3/20" : ev.deporte === "padel" ? "bg-lime/30" : "bg-muted";
 }
 
-/** Color del punto/indicador según deporte. */
-export function eventoDot(ev: { deporte: "tenis" | "padel" | null }) {
+/** Color del punto/indicador: academia tiene su propio color; el resto, por deporte. */
+export function eventoDot(ev: { deporte: "tenis" | "padel" | null; esAcademia?: boolean }) {
+  if (ev.esAcademia) return "bg-[#8b7cf6]";
   return ev.deporte === "tenis" ? "bg-chart-3" : ev.deporte === "padel" ? "bg-lime" : "bg-muted-foreground";
 }
 

@@ -131,6 +131,7 @@ export default async function ClasesPage({
       profesor,
       deporte: c.deporte,
       fuente: "interna",
+      esAcademia: c.tipo === "academia",
       cancelada: c.estado === "cancelada" || c.estado === "no_show",
       chip: `${hora} ${c.tipo === "academia" ? "Acad." : "Ind."}`,
       titulo,
@@ -176,6 +177,7 @@ export default async function ClasesPage({
         profesor,
         deporte: depB,
         fuente: "easycancha" as const,
+        esAcademia: false,
         cancelada: b.status === "CANCELLED" || b.status === "EXCHANGED",
         chip: `${hora} ${b.userLastName || b.userFirstName || b.sportName || "Reserva"}`,
         titulo: nombre,
@@ -341,6 +343,7 @@ export default async function ClasesPage({
       <div className="text-muted-foreground flex flex-wrap gap-4 text-xs">
         <span><span className="bg-chart-3/40 mr-1 inline-block size-3 rounded align-middle" /> Tenis</span>
         <span><span className="bg-lime/60 mr-1 inline-block size-3 rounded align-middle" /> Pádel</span>
+        <span><span className="mr-1 inline-block size-3 rounded bg-[#8b7cf6]/60 align-middle" /> Academia</span>
         <span><span className="border-foreground/40 mr-1 inline-block size-3 rounded border-l-2 align-middle" /> Reserva EasyCancha</span>
         <span className="line-through opacity-60">Cancelada</span>
         {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
