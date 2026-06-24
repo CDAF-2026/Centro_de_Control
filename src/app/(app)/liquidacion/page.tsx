@@ -1,84 +1,36 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
-import { createClient } from "@/lib/supabase/server";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Users } from "lucide-react";
+import { calcularLiquidacion, rangoPeriodoLiq } from "@/lib/liquidacion";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const SELECT = "border-input bg-background h-9 rounded-md border px-3 text-sm";
 
-/** Horas de una clase a partir de hora_inicio/hora_fin (HH:MM[:SS]). Default 1h. */
-export function horasClase(ini: string | null, fin: string | null): number {
-  if (!ini || !fin) return 1;
-  const [h1, m1] = ini.split(":").map(Number);
-  const [h2, m2] = fin.split(":").map(Number);
-  const mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
-  return mins > 0 ? mins / 60 : 1;
-}
-
-function rangoMesActual() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  return {
-    desde: new Date(y, m, 1).toISOString().slice(0, 10),
-    hasta: new Date(y, m + 1, 0).toISOString().slice(0, 10),
-  };
+function ymActual() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export default async function LiquidacionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
+  searchParams: Promise<{ periodo?: string; ym?: string }>;
 }) {
   await requireRole(rolesForModule("liquidacion"));
   const sp = await searchParams;
-  const def = rangoMesActual();
-  const desde = sp.desde || def.desde;
-  const hasta = sp.hasta || def.hasta;
+  const periodo = sp.periodo === "q1" || sp.periodo === "q2" ? sp.periodo : "mes";
+  const ym = /^\d{4}-\d{2}$/.test(sp.ym ?? "") ? sp.ym! : ymActual();
+  const { desde, hasta, quincenas } = rangoPeriodoLiq(periodo, ym);
 
-  const supabase = await createClient();
-  const { data: profesores } = await supabase
-    .from("profiles")
-    .select("id, nombre")
-    .eq("role", "profesor")
-    .order("nombre");
-
-  const { data: valores } = await supabase
-    .from("profesor_valor_clase")
-    .select("profesor_id, valor, vigente_desde")
-    .order("vigente_desde", { ascending: false });
-  const valorPorProfesor = new Map<string, number>();
-  for (const v of valores ?? []) {
-    if (!valorPorProfesor.has(v.profesor_id)) valorPorProfesor.set(v.profesor_id, v.valor);
-  }
-
-  // "Lo que no está marcado no se paga": solo clases realizadas.
-  const { data: realizadas } = await supabase
-    .from("clases")
-    .select("profesor_id, hora_inicio, hora_fin")
-    .eq("estado", "realizada")
-    .gte("fecha", desde)
-    .lte("fecha", hasta);
-  const conteo = new Map<string, { clases: number; horas: number }>();
-  for (const c of realizadas ?? []) {
-    if (!c.profesor_id) continue;
-    const acc = conteo.get(c.profesor_id) ?? { clases: 0, horas: 0 };
-    acc.clases += 1;
-    acc.horas += horasClase(c.hora_inicio, c.hora_fin);
-    conteo.set(c.profesor_id, acc);
-  }
-
-  const filas = (profesores ?? []).map((p) => {
-    const acc = conteo.get(p.id) ?? { clases: 0, horas: 0 };
-    const valor = valorPorProfesor.get(p.id) ?? 0;
-    return { id: p.id, nombre: p.nombre ?? "—", clases: acc.clases, horas: acc.horas, valor, total: acc.horas * valor };
-  });
+  const filas = await calcularLiquidacion(desde, hasta, quincenas);
+  const conMovim = filas.filter((f) => f.clases > 0 || f.total > 0);
   const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
-  const qs = `?desde=${desde}&hasta=${hasta}`;
+  const qs = `?periodo=${periodo}&ym=${ym}`;
 
   return (
     <div className="space-y-6">
@@ -86,12 +38,16 @@ export default async function LiquidacionPage({
 
       <form className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="desde">Desde</Label>
-          <Input id="desde" name="desde" type="date" defaultValue={desde} />
+          <Label htmlFor="periodo">Periodo</Label>
+          <select id="periodo" name="periodo" defaultValue={periodo} className={SELECT}>
+            <option value="mes">Mes completo</option>
+            <option value="q1">Quincena 1 (1–15)</option>
+            <option value="q2">Quincena 2 (16–fin)</option>
+          </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="hasta">Hasta</Label>
-          <Input id="hasta" name="hasta" type="date" defaultValue={hasta} />
+          <Label htmlFor="ym">Mes</Label>
+          <input id="ym" name="ym" type="month" defaultValue={ym} className={SELECT} />
         </div>
         <button type="submit" className={buttonVariants()}>Calcular</button>
       </form>
@@ -100,49 +56,51 @@ export default async function LiquidacionPage({
         <table className="cdaf-table">
           <thead>
             <tr>
-              <th className="px-4 py-2 font-semibold">Profesor</th>
-              <th className="px-4 py-2 text-right font-semibold">Clases</th>
-              <th className="px-4 py-2 text-right font-semibold">Horas</th>
-              <th className="px-4 py-2 text-right font-semibold">Valor/hora</th>
-              <th className="px-4 py-2 text-right font-semibold">Total a liquidar</th>
+              <th className="px-4 py-2">Profesor</th>
+              <th className="px-4 py-2">Tipo</th>
+              <th className="px-4 py-2 text-right">Clases</th>
+              <th className="px-4 py-2 text-right">Variable</th>
+              <th className="px-4 py-2 text-right">Fijo / comisión</th>
+              <th className="px-4 py-2 text-right">Total a liquidar</th>
               <th className="px-4 py-2" />
             </tr>
           </thead>
           <tbody>
-            {filas.map((f) => (
-              <tr key={f.id} className="border-t">
-                <td className="px-4 py-2 font-medium">{f.nombre}</td>
-                <td className="px-4 py-2 text-right">{f.clases}</td>
-                <td className="px-4 py-2 text-right">{f.horas.toLocaleString("es-CO", { maximumFractionDigits: 1 })}</td>
-                <td className="px-4 py-2 text-right">{COP.format(f.valor)}</td>
-                <td className="px-4 py-2 text-right font-medium">{COP.format(f.total)}</td>
-                <td className="px-4 py-2 text-right">
+            {conMovim.map((f) => (
+              <tr key={f.id}>
+                <td className="px-4 py-2.5 font-medium">{f.nombre}</td>
+                <td className="px-4 py-2.5"><Badge variant="outline">{f.tipoLabel}</Badge></td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{f.clases}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(f.variable)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(f.fijo + f.comision)}</td>
+                <td className="px-4 py-2.5 text-right font-medium tabular-nums">{COP.format(f.total)}</td>
+                <td className="px-4 py-2.5 text-right">
                   <Link href={`/liquidacion/${f.id}${qs}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                     Ver detalle
                   </Link>
                 </td>
               </tr>
             ))}
-            {filas.length === 0 && (
+            {conMovim.length === 0 && (
               <tr>
-                <td colSpan={6}>
-                  <EmptyState icon={Users} title="No hay profesores para liquidar" description="Cuando se cierren clases en el periodo, aparecerán aquí." />
+                <td colSpan={7}>
+                  <EmptyState icon={Users} title="No hay nada que liquidar en el periodo" description="Solo se cuentan clases cerradas como realizadas." />
                 </td>
               </tr>
             )}
           </tbody>
           <tfoot>
             <tr className="border-t-2 font-semibold">
-              <td className="px-4 py-2" colSpan={4}>Total del periodo</td>
-              <td className="px-4 py-2 text-right">{COP.format(totalGeneral)}</td>
-              <td className="px-4 py-2" />
+              <td className="px-4 py-2.5" colSpan={5}>Total del periodo</td>
+              <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(totalGeneral)}</td>
+              <td className="px-4 py-2.5" />
             </tr>
           </tfoot>
         </table>
       </div>
       <p className="text-muted-foreground text-xs">
-        Solo se cuentan clases <strong>registradas como realizadas</strong>. Total = horas × valor/hora vigente
-        del profesor. Entra al detalle para ver cada clase.
+        Particular/paquete = <strong>% × valor facturado</strong> · academia = <strong>alumnos × tarifa del profesor</strong> ·
+        físico = asistentes × pago. Los montos fijos se prorratean (quincena = mitad del mensual). Solo clases <strong>realizadas</strong>.
       </p>
     </div>
   );

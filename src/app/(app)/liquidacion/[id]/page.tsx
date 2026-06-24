@@ -1,190 +1,114 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
-import { createClient } from "@/lib/supabase/server";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
+import { calcularLiquidacion, rangoPeriodoLiq } from "@/lib/liquidacion";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-function horasClase(ini: string | null, fin: string | null): number {
-  if (!ini || !fin) return 1;
-  const [h1, m1] = ini.split(":").map(Number);
-  const [h2, m2] = fin.split(":").map(Number);
-  const mins = (h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0));
-  return mins > 0 ? mins / 60 : 1;
+function ymActual() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-
-function rangoMesActual() {
-  const now = new Date();
-  return {
-    desde: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10),
-    hasta: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10),
-  };
-}
-
-const TIPO_VARIANT: Record<string, "secondary" | "outline" | "default"> = {
-  Paquete: "default",
-  Particular: "secondary",
-  Libre: "outline",
-};
 
 export default async function LiquidacionDetallePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ desde?: string; hasta?: string; todas?: string }>;
+  searchParams: Promise<{ periodo?: string; ym?: string }>;
 }) {
   await requireRole(rolesForModule("liquidacion"));
   const { id } = await params;
   const sp = await searchParams;
-  const def = rangoMesActual();
-  const desde = sp.desde || def.desde;
-  const hasta = sp.hasta || def.hasta;
-  const todas = sp.todas === "1";
+  const periodo = sp.periodo === "q1" || sp.periodo === "q2" ? sp.periodo : "mes";
+  const ym = /^\d{4}-\d{2}$/.test(sp.ym ?? "") ? sp.ym! : ymActual();
+  const { desde, hasta, quincenas } = rangoPeriodoLiq(periodo, ym);
 
-  const supabase = await createClient();
-  const { data: profe } = await supabase.from("profiles").select("id, nombre").eq("id", id).maybeSingle();
-  const { data: valores } = await supabase
-    .from("profesor_valor_clase")
-    .select("valor, vigente_desde")
-    .eq("profesor_id", id)
-    .order("vigente_desde", { ascending: false })
-    .limit(1);
-  const valorHora = valores?.[0]?.valor ?? 0;
-
-  let q = supabase
-    .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, tipo, deporte, cancha, cliente_id, academia_id, paquete_cliente_id")
-    .eq("profesor_id", id)
-    .eq("estado", "realizada")
-    .order("fecha", { ascending: false });
-  if (!todas) q = q.gte("fecha", desde).lte("fecha", hasta);
-  const { data: clases } = await q;
-  const lista = clases ?? [];
-
-  const cliIds = [...new Set(lista.map((c) => c.cliente_id).filter((x): x is number => x != null))];
-  const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
-  const cliName = new Map<number, string>();
-  if (cliIds.length) {
-    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
-    for (const c of data ?? []) cliName.set(c.id, `${c.nombres} ${c.apellidos}`);
-  }
-  const acaName = new Map<number, string>();
-  if (acaIds.length) {
-    const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
-    for (const a of data ?? []) acaName.set(a.id, a.nombre);
-  }
-
-  const filas = lista.map((c) => {
-    const horas = horasClase(c.hora_inicio, c.hora_fin);
-    const tipo = c.paquete_cliente_id ? "Paquete" : c.tipo === "individual" && c.cliente_id ? "Particular" : "Libre";
-    const cliente =
-      c.tipo === "academia"
-        ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
-        : c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "—";
-    return {
-      id: c.id,
-      fecha: c.fecha,
-      hora: `${c.hora_inicio?.slice(0, 5) ?? ""}${c.hora_fin ? `–${c.hora_fin.slice(0, 5)}` : ""}`,
-      horas,
-      tipo,
-      cliente,
-      deporte: c.deporte ?? "—",
-      cancha: c.cancha ?? "—",
-      valor: horas * valorHora,
-    };
-  });
-  const totalHoras = filas.reduce((s, f) => s + f.horas, 0);
-  const total = filas.reduce((s, f) => s + f.valor, 0);
-
-  const qsRange = `?desde=${desde}&hasta=${hasta}`;
+  const filas = await calcularLiquidacion(desde, hasta, quincenas);
+  const prof = filas.find((f) => f.id === id);
+  if (!prof) notFound();
+  const qs = `?periodo=${periodo}&ym=${ym}`;
 
   return (
     <div className="space-y-6">
       <div>
-        <Link href={`/liquidacion${qsRange}`} className="text-muted-foreground text-sm hover:underline">
+        <Link href={`/liquidacion${qs}`} className="text-muted-foreground text-sm hover:underline">
           ← Liquidación
         </Link>
-        <h1 className="cdaf-headline mt-1">{profe?.nombre ?? "Profesor"}</h1>
-        <p className="text-muted-foreground text-sm">
-          Valor/hora: <strong>{COP.format(valorHora)}</strong> · {todas ? "Todas las clases cerradas" : "Periodo seleccionado"}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <form className="flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="desde">Desde</Label>
-            <Input id="desde" name="desde" type="date" defaultValue={desde} disabled={todas} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="hasta">Hasta</Label>
-            <Input id="hasta" name="hasta" type="date" defaultValue={hasta} disabled={todas} />
-          </div>
-          <button type="submit" className={buttonVariants()} disabled={todas}>Calcular</button>
-        </form>
-        {todas ? (
-          <Link href={`/liquidacion/${id}${qsRange}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Ver por periodo
-          </Link>
-        ) : (
-          <Link href={`/liquidacion/${id}?todas=1`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Ver todas las clases cerradas
-          </Link>
-        )}
+        <h1 className="cdaf-headline mt-1">{prof.nombre}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="outline">{prof.tipoLabel}</Badge>
+          <span className="text-muted-foreground">
+            {desde} a {hasta} · {prof.clases} clase(s)
+          </span>
+        </div>
       </div>
 
       <div className="cdaf-table-wrap">
         <table className="cdaf-table">
           <thead>
             <tr>
-              <th className="px-3 py-2 font-semibold">Fecha</th>
-              <th className="px-3 py-2 font-semibold">Hora</th>
-              <th className="px-3 py-2 text-right font-semibold">Horas</th>
-              <th className="px-3 py-2 font-semibold">Tipo</th>
-              <th className="px-3 py-2 font-semibold">Cliente</th>
-              <th className="px-3 py-2 font-semibold">Deporte</th>
-              <th className="px-3 py-2 font-semibold">Cancha</th>
-              <th className="px-3 py-2 text-right font-semibold">Valor</th>
+              <th className="px-3 py-2">Fecha</th>
+              <th className="px-3 py-2">Cliente / Academia</th>
+              <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2">Base de cálculo</th>
+              <th className="px-3 py-2 text-right">A pagar</th>
             </tr>
           </thead>
           <tbody>
-            {filas.map((f) => (
-              <tr key={f.id} className="border-t">
-                <td className="px-3 py-2 tabular-nums">{f.fecha}</td>
-                <td className="px-3 py-2 tabular-nums">{f.hora}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{f.horas.toLocaleString("es-CO", { maximumFractionDigits: 1 })}</td>
-                <td className="px-3 py-2"><Badge variant={TIPO_VARIANT[f.tipo]}>{f.tipo}</Badge></td>
-                <td className="px-3 py-2">{f.cliente}</td>
-                <td className="px-3 py-2 capitalize">{f.deporte}</td>
-                <td className="px-3 py-2">{f.cancha}</td>
-                <td className="px-3 py-2 text-right tabular-nums">{COP.format(f.valor)}</td>
+            {prof.lineas.map((l) => (
+              <tr key={l.claseId}>
+                <td className="px-3 py-2.5 tabular-nums">
+                  {l.fecha}
+                  {l.hora ? ` ${l.hora.slice(0, 5)}` : ""}
+                </td>
+                <td className="px-3 py-2.5">{l.detalle}</td>
+                <td className="px-3 py-2.5">{l.tipo === "academia" ? "Academia" : "Individual"}</td>
+                <td className="text-muted-foreground px-3 py-2.5 tabular-nums">{l.base}</td>
+                <td className="px-3 py-2.5 text-right font-medium tabular-nums">{COP.format(l.valorProfesor)}</td>
               </tr>
             ))}
-            {filas.length === 0 && (
+            {prof.lineas.length === 0 && (
               <tr>
-                <td colSpan={8}>
-                  <EmptyState icon={CalendarCheck} title={`No hay clases cerradas${todas ? "" : " en este periodo"}`} />
+                <td colSpan={5}>
+                  <EmptyState icon={CalendarCheck} title="Sin clases realizadas en el periodo" />
                 </td>
               </tr>
             )}
           </tbody>
           <tfoot>
+            <tr className="border-t font-medium">
+              <td className="px-3 py-2" colSpan={4}>Variable (clases)</td>
+              <td className="px-3 py-2 text-right tabular-nums">{COP.format(prof.variable)}</td>
+            </tr>
+            {prof.fijo > 0 && (
+              <tr className="font-medium">
+                <td className="px-3 py-1" colSpan={4}>Salario fijo</td>
+                <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.fijo)}</td>
+              </tr>
+            )}
+            {prof.comision > 0 && (
+              <tr className="font-medium">
+                <td className="px-3 py-1" colSpan={4}>Comisión quincenal</td>
+                <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.comision)}</td>
+              </tr>
+            )}
             <tr className="border-t-2 font-semibold">
-              <td className="px-3 py-2" colSpan={2}>Total ({filas.length} clases)</td>
-              <td className="px-3 py-2 text-right tabular-nums">{totalHoras.toLocaleString("es-CO", { maximumFractionDigits: 1 })}</td>
-              <td className="px-3 py-2" colSpan={4} />
-              <td className="px-3 py-2 text-right tabular-nums">{COP.format(total)}</td>
+              <td className="px-3 py-2" colSpan={4}>Total a liquidar</td>
+              <td className="px-3 py-2 text-right tabular-nums">{COP.format(prof.total)}</td>
             </tr>
           </tfoot>
         </table>
       </div>
+
+      <p className="text-muted-foreground text-xs">
+        &ldquo;Base de cálculo&rdquo; muestra el valor facturado y el % (particular/paquete) o los alumnos × tarifa (academia).
+        Solo clases <strong>realizadas</strong>.
+      </p>
     </div>
   );
 }
