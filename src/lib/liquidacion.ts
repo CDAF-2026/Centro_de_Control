@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { valorPaquete } from "@/lib/finanzas";
 
-const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const TIPO_LABEL: Record<string, string> = {
   por_clase: "Por clase",
   fijo_comision: "Fijo + comisión",
@@ -12,31 +11,32 @@ export type LineaLiq = {
   claseId: number;
   fecha: string;
   hora: string | null;
-  tipo: "individual" | "academia";
-  detalle: string;
-  base: string;
-  valorFacturado: number;
-  alumnos: number | null;
-  valorProfesor: number;
+  tipoLabel: string; // Particular / Paquete / Academia
+  detalle: string; // cliente o academia
+  valorFacturado: number; // cobrado al cliente
+  valorProfesor: number; // a pagar al profesor
 };
 
 export type LiqProfesor = {
   id: string;
   nombre: string;
-  tipoLabel: string;
+  compLabel: string; // tipo de compensación
   clases: number;
+  facturado: number; // total cobrado a clientes
   variable: number;
   fijo: number;
   comision: number;
-  total: number;
+  total: number; // total a liquidar
   lineas: LineaLiq[];
 };
 
 /**
  * Liquidación por profesor en un periodo. Solo clases REALIZADAS.
- *   - particular / paquete → % × valor facturado (facturado = precio, o precio paquete ÷ nº clases)
- *   - academia            → alumnos presentes × valor por alumno del profesor
- *   - físico (tipo de comp) → asistentes presentes × pago por asistencia
+ * Por cada clase calcula:
+ *   - Valor facturado (cobrado al cliente): academia = alumnos × (mensualidad ÷ días×4);
+ *     paquete = precio paquete ÷ nº clases; particular = precio de la clase.
+ *   - Valor a pagar al profesor (según su compensación): particular/paquete = % × facturado;
+ *     academia = alumnos × tarifa por alumno; físico = asistentes × pago.
  *   + salario fijo (fijo_comision) o comisión quincenal (físico), prorrateados por `quincenas`.
  */
 export async function calcularLiquidacion(desde: string, hasta: string, quincenas: number): Promise<LiqProfesor[]> {
@@ -67,7 +67,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     }
   }
 
-  // Valor por clase de cada paquete (precio final ÷ nº clases).
+  // Valor por clase de cada paquete.
   const valorClasePq = new Map<number, number>();
   const pqIds = [...new Set(clases.map((c) => c.paquete_cliente_id).filter((x): x is number => x != null))];
   if (pqIds.length) {
@@ -84,7 +84,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     }
   }
 
-  // Nombres para el detalle.
+  // Nombres de cliente + info de academia (nombre, precio, días) para detalle y valor facturado.
   const cliIds = [...new Set(clases.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
   const acaIds = [...new Set(clases.filter((c) => c.tipo === "academia").map((c) => c.academia_id).filter((x): x is number => x != null))];
   const cliName = new Map<number, string>();
@@ -92,10 +92,10 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
-  const acaName = new Map<number, string>();
+  const acaInfo = new Map<number, { nombre: string; precio: number; dias: number[] }>();
   if (acaIds.length) {
-    const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
-    for (const a of data ?? []) acaName.set(a.id, a.nombre);
+    const { data } = await supabase.from("academias").select("id, nombre, precio, dias_semana").in("id", acaIds);
+    for (const a of data ?? []) acaInfo.set(a.id, { nombre: a.nombre, precio: a.precio, dias: a.dias_semana });
   }
 
   const porProf = new Map<string, LiqProfesor>();
@@ -104,8 +104,9 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     porProf.set(p.id, {
       id: p.id,
       nombre: p.nombre ?? "—",
-      tipoLabel: comp ? TIPO_LABEL[comp.tipo] ?? comp.tipo : "Sin configurar",
+      compLabel: comp ? TIPO_LABEL[comp.tipo] ?? comp.tipo : "Sin configurar",
       clases: 0,
+      facturado: 0,
       variable: 0,
       fijo: 0,
       comision: 0,
@@ -119,52 +120,38 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const fila = porProf.get(c.profesor_id);
     if (!fila) continue;
     const comp = compById.get(c.profesor_id);
-    const pct = comp ? Number(comp.pct_clase) : 0;
     const alumnos = presentes.get(c.id) ?? 0;
 
+    // Valor cobrado al cliente.
     let valorFacturado = 0;
-    let valorProfesor = 0;
-    let detalle = "";
-    let base = "";
-    let alum: number | null = null;
-
-    if (comp?.tipo === "fisico") {
-      alum = alumnos;
-      valorProfesor = alumnos * comp.pago_asistencia;
-      detalle = c.tipo === "academia" ? acaName.get(c.academia_id ?? 0) ?? "Academia" : c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Físico";
-      base = `${alumnos} asist. × ${COP.format(comp.pago_asistencia)}`;
-    } else if (c.tipo === "academia") {
-      alum = alumnos;
-      const tarifa = comp?.valor_alumno_academia ?? 0;
-      valorProfesor = alumnos * tarifa;
-      detalle = acaName.get(c.academia_id ?? 0) ?? "Academia";
-      base = `${alumnos} alum. × ${COP.format(tarifa)}`;
+    let tipoLabel: string;
+    let detalle: string;
+    if (c.tipo === "academia") {
+      const aca = c.academia_id != null ? acaInfo.get(c.academia_id) : undefined;
+      const diasN = aca && aca.dias.length > 0 ? aca.dias.length : 1;
+      valorFacturado = aca ? Math.round(alumnos * (aca.precio / (diasN * 4))) : 0;
+      tipoLabel = "Academia";
+      detalle = `${aca?.nombre ?? "Academia"} · ${alumnos} alum.`;
+    } else if (c.paquete_cliente_id) {
+      valorFacturado = c.valor_facturado ?? valorClasePq.get(c.paquete_cliente_id) ?? 0;
+      tipoLabel = "Paquete";
+      detalle = c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "—";
     } else {
-      const facturado =
-        c.valor_facturado != null
-          ? c.valor_facturado
-          : c.paquete_cliente_id
-            ? valorClasePq.get(c.paquete_cliente_id) ?? 0
-            : c.precio ?? 0;
-      valorFacturado = facturado;
-      valorProfesor = Math.round((facturado * pct) / 100);
+      valorFacturado = c.valor_facturado ?? c.precio ?? 0;
+      tipoLabel = "Particular";
       detalle = c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Particular";
-      base = `${COP.format(facturado)} × ${pct}%`;
     }
 
+    // Valor a pagar al profesor (según su compensación).
+    let valorProfesor: number;
+    if (comp?.tipo === "fisico") valorProfesor = alumnos * comp.pago_asistencia;
+    else if (c.tipo === "academia") valorProfesor = alumnos * (comp?.valor_alumno_academia ?? 0);
+    else valorProfesor = Math.round((valorFacturado * (comp ? Number(comp.pct_clase) : 0)) / 100);
+
     fila.clases += 1;
+    fila.facturado += valorFacturado;
     fila.variable += valorProfesor;
-    fila.lineas.push({
-      claseId: c.id,
-      fecha: c.fecha,
-      hora: c.hora_inicio,
-      tipo: c.tipo,
-      detalle,
-      base,
-      valorFacturado,
-      alumnos: alum,
-      valorProfesor,
-    });
+    fila.lineas.push({ claseId: c.id, fecha: c.fecha, hora: c.hora_inicio, tipoLabel, detalle, valorFacturado, valorProfesor });
   }
 
   for (const fila of porProf.values()) {

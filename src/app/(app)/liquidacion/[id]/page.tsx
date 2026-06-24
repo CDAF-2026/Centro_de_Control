@@ -41,7 +41,7 @@ export default async function LiquidacionDetallePage({
         </Link>
         <h1 className="cdaf-headline mt-1">{prof.nombre}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant="outline">{prof.tipoLabel}</Badge>
+          <Badge variant="outline">{prof.compLabel}</Badge>
           <span className="text-muted-foreground">
             {desde} a {hasta} · {prof.clases} clase(s)
           </span>
@@ -52,11 +52,11 @@ export default async function LiquidacionDetallePage({
         <table className="cdaf-table">
           <thead>
             <tr>
-              <th className="px-3 py-2">Fecha</th>
-              <th className="px-3 py-2">Cliente / Academia</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Base de cálculo</th>
-              <th className="px-3 py-2 text-right">A pagar</th>
+              <th className="px-3 py-2">Fecha clase</th>
+              <th className="px-3 py-2">Cliente</th>
+              <th className="px-3 py-2">Tipo de clase</th>
+              <th className="px-3 py-2 text-right">Valor cobrado al cliente</th>
+              <th className="px-3 py-2 text-right">Valor a pagar al profesor</th>
             </tr>
           </thead>
           <tbody>
@@ -67,8 +67,8 @@ export default async function LiquidacionDetallePage({
                   {l.hora ? ` ${l.hora.slice(0, 5)}` : ""}
                 </td>
                 <td className="px-3 py-2.5">{l.detalle}</td>
-                <td className="px-3 py-2.5">{l.tipo === "academia" ? "Academia" : "Individual"}</td>
-                <td className="text-muted-foreground px-3 py-2.5 tabular-nums">{l.base}</td>
+                <td className="px-3 py-2.5">{l.tipoLabel}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums">{COP.format(l.valorFacturado)}</td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{COP.format(l.valorProfesor)}</td>
               </tr>
             ))}
@@ -82,7 +82,8 @@ export default async function LiquidacionDetallePage({
           </tbody>
           <tfoot>
             <tr className="border-t font-medium">
-              <td className="px-3 py-2" colSpan={4}>Variable (clases)</td>
+              <td className="px-3 py-2" colSpan={3}>Variable (clases)</td>
+              <td className="px-3 py-2 text-right tabular-nums">{COP.format(prof.facturado)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{COP.format(prof.variable)}</td>
             </tr>
             {prof.fijo > 0 && (
@@ -106,8 +107,8 @@ export default async function LiquidacionDetallePage({
       </div>
 
       <p className="text-muted-foreground text-xs">
-        &ldquo;Base de cálculo&rdquo; muestra el valor facturado y el % (particular/paquete) o los alumnos × tarifa (academia).
-        Solo clases <strong>realizadas</strong>.
+        <strong>Valor cobrado al cliente</strong> = lo facturado por esa clase. <strong>Valor a pagar al profesor</strong> =
+        según su compensación (% del facturado, alumnos × tarifa de academia, o pago por asistencia). Solo clases realizadas.
       </p>
     </div>
   );

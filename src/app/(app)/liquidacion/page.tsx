@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -29,6 +28,7 @@ export default async function LiquidacionPage({
 
   const filas = await calcularLiquidacion(desde, hasta, quincenas);
   const conMovim = filas.filter((f) => f.clases > 0 || f.total > 0);
+  const facturadoGeneral = filas.reduce((s, f) => s + f.facturado, 0);
   const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
   const qs = `?periodo=${periodo}&ym=${ym}`;
 
@@ -57,10 +57,7 @@ export default async function LiquidacionPage({
           <thead>
             <tr>
               <th className="px-4 py-2">Profesor</th>
-              <th className="px-4 py-2">Tipo</th>
-              <th className="px-4 py-2 text-right">Clases</th>
-              <th className="px-4 py-2 text-right">Variable</th>
-              <th className="px-4 py-2 text-right">Fijo / comisión</th>
+              <th className="px-4 py-2 text-right">Valor facturado</th>
               <th className="px-4 py-2 text-right">Total a liquidar</th>
               <th className="px-4 py-2" />
             </tr>
@@ -68,11 +65,11 @@ export default async function LiquidacionPage({
           <tbody>
             {conMovim.map((f) => (
               <tr key={f.id}>
-                <td className="px-4 py-2.5 font-medium">{f.nombre}</td>
-                <td className="px-4 py-2.5"><Badge variant="outline">{f.tipoLabel}</Badge></td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{f.clases}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(f.variable)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(f.fijo + f.comision)}</td>
+                <td className="px-4 py-2.5">
+                  <span className="font-medium">{f.nombre}</span>
+                  <span className="text-muted-foreground block text-xs">{f.compLabel} · {f.clases} clase(s)</span>
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(f.facturado)}</td>
                 <td className="px-4 py-2.5 text-right font-medium tabular-nums">{COP.format(f.total)}</td>
                 <td className="px-4 py-2.5 text-right">
                   <Link href={`/liquidacion/${f.id}${qs}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
@@ -83,7 +80,7 @@ export default async function LiquidacionPage({
             ))}
             {conMovim.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={4}>
                   <EmptyState icon={Users} title="No hay nada que liquidar en el periodo" description="Solo se cuentan clases cerradas como realizadas." />
                 </td>
               </tr>
@@ -91,7 +88,8 @@ export default async function LiquidacionPage({
           </tbody>
           <tfoot>
             <tr className="border-t-2 font-semibold">
-              <td className="px-4 py-2.5" colSpan={5}>Total del periodo</td>
+              <td className="px-4 py-2.5">Total del periodo</td>
+              <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(facturadoGeneral)}</td>
               <td className="px-4 py-2.5 text-right tabular-nums">{COP.format(totalGeneral)}</td>
               <td className="px-4 py-2.5" />
             </tr>
@@ -99,8 +97,8 @@ export default async function LiquidacionPage({
         </table>
       </div>
       <p className="text-muted-foreground text-xs">
-        Particular/paquete = <strong>% × valor facturado</strong> · academia = <strong>alumnos × tarifa del profesor</strong> ·
-        físico = asistentes × pago. Los montos fijos se prorratean (quincena = mitad del mensual). Solo clases <strong>realizadas</strong>.
+        <strong>Valor facturado</strong> = total cobrado a clientes. <strong>Total a liquidar</strong> = a pagar al profesor
+        según su compensación. Solo clases <strong>realizadas</strong>; montos fijos prorrateados (quincena = mitad del mensual).
       </p>
     </div>
   );
