@@ -24,12 +24,16 @@ export default async function CerrarClasePage({
 
   let deportistas: { id: number; nombre: string }[] = [];
   if (clase.tipo === "academia" && clase.academia_id) {
+    const diaClase = new Date(`${clase.fecha}T00:00:00`).getDay();
     const { data: ins } = await supabase
       .from("inscripciones")
-      .select("cliente_id")
+      .select("cliente_id, dias")
       .eq("academia_id", clase.academia_id)
       .eq("activa", true);
-    const ids = (ins ?? []).map((i) => i.cliente_id);
+    // Solo los alumnos cuyos días incluyen el día de esta clase (o sin días definidos).
+    const ids = (ins ?? [])
+      .filter((i) => i.dias.length === 0 || i.dias.includes(diaClase))
+      .map((i) => i.cliente_id);
     if (ids.length) {
       const { data: cl } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", ids);
       deportistas = (cl ?? []).map((c) => ({ id: c.id, nombre: `${c.apellidos}, ${c.nombres}` }));

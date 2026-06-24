@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import {
   valorPaquete,
-  esperadoAcademia,
+  esperadoAcademiasCliente,
   clasificarServicioPago,
   familiaIngreso,
   familiaDeCentro,
@@ -96,8 +96,8 @@ export async function SuperadminDashboard({
     supabase.from("pagos").select("id, monto, fecha, estado, centro_costos").eq("estado", "asignado").gte("fecha", prevStartIso).lte("fecha", curEndIso),
     supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
     supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
-    supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion").eq("activa", true),
-    supabase.from("academias").select("id, precio, matricula"),
+    supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion, plan_frecuencia").eq("activa", true),
+    supabase.from("academias").select("id, precio, matricula, deporte, dias_semana"),
     supabase.from("asignaciones_pago").select("cliente_id, servicio, pago_id"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
@@ -147,11 +147,36 @@ export async function SuperadminDashboard({
     const v = valorPaquete(cat.precio, Number(cat.descuento_pct), Number(pc.descuento_pct));
     esperadoByCli.set(pc.cliente_id, (esperadoByCli.get(pc.cliente_id) ?? 0) + v);
   }
+  // Academia: cobro por sesión + matrícula semestral por deporte (mismo modelo que la ficha).
+  const sesionesCli = new Map<number, Map<number, number>>();
+  {
+    const { data: acaClases } = await supabase.from("clases").select("id, academia_id").eq("tipo", "academia").eq("estado", "realizada");
+    const acaDeClase = new Map<number, number>();
+    for (const c of acaClases ?? []) if (c.academia_id != null) acaDeClase.set(c.id, c.academia_id);
+    const ids = [...acaDeClase.keys()];
+    if (ids.length) {
+      const { data: asis } = await supabase.from("asistencias").select("cliente_id, clase_id, estado").in("clase_id", ids);
+      for (const a of asis ?? []) {
+        const acaId = acaDeClase.get(a.clase_id);
+        if (acaId == null || a.estado === "excusa_medica") continue;
+        let m = sesionesCli.get(a.cliente_id);
+        if (!m) {
+          m = new Map();
+          sesionesCli.set(a.cliente_id, m);
+        }
+        m.set(acaId, (m.get(acaId) ?? 0) + 1);
+      }
+    }
+  }
+  const inscByCli = new Map<number, { academia_id: number; descuento_pct: number; plan_frecuencia: number; fecha_inscripcion: string }[]>();
   for (const i of inscRes.data ?? []) {
-    const aca = acaMap.get(i.academia_id);
-    if (!aca) continue;
-    const v = esperadoAcademia(aca.precio, aca.matricula, Number(i.descuento_pct), i.fecha_inscripcion);
-    esperadoByCli.set(i.cliente_id, (esperadoByCli.get(i.cliente_id) ?? 0) + v);
+    const arr = inscByCli.get(i.cliente_id) ?? [];
+    arr.push({ academia_id: i.academia_id, descuento_pct: Number(i.descuento_pct), plan_frecuencia: i.plan_frecuencia, fecha_inscripcion: i.fecha_inscripcion });
+    inscByCli.set(i.cliente_id, arr);
+  }
+  for (const [cli, inscs] of inscByCli) {
+    const { total } = esperadoAcademiasCliente(inscs, acaMap, sesionesCli.get(cli) ?? new Map());
+    esperadoByCli.set(cli, (esperadoByCli.get(cli) ?? 0) + total);
   }
   for (const a of asgRes.data ?? []) {
     if (clasificarServicioPago(a.servicio) === "otro") continue;

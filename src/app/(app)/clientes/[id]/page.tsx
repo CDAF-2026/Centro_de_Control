@@ -10,6 +10,7 @@ import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
 import { precioFinal } from "@/lib/validations/paquete";
+import { esperadoAcademiasCliente } from "@/lib/finanzas";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -76,10 +77,12 @@ export default async function ClienteDetallePage({
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
   const { data: acaData } = acaIds.length
-    ? await supabase.from("academias").select("id, nombre, precio, matricula").in("id", acaIds)
-    : { data: [] as { id: number; nombre: string; precio: number; matricula: number }[] };
+    ? await supabase.from("academias").select("id, nombre, precio, matricula, deporte, dias_semana").in("id", acaIds)
+    : { data: [] as { id: number; nombre: string; precio: number; matricula: number; deporte: "tenis" | "padel"; dias_semana: number[] }[] };
   const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
-  const acaPrecioById = new Map((acaData ?? []).map((a) => [a.id, { precio: a.precio, matricula: a.matricula }]));
+  const acadInfoMap = new Map(
+    (acaData ?? []).map((a) => [a.id, { precio: a.precio, matricula: a.matricula, deporte: a.deporte, dias_semana: a.dias_semana }]),
+  );
   const inscripcionesView = (inscripciones ?? []).map((i) => ({
     id: i.id,
     plan_frecuencia: i.plan_frecuencia,
@@ -87,6 +90,31 @@ export default async function ClienteDetallePage({
     dias: i.dias,
     academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
   }));
+
+  // Sesiones de academia cobrables del cliente (clases cerradas; la excusa médica no se cobra).
+  const sesionesPorAcademia = new Map<number, number>();
+  if ((inscripciones ?? []).length) {
+    const { data: asisCli } = await supabase
+      .from("asistencias")
+      .select("clase_id, estado")
+      .eq("cliente_id", Number(id));
+    const claseIdsAsis = (asisCli ?? []).map((a) => a.clase_id);
+    if (claseIdsAsis.length) {
+      const { data: clasesAsis } = await supabase
+        .from("clases")
+        .select("id, academia_id, tipo, estado")
+        .in("id", claseIdsAsis);
+      const acaDeClase = new Map<number, number>();
+      for (const c of clasesAsis ?? []) {
+        if (c.tipo === "academia" && c.estado === "realizada" && c.academia_id != null) acaDeClase.set(c.id, c.academia_id);
+      }
+      for (const a of asisCli ?? []) {
+        const acaId = acaDeClase.get(a.clase_id);
+        if (acaId == null || a.estado === "excusa_medica") continue;
+        sesionesPorAcademia.set(acaId, (sesionesPorAcademia.get(acaId) ?? 0) + 1);
+      }
+    }
+  }
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")
@@ -128,18 +156,18 @@ export default async function ClienteDetallePage({
   });
   const esperadoPaquetes = paquetesFin.reduce((s, p) => s + p.valor, 0);
 
-  // Valor esperado de cada academia: mensualidad×meses + matrícula×trimestres (matrícula sin descuento).
-  const academiasFin = (inscripciones ?? []).map((i) => {
-    const aca = acaPrecioById.get(i.academia_id);
-    const precio = aca?.precio ?? 0;
-    const matricula = aca?.matricula ?? 0;
-    const mensualidad = Math.round(precio * (1 - Number(i.descuento_pct) / 100));
-    const meses = mesesCorridos(i.fecha_inscripcion);
-    const trimestres = Math.ceil(meses / 3);
-    const esperado = mensualidad * meses + matricula * trimestres;
-    return { id: i.id, nombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`, meses, trimestres, matricula, esperado };
-  });
-  const esperadoAcademias = academiasFin.reduce((s, a) => s + a.esperado, 0);
+  // Academia: cobro por sesión (mensualidad ÷ días×4 × sesiones cobrables) + matrícula semestral por deporte.
+  const acadFin = esperadoAcademiasCliente(
+    (inscripciones ?? []).map((i) => ({
+      academia_id: i.academia_id,
+      descuento_pct: Number(i.descuento_pct),
+      plan_frecuencia: i.plan_frecuencia,
+      fecha_inscripcion: i.fecha_inscripcion,
+    })),
+    acadInfoMap,
+    sesionesPorAcademia,
+  );
+  const esperadoAcademias = acadFin.total;
 
   // Pagos: imputar a academias / paquetes según la etiqueta de servicio; el resto es informativo.
   let pagadoAcademias = 0;
@@ -155,7 +183,7 @@ export default async function ClienteDetallePage({
   }
   const saldoAcademias = pagadoAcademias - esperadoAcademias;
   const saldoPaquetes = pagadoPaquetes - esperadoPaquetes;
-  const hayAcademias = academiasFin.length > 0 || pagadoAcademias > 0;
+  const hayAcademias = (inscripciones ?? []).length > 0 || pagadoAcademias > 0;
   const hayPaquetes = paquetesFin.length > 0 || pagadoPaquetes > 0;
 
   return (
@@ -263,18 +291,24 @@ export default async function ClienteDetallePage({
                     <h3 className="font-semibold">Academias</h3>
                     <SaldoBadge saldo={saldoAcademias} />
                   </div>
-                  {academiasFin.length > 0 ? (
+                  {acadFin.porAcademia.length > 0 || acadFin.matriculas.length > 0 ? (
                     <ul className="divide-y">
-                      {academiasFin.map((a) => (
-                        <li key={a.id} className="flex justify-between gap-3 py-1.5">
+                      {acadFin.porAcademia.map((a) => (
+                        <li key={`a${a.academiaId}`} className="flex justify-between gap-3 py-1.5">
                           <span>
-                            {a.nombre}
-                            <span className="text-muted-foreground">
-                              {" · "}{a.meses} {a.meses === 1 ? "mes" : "meses"}
-                              {a.matricula > 0 ? ` · ${a.trimestres} matr.` : ""}
-                            </span>
+                            {acaById.get(a.academiaId) ?? `Academia #${a.academiaId}`}
+                            <span className="text-muted-foreground">{" · "}{a.sesiones} clase(s)</span>
                           </span>
-                          <span className="text-muted-foreground">{COP.format(a.esperado)}</span>
+                          <span className="text-muted-foreground">{COP.format(a.cargo)}</span>
+                        </li>
+                      ))}
+                      {acadFin.matriculas.map((m) => (
+                        <li key={`m${m.deporte}`} className="flex justify-between gap-3 py-1.5">
+                          <span>
+                            Matrícula <span className="capitalize">{m.deporte}</span>
+                            <span className="text-muted-foreground">{" · "}{m.semestres} sem.</span>
+                          </span>
+                          <span className="text-muted-foreground">{COP.format(m.cargo)}</span>
                         </li>
                       ))}
                     </ul>
