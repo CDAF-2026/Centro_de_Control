@@ -71,7 +71,7 @@ export default async function ClienteDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, plan_frecuencia, descuento_pct, fecha_inscripcion")
+    .select("id, academia_id, plan_frecuencia, descuento_pct, fecha_inscripcion, dias")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
@@ -84,6 +84,7 @@ export default async function ClienteDetallePage({
     id: i.id,
     plan_frecuencia: i.plan_frecuencia,
     descuento_pct: i.descuento_pct,
+    dias: i.dias,
     academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
   }));
 
@@ -107,11 +108,6 @@ export default async function ClienteDetallePage({
     nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete",
   }));
 
-  const { data: academiasDisponibles } = await supabase
-    .from("academias")
-    .select("id, nombre")
-    .eq("activa", true)
-    .order("codigo");
   const { data: catalogoActivo } = await supabase
     .from("paquetes_catalogo")
     .select("id, nombre, num_clases")
@@ -235,7 +231,6 @@ export default async function ClienteDetallePage({
             clienteId={cliente.id}
             inscripciones={inscripcionesView}
             paquetes={paquetesView}
-            academiasDisponibles={academiasDisponibles ?? []}
             catalogo={catalogoActivo ?? []}
             puedeEditar={puedeEditar}
           />

@@ -1,11 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { asignarPaquete, inscribirEnAcademia, type ClienteFormState } from "../actions";
+import { asignarPaquete, type ClienteFormState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Insc = { id: number; plan_frecuencia: number; descuento_pct: number; academiaNombre: string };
+type Insc = { id: number; plan_frecuencia: number; descuento_pct: number; academiaNombre: string; dias: number[] };
 type Pq = {
   id: number;
   num_clases: number;
@@ -18,24 +18,20 @@ type Pq = {
 const empty: ClienteFormState = {};
 const selectCls = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const DIAS_ORDEN = [1, 2, 3, 4, 5, 6, 0];
 
 export function ServiciosCliente({
   clienteId,
   inscripciones,
   paquetes,
-  academiasDisponibles,
   catalogo,
   puedeEditar,
 }: {
   clienteId: number;
   inscripciones: Insc[];
   paquetes: Pq[];
-  academiasDisponibles: { id: number; nombre: string }[];
   catalogo: { id: number; nombre: string; num_clases: number }[];
   puedeEditar: boolean;
 }) {
-  const [insState, insAction, insPending] = useActionState(inscribirEnAcademia, empty);
   const [pqState, pqAction, pqPending] = useActionState(asignarPaquete, empty);
 
   return (
@@ -46,9 +42,10 @@ export function ServiciosCliente({
         {inscripciones.length > 0 ? (
           <ul className="divide-y text-sm">
             {inscripciones.map((i) => (
-              <li key={i.id} className="flex justify-between py-2">
+              <li key={i.id} className="flex justify-between gap-3 py-2">
                 <span>{i.academiaNombre}</span>
-                <span className="text-muted-foreground">
+                <span className="text-muted-foreground text-right">
+                  {i.dias.length > 0 && `${[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · `}
                   {i.plan_frecuencia}×sem{i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
                 </span>
               </li>
@@ -57,36 +54,10 @@ export function ServiciosCliente({
         ) : (
           <p className="text-muted-foreground text-sm">Sin academias inscritas.</p>
         )}
-        {puedeEditar && academiasDisponibles.length > 0 && (
-          <form action={insAction} className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="clienteId" value={clienteId} />
-            <select name="academiaId" required className={selectCls}>
-              <option value="">Academia…</option>
-              {academiasDisponibles.map((a) => (
-                <option key={a.id} value={a.id}>{a.nombre}</option>
-              ))}
-            </select>
-            <select name="plan" className={selectCls}>
-              <option value="1">1×sem</option>
-              <option value="2">2×sem</option>
-              <option value="3">3×sem</option>
-            </select>
-            <Input name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
-            <div className="space-y-1">
-              <span className="text-muted-foreground block text-xs">Días que asiste</span>
-              <div className="flex flex-wrap items-center gap-2">
-                {DIAS_ORDEN.map((d) => (
-                  <label key={d} className="flex items-center gap-1 text-sm">
-                    <input type="checkbox" name="dias" value={d} className="accent-primary size-4" />
-                    {DIA_LABEL[d]}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <Button type="submit" size="sm" disabled={insPending}>Inscribir</Button>
-            {insState.error && <p className="text-destructive w-full text-xs">{insState.error}</p>}
-            {insState.ok && <p className="text-primary w-full text-xs">{insState.ok}</p>}
-          </form>
+        {puedeEditar && (
+          <p className="text-muted-foreground text-xs">
+            Las inscripciones a academias se gestionan desde el módulo <strong>Academias</strong> (allí eliges los días).
+          </p>
         )}
       </div>
 
