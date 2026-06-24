@@ -43,20 +43,31 @@ export async function cerrarClase(
     };
   }
 
+  const noRegistrados = String(formData.get("asistentes_no_registrados") || "").trim() || null;
   const { error: upErr } = await supabase
     .from("clases")
-    .update({ estado, registrada_por: profile.id })
+    .update({ estado, registrada_por: profile.id, asistentes_no_registrados: noRegistrados })
     .eq("id", claseId);
   if (upErr) return { error: upErr.message };
 
-  // Asistencia por deportista.
+  // Asistencia por deportista (estado: presente / ausente / excusa_medica).
   const deportistas = formData.getAll("deportista").map(Number).filter(Boolean);
+  const estadoAsis = (cid: number) => {
+    const e = String(formData.get(`asis_${cid}`) || "presente");
+    return (["presente", "ausente", "excusa_medica", "reposicion"].includes(e) ? e : "presente") as
+      | "presente"
+      | "ausente"
+      | "excusa_medica"
+      | "reposicion";
+  };
   for (const cid of deportistas) {
+    const est = estadoAsis(cid);
     await supabase.from("asistencias").upsert(
       {
         clase_id: claseId,
         cliente_id: cid,
-        presente: formData.get(`presente_${cid}`) === "on",
+        presente: est === "presente",
+        estado: est,
         registrado_por: profile.id,
       },
       { onConflict: "clase_id,cliente_id" },
@@ -86,7 +97,7 @@ export async function cerrarClase(
 
   // Notificación al cliente: clase confirmada + saldo del paquete (no bloquea el cierre).
   if (estado === "realizada") {
-    const presentes = deportistas.filter((cid) => formData.get(`presente_${cid}`) === "on");
+    const presentes = deportistas.filter((cid) => estadoAsis(cid) === "presente");
     if (presentes.length) {
       const { data: cls } = await supabase.from("clientes").select("id, nombres, email").in("id", presentes);
       let profesorNombre: string | null = null;

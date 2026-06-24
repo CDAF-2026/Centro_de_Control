@@ -5,19 +5,24 @@ import { cerrarClase, type CierreState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
+const SELECT = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+
 export function CierreForm({
   claseId,
   estadoActual,
   deportistas,
-  presentes,
+  estadoPorCliente,
+  esAcademia,
+  noRegistrados,
 }: {
   claseId: number;
   estadoActual: string;
   deportistas: { id: number; nombre: string }[];
-  presentes: number[];
+  estadoPorCliente: Record<number, string>;
+  esAcademia: boolean;
+  noRegistrados: string;
 }) {
   const [state, action, pending] = useActionState<CierreState, FormData>(cerrarClase, {});
-  const presentesSet = new Set(presentes);
 
   return (
     <form action={action} className="space-y-5">
@@ -39,19 +44,32 @@ export function CierreForm({
 
       {deportistas.length > 0 && (
         <div className="space-y-2">
-          <Label>Asistencia</Label>
+          <Label>Asistencia{esAcademia ? " de los alumnos" : ""}</Label>
           {deportistas.map((d) => (
-            <label key={d.id} className="flex items-center gap-3 rounded-md border p-3">
-              <input
-                type="checkbox"
-                name={`presente_${d.id}`}
-                defaultChecked={presentesSet.has(d.id)}
-                className="size-5"
-              />
+            <div key={d.id} className="flex items-center justify-between gap-3 rounded-md border p-3">
+              <span className="text-sm">{d.nombre}</span>
               <input type="hidden" name="deportista" value={d.id} />
-              <span>{d.nombre}</span>
-            </label>
+              <select name={`asis_${d.id}`} defaultValue={estadoPorCliente[d.id] ?? "presente"} className={SELECT}>
+                <option value="presente">Presente</option>
+                <option value="excusa_medica">Falta con excusa médica</option>
+                <option value="ausente">Falta (sin excusa)</option>
+              </select>
+            </div>
           ))}
+        </div>
+      )}
+
+      {esAcademia && (
+        <div className="space-y-1.5">
+          <Label htmlFor="no_reg">Asistentes no inscritos (opcional)</Label>
+          <textarea
+            id="no_reg"
+            name="asistentes_no_registrados"
+            defaultValue={noRegistrados}
+            rows={2}
+            placeholder="Quienes asistieron sin estar inscritos (para controlar clases extra)…"
+            className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
+          />
         </div>
       )}
 

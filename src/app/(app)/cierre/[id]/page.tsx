@@ -17,7 +17,7 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, profesor_id")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, profesor_id, asistentes_no_registrados")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
@@ -45,9 +45,10 @@ export default async function CerrarClasePage({
 
   const { data: asis } = await supabase
     .from("asistencias")
-    .select("cliente_id, presente")
+    .select("cliente_id, presente, estado")
     .eq("clase_id", claseId);
-  const presentes = (asis ?? []).filter((a) => a.presente).map((a) => a.cliente_id);
+  const estadoPorCliente: Record<number, string> = {};
+  for (const a of asis ?? []) estadoPorCliente[a.cliente_id] = a.estado ?? (a.presente ? "presente" : "ausente");
 
   let profesorNombre: string | null = null;
   if (clase.profesor_id) {
@@ -82,7 +83,9 @@ export default async function CerrarClasePage({
         claseId={claseId}
         estadoActual={clase.estado}
         deportistas={deportistas}
-        presentes={presentes}
+        estadoPorCliente={estadoPorCliente}
+        esAcademia={clase.tipo === "academia"}
+        noRegistrados={clase.asistentes_no_registrados ?? ""}
       />
     </div>
   );
