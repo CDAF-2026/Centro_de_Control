@@ -277,6 +277,10 @@ export async function inscribirEnAcademia(
   const academiaId = Number(formData.get("academiaId"));
   const plan = Number(formData.get("plan"));
   const descuento = Number(formData.get("descuento") || 0);
+  const dias = formData
+    .getAll("dias")
+    .map((d) => Number(d))
+    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
   if (!academiaId) return { error: "Selecciona una academia." };
   if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
 
@@ -286,6 +290,7 @@ export async function inscribirEnAcademia(
     cliente_id: clienteId,
     plan_frecuencia: plan,
     descuento_pct: descuento,
+    dias,
   });
   if (error) {
     return { error: /duplicate|unique/i.test(error.message) ? "Ya está inscrito en esa academia." : error.message };

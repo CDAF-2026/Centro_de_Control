@@ -167,7 +167,7 @@ export default async function AcademiaDetallePage({
           )}
           {puedeInscribir && (
             <div className="border-t pt-4">
-              <InscribirForm academiaId={academiaId} diasAcademia={a.dias_semana ?? []} />
+              <InscribirForm academiaId={academiaId} />
             </div>
           )}
         </CardContent>

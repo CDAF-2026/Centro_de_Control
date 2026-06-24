@@ -17,6 +17,8 @@ type Pq = {
 
 const empty: ClienteFormState = {};
 const selectCls = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DIAS_ORDEN = [1, 2, 3, 4, 5, 6, 0];
 
 export function ServiciosCliente({
   clienteId,
@@ -70,6 +72,17 @@ export function ServiciosCliente({
               <option value="3">3×sem</option>
             </select>
             <Input name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
+            <div className="space-y-1">
+              <span className="text-muted-foreground block text-xs">Días que asiste</span>
+              <div className="flex flex-wrap items-center gap-2">
+                {DIAS_ORDEN.map((d) => (
+                  <label key={d} className="flex items-center gap-1 text-sm">
+                    <input type="checkbox" name="dias" value={d} className="accent-primary size-4" />
+                    {DIA_LABEL[d]}
+                  </label>
+                ))}
+              </div>
+            </div>
             <Button type="submit" size="sm" disabled={insPending}>Inscribir</Button>
             {insState.error && <p className="text-destructive w-full text-xs">{insState.error}</p>}
             {insState.ok && <p className="text-primary w-full text-xs">{insState.ok}</p>}

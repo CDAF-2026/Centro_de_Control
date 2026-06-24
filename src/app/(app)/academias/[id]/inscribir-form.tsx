@@ -10,15 +10,9 @@ import { Label } from "@/components/ui/label";
 const initial: AcademiaFormState = {};
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
-export function InscribirForm({
-  academiaId,
-  diasAcademia,
-}: {
-  academiaId: number;
-  diasAcademia: number[];
-}) {
+export function InscribirForm({ academiaId }: { academiaId: number }) {
   const [state, action, pending] = useActionState(inscribirCliente, initial);
-  const dias = diasAcademia.length > 0 ? [...diasAcademia].sort((a, b) => a - b) : [1, 2, 3, 4, 5, 6, 0];
+  const dias = [1, 2, 3, 4, 5, 6, 0];
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
