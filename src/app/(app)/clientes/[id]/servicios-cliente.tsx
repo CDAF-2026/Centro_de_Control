@@ -54,11 +54,6 @@ export function ServiciosCliente({
         ) : (
           <p className="text-muted-foreground text-sm">Sin academias inscritas.</p>
         )}
-        {puedeEditar && (
-          <p className="text-muted-foreground text-xs">
-            Las inscripciones a academias se gestionan desde el módulo <strong>Academias</strong> (allí eliges los días).
-          </p>
-        )}
       </div>
 
       {/* Paquetes */}
