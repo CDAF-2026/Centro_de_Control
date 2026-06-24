@@ -24,10 +24,16 @@ export default async function CierrePage({
 
   const supabase = await createClient();
 
+  // Solo clases que ya ocurrieron (fecha ≤ hoy). Las futuras (p. ej. la programación
+  // de academia generada por adelantado) no se cierran hasta su día.
+  const hoyD = new Date();
+  const hoyIso = `${hoyD.getFullYear()}-${String(hoyD.getMonth() + 1).padStart(2, "0")}-${String(hoyD.getDate()).padStart(2, "0")}`;
+
   let q = supabase
     .from("clases")
     .select("id, fecha, hora_inicio, tipo, deporte, profesor_id, cliente_id, academia_id")
     .eq("estado", "programada")
+    .lte("fecha", hoyIso)
     .order("fecha");
   if (esProfesor) q = q.eq("profesor_id", profile.id);
   else if (profesorFilter) q = q.eq("profesor_id", profesorFilter);
