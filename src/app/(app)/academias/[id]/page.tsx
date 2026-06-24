@@ -44,6 +44,24 @@ export default async function AcademiaDetallePage({
     : { data: [] };
   const nombrePorId = new Map((inscritosClientes ?? []).map((c) => [c.id, `${c.apellidos}, ${c.nombres}`]));
 
+  // Sobre-asistencia: presentes del mes en esta academia, por cliente.
+  const ymMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const { data: clasesMes } = await supabase
+    .from("clases")
+    .select("id")
+    .eq("academia_id", academiaId)
+    .gte("fecha", `${ymMes}-01`)
+    .lte("fecha", `${ymMes}-31`);
+  const presentesMes = new Map<number, number>();
+  const idsMes = (clasesMes ?? []).map((c) => c.id);
+  if (idsMes.length) {
+    const { data: asisMes } = await supabase.from("asistencias").select("cliente_id, presente, estado").in("clase_id", idsMes);
+    for (const a of asisMes ?? []) {
+      const ok = a.estado ? a.estado === "presente" : a.presente;
+      if (ok) presentesMes.set(a.cliente_id, (presentesMes.get(a.cliente_id) ?? 0) + 1);
+    }
+  }
+
   const { count: clasesCount } = await supabase
     .from("clases")
     .select("*", { count: "exact", head: true })
@@ -150,8 +168,13 @@ export default async function AcademiaDetallePage({
           {(inscripciones ?? []).length > 0 ? (
             <ul className="divide-y text-sm">
               {(inscripciones ?? []).map((i) => (
-                <li key={i.id} className="flex items-center justify-between py-2">
-                  <span>{nombrePorId.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`}</span>
+                <li key={i.id} className="flex items-center justify-between gap-3 py-2">
+                  <span className="flex flex-wrap items-center gap-2">
+                    {nombrePorId.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`}
+                    {(presentesMes.get(i.cliente_id) ?? 0) > i.plan_frecuencia * 4 && (
+                      <Badge variant="warning">Sobre-asistencia · {presentesMes.get(i.cliente_id)} este mes</Badge>
+                    )}
+                  </span>
                   <span className="text-muted-foreground">
                     {i.dias && i.dias.length > 0 && (
                       <>{[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · </>
