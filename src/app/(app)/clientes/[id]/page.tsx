@@ -169,9 +169,22 @@ export default async function ClienteDetallePage({
   );
   const esperadoAcademias = acadFin.total;
 
+  // Clases particulares (individuales sin paquete): cada una se cobra por su precio.
+  const { data: clasesPart } = await supabase
+    .from("clases")
+    .select("id, fecha, precio, valor_facturado")
+    .eq("cliente_id", Number(id))
+    .eq("tipo", "individual")
+    .is("paquete_cliente_id", null)
+    .in("estado", ["realizada", "no_show"])
+    .order("fecha", { ascending: false });
+  const particularesFin = (clasesPart ?? []).map((c) => ({ id: c.id, fecha: c.fecha, valor: c.valor_facturado ?? c.precio ?? 0 }));
+  const esperadoParticulares = particularesFin.reduce((s, c) => s + c.valor, 0);
+
   // Pagos: imputar a academias / paquetes según la etiqueta de servicio; el resto es informativo.
   let pagadoAcademias = 0;
   let pagadoPaquetes = 0;
+  let pagadoParticulares = 0;
   const otrosPagos: { servicio: string; periodos: string[]; monto: number; fecha: string }[] = [];
   for (const a of asigns ?? []) {
     const p = pagoById.get(a.pago_id);
@@ -179,12 +192,15 @@ export default async function ClienteDetallePage({
     const tipo = clasificarServicio(a.servicio);
     if (tipo === "academia") pagadoAcademias += monto;
     else if (tipo === "paquete") pagadoPaquetes += monto;
+    else if (tipo === "particular") pagadoParticulares += monto;
     else otrosPagos.push({ servicio: a.servicio, periodos: a.periodos, monto, fecha: p?.fecha ?? "" });
   }
   const saldoAcademias = pagadoAcademias - esperadoAcademias;
   const saldoPaquetes = pagadoPaquetes - esperadoPaquetes;
+  const saldoParticulares = pagadoParticulares - esperadoParticulares;
   const hayAcademias = (inscripciones ?? []).length > 0 || pagadoAcademias > 0;
   const hayPaquetes = paquetesFin.length > 0 || pagadoPaquetes > 0;
+  const hayParticulares = particularesFin.length > 0 || pagadoParticulares > 0;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -281,7 +297,7 @@ export default async function ClienteDetallePage({
         <CardContent className="space-y-5 text-sm">
           {!verFinanzas ? (
             <p className="text-muted-foreground">Visible solo para administración.</p>
-          ) : !hayAcademias && !hayPaquetes && otrosPagos.length === 0 ? (
+          ) : !hayAcademias && !hayPaquetes && !hayParticulares && otrosPagos.length === 0 ? (
             <p className="text-muted-foreground">Sin servicios contratados ni pagos registrados.</p>
           ) : (
             <>
@@ -345,6 +361,30 @@ export default async function ClienteDetallePage({
                 </section>
               )}
 
+              {hayParticulares && (
+                <section className="space-y-2 border-t pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold">Clases particulares</h3>
+                    <SaldoBadge saldo={saldoParticulares} />
+                  </div>
+                  {particularesFin.length > 0 ? (
+                    <ul className="divide-y">
+                      {particularesFin.map((c) => (
+                        <li key={c.id} className="flex justify-between gap-3 py-1.5">
+                          <span>Clase particular<span className="text-muted-foreground"> · {c.fecha}</span></span>
+                          <span className="text-muted-foreground">{COP.format(c.valor)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground">Sin clases particulares; hay pagos registrados.</p>
+                  )}
+                  <p className="text-muted-foreground">
+                    Esperado {COP.format(esperadoParticulares)} · Pagado {COP.format(pagadoParticulares)}
+                  </p>
+                </section>
+              )}
+
               {otrosPagos.length > 0 && (
                 <section className="space-y-2 border-t pt-4">
                   <h3 className="font-semibold">
@@ -396,10 +436,11 @@ function mesesCorridos(desde: string): number {
 }
 
 /** Clasifica un pago por su etiqueta de servicio: solo academias y paquetes generan saldo. */
-function clasificarServicio(servicio: string): "academia" | "paquete" | "otro" {
+function clasificarServicio(servicio: string): "academia" | "paquete" | "particular" | "otro" {
   const s = servicio.toLowerCase();
   if (s.startsWith("academia")) return "academia";
   if (s.startsWith("paquete")) return "paquete";
+  if (s.includes("clase particular")) return "particular";
   return "otro";
 }
 

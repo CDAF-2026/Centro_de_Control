@@ -81,10 +81,11 @@ export function esperadoAcademiasCliente(
 }
 
 /** Imputabilidad de un pago a un servicio que genera saldo (academia/paquete). */
-export function clasificarServicioPago(servicio: string): "academia" | "paquete" | "otro" {
+export function clasificarServicioPago(servicio: string): "academia" | "paquete" | "particular" | "otro" {
   const s = servicio.toLowerCase();
   if (s.startsWith("academia")) return "academia";
   if (s.startsWith("paquete")) return "paquete";
+  if (s.includes("clase particular")) return "particular";
   return "otro";
 }
 

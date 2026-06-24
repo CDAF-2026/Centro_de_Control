@@ -178,6 +178,19 @@ export async function SuperadminDashboard({
     const { total } = esperadoAcademiasCliente(inscs, acaMap, sesionesCli.get(cli) ?? new Map());
     esperadoByCli.set(cli, (esperadoByCli.get(cli) ?? 0) + total);
   }
+  // Clases particulares (individuales sin paquete): cada una suma su precio a la cartera.
+  {
+    const { data: cp } = await supabase
+      .from("clases")
+      .select("cliente_id, precio, valor_facturado")
+      .eq("tipo", "individual")
+      .is("paquete_cliente_id", null)
+      .in("estado", ["realizada", "no_show"]);
+    for (const c of cp ?? []) {
+      if (c.cliente_id == null) continue;
+      esperadoByCli.set(c.cliente_id, (esperadoByCli.get(c.cliente_id) ?? 0) + (c.valor_facturado ?? c.precio ?? 0));
+    }
+  }
   for (const a of asgRes.data ?? []) {
     if (clasificarServicioPago(a.servicio) === "otro") continue;
     pagadoByCli.set(a.cliente_id, (pagadoByCli.get(a.cliente_id) ?? 0) + (montoByPago.get(a.pago_id) ?? 0));
