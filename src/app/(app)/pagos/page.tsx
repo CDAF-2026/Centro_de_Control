@@ -9,27 +9,27 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Wallet } from "lucide-react";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-const CENTRO_LABEL: Record<string, string> = {
-  clase_particular: "Clase particular",
-  cafeteria: "Cafetería",
-  academia_tenis: "Academia tenis",
-  academia_padel: "Academia pádel",
-  otro: "Otro",
-};
 
 export default async function PagosPage() {
   await requireRole(rolesForModule("bolsa_pagos"));
   const supabase = await createClient();
 
+  const { data: servicios } = await supabase
+    .from("servicios")
+    .select("id, nombre, activo, orden")
+    .order("orden");
+  const servicioNombre = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
+  const activos = (servicios ?? []).filter((s) => s.activo).map((s) => ({ id: s.id, nombre: s.nombre }));
+
   const { data: sinAsignar } = await supabase
     .from("pagos")
-    .select("id, monto, fecha, centro_costos, concepto, origen")
+    .select("id, monto, fecha, servicio_id, concepto, origen")
     .eq("estado", "sin_asignar")
     .order("fecha", { ascending: false });
 
   const { data: asignados } = await supabase
     .from("pagos")
-    .select("id, monto, fecha, centro_costos, concepto")
+    .select("id, monto, fecha, servicio_id, concepto")
     .eq("estado", "asignado")
     .order("fecha", { ascending: false })
     .limit(20);
@@ -53,14 +53,14 @@ export default async function PagosPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <span className="font-semibold">{COP.format(p.monto)}</span>{" "}
-                  <Badge variant="outline">{CENTRO_LABEL[p.centro_costos]}</Badge>{" "}
+                  <Badge variant="outline">{servicioNombre.get(p.servicio_id) ?? "—"}</Badge>{" "}
                   <span className="text-muted-foreground text-sm">
                     {p.fecha} · {p.concepto ?? ""}
                   </span>
                 </div>
               </div>
               <div className="mt-2">
-                <AsignarForm pagoId={p.id} />
+                <AsignarForm pagoId={p.id} servicios={activos} />
               </div>
             </div>
           ))}
@@ -72,7 +72,7 @@ export default async function PagosPage() {
 
       <section className="max-w-3xl space-y-3 border-t pt-6">
         <h2 className="cdaf-title">Agregar pago manual</h2>
-        <PagoManualForm />
+        <PagoManualForm servicios={activos} />
       </section>
 
       {(asignados ?? []).length > 0 && (
@@ -83,7 +83,7 @@ export default async function PagosPage() {
               <thead>
                 <tr>
                   <th className="px-4 py-2">Fecha</th>
-                  <th className="px-4 py-2">Centro</th>
+                  <th className="px-4 py-2">Servicio</th>
                   <th className="px-4 py-2 text-right">Monto</th>
                   <th className="px-4 py-2">Concepto</th>
                 </tr>
@@ -92,7 +92,7 @@ export default async function PagosPage() {
                 {(asignados ?? []).map((p) => (
                   <tr key={p.id} className="border-t">
                     <td className="px-4 py-2">{p.fecha}</td>
-                    <td className="px-4 py-2">{CENTRO_LABEL[p.centro_costos]}</td>
+                    <td className="px-4 py-2">{servicioNombre.get(p.servicio_id) ?? "—"}</td>
                     <td className="px-4 py-2 text-right">{COP.format(p.monto)}</td>
                     <td className="px-4 py-2">{p.concepto ?? "—"}</td>
                   </tr>

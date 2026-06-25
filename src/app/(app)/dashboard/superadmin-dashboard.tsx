@@ -21,10 +21,7 @@ import {
   valorPaquete,
   esperadoAcademiasCliente,
   clasificarServicioPago,
-  familiaIngreso,
-  familiaDeCentro,
-  FAMILIAS_INGRESO,
-  type FamiliaIngreso,
+  COLOR_SERVICIO_DEFAULT,
 } from "@/lib/finanzas";
 import { PeriodoToggle } from "./periodo-toggle";
 import { IngresosChart } from "./ingresos-chart";
@@ -92,8 +89,9 @@ export async function SuperadminDashboard({
     pendRes,
     periodoRes,
     clientesRes,
+    serviciosRes,
   ] = await Promise.all([
-    supabase.from("pagos").select("id, monto, fecha, estado, centro_costos").eq("estado", "asignado").gte("fecha", prevStartIso).lte("fecha", curEndIso),
+    supabase.from("pagos").select("id, monto, fecha, estado, servicio_id").eq("estado", "asignado").gte("fecha", prevStartIso).lte("fecha", curEndIso),
     supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
     supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
     supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion, plan_frecuencia").eq("activa", true),
@@ -102,27 +100,28 @@ export async function SuperadminDashboard({
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
+    supabase.from("servicios").select("id, nombre, color"),
   ]);
 
-  // ───────── Ingresos por tipo (periodo + previo) ─────────
-  const servicioByPago = new Map<number, string>();
-  for (const a of asgRes.data ?? []) servicioByPago.set(a.pago_id, a.servicio);
-
-  const famTotal = new Map<FamiliaIngreso, number>();
+  // ───────── Ingresos por servicio (periodo + previo) ─────────
+  const servicioCat = new Map((serviciosRes.data ?? []).map((s) => [s.id, s]));
+  const famTotal = new Map<number, number>();
   let periodTotal = 0;
   let prevTotal = 0;
   for (const p of pagosRes.data ?? []) {
     const f = p.fecha;
     if (f >= curStartIso && f <= curEndIso) {
-      const servicio = servicioByPago.get(p.id);
-      const fam = servicio ? familiaIngreso(servicio) : familiaDeCentro(p.centro_costos);
       periodTotal += p.monto;
-      famTotal.set(fam, (famTotal.get(fam) ?? 0) + p.monto);
+      famTotal.set(p.servicio_id, (famTotal.get(p.servicio_id) ?? 0) + p.monto);
     } else if (f >= prevStartIso && f <= prevEndIso) {
       prevTotal += p.monto;
     }
   }
-  const familiasIngreso = FAMILIAS_INGRESO.map((f) => ({ nombre: f, total: famTotal.get(f) ?? 0 }))
+  const familiasIngreso = [...famTotal.entries()]
+    .map(([id, total]) => {
+      const s = servicioCat.get(id);
+      return { nombre: s?.nombre ?? "Otro", total, color: s?.color ?? COLOR_SERVICIO_DEFAULT };
+    })
     .filter((t) => t.total > 0)
     .sort((a, b) => b.total - a.total);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;

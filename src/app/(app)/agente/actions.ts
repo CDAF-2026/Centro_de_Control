@@ -30,16 +30,19 @@ async function reunirMetricas(
     if (c.deporte) clasesPorDeporte[c.deporte] = (clasesPorDeporte[c.deporte] ?? 0) + 1;
   }
 
+  const { data: servicios } = await supabase.from("servicios").select("id, nombre");
+  const nombreDe = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
   const { data: pagos } = await supabase
     .from("pagos")
-    .select("monto, centro_costos")
+    .select("monto, servicio_id")
     .eq("estado", "asignado")
     .gte("fecha", d1)
     .lte("fecha", d2);
-  const conciliadoPorCentro: Record<string, number> = {};
+  const conciliadoPorServicio: Record<string, number> = {};
   let totalConciliadoMes = 0;
   for (const p of pagos ?? []) {
-    conciliadoPorCentro[p.centro_costos] = (conciliadoPorCentro[p.centro_costos] ?? 0) + p.monto;
+    const nombre = nombreDe.get(p.servicio_id) ?? "—";
+    conciliadoPorServicio[nombre] = (conciliadoPorServicio[nombre] ?? 0) + p.monto;
     totalConciliadoMes += p.monto;
   }
 
@@ -52,7 +55,7 @@ async function reunirMetricas(
     academias_activas: academias ?? 0,
     clases_por_estado: clasesPorEstado,
     clases_por_deporte: clasesPorDeporte,
-    conciliado_mes_por_centro_costos: conciliadoPorCentro,
+    conciliado_mes_por_servicio: conciliadoPorServicio,
     total_conciliado_mes: totalConciliadoMes,
   };
 }

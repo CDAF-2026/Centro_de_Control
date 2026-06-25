@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 
 const initial: PagoState = {};
 
-export function PagoManualForm() {
+export function PagoManualForm({ servicios }: { servicios: { id: number; nombre: string }[] }) {
   const [state, action, pending] = useActionState(addPago, initial);
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
@@ -21,13 +21,12 @@ export function PagoManualForm() {
         <Input id="fecha" name="fecha" type="date" />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="centro_costos">Centro de costos</Label>
-        <select id="centro_costos" name="centro_costos" className="border-input bg-background h-9 rounded-md border px-3 text-sm">
-          <option value="clase_particular">Clase particular</option>
-          <option value="academia_tenis">Academia tenis</option>
-          <option value="academia_padel">Academia pádel</option>
-          <option value="cafeteria">Cafetería</option>
-          <option value="otro">Otro</option>
+        <Label htmlFor="servicio_id">Servicio</Label>
+        <select id="servicio_id" name="servicio_id" required className="border-input bg-background h-9 rounded-md border px-3 text-sm">
+          <option value="">Servicio…</option>
+          {servicios.map((s) => (
+            <option key={s.id} value={s.id}>{s.nombre}</option>
+          ))}
         </select>
       </div>
       <div className="space-y-1.5">

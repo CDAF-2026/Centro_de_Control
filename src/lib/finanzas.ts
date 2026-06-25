@@ -80,7 +80,9 @@ export function esperadoAcademiasCliente(
   return { porAcademia, matriculas, total };
 }
 
-/** Imputabilidad de un pago a un servicio que genera saldo (academia/paquete). */
+/** Imputabilidad de un pago a un servicio que genera saldo (academia/paquete).
+ *  Se basa en la etiqueta de texto del servicio (respaldo histórico). El catálogo
+ *  de servicios (categoria_saldo) es la fuente nueva; esto cubre filas antiguas. */
 export function clasificarServicioPago(servicio: string): "academia" | "paquete" | "particular" | "otro" {
   const s = servicio.toLowerCase();
   if (s.startsWith("academia")) return "academia";
@@ -89,60 +91,5 @@ export function clasificarServicioPago(servicio: string): "academia" | "paquete"
   return "otro";
 }
 
-export type FamiliaIngreso =
-  | "Academias"
-  | "Paquetes"
-  | "Clases particulares"
-  | "Cafetería"
-  | "Alquileres"
-  | "Torneo"
-  | "Otros";
-
-export const FAMILIAS_INGRESO: FamiliaIngreso[] = [
-  "Academias",
-  "Paquetes",
-  "Clases particulares",
-  "Cafetería",
-  "Alquileres",
-  "Torneo",
-  "Otros",
-];
-
-/** Familia de ingreso (para gráficos) según la etiqueta de servicio del pago. */
-export function familiaIngreso(servicio: string | null | undefined): FamiliaIngreso {
-  const s = (servicio ?? "").toLowerCase();
-  if (s.startsWith("academia")) return "Academias";
-  if (s.startsWith("paquete")) return "Paquetes";
-  if (s.includes("clase particular")) return "Clases particulares";
-  if (s.includes("cafeter")) return "Cafetería";
-  if (s.includes("alquiler")) return "Alquileres";
-  if (s.includes("torneo")) return "Torneo";
-  return "Otros";
-}
-
-/** Familia de ingreso a partir del centro de costos (fallback cuando el pago
- *  no tiene asignación de servicio granular, p. ej. pagos demo). */
-export function familiaDeCentro(centro: string): FamiliaIngreso {
-  switch (centro) {
-    case "clase_particular":
-      return "Clases particulares";
-    case "cafeteria":
-      return "Cafetería";
-    case "academia_tenis":
-    case "academia_padel":
-      return "Academias";
-    default:
-      return "Otros";
-  }
-}
-
-/** Colores de marca por familia de ingreso (tokens --chart + extras). */
-export const COLOR_FAMILIA: Record<FamiliaIngreso, string> = {
-  Academias: "#37474f",
-  Paquetes: "#d4e157",
-  "Clases particulares": "#3e6280",
-  Cafetería: "#f2b53d",
-  Alquileres: "#8aa0a8",
-  Torneo: "#b591e0",
-  Otros: "#c8ccc4",
-};
+/** Color por defecto para un servicio sin color asignado en el catálogo. */
+export const COLOR_SERVICIO_DEFAULT = "#c8ccc4";

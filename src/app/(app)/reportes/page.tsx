@@ -4,13 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-const CENTRO_LABEL: Record<string, string> = {
-  clase_particular: "Clase particular",
-  cafeteria: "Cafetería",
-  academia_tenis: "Academia tenis",
-  academia_padel: "Academia pádel",
-  otro: "Otro",
-};
 const ESTADO_LABEL: Record<string, string> = {
   programada: "Programadas",
   realizada: "Realizadas",
@@ -42,12 +35,15 @@ export default async function ReportesPage() {
     ]);
 
   // Financiero
-  let porCentro = new Map<string, number>();
+  const porCentro = new Map<string, number>();
   let totalConciliado = 0;
   if (verFinanzas) {
-    const { data: pagos } = await supabase.from("pagos").select("monto, centro_costos").eq("estado", "asignado");
+    const { data: servicios } = await supabase.from("servicios").select("id, nombre");
+    const nombreDe = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
+    const { data: pagos } = await supabase.from("pagos").select("monto, servicio_id").eq("estado", "asignado");
     for (const p of pagos ?? []) {
-      porCentro.set(p.centro_costos, (porCentro.get(p.centro_costos) ?? 0) + p.monto);
+      const nombre = nombreDe.get(p.servicio_id) ?? "—";
+      porCentro.set(nombre, (porCentro.get(nombre) ?? 0) + p.monto);
       totalConciliado += p.monto;
     }
   }
@@ -65,7 +61,7 @@ export default async function ReportesPage() {
             <ul className="divide-y">
               {[...porCentro.entries()].map(([c, v]) => (
                 <li key={c} className="flex justify-between py-2">
-                  <span>{CENTRO_LABEL[c] ?? c}</span>
+                  <span>{c}</span>
                   <span className="font-medium">{COP.format(v)}</span>
                 </li>
               ))}

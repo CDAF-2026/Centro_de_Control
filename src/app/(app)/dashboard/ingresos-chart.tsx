@@ -1,20 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { COLOR_FAMILIA, type FamiliaIngreso } from "@/lib/finanzas";
 import { cn } from "@/lib/utils";
 
 const COP0 = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-/** Desglose de ingresos por tipo: barras horizontales ordenadas, fáciles de escanear. */
+export type IngresoFamilia = { nombre: string; total: number; color: string };
+
+/** Desglose de ingresos por servicio: barras horizontales ordenadas, fáciles de escanear. */
 export function IngresosChart({
   familias,
   total,
 }: {
-  familias: { nombre: FamiliaIngreso; total: number }[];
+  familias: IngresoFamilia[];
   total: number;
 }) {
-  const [hover, setHover] = useState<FamiliaIngreso | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   const max = Math.max(1, ...familias.map((f) => f.total));
 
   return (
@@ -33,7 +34,7 @@ export function IngresosChart({
             )}
           >
             <span className="flex items-center gap-2 text-sm" title={f.nombre}>
-              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: COLOR_FAMILIA[f.nombre] }} />
+              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: f.color }} />
               <span className="truncate">{f.nombre}</span>
             </span>
             <span className="bg-muted relative h-2.5 w-full overflow-hidden rounded-full">
@@ -41,7 +42,7 @@ export function IngresosChart({
                 className="absolute inset-y-0 left-0 rounded-full transition-[width]"
                 style={{
                   width: `${Math.max((f.total / max) * 100, 2)}%`,
-                  backgroundColor: COLOR_FAMILIA[f.nombre],
+                  backgroundColor: f.color,
                   filter: activo ? "brightness(1.08)" : undefined,
                 }}
               />

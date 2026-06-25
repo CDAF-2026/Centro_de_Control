@@ -26,7 +26,7 @@ export type Deporte = "tenis" | "padel";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido";
-export type CentroCostos = "clase_particular" | "cafeteria" | "academia_tenis" | "academia_padel" | "otro";
+export type ServicioCategoriaSaldo = "academia" | "paquete" | "particular";
 export type PagoEstado = "sin_asignar" | "asignado";
 export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
 export type AsistenciaEstado = "presente" | "ausente" | "excusa_medica" | "reposicion";
@@ -496,6 +496,30 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["asistencias"]["Insert"]>;
         Relationships: [];
       };
+      servicios: {
+        Row: {
+          id: number;
+          clave: string;
+          nombre: string;
+          color: string | null;
+          categoria_saldo: ServicioCategoriaSaldo | null;
+          activo: boolean;
+          orden: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          clave: string;
+          nombre: string;
+          color?: string | null;
+          categoria_saldo?: ServicioCategoriaSaldo | null;
+          activo?: boolean;
+          orden?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["servicios"]["Insert"]>;
+        Relationships: [];
+      };
       pagos: {
         Row: {
           id: number;
@@ -503,7 +527,7 @@ export type Database = {
           external_id: string | null;
           monto: number;
           fecha: string;
-          centro_costos: CentroCostos;
+          servicio_id: number;
           concepto: string | null;
           estado: PagoEstado;
           created_at: string;
@@ -514,7 +538,7 @@ export type Database = {
           external_id?: string | null;
           monto: number;
           fecha?: string;
-          centro_costos?: CentroCostos;
+          servicio_id: number;
           concepto?: string | null;
           estado?: PagoEstado;
           created_at?: string;
@@ -528,6 +552,7 @@ export type Database = {
           pago_id: number;
           cliente_id: number;
           servicio: string;
+          servicio_id: number | null;
           periodos: string[];
           created_at: string;
         };
@@ -536,6 +561,7 @@ export type Database = {
           pago_id: number;
           cliente_id: number;
           servicio: string;
+          servicio_id?: number | null;
           periodos?: string[];
           created_at?: string;
         };
@@ -546,7 +572,7 @@ export type Database = {
         Row: {
           id: number;
           cliente_id: number;
-          centro_costos: CentroCostos;
+          servicio_id: number;
           monto: number;
           nota: string | null;
           created_at: string;
@@ -554,7 +580,7 @@ export type Database = {
         Insert: {
           id?: number;
           cliente_id: number;
-          centro_costos?: CentroCostos;
+          servicio_id: number;
           monto: number;
           nota?: string | null;
           created_at?: string;
@@ -606,7 +632,6 @@ export type Database = {
       clase_tipo: ClaseTipo;
       clase_estado: ClaseEstado;
       paquete_estado: PaqueteEstado;
-      centro_costos: CentroCostos;
       pago_estado: PagoEstado;
       compensacion_tipo: CompensacionTipo;
       asistencia_estado: AsistenciaEstado;
@@ -614,3 +639,5 @@ export type Database = {
     CompositeTypes: Record<string, never>;
   };
 };
+
+export type Servicio = Database["public"]["Tables"]["servicios"]["Row"];
