@@ -24,7 +24,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
   const { data: evento } = await supabase.from("eventos").select("*").eq("id", eventoId).single();
   if (!evento) notFound();
 
-  const [partsRes, profesRes, servicioRes, profesoresRes] = await Promise.all([
+  const [partsRes, profesRes, servicioRes, profesoresRes, facsEvRes] = await Promise.all([
     supabase
       .from("evento_participantes")
       .select("id, cliente_id, nombre_externo, telefono_externo, monto, estado")
@@ -35,6 +35,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
       ? supabase.from("servicios").select("nombre").eq("id", evento.servicio_id).single()
       : Promise.resolve({ data: null as { nombre: string } | null }),
     supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+    supabase.from("siigo_facturas").select("total, saldo").eq("evento_id", eventoId),
   ]);
 
   const parts = partsRes.data ?? [];
@@ -48,7 +49,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
   const cliNombre = new Map((clientes ?? []).map((c) => [c.id, `${c.nombres} ${c.apellidos ?? ""}`.trim()]));
   const profNombre = new Map(profesores.map((p) => [p.id, p.nombre ?? p.id]));
 
-  const totalRecaudado = parts.reduce((s, p) => s + (p.monto ?? 0), 0);
+  const recaudadoSiigo = (facsEvRes.data ?? []).reduce((s, f) => s + ((f.total ?? 0) - (f.saldo ?? 0)), 0);
   const totalProfes = profes.reduce((s, p) => s + (p.pago ?? 0), 0);
 
   return (
@@ -75,8 +76,8 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Recaudado</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-semibold">{COP.format(totalRecaudado)}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Recaudado (Siigo)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-semibold">{COP.format(recaudadoSiigo)}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">A pagar a profesores</CardTitle></CardHeader>

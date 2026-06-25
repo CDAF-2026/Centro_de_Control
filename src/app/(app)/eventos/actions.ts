@@ -74,41 +74,19 @@ export async function inscribirParticipante(_prev: EventoState, formData: FormDa
   if (!clienteId && !nombreExterno) return { error: "Indica un cliente o un nombre externo." };
 
   const supabase = await createClient();
-  const { data: evento } = await supabase.from("eventos").select("servicio_id, nombre").eq("id", eventoId).single();
-
-  // Si hay monto, se registra como pago en la bolsa, etiquetado al servicio del evento.
-  let pagoId: number | null = null;
-  if (monto > 0) {
-    if (!evento?.servicio_id) {
-      return { error: "El evento no tiene un servicio asociado para registrar el cobro. Edita el evento y asígnale uno." };
-    }
-    const { data: pago, error: pErr } = await supabase
-      .from("pagos")
-      .insert({ origen: "evento", monto, servicio_id: evento.servicio_id, estado: "asignado", concepto: `Evento: ${evento.nombre}` })
-      .select("id")
-      .single();
-    if (pErr) return { error: pErr.message };
-    pagoId = pago.id;
-    if (clienteId) {
-      await supabase
-        .from("asignaciones_pago")
-        .insert({ pago_id: pagoId, cliente_id: clienteId, servicio: evento.nombre, servicio_id: evento.servicio_id });
-    }
-  }
-
+  // El ingreso del evento NO se crea aquí: viene de las facturas de Siigo y se ata al
+  // evento en la conciliación. Aquí solo se registra el participante (monto referencial).
   const { error } = await supabase.from("evento_participantes").insert({
     evento_id: eventoId,
     cliente_id: clienteId,
     nombre_externo: nombreExterno,
     telefono_externo: telefonoExterno,
     monto,
-    pago_id: pagoId,
-    estado: monto > 0 ? "pagado" : "inscrito",
+    estado: "inscrito",
   });
   if (error) return { error: error.message };
   await logAudit({ action: "evento.inscribir", entity: "evento_participantes", entityId: String(eventoId), after: { clienteId, nombreExterno, monto } });
   revalidatePath(`/eventos/${eventoId}`);
-  revalidatePath("/pagos");
   return { ok: "Participante inscrito." };
 }
 
@@ -118,12 +96,9 @@ export async function quitarParticipante(_prev: EventoState, formData: FormData)
   const eventoId = Number(formData.get("evento_id"));
   if (!id) return { error: "Inválido." };
   const supabase = await createClient();
-  const { data: part } = await supabase.from("evento_participantes").select("pago_id").eq("id", id).single();
   await supabase.from("evento_participantes").delete().eq("id", id);
-  if (part?.pago_id) await supabase.from("pagos").delete().eq("id", part.pago_id); // las asignaciones caen en cascada
   await logAudit({ action: "evento.quitar_participante", entity: "evento_participantes", entityId: String(id) });
   revalidatePath(`/eventos/${eventoId}`);
-  revalidatePath("/pagos");
   return { ok: "Participante eliminado." };
 }
 
