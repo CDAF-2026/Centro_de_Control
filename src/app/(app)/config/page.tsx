@@ -11,7 +11,7 @@ export default async function ConfigPage() {
   const supabase = await createClient();
   const { data: servicios } = await supabase
     .from("servicios")
-    .select("id, clave, nombre, color, categoria_saldo, activo, orden, created_at")
+    .select("id, clave, nombre, color, categoria_saldo, siigo_grupo, activo, orden, created_at")
     .order("orden");
 
   return (

@@ -503,6 +503,7 @@ export type Database = {
           nombre: string;
           color: string | null;
           categoria_saldo: ServicioCategoriaSaldo | null;
+          siigo_grupo: string | null;
           activo: boolean;
           orden: number;
           created_at: string;
@@ -513,6 +514,7 @@ export type Database = {
           nombre: string;
           color?: string | null;
           categoria_saldo?: ServicioCategoriaSaldo | null;
+          siigo_grupo?: string | null;
           activo?: boolean;
           orden?: number;
           created_at?: string;
@@ -672,6 +674,82 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["evento_profesores"]["Insert"]>;
         Relationships: [];
       };
+      siigo_facturas: {
+        Row: {
+          id: number;
+          siigo_id: string;
+          numero: string | null;
+          fecha: string;
+          cliente_identificacion: string | null;
+          cliente_id: number | null;
+          evento_id: number | null;
+          total: number;
+          saldo: number;
+          estado_conciliacion: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          siigo_id: string;
+          numero?: string | null;
+          fecha: string;
+          cliente_identificacion?: string | null;
+          cliente_id?: number | null;
+          evento_id?: number | null;
+          total?: number;
+          saldo?: number;
+          estado_conciliacion?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["siigo_facturas"]["Insert"]>;
+        Relationships: [];
+      };
+      siigo_factura_lineas: {
+        Row: {
+          id: number;
+          factura_id: number;
+          codigo: string | null;
+          descripcion: string | null;
+          servicio_id: number | null;
+          monto: number;
+          cantidad: number;
+        };
+        Insert: {
+          id?: number;
+          factura_id: number;
+          codigo?: string | null;
+          descripcion?: string | null;
+          servicio_id?: number | null;
+          monto?: number;
+          cantidad?: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["siigo_factura_lineas"]["Insert"]>;
+        Relationships: [];
+      };
+      siigo_productos: {
+        Row: {
+          codigo: string;
+          nombre: string | null;
+          account_group: string | null;
+          servicio_id: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          codigo: string;
+          nombre?: string | null;
+          account_group?: string | null;
+          servicio_id?: number | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["siigo_productos"]["Insert"]>;
+        Relationships: [];
+      };
+      siigo_sync: {
+        Row: { id: number; last_cursor: string | null; updated_at: string };
+        Insert: { id?: number; last_cursor?: string | null; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["siigo_sync"]["Insert"]>;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -728,3 +806,5 @@ export type Servicio = Database["public"]["Tables"]["servicios"]["Row"];
 export type Evento = Database["public"]["Tables"]["eventos"]["Row"];
 export type EventoParticipante = Database["public"]["Tables"]["evento_participantes"]["Row"];
 export type EventoProfesor = Database["public"]["Tables"]["evento_profesores"]["Row"];
+export type SiigoFactura = Database["public"]["Tables"]["siigo_facturas"]["Row"];
+export type SiigoFacturaLinea = Database["public"]["Tables"]["siigo_factura_lineas"]["Row"];

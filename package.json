@@ -16,7 +16,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:demo": "node --env-file=.env scripts/seed-demo.mjs",
-    "sync:clientes": "node --env-file=.env scripts/sync-clientes-easycancha.mjs"
+    "sync:clientes": "node --env-file=.env scripts/sync-clientes-easycancha.mjs",
+    "sync:siigo": "node --env-file=.env scripts/sync-siigo.mjs",
+    "sync:siigo": "node --env-file=.env scripts/sync-siigo.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
