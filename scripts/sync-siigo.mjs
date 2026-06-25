@@ -79,6 +79,20 @@ async function main() {
     for (const c of clientes ?? []) if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
   }
 
+  // 3b) Nombres de los clientes en Siigo (NIT → nombre), para identificarlos al conciliar.
+  console.log("• Clientes de Siigo…");
+  const nombrePorNit = new Map();
+  for (let page = 1; ; page++) {
+    const r = await sg(`/v1/customers?page=${page}&page_size=100`);
+    const results = r.results ?? [];
+    for (const c of results) {
+      const nom = Array.isArray(c.name) ? c.name.filter(Boolean).join(" ") : c.name ?? "";
+      if (c.identification) nombrePorNit.set(String(c.identification).trim(), String(nom).trim());
+    }
+    if (results.length < 100) break;
+  }
+  console.log("  clientes Siigo:", nombrePorNit.size);
+
   // 4) Cursor de fecha.
   let desde = DEFAULT_FROM;
   if (fromArg) desde = fromArg;
@@ -108,13 +122,14 @@ async function main() {
       const total = Math.round(f.total ?? 0);
       if (saldo > 0) conSaldo++;
       if (locked.has(f.id)) { lockedRows.push({ siigo_id: f.id, total, saldo }); conciliada++; continue; }
+      const esReal = ident && !GENERIC_NITS.has(ident);
       let clienteId = null;
-      if (ident && !GENERIC_NITS.has(ident)) clienteId = cliByDoc.get(ident) ?? null;
+      if (esReal) clienteId = cliByDoc.get(ident) ?? null;
       let estado;
       if (clienteId) { estado = "auto"; auto++; }
-      else if (saldo > 0) { estado = "pendiente"; pendiente++; }
+      else if (saldo > 0 || esReal) { estado = "pendiente"; pendiente++; } // cédula real = conciliable aunque esté pagada
       else { estado = "mostrador"; mostrador++; }
-      normalRows.push({ siigo_id: f.id, numero: f.name, fecha: f.date, cliente_identificacion: ident, cliente_id: clienteId, total, saldo, estado_conciliacion: estado });
+      normalRows.push({ siigo_id: f.id, numero: f.name, fecha: f.date, cliente_identificacion: ident, cliente_nombre_siigo: esReal ? nombrePorNit.get(ident) ?? null : null, cliente_id: clienteId, total, saldo, estado_conciliacion: estado });
     }
 
     if (lockedRows.length) await s.from("siigo_facturas").upsert(lockedRows, { onConflict: "siigo_id" });

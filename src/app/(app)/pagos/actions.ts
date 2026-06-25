@@ -20,16 +20,40 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   if (!clienteId && !eventoId) return { error: "Selecciona un cliente o un evento." };
 
   const supabase = await createClient();
+  const { data: fac } = await supabase
+    .from("siigo_facturas")
+    .select("cliente_identificacion")
+    .eq("id", facturaId)
+    .single();
+  const nit = fac?.cliente_identificacion?.trim() || null;
+  const esGenerico = !nit || /^(\d)\1+$/.test(nit);
+
+  // La factura específica (incluye el evento si aplica).
   const { error } = await supabase
     .from("siigo_facturas")
     .update({ cliente_id: clienteId, evento_id: eventoId, estado_conciliacion: "conciliada" })
     .eq("id", facturaId);
   if (error) return { error: error.message };
-  await logAudit({ action: "siigo.conciliar", entity: "siigo_facturas", entityId: String(facturaId), after: { clienteId, eventoId } });
+
+  // Conciliación por NIT: ata las DEMÁS facturas del mismo NIT al cliente y guarda su documento.
+  let bulk = 0;
+  if (clienteId && nit && !esGenerico) {
+    const { count } = await supabase
+      .from("siigo_facturas")
+      .update({ cliente_id: clienteId, estado_conciliacion: "conciliada" }, { count: "exact" })
+      .eq("cliente_identificacion", nit)
+      .neq("id", facturaId)
+      .neq("estado_conciliacion", "conciliada");
+    bulk = count ?? 0;
+    const { data: cli } = await supabase.from("clientes").select("documento").eq("id", clienteId).single();
+    if (!cli?.documento) await supabase.from("clientes").update({ documento: nit }).eq("id", clienteId);
+  }
+
+  await logAudit({ action: "siigo.conciliar", entity: "siigo_facturas", entityId: String(facturaId), after: { clienteId, eventoId, nit, bulk } });
   revalidatePath("/pagos");
   if (clienteId) revalidatePath(`/clientes/${clienteId}`);
   if (eventoId) revalidatePath(`/eventos/${eventoId}`);
-  return { ok: "Factura conciliada." };
+  return { ok: bulk > 0 ? `Conciliada · +${bulk} factura(s) del mismo NIT.` : "Factura conciliada." };
 }
 
 /** Marca una factura como ingreso de mostrador (anónimo): sale de la cola, cuenta como ingreso. */

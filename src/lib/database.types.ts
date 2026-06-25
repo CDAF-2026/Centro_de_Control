@@ -681,6 +681,7 @@ export type Database = {
           numero: string | null;
           fecha: string;
           cliente_identificacion: string | null;
+          cliente_nombre_siigo: string | null;
           cliente_id: number | null;
           evento_id: number | null;
           total: number;
@@ -694,6 +695,7 @@ export type Database = {
           numero?: string | null;
           fecha: string;
           cliente_identificacion?: string | null;
+          cliente_nombre_siigo?: string | null;
           cliente_id?: number | null;
           evento_id?: number | null;
           total?: number;

@@ -14,7 +14,7 @@ export default async function PagosPage() {
 
   const { data: pendientes } = await supabase
     .from("siigo_facturas")
-    .select("id, numero, fecha, cliente_identificacion, total, saldo")
+    .select("id, numero, fecha, cliente_identificacion, cliente_nombre_siigo, total, saldo")
     .eq("estado_conciliacion", "pendiente")
     .order("saldo", { ascending: false })
     .order("fecha", { ascending: false });
@@ -67,6 +67,8 @@ export default async function PagosPage() {
                   <Badge variant="outline" className="text-destructive border-destructive/40">Debe {COP.format(f.saldo)}</Badge>
                 )}
                 <span className="text-muted-foreground text-sm">
+                  {f.cliente_nombre_siigo ? <strong className="text-foreground">{f.cliente_nombre_siigo}</strong> : null}
+                  {f.cliente_nombre_siigo ? " · " : ""}
                   {f.numero ?? "—"} · {f.fecha} · NIT {f.cliente_identificacion ?? "—"}
                 </span>
               </div>
