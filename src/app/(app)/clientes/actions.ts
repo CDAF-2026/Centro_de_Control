@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
 import { getBookings, type EcBooking } from "@/lib/easycancha/client";
+import { sendEmail } from "@/lib/email/resend";
+import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
 import type { AppRole, Deporte } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
@@ -314,12 +316,14 @@ export async function asignarPaquete(
   const clienteId = Number(formData.get("clienteId"));
   const catalogoId = Number(formData.get("catalogoId"));
   const descuento = Number(formData.get("descuento") || 0);
+  const inicia = String(formData.get("inicia_el") || "") || new Date().toISOString().slice(0, 10);
+  const vence = String(formData.get("vence_el") || "") || null;
   if (!catalogoId) return { error: "Selecciona un paquete." };
 
   const supabase = await createClient();
   const { data: cat } = await supabase
     .from("paquetes_catalogo")
-    .select("num_clases")
+    .select("num_clases, nombre")
     .eq("id", catalogoId)
     .single();
   if (!cat) return { error: "Paquete no encontrado." };
@@ -330,14 +334,24 @@ export async function asignarPaquete(
     num_clases: cat.num_clases,
     descuento_pct: descuento,
     estado: "activo",
+    inicia_el: inicia,
+    vence_el: vence,
   });
   if (error) return { error: error.message };
+
+  // Correo de bienvenida (no bloquea la asignación).
+  const { data: cli } = await supabase.from("clientes").select("nombres, email").eq("id", clienteId).maybeSingle();
+  if (cli?.email) {
+    const { subject, html } = paqueteAsignadoEmail({ nombre: cli.nombres, paquete: cat.nombre, numClases: cat.num_clases, vence });
+    const r = await sendEmail({ to: cli.email, subject, html });
+    if (!r.ok) console.error("correo paquete:", r.error);
+  }
 
   await logAudit({
     action: "paquete.asignar",
     entity: "paquetes_cliente",
     entityId: String(clienteId),
-    after: { catalogo_id: catalogoId, num_clases: cat.num_clases, descuento_pct: descuento },
+    after: { catalogo_id: catalogoId, num_clases: cat.num_clases, descuento_pct: descuento, inicia_el: inicia, vence_el: vence },
   });
   revalidatePath(`/clientes/${clienteId}`);
   return { ok: "Paquete asignado." };

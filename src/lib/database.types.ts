@@ -405,6 +405,7 @@ export type Database = {
           clases_consumidas: number;
           descuento_pct: number;
           estado: PaqueteEstado;
+          inicia_el: string;
           vence_el: string | null;
           created_at: string;
         };
@@ -416,6 +417,7 @@ export type Database = {
           clases_consumidas?: number;
           descuento_pct?: number;
           estado?: PaqueteEstado;
+          inicia_el?: string;
           vence_el?: string | null;
           created_at?: string;
         };

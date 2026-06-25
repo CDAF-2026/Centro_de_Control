@@ -13,6 +13,7 @@ type Pq = {
   estado: string;
   descuento_pct: number;
   nombre: string;
+  vence: string | null;
 };
 
 const empty: ClienteFormState = {};
@@ -33,6 +34,7 @@ export function ServiciosCliente({
   puedeEditar: boolean;
 }) {
   const [pqState, pqAction, pqPending] = useActionState(asignarPaquete, empty);
+  const hoy = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -64,8 +66,12 @@ export function ServiciosCliente({
             {paquetes.map((p) => {
               const saldo = p.num_clases - p.clases_consumidas;
               return (
-                <li key={p.id} className="flex justify-between py-2">
-                  <span>{p.nombre}{p.descuento_pct > 0 ? ` · ${p.descuento_pct}% desc.` : ""}</span>
+                <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                  <span>
+                    {p.nombre}{p.descuento_pct > 0 ? ` · ${p.descuento_pct}% desc.` : ""}
+                    {p.vence && <span className="text-muted-foreground"> · vence {p.vence}</span>}
+                    {p.vence && p.vence < hoy && <span className="text-destructive"> · Vencido</span>}
+                  </span>
                   <span className="text-muted-foreground">
                     {saldo}/{p.num_clases} disponibles{p.estado === "agotado" ? " · agotado" : ""}
                   </span>
@@ -86,6 +92,14 @@ export function ServiciosCliente({
               ))}
             </select>
             <Input name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
+            <div className="space-y-1">
+              <span className="text-muted-foreground block text-xs">Inicio</span>
+              <input type="date" name="inicia_el" defaultValue={hoy} className={selectCls} />
+            </div>
+            <div className="space-y-1">
+              <span className="text-muted-foreground block text-xs">Vence</span>
+              <input type="date" name="vence_el" min={hoy} className={selectCls} />
+            </div>
             <Button type="submit" size="sm" disabled={pqPending}>Asignar</Button>
             {pqState.error && <p className="text-destructive w-full text-xs">{pqState.error}</p>}
             {pqState.ok && <p className="text-primary w-full text-xs">{pqState.ok}</p>}
