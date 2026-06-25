@@ -61,7 +61,7 @@ export default async function LiquidacionDetallePage({
           </thead>
           <tbody>
             {prof.lineas.map((l) => (
-              <tr key={l.claseId}>
+              <tr key={`${l.tipoLabel}-${l.claseId}`}>
                 <td className="px-3 py-2.5 tabular-nums">
                   {l.fecha}
                   {l.hora ? ` ${l.hora.slice(0, 5)}` : ""}
@@ -96,6 +96,12 @@ export default async function LiquidacionDetallePage({
               <tr className="font-medium">
                 <td className="px-3 py-1" colSpan={4}>Comisión quincenal</td>
                 <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.comision)}</td>
+              </tr>
+            )}
+            {prof.eventos > 0 && (
+              <tr className="font-medium">
+                <td className="px-3 py-1" colSpan={4}>Eventos</td>
+                <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.eventos)}</td>
               </tr>
             )}
             <tr className="border-t-2 font-semibold">

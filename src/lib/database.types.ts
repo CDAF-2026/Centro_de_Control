@@ -588,6 +588,90 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["abonos"]["Insert"]>;
         Relationships: [];
       };
+      eventos: {
+        Row: {
+          id: number;
+          nombre: string;
+          tipo: string;
+          deporte: Deporte | null;
+          servicio_id: number | null;
+          fecha_inicio: string;
+          fecha_fin: string | null;
+          hora_inicio: string | null;
+          lugar: string | null;
+          cupo: number | null;
+          precio_inscripcion: number;
+          estado: string;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nombre: string;
+          tipo?: string;
+          deporte?: Deporte | null;
+          servicio_id?: number | null;
+          fecha_inicio: string;
+          fecha_fin?: string | null;
+          hora_inicio?: string | null;
+          lugar?: string | null;
+          cupo?: number | null;
+          precio_inscripcion?: number;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["eventos"]["Insert"]>;
+        Relationships: [];
+      };
+      evento_participantes: {
+        Row: {
+          id: number;
+          evento_id: number;
+          cliente_id: number | null;
+          nombre_externo: string | null;
+          telefono_externo: string | null;
+          email_externo: string | null;
+          monto: number;
+          pago_id: number | null;
+          estado: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          evento_id: number;
+          cliente_id?: number | null;
+          nombre_externo?: string | null;
+          telefono_externo?: string | null;
+          email_externo?: string | null;
+          monto?: number;
+          pago_id?: number | null;
+          estado?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["evento_participantes"]["Insert"]>;
+        Relationships: [];
+      };
+      evento_profesores: {
+        Row: {
+          id: number;
+          evento_id: number;
+          profesor_id: string;
+          rol: string | null;
+          pago: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          evento_id: number;
+          profesor_id: string;
+          rol?: string | null;
+          pago?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["evento_profesores"]["Insert"]>;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -641,3 +725,6 @@ export type Database = {
 };
 
 export type Servicio = Database["public"]["Tables"]["servicios"]["Row"];
+export type Evento = Database["public"]["Tables"]["eventos"]["Row"];
+export type EventoParticipante = Database["public"]["Tables"]["evento_participantes"]["Row"];
+export type EventoProfesor = Database["public"]["Tables"]["evento_profesores"]["Row"];

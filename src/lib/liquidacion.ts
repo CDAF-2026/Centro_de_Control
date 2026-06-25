@@ -11,8 +11,8 @@ export type LineaLiq = {
   claseId: number;
   fecha: string;
   hora: string | null;
-  tipoLabel: string; // Particular / Paquete / Academia
-  detalle: string; // cliente o academia
+  tipoLabel: string; // Particular / Paquete / Academia / Evento
+  detalle: string; // cliente, academia o evento
   valorFacturado: number; // cobrado al cliente
   valorProfesor: number; // a pagar al profesor
 };
@@ -26,6 +26,7 @@ export type LiqProfesor = {
   variable: number;
   fijo: number;
   comision: number;
+  eventos: number; // pago por eventos (torneos/clínicas/masterclass), aparte de clases
   total: number; // total a liquidar
   lineas: LineaLiq[];
 };
@@ -110,6 +111,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
       variable: 0,
       fijo: 0,
       comision: 0,
+      eventos: 0,
       total: 0,
       lineas: [],
     });
@@ -154,11 +156,41 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     fila.lineas.push({ claseId: c.id, fecha: c.fecha, hora: c.hora_inicio, tipoLabel, detalle, valorFacturado, valorProfesor });
   }
 
+  // ───────── Eventos del periodo (pago a profesores, aparte de las clases) ─────────
+  const { data: eventosPeriodo } = await supabase
+    .from("eventos")
+    .select("id, nombre, fecha_inicio")
+    .gte("fecha_inicio", desde)
+    .lte("fecha_inicio", hasta);
+  const evInfo = new Map((eventosPeriodo ?? []).map((e) => [e.id, e]));
+  const evIds = (eventosPeriodo ?? []).map((e) => e.id);
+  if (evIds.length) {
+    const { data: evProfs } = await supabase
+      .from("evento_profesores")
+      .select("id, profesor_id, pago, evento_id")
+      .in("evento_id", evIds);
+    for (const ep of evProfs ?? []) {
+      const fila = porProf.get(ep.profesor_id);
+      if (!fila) continue;
+      const ev = evInfo.get(ep.evento_id);
+      fila.eventos += ep.pago ?? 0;
+      fila.lineas.push({
+        claseId: ep.id,
+        fecha: ev?.fecha_inicio ?? desde,
+        hora: null,
+        tipoLabel: "Evento",
+        detalle: ev?.nombre ?? "Evento",
+        valorFacturado: 0,
+        valorProfesor: ep.pago ?? 0,
+      });
+    }
+  }
+
   for (const fila of porProf.values()) {
     const comp = compById.get(fila.id);
     if (comp?.tipo === "fijo_comision") fila.fijo = comp.salario_fijo * quincenas;
     if (comp?.tipo === "fisico") fila.comision = comp.comision_quincenal * quincenas;
-    fila.total = fila.variable + fila.fijo + fila.comision;
+    fila.total = fila.variable + fila.fijo + fila.comision + fila.eventos;
     fila.lineas.sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? "").localeCompare(b.hora ?? ""));
   }
 
