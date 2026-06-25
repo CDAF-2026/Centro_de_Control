@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:new": "supabase migration new",
     "db:push": "node --env-file=.env scripts/supabase-remote.mjs db push",
+    "db:apply": "node --env-file=.env scripts/db-apply.mjs",
     "db:types": "node --env-file=.env scripts/supabase-remote.mjs gen types typescript > src/lib/database.types.ts",
     "seed:admin": "node --env-file=.env scripts/seed-admin.mjs",
     "test": "vitest run",
