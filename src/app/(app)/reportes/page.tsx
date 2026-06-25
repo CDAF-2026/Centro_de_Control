@@ -34,17 +34,19 @@ export default async function ReportesPage() {
       supabase.from("paquetes_catalogo").select("*", { count: "exact", head: true }),
     ]);
 
-  // Financiero
+  // Financiero (ingresos pagados por servicio, desde Siigo)
   const porCentro = new Map<string, number>();
   let totalConciliado = 0;
   if (verFinanzas) {
     const { data: servicios } = await supabase.from("servicios").select("id, nombre");
     const nombreDe = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
-    const { data: pagos } = await supabase.from("pagos").select("monto, servicio_id").eq("estado", "asignado");
-    for (const p of pagos ?? []) {
-      const nombre = nombreDe.get(p.servicio_id) ?? "—";
-      porCentro.set(nombre, (porCentro.get(nombre) ?? 0) + p.monto);
-      totalConciliado += p.monto;
+    const hoy = new Date().toISOString().slice(0, 10);
+    const { data: ingresos } = await supabase.rpc("siigo_ingreso_servicio", { p_desde: "2026-01-01", p_hasta: hoy });
+    for (const r of ingresos ?? []) {
+      const nombre = r.servicio_id != null ? nombreDe.get(r.servicio_id) ?? "—" : "Sin categoría";
+      const monto = Number(r.monto);
+      porCentro.set(nombre, (porCentro.get(nombre) ?? 0) + monto);
+      totalConciliado += monto;
     }
   }
 
@@ -55,7 +57,7 @@ export default async function ReportesPage() {
       {verFinanzas && (
         <Card>
           <CardHeader>
-            <CardTitle>Financiero · conciliado por servicio</CardTitle>
+            <CardTitle>Financiero · ingresos por servicio (Siigo)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <ul className="divide-y">

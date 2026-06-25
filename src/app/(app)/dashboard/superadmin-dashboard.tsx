@@ -17,12 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import {
-  valorPaquete,
-  esperadoAcademiasCliente,
-  clasificarServicioPago,
-  COLOR_SERVICIO_DEFAULT,
-} from "@/lib/finanzas";
+import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
 import { PeriodoToggle } from "./periodo-toggle";
 import { IngresosChart } from "./ingresos-chart";
 
@@ -80,128 +75,52 @@ export async function SuperadminDashboard({
   const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
 
   const [
-    pagosRes,
-    pqCliRes,
-    catsRes,
-    inscRes,
-    acasRes,
-    asgRes,
+    ingresoActualRes,
+    ingresoPrevRes,
+    carteraRes,
+    deudaSinClienteRes,
+    serviciosRes,
     pendRes,
     periodoRes,
     clientesRes,
-    serviciosRes,
   ] = await Promise.all([
-    supabase.from("pagos").select("id, monto, fecha, estado, servicio_id").eq("estado", "asignado").gte("fecha", prevStartIso).lte("fecha", curEndIso),
-    supabase.from("paquetes_cliente").select("cliente_id, catalogo_id, descuento_pct"),
-    supabase.from("paquetes_catalogo").select("id, precio, descuento_pct"),
-    supabase.from("inscripciones").select("cliente_id, academia_id, descuento_pct, fecha_inscripcion, plan_frecuencia").eq("activa", true),
-    supabase.from("academias").select("id, precio, matricula, deporte, dias_semana"),
-    supabase.from("asignaciones_pago").select("cliente_id, servicio, pago_id"),
+    supabase.rpc("siigo_ingreso_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("siigo_ingreso_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    supabase.rpc("siigo_cartera"),
+    supabase.from("siigo_facturas").select("saldo").gt("saldo", 0).is("cliente_id", null),
+    supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
-    supabase.from("servicios").select("id, nombre, color"),
   ]);
 
-  // ───────── Ingresos por servicio (periodo + previo) ─────────
+  // ───────── Ingresos por servicio (porción pagada, desde Siigo) ─────────
   const servicioCat = new Map((serviciosRes.data ?? []).map((s) => [s.id, s]));
   const famTotal = new Map<number, number>();
   let periodTotal = 0;
-  let prevTotal = 0;
-  for (const p of pagosRes.data ?? []) {
-    const f = p.fecha;
-    if (f >= curStartIso && f <= curEndIso) {
-      periodTotal += p.monto;
-      famTotal.set(p.servicio_id, (famTotal.get(p.servicio_id) ?? 0) + p.monto);
-    } else if (f >= prevStartIso && f <= prevEndIso) {
-      prevTotal += p.monto;
-    }
+  for (const r of ingresoActualRes.data ?? []) {
+    const id = r.servicio_id ?? -1;
+    const monto = Number(r.monto);
+    periodTotal += monto;
+    famTotal.set(id, (famTotal.get(id) ?? 0) + monto);
   }
+  const prevTotal = (ingresoPrevRes.data ?? []).reduce((s, r) => s + Number(r.monto), 0);
   const familiasIngreso = [...famTotal.entries()]
     .map(([id, total]) => {
-      const s = servicioCat.get(id);
-      return { nombre: s?.nombre ?? "Otro", total, color: s?.color ?? COLOR_SERVICIO_DEFAULT };
+      const sv = servicioCat.get(id);
+      return { nombre: sv?.nombre ?? "Sin categoría", total, color: sv?.color ?? COLOR_SERVICIO_DEFAULT };
     })
     .filter((t) => t.total > 0)
     .sort((a, b) => b.total - a.total);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
-  // ───────── Cartera (saldos pendientes de todos los clientes) ─────────
-  const catMap = new Map((catsRes.data ?? []).map((c) => [c.id, c]));
-  const acaMap = new Map((acasRes.data ?? []).map((a) => [a.id, a]));
-  const montoByPago = new Map<number, number>();
-  for (const p of pagosRes.data ?? []) montoByPago.set(p.id, p.monto);
-  // los pagos de cartera pueden ser de cualquier fecha → traer los que falten
-  const faltantes = [...new Set((asgRes.data ?? []).map((a) => a.pago_id).filter((id) => !montoByPago.has(id)))];
-  if (faltantes.length) {
-    const { data } = await supabase.from("pagos").select("id, monto").in("id", faltantes);
-    for (const p of data ?? []) montoByPago.set(p.id, p.monto);
-  }
-
-  const esperadoByCli = new Map<number, number>();
-  const pagadoByCli = new Map<number, number>();
-  for (const pc of pqCliRes.data ?? []) {
-    const cat = pc.catalogo_id ? catMap.get(pc.catalogo_id) : null;
-    if (!cat) continue;
-    const v = valorPaquete(cat.precio, Number(cat.descuento_pct), Number(pc.descuento_pct));
-    esperadoByCli.set(pc.cliente_id, (esperadoByCli.get(pc.cliente_id) ?? 0) + v);
-  }
-  // Academia: cobro por sesión + matrícula semestral por deporte (mismo modelo que la ficha).
-  const sesionesCli = new Map<number, Map<number, number>>();
-  {
-    const { data: acaClases } = await supabase.from("clases").select("id, academia_id").eq("tipo", "academia").eq("estado", "realizada");
-    const acaDeClase = new Map<number, number>();
-    for (const c of acaClases ?? []) if (c.academia_id != null) acaDeClase.set(c.id, c.academia_id);
-    const ids = [...acaDeClase.keys()];
-    if (ids.length) {
-      const { data: asis } = await supabase.from("asistencias").select("cliente_id, clase_id, estado").in("clase_id", ids);
-      for (const a of asis ?? []) {
-        const acaId = acaDeClase.get(a.clase_id);
-        if (acaId == null || a.estado === "excusa_medica") continue;
-        let m = sesionesCli.get(a.cliente_id);
-        if (!m) {
-          m = new Map();
-          sesionesCli.set(a.cliente_id, m);
-        }
-        m.set(acaId, (m.get(acaId) ?? 0) + 1);
-      }
-    }
-  }
-  const inscByCli = new Map<number, { academia_id: number; descuento_pct: number; plan_frecuencia: number; fecha_inscripcion: string }[]>();
-  for (const i of inscRes.data ?? []) {
-    const arr = inscByCli.get(i.cliente_id) ?? [];
-    arr.push({ academia_id: i.academia_id, descuento_pct: Number(i.descuento_pct), plan_frecuencia: i.plan_frecuencia, fecha_inscripcion: i.fecha_inscripcion });
-    inscByCli.set(i.cliente_id, arr);
-  }
-  for (const [cli, inscs] of inscByCli) {
-    const { total } = esperadoAcademiasCliente(inscs, acaMap, sesionesCli.get(cli) ?? new Map());
-    esperadoByCli.set(cli, (esperadoByCli.get(cli) ?? 0) + total);
-  }
-  // Clases particulares (individuales sin paquete): cada una suma su precio a la cartera.
-  {
-    const { data: cp } = await supabase
-      .from("clases")
-      .select("cliente_id, precio, valor_facturado")
-      .eq("tipo", "individual")
-      .is("paquete_cliente_id", null)
-      .in("estado", ["realizada", "no_show"]);
-    for (const c of cp ?? []) {
-      if (c.cliente_id == null) continue;
-      esperadoByCli.set(c.cliente_id, (esperadoByCli.get(c.cliente_id) ?? 0) + (c.valor_facturado ?? c.precio ?? 0));
-    }
-  }
-  for (const a of asgRes.data ?? []) {
-    if (clasificarServicioPago(a.servicio) === "otro") continue;
-    pagadoByCli.set(a.cliente_id, (pagadoByCli.get(a.cliente_id) ?? 0) + (montoByPago.get(a.pago_id) ?? 0));
-  }
-  const deudores: { id: number; debe: number }[] = [];
-  for (const [cli, esp] of esperadoByCli) {
-    const saldo = (pagadoByCli.get(cli) ?? 0) - esp;
-    if (saldo < 0) deudores.push({ id: cli, debe: -saldo });
-  }
-  deudores.sort((a, b) => b.debe - a.debe);
+  // ───────── Cartera (deuda = saldo de Siigo) ─────────
+  const deudores = (carteraRes.data ?? [])
+    .map((r) => ({ id: Number(r.cliente_id), debe: Number(r.saldo) }))
+    .sort((a, b) => b.debe - a.debe);
   const carteraTotal = deudores.reduce((s, d) => s + d.debe, 0);
   const topDeudores = deudores.slice(0, 12);
+  const deudaSinCliente = (deudaSinClienteRes.data ?? []).reduce((s, r) => s + Number(r.saldo), 0);
 
   // ───────── Clases por cerrar por profesor ─────────
   const nowMs = now.getTime();
@@ -267,7 +186,13 @@ export async function SuperadminDashboard({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
-        <Stat label="Cartera por cobrar" value={COP.format(carteraTotal)} icon={TriangleAlert} tone="warn" sub={`${deudores.length} cliente(s)`} />
+        <Stat
+          label="Cartera por cobrar"
+          value={COP.format(carteraTotal + deudaSinCliente)}
+          icon={TriangleAlert}
+          tone="warn"
+          sub={deudaSinCliente > 0 ? `${COP.format(deudaSinCliente)} por conciliar` : `${deudores.length} cliente(s)`}
+        />
         <Stat label="Clientes activos" value={String(clientesRes.count ?? 0)} icon={Users} />
         <Stat label="Clases por cerrar" value={String(totalPend)} icon={CalendarClock} sub={totalVencidas > 0 ? `${totalVencidas} vencidas` : "al día"} />
       </div>
@@ -276,7 +201,7 @@ export async function SuperadminDashboard({
         <CardHeader>
           <CardTitle>Ingresos por tipo</CardTitle>
           <CardDescription>
-            Conciliado en el periodo · {COP.format(periodTotal)}
+            Pagado en el periodo (Siigo) · {COP.format(periodTotal)}
             {periodo === "custom" ? ` · ${curStartIso} a ${curEndIso}` : ""}
           </CardDescription>
           {deltaPct !== null && (

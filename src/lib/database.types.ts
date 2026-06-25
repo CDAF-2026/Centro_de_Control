@@ -785,7 +785,20 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      siigo_ingreso_servicio: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { servicio_id: number; monto: number }[];
+      };
+      siigo_cartera: {
+        Args: Record<string, never>;
+        Returns: { cliente_id: number; saldo: number }[];
+      };
+      siigo_resumen_cliente: {
+        Args: { p_cliente: number };
+        Returns: { servicio_id: number; facturado: number; pagado: number }[];
+      };
+    };
     Enums: {
       app_role: AppRole;
       cliente_estado: ClienteEstado;
