@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateCatalogo, type PaqueteFormState } from "./actions";
+import { updateCatalogo, deleteCatalogo, type PaqueteFormState } from "./actions";
 import { precioFinal } from "@/lib/validations/paquete";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,9 @@ const SELECT = "border-input bg-background h-8 w-full rounded-md border px-2 tex
 
 export function CatalogoCard({ paquete, puedeConfig }: { paquete: PaqueteCatalogo; puedeConfig: boolean }) {
   const [editando, setEditando] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const [state, action, pending] = useActionState(updateCatalogo, init);
+  const [delState, delAction, delPending] = useActionState(deleteCatalogo, init);
   const [precio, setPrecio] = useState(String(paquete.precio));
   const [descuento, setDescuento] = useState(String(paquete.descuento_pct));
   const fe = state.fieldErrors ?? {};
@@ -101,12 +103,36 @@ export function CatalogoCard({ paquete, puedeConfig }: { paquete: PaqueteCatalog
       ) : (
         <p className="text-muted-foreground text-sm">{COP.format(paquete.precio)}</p>
       )}
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         {!paquete.activo && <Badge variant="outline">Inactivo</Badge>}
-        {puedeConfig && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditando(true)}>Editar</Button>
+        {puedeConfig && !confirmDel && (
+          <>
+            <Button type="button" size="sm" variant="outline" onClick={() => setEditando(true)}>Editar</Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setConfirmDel(true)}
+            >
+              Eliminar
+            </Button>
+          </>
+        )}
+        {puedeConfig && confirmDel && (
+          <form action={delAction} className="flex items-center gap-2">
+            <input type="hidden" name="id" value={paquete.id} />
+            <span className="text-muted-foreground text-xs">¿Eliminar este paquete?</span>
+            <Button type="submit" size="sm" variant="destructive" disabled={delPending}>
+              {delPending ? "Eliminando…" : "Sí, eliminar"}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmDel(false)}>
+              Cancelar
+            </Button>
+          </form>
         )}
       </div>
+      {confirmDel && delState.error && <p className="text-destructive mt-2 text-xs">{delState.error}</p>}
     </div>
   );
 }

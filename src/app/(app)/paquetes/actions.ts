@@ -74,3 +74,35 @@ export async function updateCatalogo(
   revalidatePath("/paquetes");
   return { ok: "Paquete actualizado." };
 }
+
+/**
+ * Elimina un paquete del catálogo. Solo SA/CA.
+ * Se bloquea si ya está asignado a clientes (preserva su historial); en ese caso
+ * conviene desactivarlo en vez de borrarlo.
+ */
+export async function deleteCatalogo(
+  _prev: PaqueteFormState,
+  formData: FormData,
+): Promise<PaqueteFormState> {
+  await requireRole(["superadmin", "coord_admin"]);
+  const id = Number(formData.get("id"));
+  if (!id) return { error: "Paquete inválido." };
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("paquetes_cliente")
+    .select("id", { count: "exact", head: true })
+    .eq("catalogo_id", id);
+  if ((count ?? 0) > 0) {
+    return {
+      error: `No se puede eliminar: está asignado a ${count} cliente(s). Desactívalo en su lugar.`,
+    };
+  }
+
+  const { error } = await supabase.from("paquetes_catalogo").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "paquete.catalogo.delete", entity: "paquetes_catalogo", entityId: String(id) });
+  revalidatePath("/paquetes");
+  return { ok: "Paquete eliminado." };
+}
