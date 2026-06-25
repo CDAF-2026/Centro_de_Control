@@ -50,6 +50,16 @@ export async function crearEvento(_prev: EventoState, formData: FormData): Promi
     .single();
   if (error) return { error: error.message };
   await logAudit({ action: "evento.crear", entity: "eventos", entityId: String(data.id), after: { nombre } });
+
+  // Profesores responsables asignados desde la creación (opcional, repetible).
+  const profIds = formData.getAll("prof_id").map(String);
+  const profPagos = formData.getAll("prof_pago").map((v) => Number(v) || 0);
+  const vistos = new Set<string>();
+  const filasProf = profIds
+    .map((pid, i) => ({ evento_id: data.id, profesor_id: pid, pago: profPagos[i] ?? 0 }))
+    .filter((f) => f.profesor_id && !vistos.has(f.profesor_id) && vistos.add(f.profesor_id));
+  if (filasProf.length) await supabase.from("evento_profesores").insert(filasProf);
+
   redirect(`/eventos/${data.id}`);
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { crearEvento, type EventoState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,21 @@ import { Label } from "@/components/ui/label";
 const init: EventoState = {};
 const SELECT = "border-input bg-background h-9 w-full rounded-md border px-3 text-sm";
 
-export function EventoForm({ servicios }: { servicios: { id: number; nombre: string }[] }) {
+export function EventoForm({
+  servicios,
+  profesores,
+}: {
+  servicios: { id: number; nombre: string }[];
+  profesores: { id: string; nombre: string | null }[];
+}) {
   const [state, action, pending] = useActionState(crearEvento, init);
+  const [profRows, setProfRows] = useState<number[]>([]);
+  const [nextKey, setNextKey] = useState(0);
+  const addRow = () => {
+    setProfRows((r) => [...r, nextKey]);
+    setNextKey((k) => k + 1);
+  };
+  const removeRow = (k: number) => setProfRows((r) => r.filter((x) => x !== k));
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-1.5">
@@ -88,6 +101,32 @@ export function EventoForm({ servicios }: { servicios: { id: number; nombre: str
         <Label htmlFor="notas">Notas</Label>
         <Input id="notas" name="notas" />
       </div>
+
+      {profesores.length > 0 && (
+        <div className="space-y-2 border-t pt-4">
+          <Label>Profesores responsables (opcional)</Label>
+          {profRows.map((k) => (
+            <div key={k} className="flex items-center gap-2">
+              <select name="prof_id" defaultValue="" className={`${SELECT} flex-1`}>
+                <option value="">Profesor…</option>
+                {profesores.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>
+                ))}
+              </select>
+              <Input name="prof_pago" type="number" min={0} placeholder="Pago (COP)" className="w-32" />
+              <Button type="button" size="sm" variant="ghost" onClick={() => removeRow(k)} aria-label="Quitar">
+                ×
+              </Button>
+            </div>
+          ))}
+          <Button type="button" size="sm" variant="outline" onClick={addRow}>
+            + Agregar profesor
+          </Button>
+          <p className="text-muted-foreground text-xs">
+            El pago de cada profesor entra a su Liquidación del periodo como “Evento”. Puedes editarlo luego en la ficha.
+          </p>
+        </div>
+      )}
 
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       <Button type="submit" disabled={pending}>{pending ? "Creando…" : "Crear evento"}</Button>

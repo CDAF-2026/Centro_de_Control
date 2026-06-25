@@ -6,11 +6,10 @@ import { EventoForm } from "./evento-form";
 export default async function NuevoEventoPage() {
   await requireRole(["superadmin", "coord_admin"]);
   const supabase = await createClient();
-  const { data: servicios } = await supabase
-    .from("servicios")
-    .select("id, nombre")
-    .eq("activo", true)
-    .order("orden");
+  const [serviciosRes, profesoresRes] = await Promise.all([
+    supabase.from("servicios").select("id, nombre").eq("activo", true).order("orden"),
+    supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+  ]);
 
   return (
     <div className="max-w-xl space-y-6">
@@ -20,7 +19,7 @@ export default async function NuevoEventoPage() {
         </Link>
         <h1 className="cdaf-headline mt-1">Nuevo evento</h1>
       </div>
-      <EventoForm servicios={servicios ?? []} />
+      <EventoForm servicios={serviciosRes.data ?? []} profesores={profesoresRes.data ?? []} />
     </div>
   );
 }
