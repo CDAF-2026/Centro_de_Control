@@ -46,21 +46,30 @@ export async function SuperadminDashboard({
   const semanaECPromise = clasesSemanaPorProfesor(); // EasyCancha en paralelo (cache 10 min)
   const hace6Iso = isoDia(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
 
+  // OJO: todas las sumas se hacen en la BASE (RPCs). Traer facturas fila a fila
+  // y sumarlas aquí trunca en 1000 filas (tope de PostgREST) y daña las cifras.
   const [
     ingresoActualRes,
     ingresoPrevRes,
+    recaudoRes,
+    recaudoPrevRes,
+    diarioRes,
+    dias7Res,
+    topCliRes,
     carteraRes,
     deudaSinClienteRes,
     topPendRes,
-    facPeriodoRes,
-    hoyRes,
-    sem7Res,
     serviciosRes,
     pendRes,
     clientesRes,
   ] = await Promise.all([
     supabase.rpc("siigo_ingreso_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
     supabase.rpc("siigo_ingreso_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    supabase.rpc("siigo_recaudo", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    supabase.rpc("siigo_ingreso_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("siigo_ingreso_diario", { p_desde: hace6Iso, p_hasta: todayIso }),
+    supabase.rpc("siigo_top_clientes", { p_desde: curStartIso, p_hasta: curEndIso, p_limite: 5 }),
     supabase.rpc("siigo_cartera"),
     supabase.from("siigo_facturas").select("saldo").gt("saldo", 0).is("cliente_id", null),
     supabase
@@ -69,29 +78,30 @@ export async function SuperadminDashboard({
       .gt("saldo", 0)
       .order("saldo", { ascending: false })
       .limit(5),
-    supabase
-      .from("siigo_facturas")
-      .select("fecha, cliente_id, cliente_identificacion, cliente_nombre_siigo, total, saldo")
-      .gte("fecha", curStartIso)
-      .lte("fecha", curEndIso),
-    supabase.from("siigo_facturas").select("total, saldo").eq("fecha", todayIso),
-    supabase.from("siigo_facturas").select("fecha, total, saldo").gte("fecha", hace6Iso).lte("fecha", todayIso),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
   ]);
 
-  // ───────── Ingresos por servicio (porción pagada, desde Siigo) ─────────
+  // ───────── Recaudo del periodo (nivel factura, sumado en la base) ─────────
+  const recaudo = recaudoRes.data?.[0] ?? { facturado: 0, cobrado: 0, pendiente: 0 };
+  const facturadoPeriodo = Number(recaudo.facturado);
+  const cobradoPeriodo = Number(recaudo.cobrado);
+  const saldoPeriodo = Number(recaudo.pendiente);
+  const pctRecaudo = facturadoPeriodo > 0 ? (cobradoPeriodo / facturadoPeriodo) * 100 : 0;
+
+  // El marcador del héroe usa la MISMA cifra que el gauge ("Cobrado"), para que cuadren entre sí.
+  const periodTotal = cobradoPeriodo;
+  const prevTotal = Number(recaudoPrevRes.data?.[0]?.cobrado ?? 0);
+  const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
+
+  // ───────── Composición por servicio (donut + tendencias) ─────────
   const servicioCat = new Map((serviciosRes.data ?? []).map((s) => [s.id, s]));
   const famTotal = new Map<number, number>();
-  let periodTotal = 0;
   for (const r of ingresoActualRes.data ?? []) {
     const id = r.servicio_id ?? -1;
-    const monto = Number(r.monto);
-    periodTotal += monto;
-    famTotal.set(id, (famTotal.get(id) ?? 0) + monto);
+    famTotal.set(id, (famTotal.get(id) ?? 0) + Number(r.monto));
   }
-  const prevTotal = (ingresoPrevRes.data ?? []).reduce((s, r) => s + Number(r.monto), 0);
   const familiasIngreso = [...famTotal.entries()]
     .map(([id, total]) => {
       const sv = servicioCat.get(id);
@@ -99,17 +109,9 @@ export async function SuperadminDashboard({
     })
     .filter((t) => t.total > 0)
     .sort((a, b) => b.total - a.total);
-  const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
-  // ───────── Marcador de hoy (banner) ─────────
-  const hoyTotal = (hoyRes.data ?? []).reduce((s, f) => s + ((f.total ?? 0) - (f.saldo ?? 0)), 0);
-  const hoyFacturas = (hoyRes.data ?? []).length;
-
-  // ───────── Serie diaria del periodo (línea de juego del héroe) ─────────
-  const pagadoPorDia = new Map<string, number>();
-  for (const f of facPeriodoRes.data ?? []) {
-    pagadoPorDia.set(f.fecha, (pagadoPorDia.get(f.fecha) ?? 0) + ((f.total ?? 0) - (f.saldo ?? 0)));
-  }
+  // ───────── Serie diaria + barras de la semana + marcador de hoy ─────────
+  const pagadoPorDia = new Map((diarioRes.data ?? []).map((r) => [r.fecha, Number(r.monto)]));
   const serieDiaria: { fecha: string; monto: number }[] = [];
   for (let d = new Date(`${curStartIso}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
     const isoD = isoDia(d);
@@ -117,23 +119,17 @@ export async function SuperadminDashboard({
     serieDiaria.push({ fecha: isoD, monto: pagadoPorDia.get(isoD) ?? 0 });
   }
 
-  // ───────── Recaudo del periodo (gauge): cobrado vs facturado ─────────
-  const facturadoPeriodo = (facPeriodoRes.data ?? []).reduce((s, f) => s + (f.total ?? 0), 0);
-  const saldoPeriodo = (facPeriodoRes.data ?? []).reduce((s, f) => s + (f.saldo ?? 0), 0);
-  const cobradoPeriodo = facturadoPeriodo - saldoPeriodo;
-  const pctRecaudo = facturadoPeriodo > 0 ? (cobradoPeriodo / facturadoPeriodo) * 100 : 0;
-
-  // ───────── Barras de la semana (últimos 7 días) ─────────
+  const dia7Map = new Map((dias7Res.data ?? []).map((r) => [r.fecha, { monto: Number(r.monto), facturas: Number(r.facturas) }]));
   const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
-  const pagado7 = new Map<string, number>();
-  for (const f of sem7Res.data ?? []) pagado7.set(f.fecha, (pagado7.get(f.fecha) ?? 0) + ((f.total ?? 0) - (f.saldo ?? 0)));
   const dias7: { fecha: string; label: string; monto: number; esHoy: boolean }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     const isoD = isoDia(d);
-    dias7.push({ fecha: isoD, label: diaSemanaFmt.format(d).replace(".", ""), monto: pagado7.get(isoD) ?? 0, esHoy: isoD === todayIso });
+    dias7.push({ fecha: isoD, label: diaSemanaFmt.format(d).replace(".", ""), monto: dia7Map.get(isoD)?.monto ?? 0, esHoy: isoD === todayIso });
   }
   const totalSemana = dias7.reduce((s, d) => s + d.monto, 0);
+  const hoyTotal = dia7Map.get(todayIso)?.monto ?? 0;
+  const hoyFacturas = dia7Map.get(todayIso)?.facturas ?? 0;
 
   // ───────── Tendencias: qué servicios suben y cuáles bajan vs. el periodo anterior ─────────
   const prevPorServicio = new Map<number, number>();
@@ -167,25 +163,12 @@ export async function SuperadminDashboard({
   const deudaSinCliente = (deudaSinClienteRes.data ?? []).reduce((s, r) => s + Number(r.saldo), 0);
   const topPendientes = topPendRes.data ?? [];
 
-  // ───────── Top clientes: mayor facturación PAGADA en el periodo ─────────
-  const GENERIC_NIT = /^(\d)\1+$/;
-  const accTop = new Map<string, { clienteId: number | null; nombre: string | null; pagado: number }>();
-  for (const f of facPeriodoRes.data ?? []) {
-    const pagado = (f.total ?? 0) - (f.saldo ?? 0);
-    if (pagado <= 0) continue;
-    let key: string;
-    if (f.cliente_id != null) key = `c${f.cliente_id}`;
-    else {
-      const nit = f.cliente_identificacion?.trim();
-      if (!nit || GENERIC_NIT.test(nit)) continue;
-      key = `n${nit}`;
-    }
-    const cur = accTop.get(key) ?? { clienteId: f.cliente_id, nombre: f.cliente_nombre_siigo, pagado: 0 };
-    cur.pagado += pagado;
-    if (!cur.nombre && f.cliente_nombre_siigo) cur.nombre = f.cliente_nombre_siigo;
-    accTop.set(key, cur);
-  }
-  const topClientes = [...accTop.values()].sort((a, b) => b.pagado - a.pagado).slice(0, 5);
+  // ───────── Top clientes: mayor facturación PAGADA en el periodo (agregado en la base) ─────────
+  const topClientes = (topCliRes.data ?? []).map((r) => ({
+    clienteId: r.cliente_id,
+    nombre: r.nombre,
+    pagado: Number(r.pagado),
+  }));
   const topCliMax = Math.max(1, ...topClientes.map((t) => t.pagado));
 
   // ───────── Clases por cerrar ─────────
@@ -216,6 +199,9 @@ export async function SuperadminDashboard({
   }
 
   const hrefIngresos = `/ingresos?periodo=${periodo}${periodo === "custom" && desde && hasta ? `&desde=${desde}&hasta=${hasta}` : ""}`;
+  // Si el perfil no tiene nombre y llega el correo, saludar sin el dominio.
+  const saludo = nombre.includes("@") ? nombre.split("@")[0] : nombre;
+  const carteraGlobal = carteraTotal + deudaSinCliente;
 
   return (
     <div className="space-y-6">
@@ -232,7 +218,7 @@ export async function SuperadminDashboard({
           <div className="relative flex flex-wrap items-center justify-between gap-6">
             <div className="min-w-0">
               <p className="text-primary font-heading text-xs font-bold tracking-[0.2em] uppercase">Centro de Control</p>
-              <h2 className="font-heading mt-1 text-2xl font-bold tracking-tight italic sm:text-3xl">¡Hola, {nombre}! 👋</h2>
+              <h2 className="font-heading mt-1 text-2xl font-bold tracking-tight italic sm:text-3xl">¡Hola, {saludo}! 👋</h2>
               <p className="mt-1 text-sm text-white/70">Así va el marcador de hoy en el centro.</p>
             </div>
             <div className="flex items-center gap-6">
@@ -303,22 +289,27 @@ export async function SuperadminDashboard({
                 </Link>
               </CardAction>
             </CardHeader>
-            <CardContent className="flex items-center justify-between gap-4">
-              <RadialGauge pct={pctRecaudo} />
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-muted-foreground text-xs">Facturado</dt>
-                  <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground text-xs">Cobrado</dt>
-                  <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground text-xs">Pendiente</dt>
-                  <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
-                </div>
-              </dl>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <RadialGauge pct={pctRecaudo} />
+                <dl className="space-y-2 text-sm">
+                  <div>
+                    <dt className="text-muted-foreground text-xs">Facturado en el periodo</dt>
+                    <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground text-xs">Cobrado</dt>
+                    <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground text-xs">Pendiente del periodo</dt>
+                    <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
+                  </div>
+                </dl>
+              </div>
+              <p className="text-muted-foreground border-t pt-2.5 text-xs">
+                Cartera total (todas las fechas): <strong className="text-foreground tabular-nums">{COP.format(carteraGlobal)}</strong>
+              </p>
             </CardContent>
           </Card>
 

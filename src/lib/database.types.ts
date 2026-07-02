@@ -800,6 +800,18 @@ export type Database = {
         Args: { p_cliente: number };
         Returns: { servicio_id: number; facturado: number; pagado: number }[];
       };
+      siigo_recaudo: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { facturado: number; cobrado: number; pendiente: number }[];
+      };
+      siigo_ingreso_diario: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { fecha: string; monto: number; facturas: number }[];
+      };
+      siigo_top_clientes: {
+        Args: { p_desde: string; p_hasta: string; p_limite?: number };
+        Returns: { cliente_id: number | null; nombre: string | null; pagado: number }[];
+      };
     };
     Enums: {
       app_role: AppRole;
