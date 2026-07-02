@@ -96,6 +96,30 @@ export async function SuperadminDashboard({
     .sort((a, b) => b.total - a.total);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
+  // ───────── Tendencias: qué servicios suben y cuáles bajan vs. el periodo anterior ─────────
+  const prevPorServicio = new Map<number, number>();
+  for (const r of ingresoPrevRes.data ?? []) {
+    const id = r.servicio_id ?? -1;
+    prevPorServicio.set(id, (prevPorServicio.get(id) ?? 0) + Number(r.monto));
+  }
+  const movimientos = [...new Set([...famTotal.keys(), ...prevPorServicio.keys()])]
+    .map((id) => {
+      const actual = famTotal.get(id) ?? 0;
+      const previo = prevPorServicio.get(id) ?? 0;
+      const sv = servicioCat.get(id);
+      return {
+        id,
+        nombre: sv?.nombre ?? "Sin categoría",
+        color: sv?.color ?? COLOR_SERVICIO_DEFAULT,
+        actual,
+        delta: actual - previo,
+        pct: previo > 0 ? Math.round(((actual - previo) / previo) * 100) : null,
+      };
+    })
+    .filter((m) => m.delta !== 0);
+  const enAlza = movimientos.filter((m) => m.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 4);
+  const enBaja = movimientos.filter((m) => m.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 4);
+
   // ───────── Cartera (deuda = saldo de Siigo) ─────────
   const deudores = (carteraRes.data ?? [])
     .map((r) => ({ id: Number(r.cliente_id), debe: Number(r.saldo) }))
@@ -358,6 +382,53 @@ export async function SuperadminDashboard({
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Tendencias por servicio</CardTitle>
+            <CardDescription>
+              Ingresos del periodo vs. el anterior ({prevStartIso} a {prevEndIso})
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {enAlza.length === 0 && enBaja.length === 0 ? (
+              <EmptyState icon={TrendingUp} title="Sin variaciones" description="No hay cambios frente al periodo anterior." />
+            ) : (
+              [
+                { titulo: "En alza", items: enAlza, up: true },
+                { titulo: "En baja", items: enBaja, up: false },
+              ].map(
+                (sec) =>
+                  sec.items.length > 0 && (
+                    <div key={sec.titulo}>
+                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">{sec.titulo}</p>
+                      <ul className="divide-y">
+                        {sec.items.map((m) => (
+                          <li key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: m.color }} />
+                              <span className="truncate font-medium">{m.nombre}</span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                              <span className="text-muted-foreground">{COP.format(m.actual)}</span>
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-0.5 text-xs font-semibold",
+                                  sec.up ? "text-[#46530a]" : "text-destructive",
+                                )}
+                              >
+                                {sec.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                                {m.pct === null ? "nuevo" : `${m.pct > 0 ? "+" : ""}${m.pct}%`}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
+              )
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
