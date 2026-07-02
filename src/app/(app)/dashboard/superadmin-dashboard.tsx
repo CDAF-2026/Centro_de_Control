@@ -192,13 +192,19 @@ export async function SuperadminDashboard({
         >
           <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
         </Link>
-        <Stat
-          label="Cartera por cobrar"
-          value={COP.format(carteraTotal + deudaSinCliente)}
-          icon={TriangleAlert}
-          tone="warn"
-          sub={deudaSinCliente > 0 ? `${COP.format(deudaSinCliente)} por conciliar` : `${deudores.length} cliente(s)`}
-        />
+        <Link
+          href="/cartera"
+          title="Ver las facturas pendientes de pago"
+          className="focus-visible:ring-ring block rounded-xl transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Stat
+            label="Cartera por cobrar"
+            value={COP.format(carteraTotal + deudaSinCliente)}
+            icon={TriangleAlert}
+            tone="warn"
+            sub={deudaSinCliente > 0 ? `${COP.format(deudaSinCliente)} por conciliar` : `${deudores.length} cliente(s)`}
+          />
+        </Link>
         <Stat label="Clientes activos" value={String(clientesRes.count ?? 0)} icon={Users} />
         <Stat label="Clases por cerrar" value={String(totalPend)} icon={CalendarClock} sub={totalVencidas > 0 ? `${totalVencidas} vencidas` : "al día"} />
       </div>
