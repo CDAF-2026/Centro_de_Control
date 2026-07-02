@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Wallet } from "lucide-react";
+import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
+import { PeriodoToggle } from "../dashboard/periodo-toggle";
 import { FiltroServicio } from "./filtro-servicio";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -25,12 +27,14 @@ type FacturaRow = {
 export default async function IngresosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; servicio?: string }>;
+  searchParams: Promise<{ page?: string; servicio?: string; periodo?: string; desde?: string; hasta?: string }>;
 }) {
   await requireRole(rolesForModule("reportes_financieros"));
-  const { page: pageRaw, servicio: servicioRaw } = await searchParams;
+  const { page: pageRaw, servicio: servicioRaw, periodo: periodoRaw, desde: desdeQ, hasta: hastaQ } = await searchParams;
   const page = Math.max(1, Number(pageRaw) || 1);
   const servicioId = Number(servicioRaw) || 0;
+  const periodo = parsePeriodo(periodoRaw);
+  const { curStartIso, curEndIso } = rangoPeriodo(periodo, new Date(), desdeQ, hastaQ);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
@@ -39,7 +43,11 @@ export default async function IngresosPage({
   const sel =
     "id, numero, fecha, cliente_id, cliente_nombre_siigo, total, saldo" +
     (servicioId ? ", siigo_factura_lineas!inner(servicio_id)" : "");
-  let query = supabase.from("siigo_facturas").select(sel, { count: "exact" });
+  let query = supabase
+    .from("siigo_facturas")
+    .select(sel, { count: "exact" })
+    .gte("fecha", curStartIso)
+    .lte("fecha", curEndIso);
   if (servicioId) query = query.eq("siigo_factura_lineas.servicio_id", servicioId);
   const { data: facturasRaw, count } = await query
     .order("fecha", { ascending: false })
@@ -49,7 +57,7 @@ export default async function IngresosPage({
 
   const facIds = (facturas ?? []).map((f) => f.id);
   const cliIds = [...new Set((facturas ?? []).map((f) => f.cliente_id).filter((x): x is number => x != null))];
-  const [{ data: lineas }, { data: servicios }, { data: clientes }] = await Promise.all([
+  const [{ data: lineas }, { data: servicios }, { data: clientes }, ingresoRes] = await Promise.all([
     facIds.length
       ? supabase.from("siigo_factura_lineas").select("factura_id, descripcion, servicio_id, monto").in("factura_id", facIds)
       : Promise.resolve({ data: [] as { factura_id: number; descripcion: string | null; servicio_id: number | null; monto: number }[] }),
@@ -57,7 +65,13 @@ export default async function IngresosPage({
     cliIds.length
       ? supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds)
       : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string | null }[] }),
+    supabase.rpc("siigo_ingreso_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
   ]);
+
+  // Total de ingresos (porción pagada) del periodo observado, según el filtro.
+  const totalPeriodo = servicioId
+    ? Number((ingresoRes.data ?? []).find((r) => r.servicio_id === servicioId)?.monto ?? 0)
+    : (ingresoRes.data ?? []).reduce((s, r) => s + Number(r.monto), 0);
 
   const svName = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
   const cliName = new Map((clientes ?? []).map((c) => [c.id, `${c.nombres} ${c.apellidos ?? ""}`.trim()]));
@@ -77,13 +91,22 @@ export default async function IngresosPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const desde = total === 0 ? 0 : from + 1;
   const hasta = Math.min(from + PAGE_SIZE, total);
+
+  // Params del periodo (se conservan al filtrar, paginar o cambiar de periodo).
+  const periodoParams: Record<string, string> = { periodo };
+  if (periodo === "custom") {
+    if (desdeQ) periodoParams.desde = desdeQ;
+    if (hastaQ) periodoParams.hasta = hastaQ;
+  }
   const pageHref = (n: number) => {
-    const p = new URLSearchParams();
+    const p = new URLSearchParams(periodoParams);
     if (servicioId) p.set("servicio", String(servicioId));
     if (n > 1) p.set("page", String(n));
-    const qs = p.toString();
-    return qs ? `/ingresos?${qs}` : "/ingresos";
+    return `/ingresos?${p.toString()}`;
   };
+
+  const PERIODO_LABEL: Record<string, string> = { semana: "Semana", mes: "Mes", "3m": "3 meses", custom: "Personalizado" };
+  const filtroNombre = servicioId ? svName.get(servicioId) ?? "Servicio" : "Todos los servicios";
 
   return (
     <div className="space-y-6">
@@ -98,15 +121,37 @@ export default async function IngresosPage({
               Facturas de Siigo del más reciente al más antiguo. Se sincroniza automáticamente cada 20 minutos.
             </p>
           </div>
-          <FiltroServicio servicios={servicios ?? []} value={servicioId ? String(servicioId) : ""} basePath="/ingresos" />
+          <div className="flex flex-wrap items-center gap-3">
+            <PeriodoToggle
+              periodo={periodo}
+              desde={desdeQ}
+              hasta={hastaQ}
+              basePath="/ingresos"
+              extra={servicioId ? { servicio: String(servicioId) } : {}}
+            />
+            <FiltroServicio
+              servicios={servicios ?? []}
+              value={servicioId ? String(servicioId) : ""}
+              basePath="/ingresos"
+              extra={periodoParams}
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Total del periodo observado según el filtro */}
+      <div className="bg-card ring-foreground/[0.06] flex flex-wrap items-baseline justify-between gap-2 rounded-xl p-4 shadow-sm ring-1">
+        <span className="text-muted-foreground text-sm">
+          Ingresos · <strong className="text-foreground">{filtroNombre}</strong> · {PERIODO_LABEL[periodo]} ({curStartIso} → {curEndIso})
+        </span>
+        <span className="font-heading text-2xl font-semibold tracking-tight tabular-nums">{COP.format(totalPeriodo)}</span>
       </div>
 
       {total === 0 ? (
         <EmptyState
           icon={Wallet}
-          title={servicioId ? "Sin ingresos de este servicio" : "Sin ingresos registrados"}
-          description={servicioId ? "Prueba con otro servicio o quita el filtro." : "Aún no hay facturas sincronizadas desde Siigo."}
+          title={servicioId ? "Sin ingresos de este servicio en el periodo" : "Sin ingresos en el periodo"}
+          description={servicioId ? "Prueba con otro servicio, otro periodo o quita el filtro." : "Prueba con otro periodo."}
         />
       ) : (
         <>

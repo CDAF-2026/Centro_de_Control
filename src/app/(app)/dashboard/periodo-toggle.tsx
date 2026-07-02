@@ -18,27 +18,36 @@ const opcionCls = (active: boolean) =>
     active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
   );
 
-/** Selector de periodo del dashboard: presets + rango personalizado con calendario. */
+/** Selector de periodo (dashboard, ingresos…): presets + rango personalizado con calendario.
+ *  `extra` = otros query params que deben conservarse al cambiar el periodo. */
 export function PeriodoToggle({
   periodo,
   desde,
   hasta,
+  basePath = "/dashboard",
+  extra,
 }: {
   periodo: string;
   desde?: string;
   hasta?: string;
+  basePath?: string;
+  extra?: Record<string, string>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(periodo === "custom");
   const [d, setD] = useState(desde ?? "");
   const [h, setH] = useState(hasta ?? "");
 
+  const url = (params: Record<string, string>) => {
+    const p = new URLSearchParams({ ...(extra ?? {}), ...params });
+    return `${basePath}?${p.toString()}`;
+  };
   const ir = (key: string) => {
     setOpen(false);
-    router.push(`/dashboard?periodo=${key}`);
+    router.push(url({ periodo: key }));
   };
   const aplicar = () => {
-    if (d && h) router.push(`/dashboard?periodo=custom&desde=${d}&hasta=${h}`);
+    if (d && h) router.push(url({ periodo: "custom", desde: d, hasta: h }));
   };
 
   return (
