@@ -8,6 +8,9 @@ const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), 
 
 export type Periodo = "semana" | "mes" | "3m" | "custom";
 
+/** Fecha local en ISO (YYYY-MM-DD) — evita el corrimiento de día de toISOString (UTC). */
+export const isoDia = iso;
+
 /** Valida el query param y cae a "mes" si no es un periodo conocido. */
 export function parsePeriodo(raw: string | undefined): Periodo {
   return raw === "semana" || raw === "3m" || raw === "custom" ? raw : "mes";

@@ -3,31 +3,31 @@ import {
   Wallet,
   Users,
   CalendarClock,
-  CalendarCheck,
   TriangleAlert,
   TrendingUp,
   TrendingDown,
-  Trophy,
   ArrowRight,
-  type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
 import { clasesSemanaPorProfesor } from "@/lib/easycancha";
-import { rangoPeriodo, type Periodo } from "@/lib/periodo";
+import { rangoPeriodo, isoDia, type Periodo } from "@/lib/periodo";
 import { PeriodoToggle } from "./periodo-toggle";
-import { IngresosChart } from "./ingresos-chart";
+import { CountUp } from "./count-up";
+import { ChartArea } from "./chart-area";
+import { ChartBarrasSemana } from "./chart-barras-semana";
+import { ChartDonut } from "./chart-donut";
+import { RadialGauge } from "./radial-gauge";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
-const ini = (nombre: string) => {
-  const p = nombre.trim().split(/\s+/).filter(Boolean);
-  return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase() || "—";
-};
+
+/** Entrada escalonada de secciones (marcador que se enciende por partes). */
+const ENTRAR = "animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500";
+const retraso = (i: number) => ({ animationDelay: `${i * 80}ms` });
 
 export async function SuperadminDashboard({
   periodo,
@@ -44,6 +44,7 @@ export async function SuperadminDashboard({
   const now = new Date();
   const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
   const semanaECPromise = clasesSemanaPorProfesor(); // EasyCancha en paralelo (cache 10 min)
+  const hace6Iso = isoDia(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
 
   const [
     ingresoActualRes,
@@ -52,6 +53,8 @@ export async function SuperadminDashboard({
     deudaSinClienteRes,
     topPendRes,
     facPeriodoRes,
+    hoyRes,
+    sem7Res,
     serviciosRes,
     pendRes,
     clientesRes,
@@ -68,9 +71,11 @@ export async function SuperadminDashboard({
       .limit(5),
     supabase
       .from("siigo_facturas")
-      .select("cliente_id, cliente_identificacion, cliente_nombre_siigo, total, saldo")
+      .select("fecha, cliente_id, cliente_identificacion, cliente_nombre_siigo, total, saldo")
       .gte("fecha", curStartIso)
       .lte("fecha", curEndIso),
+    supabase.from("siigo_facturas").select("total, saldo").eq("fecha", todayIso),
+    supabase.from("siigo_facturas").select("fecha, total, saldo").gte("fecha", hace6Iso).lte("fecha", todayIso),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
@@ -95,6 +100,40 @@ export async function SuperadminDashboard({
     .filter((t) => t.total > 0)
     .sort((a, b) => b.total - a.total);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
+
+  // ───────── Marcador de hoy (banner) ─────────
+  const hoyTotal = (hoyRes.data ?? []).reduce((s, f) => s + ((f.total ?? 0) - (f.saldo ?? 0)), 0);
+  const hoyFacturas = (hoyRes.data ?? []).length;
+
+  // ───────── Serie diaria del periodo (línea de juego del héroe) ─────────
+  const pagadoPorDia = new Map<string, number>();
+  for (const f of facPeriodoRes.data ?? []) {
+    pagadoPorDia.set(f.fecha, (pagadoPorDia.get(f.fecha) ?? 0) + ((f.total ?? 0) - (f.saldo ?? 0)));
+  }
+  const serieDiaria: { fecha: string; monto: number }[] = [];
+  for (let d = new Date(`${curStartIso}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
+    const isoD = isoDia(d);
+    if (isoD > curEndIso) break;
+    serieDiaria.push({ fecha: isoD, monto: pagadoPorDia.get(isoD) ?? 0 });
+  }
+
+  // ───────── Recaudo del periodo (gauge): cobrado vs facturado ─────────
+  const facturadoPeriodo = (facPeriodoRes.data ?? []).reduce((s, f) => s + (f.total ?? 0), 0);
+  const saldoPeriodo = (facPeriodoRes.data ?? []).reduce((s, f) => s + (f.saldo ?? 0), 0);
+  const cobradoPeriodo = facturadoPeriodo - saldoPeriodo;
+  const pctRecaudo = facturadoPeriodo > 0 ? (cobradoPeriodo / facturadoPeriodo) * 100 : 0;
+
+  // ───────── Barras de la semana (últimos 7 días) ─────────
+  const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
+  const pagado7 = new Map<string, number>();
+  for (const f of sem7Res.data ?? []) pagado7.set(f.fecha, (pagado7.get(f.fecha) ?? 0) + ((f.total ?? 0) - (f.saldo ?? 0)));
+  const dias7: { fecha: string; label: string; monto: number; esHoy: boolean }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const isoD = isoDia(d);
+    dias7.push({ fecha: isoD, label: diaSemanaFmt.format(d).replace(".", ""), monto: pagado7.get(isoD) ?? 0, esHoy: isoD === todayIso });
+  }
+  const totalSemana = dias7.reduce((s, d) => s + d.monto, 0);
 
   // ───────── Tendencias: qué servicios suben y cuáles bajan vs. el periodo anterior ─────────
   const prevPorServicio = new Map<number, number>();
@@ -126,12 +165,9 @@ export async function SuperadminDashboard({
     .sort((a, b) => b.debe - a.debe);
   const carteraTotal = deudores.reduce((s, d) => s + d.debe, 0);
   const deudaSinCliente = (deudaSinClienteRes.data ?? []).reduce((s, r) => s + Number(r.saldo), 0);
-  // Los 5 pendientes de pago de mayor valor (con o sin cliente asignado).
   const topPendientes = topPendRes.data ?? [];
 
   // ───────── Top clientes: mayor facturación PAGADA en el periodo ─────────
-  // Identidad = nuestro cliente si está enlazado; si no, el NIT real de Siigo.
-  // El mostrador anónimo (NIT genérico) no cuenta como "cliente".
   const GENERIC_NIT = /^(\d)\1+$/;
   const accTop = new Map<string, { clienteId: number | null; nombre: string | null; pagado: number }>();
   for (const f of facPeriodoRes.data ?? []) {
@@ -150,26 +186,22 @@ export async function SuperadminDashboard({
     accTop.set(key, cur);
   }
   const topClientes = [...accTop.values()].sort((a, b) => b.pagado - a.pagado).slice(0, 5);
+  const topCliMax = Math.max(1, ...topClientes.map((t) => t.pagado));
 
-  // ───────── Clases por cerrar por profesor ─────────
+  // ───────── Clases por cerrar ─────────
   const nowMs = now.getTime();
-  const pendByProf = new Map<string, { count: number; vencidas: number }>();
+  let totalVencidas = 0;
   for (const c of pendRes.data ?? []) {
-    const key = c.profesor_id ?? "none";
-    const cur = pendByProf.get(key) ?? { count: 0, vencidas: 0 };
-    cur.count++;
     const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime();
-    if (nowMs > dt + 24 * 3600 * 1000) cur.vencidas++;
-    pendByProf.set(key, cur);
+    if (nowMs > dt + 24 * 3600 * 1000) totalVencidas++;
   }
   const totalPend = (pendRes.data ?? []).length;
-  const totalVencidas = [...pendByProf.values()].reduce((s, v) => s + v.vencidas, 0);
 
   // ───────── Clases agendadas de la semana (EasyCancha) ─────────
   const semanaEC = await semanaECPromise;
   const ecMax = Math.max(1, ...semanaEC.ranking.map((r) => r.clases));
 
-  // ───────── Nombres (profesores + deudores) ─────────
+  // ───────── Nombres de clientes (deudores + top) ─────────
   const cliName = new Map<number, string>();
   const cliIdsNecesarios = [
     ...new Set(
@@ -183,16 +215,40 @@ export async function SuperadminDashboard({
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
 
+  const hrefIngresos = `/ingresos?periodo=${periodo}${periodo === "custom" && desde && hasta ? `&desde=${desde}&hasta=${hasta}` : ""}`;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="cdaf-eyebrow text-muted-foreground">Hola, {nombre}</p>
-          <h1 className="cdaf-headline">Dashboard</h1>
-        </div>
+        <h1 className="cdaf-headline">Dashboard</h1>
         <PeriodoToggle periodo={periodo} desde={desde} hasta={hasta} />
       </div>
+
+      {/* ── Banner: el marcador de hoy ── */}
+      <section className={ENTRAR} style={retraso(0)}>
+        <div className="bg-stadium relative overflow-hidden rounded-2xl p-6 text-white shadow-md sm:p-8">
+          <div className="bg-primary/15 pointer-events-none absolute -top-28 -right-16 size-80 rounded-full blur-3xl" />
+          <div className="bg-primary/10 pointer-events-none absolute -bottom-32 left-1/3 size-72 rounded-full blur-3xl" />
+          <div className="relative flex flex-wrap items-center justify-between gap-6">
+            <div className="min-w-0">
+              <p className="text-primary font-heading text-xs font-bold tracking-[0.2em] uppercase">Centro de Control</p>
+              <h2 className="font-heading mt-1 text-2xl font-bold tracking-tight italic sm:text-3xl">¡Hola, {nombre}! 👋</h2>
+              <p className="mt-1 text-sm text-white/70">Así va el marcador de hoy en el centro.</p>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <CountUp value={hoyTotal} className="font-heading text-primary block text-3xl font-bold tracking-tight sm:text-4xl" />
+                <p className="mt-0.5 text-xs text-white/70">
+                  {hoyFacturas} factura(s) hoy · sync cada 20 min
+                </p>
+              </div>
+              <Link href={hrefIngresos} className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
+                Ver ingresos
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {totalVencidas > 0 && (
         <div className="border-destructive/30 bg-destructive/[0.06] flex items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
@@ -204,57 +260,170 @@ export async function SuperadminDashboard({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
-          href={`/ingresos?periodo=${periodo}${periodo === "custom" && desde && hasta ? `&desde=${desde}&hasta=${hasta}` : ""}`}
-          title="Ver el detalle de los ingresos"
-          className="focus-visible:ring-ring block rounded-xl transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
-        </Link>
-        <Link
-          href="/cartera"
-          title="Ver las facturas pendientes de pago"
-          className="focus-visible:ring-ring block rounded-xl transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <Stat
-            label="Cartera por cobrar"
-            value={COP.format(carteraTotal + deudaSinCliente)}
-            icon={TriangleAlert}
-            tone="warn"
-            sub={deudaSinCliente > 0 ? `${COP.format(deudaSinCliente)} por conciliar` : `${deudores.length} cliente(s)`}
-          />
-        </Link>
-        <Stat label="Clientes activos" value={String(clientesRes.count ?? 0)} icon={Users} />
-        <Stat label="Clases por cerrar" value={String(totalPend)} icon={CalendarClock} sub={totalVencidas > 0 ? `${totalVencidas} vencidas` : "al día"} />
+      {/* ── Bento: héroe del periodo + recaudo + mini-tiles ── */}
+      <div className={cn("grid gap-4 lg:grid-cols-3", ENTRAR)} style={retraso(1)}>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Marcador del periodo</CardTitle>
+            <CardDescription>Ingresos pagados (Siigo) · {curStartIso} a {curEndIso}</CardDescription>
+            <CardAction>
+              <Link href={hrefIngresos} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                Ver detalle <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <CountUp value={periodTotal} durationMs={1100} className="font-heading text-4xl font-bold tracking-tight" />
+              {deltaPct !== null && (
+                <span className={cn("inline-flex items-center gap-1 text-sm font-semibold", deltaPct >= 0 ? "text-[#46530a]" : "text-destructive")}>
+                  {deltaPct >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+                  {deltaPct >= 0 ? "+" : ""}{deltaPct}%
+                  <span className="text-muted-foreground font-normal">vs. anterior</span>
+                </span>
+              )}
+            </div>
+            {serieDiaria.length > 1 ? (
+              <div className="pb-5">
+                <ChartArea puntos={serieDiaria} height={110} />
+              </div>
+            ) : (
+              <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas de Siigo verás la curva aquí." />
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-4">
+          <Card className="flex-1">
+            <CardHeader>
+              <CardTitle>Recaudo del periodo</CardTitle>
+              <CardAction>
+                <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                  Ver cartera <ArrowRight className="size-3.5" />
+                </Link>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-4">
+              <RadialGauge pct={pctRecaudo} />
+              <dl className="space-y-2 text-sm">
+                <div>
+                  <dt className="text-muted-foreground text-xs">Facturado</dt>
+                  <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Cobrado</dt>
+                  <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Pendiente</dt>
+                  <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="space-y-1.5">
+                <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-10 items-center justify-center rounded-xl ring-1">
+                  <Users className="size-5" />
+                </span>
+                <CountUp value={clientesRes.count ?? 0} format="num" className="font-heading block text-2xl font-bold tracking-tight" />
+                <p className="text-muted-foreground text-xs">Clientes activos</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="space-y-1.5">
+                <span
+                  className={cn(
+                    "flex size-10 items-center justify-center rounded-xl",
+                    totalVencidas > 0 ? "bg-warning/15 text-[#8a5600]" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  <CalendarClock className="size-5" />
+                </span>
+                <CountUp value={totalPend} format="num" className="font-heading block text-2xl font-bold tracking-tight" />
+                <p className="text-muted-foreground text-xs">
+                  Clases por cerrar{totalVencidas > 0 ? ` · ${totalVencidas} vencidas` : ""}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ingresos por tipo</CardTitle>
-          <CardDescription>
-            Pagado en el periodo (Siigo) · {COP.format(periodTotal)}
-            {periodo === "custom" ? ` · ${curStartIso} a ${curEndIso}` : ""}
-          </CardDescription>
-          {deltaPct !== null && (
-            <CardAction>
-              <span className={cn("inline-flex items-center gap-1 text-sm font-medium", deltaPct >= 0 ? "text-[#46530a]" : "text-destructive")}>
-                {deltaPct >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
-                {deltaPct >= 0 ? "+" : ""}{deltaPct}% <span className="text-muted-foreground font-normal">vs. anterior</span>
-              </span>
-            </CardAction>
-          )}
-        </CardHeader>
-        <CardContent>
-          {periodTotal > 0 ? (
-            <IngresosChart familias={familiasIngreso} total={periodTotal} />
-          ) : (
-            <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Concilia pagos en la bolsa de pagos para verlos aquí." />
-          )}
-        </CardContent>
-      </Card>
+      {/* ── Semana + composición ── */}
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(2)}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Los últimos 7 días</CardTitle>
+            <CardDescription>Ingreso pagado por día · {COP.format(totalSemana)} en la semana</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <ChartBarrasSemana dias={dias7} />
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Composición del ingreso</CardTitle>
+            <CardDescription>Por servicio · {curStartIso} a {curEndIso}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {familiasIngreso.length > 0 ? (
+              <ChartDonut segmentos={familiasIngreso} />
+            ) : (
+              <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas verás la composición aquí." />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Top clientes + top deudores ── */}
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(3)}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Top clientes</CardTitle>
+            <CardDescription>Los 5 con mayor facturación pagada en el periodo</CardDescription>
+            <CardAction>
+              <Link href={hrefIngresos} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                Ver ingresos <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {topClientes.length === 0 ? (
+              <EmptyState icon={Users} title="Sin clientes con pagos en el periodo" description="Aún no hay facturación pagada identificada." />
+            ) : (
+              <ol className="space-y-2.5">
+                {topClientes.map((t, idx) => {
+                  const nombreCli = t.clienteId != null ? cliName.get(t.clienteId) ?? t.nombre ?? `Cliente #${t.clienteId}` : t.nombre ?? "—";
+                  return (
+                    <li key={`${t.clienteId ?? t.nombre}-${idx}`} className="flex items-center gap-3 text-sm">
+                      <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1">
+                        {idx + 1}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="mb-1 flex items-center justify-between gap-2">
+                          {t.clienteId != null ? (
+                            <Link href={`/clientes/${t.clienteId}`} className="truncate font-medium hover:underline">{nombreCli}</Link>
+                          ) : (
+                            <span className="truncate font-medium">{nombreCli}</span>
+                          )}
+                          <span className="shrink-0 font-semibold tabular-nums">{COP.format(t.pagado)}</span>
+                        </span>
+                        <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
+                          <span className="bg-charcoal/70 block h-full rounded-full" style={{ width: `${(t.pagado / topCliMax) * 100}%` }} />
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Top deudores</CardTitle>
@@ -269,88 +438,32 @@ export async function SuperadminDashboard({
             {topPendientes.length === 0 ? (
               <EmptyState icon={Wallet} title="Cartera al día" description="Nadie con saldo pendiente. 🎾" />
             ) : (
-              <table className="cdaf-table">
-                <thead>
-                  <tr>
-                    <th className="px-2 py-2">Cliente</th>
-                    <th className="px-2 py-2">Factura</th>
-                    <th className="px-2 py-2 text-right">Debe</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPendientes.map((f) => (
-                    <tr key={f.id}>
-                      <td className="px-2 py-2.5">
-                        {f.cliente_id ? (
-                          <Link href={`/clientes/${f.cliente_id}`} className="font-medium hover:underline">
-                            {cliName.get(f.cliente_id) ?? `Cliente #${f.cliente_id}`}
-                          </Link>
-                        ) : f.cliente_nombre_siigo ? (
-                          <span className="font-medium">{f.cliente_nombre_siigo}</span>
-                        ) : (
-                          <span className="text-muted-foreground">Sin identificar</span>
-                        )}
-                      </td>
-                      <td className="text-muted-foreground px-2 py-2.5 text-xs whitespace-nowrap">
-                        {f.numero ?? "—"} · {f.fecha}
-                      </td>
-                      <td className="text-destructive px-2 py-2.5 text-right font-medium tabular-nums">{COP.format(f.saldo)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Top clientes</CardTitle>
-            <CardDescription>Los 5 con mayor facturación pagada · {curStartIso} a {curEndIso}</CardDescription>
-            <CardAction>
-              <Link
-                href={`/ingresos?periodo=${periodo}${periodo === "custom" && desde && hasta ? `&desde=${desde}&hasta=${hasta}` : ""}`}
-                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium"
-              >
-                Ver ingresos <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {topClientes.length === 0 ? (
-              <EmptyState icon={Users} title="Sin clientes con pagos en el periodo" description="Aún no hay facturación pagada identificada." />
-            ) : (
               <ul className="divide-y">
-                {topClientes.map((t, idx) => {
-                  const nombre = t.clienteId != null ? cliName.get(t.clienteId) ?? t.nombre ?? `Cliente #${t.clienteId}` : t.nombre ?? "—";
-                  return (
-                    <li key={`${t.clienteId ?? t.nombre}-${idx}`} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                      <span className="flex min-w-0 items-center gap-3">
-                        <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1">
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 leading-tight">
-                          {t.clienteId != null ? (
-                            <Link href={`/clientes/${t.clienteId}`} className="block truncate text-sm font-medium hover:underline">
-                              {nombre}
-                            </Link>
-                          ) : (
-                            <span className="block truncate text-sm font-medium">{nombre}</span>
-                          )}
-                          <span className="text-muted-foreground block text-xs">Pagado en el periodo</span>
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right text-sm font-semibold tabular-nums">{COP.format(t.pagado)}</span>
-                    </li>
-                  );
-                })}
+                {topPendientes.map((f) => (
+                  <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0">
+                    <span className="min-w-0 leading-tight">
+                      {f.cliente_id ? (
+                        <Link href={`/clientes/${f.cliente_id}`} className="block truncate font-medium hover:underline">
+                          {cliName.get(f.cliente_id) ?? `Cliente #${f.cliente_id}`}
+                        </Link>
+                      ) : f.cliente_nombre_siigo ? (
+                        <span className="block truncate font-medium">{f.cliente_nombre_siigo}</span>
+                      ) : (
+                        <span className="text-muted-foreground block">Sin identificar</span>
+                      )}
+                      <span className="text-muted-foreground block text-xs">{f.numero ?? "—"} · {f.fecha}</span>
+                    </span>
+                    <span className="text-destructive shrink-0 font-semibold tabular-nums">{COP.format(f.saldo)}</span>
+                  </li>
+                ))}
               </ul>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* ── EasyCancha + tendencias ── */}
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(4)}>
         <Card>
           <CardHeader>
             <CardTitle>Clases agendadas esta semana</CardTitle>
@@ -431,53 +544,5 @@ export async function SuperadminDashboard({
         </Card>
       </div>
     </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  icon: Icon,
-  accent,
-  tone,
-  sub,
-  delta,
-}: {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  accent?: boolean;
-  tone?: "warn";
-  sub?: string;
-  delta?: number | null;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="cdaf-eyebrow text-muted-foreground">{label}</p>
-          <p className="font-heading text-foreground mt-1.5 truncate text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
-          {sub && <p className="text-muted-foreground mt-0.5 text-xs">{sub}</p>}
-          {typeof delta === "number" && (
-            <span className={cn("mt-1 inline-flex items-center gap-0.5 text-xs font-medium", delta >= 0 ? "text-[#46530a]" : "text-destructive")}>
-              {delta >= 0 ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-              {delta >= 0 ? "+" : ""}{delta}%
-            </span>
-          )}
-        </div>
-        <span
-          className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-xl",
-            accent
-              ? "bg-primary/15 text-charcoal ring-primary/25 ring-1"
-              : tone === "warn"
-                ? "bg-warning/15 text-[#8a5600]"
-                : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Icon className="size-5" />
-        </span>
-      </CardContent>
-    </Card>
   );
 }

@@ -37,6 +37,21 @@ modales `rounded-2xl`. Badges = pill (`rounded-4xl`).
   no hay que estilizar cada celda.
 - **KPI marcador** (dashboard): eyebrow + número `tabular-nums` + chip de ícono
   (lima `bg-primary/15 ring-primary/25` en destacados; `bg-muted` el resto).
+
+### Dashboard "marcador que cobra vida" (rediseño 2026-07)
+- **Banner marcador de hoy**: `bg-stadium` redondeado 2xl + destellos `bg-primary/15 blur-3xl`,
+  eyebrow lima con tracking amplio, saludo Montserrat itálica, número del día en lima con `CountUp`.
+- **Bento**: héroe `lg:col-span-2` ("Marcador del periodo": CountUp 4xl + ChartArea)
+  + columna satélite (RadialGauge de recaudo + 2 mini-tiles con chip de ícono y CountUp).
+- **Gráficos propios** (`src/app/(app)/dashboard/`): `CountUp` (marcador, ease-out cúbico,
+  respeta reduced-motion), `ChartArea` (línea diaria que se dibuja, hover con guía),
+  `ChartBarrasSemana` (barras por día, hoy en lima, crecen escalonadas),
+  `ChartDonut` (composición por servicio, colores del catálogo, hover que atenúa el resto),
+  `RadialGauge` (arco lima de % cobrado). Sin librerías: SVG + transiciones CSS.
+- **Entrada escalonada**: `animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500`
+  + `animationDelay` de 80 ms por sección (tw-animate-css).
+- **Ranking con barra**: nº en círculo + nombre + monto + barra `h-1.5 rounded-full`
+  (lima para actividad/hoy; charcoal para dinero).
 - **Sidebar activo**: riel lima `bg-sidebar-primary` (w-1, redondeado a la derecha)
   + `bg-sidebar-accent/70` + ícono en lima. Sidebar oscuro = firma de marca.
 - **Header**: chip ícono + título de la página (`bg-primary/15`), sticky con blur
