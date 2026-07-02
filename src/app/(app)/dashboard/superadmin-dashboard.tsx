@@ -54,7 +54,6 @@ export async function SuperadminDashboard({
     facPeriodoRes,
     serviciosRes,
     pendRes,
-    periodoRes,
     clientesRes,
   ] = await Promise.all([
     supabase.rpc("siigo_ingreso_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
@@ -74,7 +73,6 @@ export async function SuperadminDashboard({
       .lte("fecha", curEndIso),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
-    supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
   ]);
 
@@ -143,22 +141,11 @@ export async function SuperadminDashboard({
   const totalPend = (pendRes.data ?? []).length;
   const totalVencidas = [...pendByProf.values()].reduce((s, v) => s + v.vencidas, 0);
 
-  // ───────── Ranking dictadas (periodo) + agendadas de la semana (EasyCancha) ─────────
-  const dictadasByProf = new Map<string, number>();
-  for (const c of periodoRes.data ?? []) {
-    if (c.estado === "realizada" && c.profesor_id) dictadasByProf.set(c.profesor_id, (dictadasByProf.get(c.profesor_id) ?? 0) + 1);
-  }
-  const ranking = [...dictadasByProf.entries()].map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n).slice(0, 5);
+  // ───────── Clases agendadas de la semana (EasyCancha) ─────────
   const semanaEC = await semanaECPromise;
   const ecMax = Math.max(1, ...semanaEC.ranking.map((r) => r.clases));
 
   // ───────── Nombres (profesores + deudores) ─────────
-  const profIds = [...new Set([...pendByProf.keys(), ...ranking.map((r) => r.id)].filter((k) => k !== "none"))];
-  const profName = new Map<string, string>();
-  if (profIds.length) {
-    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
-    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
-  }
   const cliName = new Map<number, string>();
   const cliIdsNecesarios = [
     ...new Set(
@@ -172,7 +159,6 @@ export async function SuperadminDashboard({
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
 
-  const rankMax = Math.max(1, ...ranking.map((r) => r.n));
 
   return (
     <div className="space-y-6">
@@ -372,34 +358,6 @@ export async function SuperadminDashboard({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ranking de profesores</CardTitle>
-            <CardDescription>Clases dictadas en el periodo</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {ranking.length === 0 ? (
-              <EmptyState icon={Trophy} title="Sin clases dictadas" description="Aún no hay cierres en el periodo." />
-            ) : (
-              <ol className="space-y-2.5">
-                {ranking.map((r, idx) => (
-                  <li key={r.id} className="flex items-center gap-3 text-sm">
-                    <span className="text-muted-foreground w-4 shrink-0 text-center font-semibold tabular-nums">{idx + 1}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="mb-1 flex items-center justify-between gap-2">
-                        <span className="truncate font-medium">{profName.get(r.id) ?? "—"}</span>
-                        <span className="text-muted-foreground tabular-nums">{r.n}</span>
-                      </span>
-                      <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
-                        <span className="bg-primary block h-full rounded-full" style={{ width: `${(r.n / rankMax) * 100}%` }} />
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
