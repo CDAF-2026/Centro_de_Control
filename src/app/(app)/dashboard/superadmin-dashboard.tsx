@@ -79,6 +79,7 @@ export async function SuperadminDashboard({
     ingresoPrevRes,
     carteraRes,
     deudaSinClienteRes,
+    topPendRes,
     serviciosRes,
     pendRes,
     periodoRes,
@@ -88,6 +89,12 @@ export async function SuperadminDashboard({
     supabase.rpc("siigo_ingreso_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
     supabase.rpc("siigo_cartera"),
     supabase.from("siigo_facturas").select("saldo").gt("saldo", 0).is("cliente_id", null),
+    supabase
+      .from("siigo_facturas")
+      .select("id, numero, fecha, cliente_id, cliente_nombre_siigo, saldo")
+      .gt("saldo", 0)
+      .order("saldo", { ascending: false })
+      .limit(5),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
@@ -119,8 +126,9 @@ export async function SuperadminDashboard({
     .map((r) => ({ id: Number(r.cliente_id), debe: Number(r.saldo) }))
     .sort((a, b) => b.debe - a.debe);
   const carteraTotal = deudores.reduce((s, d) => s + d.debe, 0);
-  const topDeudores = deudores.slice(0, 12);
   const deudaSinCliente = (deudaSinClienteRes.data ?? []).reduce((s, r) => s + Number(r.saldo), 0);
+  // Los 5 pendientes de pago de mayor valor (con o sin cliente asignado).
+  const topPendientes = topPendRes.data ?? [];
 
   // ───────── Clases por cerrar por profesor ─────────
   const nowMs = now.getTime();
@@ -154,8 +162,9 @@ export async function SuperadminDashboard({
     for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
   }
   const cliName = new Map<number, string>();
-  if (topDeudores.length) {
-    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", topDeudores.map((d) => d.id));
+  const topPendCliIds = [...new Set(topPendientes.map((f) => f.cliente_id).filter((x): x is number => x != null))];
+  if (topPendCliIds.length) {
+    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", topPendCliIds);
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
 
@@ -238,26 +247,43 @@ export async function SuperadminDashboard({
         <Card>
           <CardHeader>
             <CardTitle>Top deudores</CardTitle>
-            <CardDescription>Cartera por cobrar · {COP.format(carteraTotal)}</CardDescription>
+            <CardDescription>Los 5 pendientes de mayor valor · Cartera {COP.format(carteraTotal + deudaSinCliente)}</CardDescription>
+            <CardAction>
+              <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                Ver cartera <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
           </CardHeader>
           <CardContent>
-            {topDeudores.length === 0 ? (
+            {topPendientes.length === 0 ? (
               <EmptyState icon={Wallet} title="Cartera al día" description="Nadie con saldo pendiente. 🎾" />
             ) : (
               <table className="cdaf-table">
                 <thead>
                   <tr>
                     <th className="px-2 py-2">Cliente</th>
+                    <th className="px-2 py-2">Factura</th>
                     <th className="px-2 py-2 text-right">Debe</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {topDeudores.map((d) => (
-                    <tr key={d.id}>
+                  {topPendientes.map((f) => (
+                    <tr key={f.id}>
                       <td className="px-2 py-2.5">
-                        <Link href={`/clientes/${d.id}`} className="font-medium hover:underline">{cliName.get(d.id) ?? `Cliente #${d.id}`}</Link>
+                        {f.cliente_id ? (
+                          <Link href={`/clientes/${f.cliente_id}`} className="font-medium hover:underline">
+                            {cliName.get(f.cliente_id) ?? `Cliente #${f.cliente_id}`}
+                          </Link>
+                        ) : f.cliente_nombre_siigo ? (
+                          <span className="font-medium">{f.cliente_nombre_siigo}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Sin identificar</span>
+                        )}
                       </td>
-                      <td className="text-destructive px-2 py-2.5 text-right font-medium tabular-nums">{COP.format(d.debe)}</td>
+                      <td className="text-muted-foreground px-2 py-2.5 text-xs whitespace-nowrap">
+                        {f.numero ?? "—"} · {f.fecha}
+                      </td>
+                      <td className="text-destructive px-2 py-2.5 text-right font-medium tabular-nums">{COP.format(f.saldo)}</td>
                     </tr>
                   ))}
                 </tbody>
