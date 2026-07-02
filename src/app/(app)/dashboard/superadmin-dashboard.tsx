@@ -49,6 +49,7 @@ export async function SuperadminDashboard({
     carteraRes,
     deudaSinClienteRes,
     topPendRes,
+    facPeriodoRes,
     serviciosRes,
     pendRes,
     periodoRes,
@@ -64,6 +65,11 @@ export async function SuperadminDashboard({
       .gt("saldo", 0)
       .order("saldo", { ascending: false })
       .limit(5),
+    supabase
+      .from("siigo_facturas")
+      .select("cliente_id, cliente_identificacion, cliente_nombre_siigo, total, saldo")
+      .gte("fecha", curStartIso)
+      .lte("fecha", curEndIso),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     supabase.from("clases").select("estado, profesor_id").gte("fecha", curStartIso).lte("fecha", curEndIso),
@@ -99,6 +105,28 @@ export async function SuperadminDashboard({
   // Los 5 pendientes de pago de mayor valor (con o sin cliente asignado).
   const topPendientes = topPendRes.data ?? [];
 
+  // ───────── Top clientes: mayor facturación PAGADA en el periodo ─────────
+  // Identidad = nuestro cliente si está enlazado; si no, el NIT real de Siigo.
+  // El mostrador anónimo (NIT genérico) no cuenta como "cliente".
+  const GENERIC_NIT = /^(\d)\1+$/;
+  const accTop = new Map<string, { clienteId: number | null; nombre: string | null; pagado: number }>();
+  for (const f of facPeriodoRes.data ?? []) {
+    const pagado = (f.total ?? 0) - (f.saldo ?? 0);
+    if (pagado <= 0) continue;
+    let key: string;
+    if (f.cliente_id != null) key = `c${f.cliente_id}`;
+    else {
+      const nit = f.cliente_identificacion?.trim();
+      if (!nit || GENERIC_NIT.test(nit)) continue;
+      key = `n${nit}`;
+    }
+    const cur = accTop.get(key) ?? { clienteId: f.cliente_id, nombre: f.cliente_nombre_siigo, pagado: 0 };
+    cur.pagado += pagado;
+    if (!cur.nombre && f.cliente_nombre_siigo) cur.nombre = f.cliente_nombre_siigo;
+    accTop.set(key, cur);
+  }
+  const topClientes = [...accTop.values()].sort((a, b) => b.pagado - a.pagado).slice(0, 5);
+
   // ───────── Clases por cerrar por profesor ─────────
   const nowMs = now.getTime();
   const pendByProf = new Map<string, { count: number; vencidas: number }>();
@@ -131,15 +159,18 @@ export async function SuperadminDashboard({
     for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
   }
   const cliName = new Map<number, string>();
-  const topPendCliIds = [...new Set(topPendientes.map((f) => f.cliente_id).filter((x): x is number => x != null))];
-  if (topPendCliIds.length) {
-    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", topPendCliIds);
+  const cliIdsNecesarios = [
+    ...new Set(
+      [...topPendientes.map((f) => f.cliente_id), ...topClientes.map((t) => t.clienteId)].filter(
+        (x): x is number => x != null,
+      ),
+    ),
+  ];
+  if (cliIdsNecesarios.length) {
+    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIdsNecesarios);
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
 
-  const pendList = [...pendByProf.entries()]
-    .map(([id, v]) => ({ id, nombre: id === "none" ? "Sin profesor asignado" : profName.get(id) ?? "—", ...v }))
-    .sort((a, b) => b.vencidas - a.vencidas || b.count - a.count);
   const rankMax = Math.max(1, ...ranking.map((r) => r.n));
 
   return (
@@ -263,39 +294,45 @@ export async function SuperadminDashboard({
 
         <Card>
           <CardHeader>
-            <CardTitle>Clases por cerrar</CardTitle>
-            <CardDescription>Por profesor · {totalPend} pendiente(s)</CardDescription>
+            <CardTitle>Top clientes</CardTitle>
+            <CardDescription>Los 5 con mayor facturación pagada · {curStartIso} a {curEndIso}</CardDescription>
             <CardAction>
-              <Link href="/cierre" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                Ir a cierres <ArrowRight className="size-3.5" />
+              <Link
+                href={`/ingresos?periodo=${periodo}${periodo === "custom" && desde && hasta ? `&desde=${desde}&hasta=${hasta}` : ""}`}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium"
+              >
+                Ver ingresos <ArrowRight className="size-3.5" />
               </Link>
             </CardAction>
           </CardHeader>
           <CardContent>
-            {pendList.length === 0 ? (
-              <EmptyState icon={CalendarCheck} title="No hay clases por cerrar" description="¡Todo al día!" />
+            {topClientes.length === 0 ? (
+              <EmptyState icon={Users} title="Sin clientes con pagos en el periodo" description="Aún no hay facturación pagada identificada." />
             ) : (
               <ul className="divide-y">
-                {pendList.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold">{ini(p.nombre)}</span>
-                      <span className="min-w-0 leading-tight">
-                        <span className="block truncate text-sm font-medium">{p.nombre}</span>
-                        <span className="text-muted-foreground block text-xs">{p.count} pendiente(s)</span>
+                {topClientes.map((t, idx) => {
+                  const nombre = t.clienteId != null ? cliName.get(t.clienteId) ?? t.nombre ?? `Cliente #${t.clienteId}` : t.nombre ?? "—";
+                  return (
+                    <li key={`${t.clienteId ?? t.nombre}-${idx}`} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1">
+                          {idx + 1}
+                        </span>
+                        <span className="min-w-0 leading-tight">
+                          {t.clienteId != null ? (
+                            <Link href={`/clientes/${t.clienteId}`} className="block truncate text-sm font-medium hover:underline">
+                              {nombre}
+                            </Link>
+                          ) : (
+                            <span className="block truncate text-sm font-medium">{nombre}</span>
+                          )}
+                          <span className="text-muted-foreground block text-xs">Pagado en el periodo</span>
+                        </span>
                       </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {p.vencidas > 0 && <Badge variant="destructive">{p.vencidas} vencida(s)</Badge>}
-                      <Link
-                        href={p.id === "none" ? "/cierre" : `/cierre?profesor=${p.id}`}
-                        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                      >
-                        Ver
-                      </Link>
-                    </span>
-                  </li>
-                ))}
+                      <span className="shrink-0 text-right text-sm font-semibold tabular-nums">{COP.format(t.pagado)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>
