@@ -52,8 +52,8 @@ export default async function PagosPage() {
       </div>
       <p className="text-muted-foreground text-sm">
         Facturas de Siigo que necesitan dueño (tienen deuda o cliente identificado). Asígnales el cliente —y el evento si
-        aplica—. Las ventas de mostrador anónimas ya entraron como ingreso y no aparecen aquí. Para traer lo nuevo de Siigo,
-        corre <code className="bg-muted rounded px-1">npm run sync:siigo</code>.
+        aplica—. Las ventas de mostrador anónimas ya entraron como ingreso y no aparecen aquí. La sincronización con Siigo
+        corre sola cada 20 minutos (y cada noche se refrescan los saldos).
       </p>
 
       <section className="space-y-3">
