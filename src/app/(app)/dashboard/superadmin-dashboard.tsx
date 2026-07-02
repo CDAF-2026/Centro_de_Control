@@ -18,6 +18,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
+import { clasesSemanaPorProfesor } from "@/lib/easycancha";
 import { rangoPeriodo, type Periodo } from "@/lib/periodo";
 import { PeriodoToggle } from "./periodo-toggle";
 import { IngresosChart } from "./ingresos-chart";
@@ -42,6 +43,7 @@ export async function SuperadminDashboard({
   const supabase = await createClient();
   const now = new Date();
   const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
+  const semanaECPromise = clasesSemanaPorProfesor(); // EasyCancha en paralelo (cache 10 min)
 
   const [
     ingresoActualRes,
@@ -141,15 +143,14 @@ export async function SuperadminDashboard({
   const totalPend = (pendRes.data ?? []).length;
   const totalVencidas = [...pendByProf.values()].reduce((s, v) => s + v.vencidas, 0);
 
-  // ───────── Cumplimiento + ranking (periodo) ─────────
-  const cump = { realizada: 0, programada: 0, cancelada: 0, no_show: 0 } as Record<string, number>;
+  // ───────── Ranking dictadas (periodo) + agendadas de la semana (EasyCancha) ─────────
   const dictadasByProf = new Map<string, number>();
   for (const c of periodoRes.data ?? []) {
-    cump[c.estado] = (cump[c.estado] ?? 0) + 1;
     if (c.estado === "realizada" && c.profesor_id) dictadasByProf.set(c.profesor_id, (dictadasByProf.get(c.profesor_id) ?? 0) + 1);
   }
   const ranking = [...dictadasByProf.entries()].map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n).slice(0, 5);
-  const pctAsistencia = cump.realizada + cump.no_show > 0 ? Math.round((cump.realizada / (cump.realizada + cump.no_show)) * 100) : null;
+  const semanaEC = await semanaECPromise;
+  const ecMax = Math.max(1, ...semanaEC.ranking.map((r) => r.clases));
 
   // ───────── Nombres (profesores + deudores) ─────────
   const profIds = [...new Set([...pendByProf.keys(), ...ranking.map((r) => r.id)].filter((k) => k !== "none"))];
@@ -342,18 +343,32 @@ export async function SuperadminDashboard({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Cumplimiento de clases</CardTitle>
-            <CardDescription>En el periodo seleccionado</CardDescription>
+            <CardTitle>Clases agendadas esta semana</CardTitle>
+            <CardDescription>
+              Por profesor · EasyCancha · {semanaEC.desde} a {semanaEC.hasta}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Linea label="Dictadas (realizadas)" value={cump.realizada ?? 0} />
-            <Linea label="Programadas" value={cump.programada ?? 0} />
-            <Linea label="Canceladas" value={cump.cancelada ?? 0} />
-            <Linea label="No-show" value={cump.no_show ?? 0} />
-            <div className="flex items-center justify-between border-t pt-2 font-medium">
-              <span>% asistencia</span>
-              <span className="tabular-nums">{pctAsistencia === null ? "—" : `${pctAsistencia}%`}</span>
-            </div>
+          <CardContent>
+            {semanaEC.ranking.length === 0 ? (
+              <EmptyState icon={CalendarClock} title="Sin clases agendadas" description="No hay reservas de clases en EasyCancha esta semana." />
+            ) : (
+              <ol className="space-y-2.5">
+                {semanaEC.ranking.slice(0, 8).map((r, idx) => (
+                  <li key={r.nombre} className="flex items-center gap-3 text-sm">
+                    <span className="text-muted-foreground w-4 shrink-0 text-center font-semibold tabular-nums">{idx + 1}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="mb-1 flex items-center justify-between gap-2">
+                        <span className="truncate font-medium">{r.nombre}</span>
+                        <span className="text-muted-foreground tabular-nums">{r.clases}</span>
+                      </span>
+                      <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
+                        <span className="bg-primary block h-full rounded-full" style={{ width: `${(r.clases / ecMax) * 100}%` }} />
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </CardContent>
         </Card>
 
@@ -435,14 +450,5 @@ function Stat({
         </span>
       </CardContent>
     </Card>
-  );
-}
-
-function Linea({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium tabular-nums">{value}</span>
-    </div>
   );
 }
