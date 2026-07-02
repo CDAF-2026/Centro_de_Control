@@ -185,7 +185,13 @@ export async function SuperadminDashboard({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
+        <Link
+          href="/ingresos"
+          title="Ver el detalle de los ingresos"
+          className="focus-visible:ring-ring block rounded-xl transition hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Stat label="Ingresos del periodo" value={COP.format(periodTotal)} icon={Wallet} accent delta={deltaPct} />
+        </Link>
         <Stat
           label="Cartera por cobrar"
           value={COP.format(carteraTotal + deudaSinCliente)}
