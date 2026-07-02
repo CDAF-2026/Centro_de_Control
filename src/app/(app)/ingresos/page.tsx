@@ -6,29 +6,46 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Wallet } from "lucide-react";
+import { FiltroServicio } from "./filtro-servicio";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const PAGE_SIZE = 20;
+
+type FacturaRow = {
+  id: number;
+  numero: string | null;
+  fecha: string;
+  cliente_id: number | null;
+  cliente_nombre_siigo: string | null;
+  total: number;
+  saldo: number;
+};
 
 /** Detalle de ingresos (facturas de Siigo), del más reciente al más antiguo. */
 export default async function IngresosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; servicio?: string }>;
 }) {
   await requireRole(rolesForModule("reportes_financieros"));
-  const { page: pageRaw } = await searchParams;
+  const { page: pageRaw, servicio: servicioRaw } = await searchParams;
   const page = Math.max(1, Number(pageRaw) || 1);
+  const servicioId = Number(servicioRaw) || 0;
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
   const supabase = await createClient();
-  const { data: facturas, count } = await supabase
-    .from("siigo_facturas")
-    .select("id, numero, fecha, cliente_id, cliente_nombre_siigo, total, saldo, estado_conciliacion", { count: "exact" })
+  // Con filtro: solo facturas que tengan al menos una línea de ese servicio (join interno).
+  const sel =
+    "id, numero, fecha, cliente_id, cliente_nombre_siigo, total, saldo" +
+    (servicioId ? ", siigo_factura_lineas!inner(servicio_id)" : "");
+  let query = supabase.from("siigo_facturas").select(sel, { count: "exact" });
+  if (servicioId) query = query.eq("siigo_factura_lineas.servicio_id", servicioId);
+  const { data: facturasRaw, count } = await query
     .order("fecha", { ascending: false })
     .order("id", { ascending: false })
     .range(from, to);
+  const facturas = (facturasRaw ?? []) as unknown as FacturaRow[];
 
   const facIds = (facturas ?? []).map((f) => f.id);
   const cliIds = [...new Set((facturas ?? []).map((f) => f.cliente_id).filter((x): x is number => x != null))];
@@ -36,7 +53,7 @@ export default async function IngresosPage({
     facIds.length
       ? supabase.from("siigo_factura_lineas").select("factura_id, descripcion, servicio_id, monto").in("factura_id", facIds)
       : Promise.resolve({ data: [] as { factura_id: number; descripcion: string | null; servicio_id: number | null; monto: number }[] }),
-    supabase.from("servicios").select("id, nombre"),
+    supabase.from("servicios").select("id, nombre").order("orden"),
     cliIds.length
       ? supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds)
       : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string | null }[] }),
@@ -60,7 +77,13 @@ export default async function IngresosPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const desde = total === 0 ? 0 : from + 1;
   const hasta = Math.min(from + PAGE_SIZE, total);
-  const pageHref = (n: number) => (n > 1 ? `/ingresos?page=${n}` : "/ingresos");
+  const pageHref = (n: number) => {
+    const p = new URLSearchParams();
+    if (servicioId) p.set("servicio", String(servicioId));
+    if (n > 1) p.set("page", String(n));
+    const qs = p.toString();
+    return qs ? `/ingresos?${qs}` : "/ingresos";
+  };
 
   return (
     <div className="space-y-6">
@@ -68,14 +91,23 @@ export default async function IngresosPage({
         <Link href="/dashboard" className="text-muted-foreground text-sm hover:underline">
           ← Dashboard
         </Link>
-        <h1 className="cdaf-headline mt-1">Ingresos · detalle</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Facturas de Siigo del más reciente al más antiguo. Se sincroniza automáticamente cada 20 minutos.
-        </p>
+        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="cdaf-headline">Ingresos · detalle</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Facturas de Siigo del más reciente al más antiguo. Se sincroniza automáticamente cada 20 minutos.
+            </p>
+          </div>
+          <FiltroServicio servicios={servicios ?? []} value={servicioId ? String(servicioId) : ""} basePath="/ingresos" />
+        </div>
       </div>
 
       {total === 0 ? (
-        <EmptyState icon={Wallet} title="Sin ingresos registrados" description="Aún no hay facturas sincronizadas desde Siigo." />
+        <EmptyState
+          icon={Wallet}
+          title={servicioId ? "Sin ingresos de este servicio" : "Sin ingresos registrados"}
+          description={servicioId ? "Prueba con otro servicio o quita el filtro." : "Aún no hay facturas sincronizadas desde Siigo."}
+        />
       ) : (
         <>
           <div className="cdaf-table-wrap">
