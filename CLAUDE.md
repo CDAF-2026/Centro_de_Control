@@ -1,1 +1,2 @@
 @AGENTS.md
+@MEMORIA.md
