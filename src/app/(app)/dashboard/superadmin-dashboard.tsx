@@ -55,6 +55,7 @@ export async function SuperadminDashboard({
     recaudoPrevRes,
     diarioRes,
     dias7Res,
+    dias7DetRes,
     topCliRes,
     carteraRes,
     deudaSinClienteRes,
@@ -69,6 +70,7 @@ export async function SuperadminDashboard({
     supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso }),
     supabase.rpc("siigo_ingreso_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
     supabase.rpc("siigo_ingreso_diario", { p_desde: hace6Iso, p_hasta: todayIso }),
+    supabase.rpc("siigo_ingreso_dia_servicio", { p_desde: hace6Iso, p_hasta: todayIso }),
     supabase.rpc("siigo_top_clientes", { p_desde: curStartIso, p_hasta: curEndIso, p_limite: 5 }),
     supabase.rpc("siigo_cartera"),
     supabase.from("siigo_facturas").select("saldo").gt("saldo", 0).is("cliente_id", null),
@@ -120,12 +122,29 @@ export async function SuperadminDashboard({
   }
 
   const dia7Map = new Map((dias7Res.data ?? []).map((r) => [r.fecha, { monto: Number(r.monto), facturas: Number(r.facturas) }]));
+  // Detalle por servicio de cada día (para el modal al clicar una barra).
+  const detPorDia = new Map<string, { nombre: string; total: number; color: string }[]>();
+  for (const r of dias7DetRes.data ?? []) {
+    const sv = servicioCat.get(r.servicio_id ?? -1);
+    const arr = detPorDia.get(r.fecha) ?? [];
+    arr.push({ nombre: sv?.nombre ?? "Sin categoría", total: Number(r.monto), color: sv?.color ?? COLOR_SERVICIO_DEFAULT });
+    detPorDia.set(r.fecha, arr);
+  }
   const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
-  const dias7: { fecha: string; label: string; monto: number; esHoy: boolean }[] = [];
+  const diaLargoFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
+  const dias7: { fecha: string; label: string; fechaLarga: string; monto: number; facturas: number; esHoy: boolean; detalle: { nombre: string; total: number; color: string }[] }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     const isoD = isoDia(d);
-    dias7.push({ fecha: isoD, label: diaSemanaFmt.format(d).replace(".", ""), monto: dia7Map.get(isoD)?.monto ?? 0, esHoy: isoD === todayIso });
+    dias7.push({
+      fecha: isoD,
+      label: diaSemanaFmt.format(d).replace(".", ""),
+      fechaLarga: diaLargoFmt.format(d),
+      monto: dia7Map.get(isoD)?.monto ?? 0,
+      facturas: dia7Map.get(isoD)?.facturas ?? 0,
+      esHoy: isoD === todayIso,
+      detalle: (detPorDia.get(isoD) ?? []).filter((x) => x.total > 0).sort((a, b) => b.total - a.total),
+    });
   }
   const totalSemana = dias7.reduce((s, d) => s + d.monto, 0);
   const hoyTotal = dia7Map.get(todayIso)?.monto ?? 0;

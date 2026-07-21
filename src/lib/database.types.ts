@@ -808,6 +808,10 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string };
         Returns: { fecha: string; monto: number; facturas: number }[];
       };
+      siigo_ingreso_dia_servicio: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { fecha: string; servicio_id: number; monto: number }[];
+      };
       siigo_top_clientes: {
         Args: { p_desde: string; p_hasta: string; p_limite?: number };
         Returns: { cliente_id: number | null; nombre: string | null; pagado: number }[];
