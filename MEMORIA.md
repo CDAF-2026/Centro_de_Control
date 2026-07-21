@@ -22,6 +22,8 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | Redeploy Edge Function siigo-sync | `node --env-file=.env scripts/deploy-siigo-fn.mjs`; re-agendar cron: `scripts/schedule-siigo-cron.mjs` |
 | Verificar esquema/datos | script one-off con Management API (`POST /v1/projects/$REF/database/query`, token de .env) o service-role |
 
+> **Turbopack "stale"**: si el dev tira `require is not defined` en un chunk de `node_modules_*.js` con el badge **(stale)**, es caché corrupta de Turbopack, NO código (verificar: `grep -rn "require(" src/` vacío + `npm run build` pasa). Fix: `pkill -f "next dev"` + `rm -rf .next` + relanzar dev.
+
 ## Reglas duras
 1. **Migraciones**: escribir SQL en `supabase/migrations/` + actualizar `src/lib/database.types.ts` A MANO
    (es manual, no generado) + `npm run db:apply` + verificar por API. Nunca asumir aplicada sin verificar.
