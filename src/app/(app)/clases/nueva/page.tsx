@@ -6,12 +6,11 @@ import { ClaseForm } from "./clase-form";
 export default async function NuevaClasePage() {
   await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
   const supabase = await createClient();
-  const [{ data: clientes }, { data: profesores }, { data: pqRaw }] = await Promise.all([
-    supabase.from("clientes").select("id, nombres, apellidos").eq("estado", "activo").order("apellidos"),
+  const [{ data: profesores }, { data: pqRaw }] = await Promise.all([
     supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
     supabase
       .from("paquetes_cliente")
-      .select("id, cliente_id, catalogo_id, num_clases, clases_consumidas")
+      .select("id, miembro_id, catalogo_id, num_clases, clases_consumidas")
       .eq("estado", "activo"),
   ]);
 
@@ -28,7 +27,7 @@ export default async function NuevaClasePage() {
     .filter((p) => p.saldo > 0)
     .map((p) => ({
       id: p.id,
-      clienteId: p.cliente_id,
+      miembroId: p.miembro_id,
       label: `${p.catalogo_id ? catName.get(p.catalogo_id) ?? "Paquete" : "Paquete"} · ${p.saldo}/${p.num_clases} disponibles`,
     }));
 
@@ -40,7 +39,7 @@ export default async function NuevaClasePage() {
         </Link>
         <h1 className="cdaf-headline mt-1">Nueva clase individual</h1>
       </div>
-      <ClaseForm clientes={clientes ?? []} profesores={profesores ?? []} paquetes={paquetes} />
+      <ClaseForm profesores={profesores ?? []} paquetes={paquetes} />
     </div>
   );
 }

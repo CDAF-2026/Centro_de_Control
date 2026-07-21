@@ -29,11 +29,25 @@ export async function createClaseIndividual(
   const d = parsed.data;
 
   const supabase = await createClient();
+  // Se busca a la PERSONA (miembro); la familia (cliente_id) sale del propio miembro.
+  const miembroSel = Number(formData.get("miembroId")) || null;
+  let miembroId: number | null = null;
+  let clienteId = d.clienteId;
+  if (miembroSel) {
+    const { data: m } = await supabase.from("cliente_miembros").select("id, cliente_id").eq("id", miembroSel).maybeSingle();
+    if (m) { miembroId = m.id; clienteId = m.cliente_id; }
+  }
+  if (!miembroId && clienteId) {
+    const { data: tit } = await supabase.from("cliente_miembros").select("id").eq("cliente_id", clienteId).eq("es_titular", true).maybeSingle();
+    miembroId = tit?.id ?? null;
+  }
+
   const { data: c, error } = await supabase
     .from("clases")
     .insert({
       tipo: "individual",
-      cliente_id: d.clienteId,
+      cliente_id: clienteId,
+      miembro_id: miembroId,
       paquete_cliente_id: d.paqueteClienteId ? Number(d.paqueteClienteId) : null,
       profesor_id: d.profesorId || null,
       deporte: d.deporte,

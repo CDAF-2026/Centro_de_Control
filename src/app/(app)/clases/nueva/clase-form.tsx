@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createClaseIndividual, type ClaseFormState } from "../actions";
+import { MiembroAutocomplete } from "@/components/miembro-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,53 +10,39 @@ import { Label } from "@/components/ui/label";
 const initial: ClaseFormState = {};
 
 export function ClaseForm({
-  clientes,
   profesores,
   paquetes,
 }: {
-  clientes: { id: number; nombres: string; apellidos: string }[];
   profesores: { id: string; nombre: string | null }[];
-  paquetes: { id: number; clienteId: number; label: string }[];
+  paquetes: { id: number; miembroId: number | null; label: string }[];
 }) {
   const [state, action, pending] = useActionState(createClaseIndividual, initial);
   const fe = state.fieldErrors ?? {};
-  const [clienteId, setClienteId] = useState("");
+  const [miembroId, setMiembroId] = useState<number | null>(null);
 
-  const paquetesCliente = paquetes.filter((p) => String(p.clienteId) === clienteId);
+  const paquetesMiembro = paquetes.filter((p) => p.miembroId != null && p.miembroId === miembroId);
 
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="clienteId">Deportista</Label>
-        <select
-          id="clienteId"
-          name="clienteId"
-          required
-          value={clienteId}
-          onChange={(e) => setClienteId(e.target.value)}
-          className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-        >
-          <option value="">— Selecciona —</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>{c.apellidos}, {c.nombres}</option>
-          ))}
-        </select>
+        <Label>Deportista</Label>
+        <MiembroAutocomplete onSelect={(sel) => setMiembroId(sel?.miembroId ?? null)} />
         {fe.clienteId && <p className="text-destructive text-sm">{fe.clienteId}</p>}
       </div>
 
-      {clienteId && (
+      {miembroId && (
         <div className="space-y-1.5">
           <Label htmlFor="paqueteClienteId">Cobrar a un paquete (opcional)</Label>
           <select
             id="paqueteClienteId"
             name="paqueteClienteId"
             className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
-            disabled={paquetesCliente.length === 0}
+            disabled={paquetesMiembro.length === 0}
           >
             <option value="">
-              {paquetesCliente.length === 0 ? "— Sin paquetes activos —" : "— Cobro aparte (no consume paquete) —"}
+              {paquetesMiembro.length === 0 ? "— Sin paquetes activos —" : "— Cobro aparte (no consume paquete) —"}
             </option>
-            {paquetesCliente.map((p) => (
+            {paquetesMiembro.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
           </select>

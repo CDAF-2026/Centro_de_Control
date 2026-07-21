@@ -14,9 +14,11 @@ type Sug = { id: number; clienteId: number; nombres: string; apellidos: string; 
 export function MiembroAutocomplete({
   miembroName = "miembroId",
   clienteName = "clienteId",
+  onSelect,
 }: {
   miembroName?: string;
   clienteName?: string;
+  onSelect?: (sel: { miembroId: number; clienteId: number } | null) => void;
 }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<{ id: number; clienteId: number; label: string } | null>(null);
@@ -54,7 +56,7 @@ export function MiembroAutocomplete({
       {sel ? (
         <div className="border-input flex h-9 items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm">
           <span className="truncate">{sel.label}</span>
-          <button type="button" onClick={() => { setSel(null); setQ(""); }} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline">
+          <button type="button" onClick={() => { setSel(null); setQ(""); onSelect?.(null); }} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline">
             cambiar
           </button>
         </div>
@@ -73,7 +75,7 @@ export function MiembroAutocomplete({
             <li key={s.id}>
               <button
                 type="button"
-                onClick={() => { setSel({ id: s.id, clienteId: s.clienteId, label: `${s.apellidos}, ${s.nombres}` }); setOpen(false); }}
+                onClick={() => { setSel({ id: s.id, clienteId: s.clienteId, label: `${s.apellidos}, ${s.nombres}` }); setOpen(false); onSelect?.({ miembroId: s.id, clienteId: s.clienteId }); }}
                 className="hover:bg-muted flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-sm"
               >
                 <span className="truncate">{s.apellidos}, {s.nombres}</span>
