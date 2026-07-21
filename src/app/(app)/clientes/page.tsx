@@ -47,6 +47,13 @@ export default async function ClientesPage({
   };
 
   const puedeEditar = can(profile.role, "clientes", "edit");
+  const exportarHref = (() => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (estado) p.set("estado", estado);
+    const s = p.toString();
+    return s ? `/clientes/exportar?${s}` : "/clientes/exportar";
+  })();
 
   return (
     <div className="space-y-6">
@@ -55,6 +62,9 @@ export default async function ClientesPage({
         {puedeEditar && (
           <div className="flex flex-wrap items-center gap-2">
             <SyncClientesButton />
+            <a href={exportarHref} className={buttonVariants({ variant: "outline" })}>
+              Descargar CSV
+            </a>
             <Link href="/clientes/importar" className={buttonVariants({ variant: "outline" })}>
               Importar CSV
             </Link>
