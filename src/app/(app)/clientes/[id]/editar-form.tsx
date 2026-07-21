@@ -6,6 +6,7 @@ import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const initial: ClienteFormState = {};
 
@@ -31,11 +32,12 @@ export type AcudienteEditable = {
 } | null;
 
 function Field({
-  label, name, type = "text", error, required, defaultValue, onChange,
+  label, name, type = "text", error, required, defaultValue, value, readOnly, onChange,
 }: {
   label: string; name: string; type?: string; error?: string; required?: boolean;
-  defaultValue?: string; onChange?: (v: string) => void;
+  defaultValue?: string; value?: string; readOnly?: boolean; onChange?: (v: string) => void;
 }) {
+  const controlado = value !== undefined;
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
@@ -44,7 +46,9 @@ function Field({
         name={name}
         type={type}
         required={required}
-        defaultValue={defaultValue}
+        readOnly={readOnly}
+        className={cn(readOnly && "bg-muted/50 text-muted-foreground cursor-not-allowed")}
+        {...(controlado ? { value } : { defaultValue })}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
       />
       {error && <p className="text-destructive text-sm">{error}</p>}
@@ -58,6 +62,32 @@ export function EditarClienteForm({ cliente, acudiente }: { cliente: ClienteEdit
   const fe = state.fieldErrors ?? {};
   const edad = edadDesde(fecha);
   const menor = edad != null && edad < 18;
+
+  // Acudiente y emergencia controlados: así la casilla "mismos datos" puede espejar en vivo.
+  const [acu, setAcu] = useState({
+    nombre: acudiente?.nombre ?? "",
+    documento: acudiente?.documento ?? "",
+    telefono: acudiente?.telefono ?? "",
+    parentesco: acudiente?.parentesco ?? "",
+  });
+  const [emer, setEmer] = useState({
+    nombre: cliente.emergencia_nombre ?? "",
+    celular: cliente.emergencia_celular ?? "",
+    parentesco: cliente.emergencia_parentesco ?? "",
+  });
+  // Arranca marcada si la emergencia guardada ya coincide con el acudiente.
+  const yaCoinciden =
+    (acudiente?.nombre ?? "") !== "" &&
+    (cliente.emergencia_nombre ?? "") === (acudiente?.nombre ?? "") &&
+    (cliente.emergencia_celular ?? "") === (acudiente?.telefono ?? "") &&
+    (cliente.emergencia_parentesco ?? "") === (acudiente?.parentesco ?? "");
+  const [mismos, setMismos] = useState(yaCoinciden);
+
+  // Espejo activo solo mientras sea menor (si pasa a mayor, la emergencia vuelve a ser editable).
+  const espejo = mismos && menor;
+  const emerNombre = espejo ? acu.nombre : emer.nombre;
+  const emerCelular = espejo ? acu.telefono : emer.celular;
+  const emerParentesco = espejo ? acu.parentesco : emer.parentesco;
 
   return (
     <form action={action} className="space-y-4">
@@ -78,11 +108,23 @@ export function EditarClienteForm({ cliente, acudiente }: { cliente: ClienteEdit
 
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Contacto de emergencia</legend>
-        <Field label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre} defaultValue={cliente.emergencia_nombre ?? ""} />
+        {menor && (
+          <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors">
+            <input type="checkbox" checked={mismos} onChange={(e) => setMismos(e.target.checked)} className="accent-lime size-4" />
+            Usar los mismos datos del acudiente
+          </label>
+        )}
+        <Field label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre}
+          value={emerNombre} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, nombre: v }))} />
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular} defaultValue={cliente.emergencia_celular ?? ""} />
-          <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco} defaultValue={cliente.emergencia_parentesco ?? ""} />
+          <Field label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular}
+            value={emerCelular} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, celular: v }))} />
+          <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}
+            value={emerParentesco} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, parentesco: v }))} />
         </div>
+        {espejo && (
+          <p className="text-muted-foreground text-xs">Se guardarán los mismos datos del acudiente. Desmarca la casilla para editarlos aparte.</p>
+        )}
       </fieldset>
 
       <fieldset className="space-y-2 rounded-lg border p-4">
@@ -98,12 +140,16 @@ export function EditarClienteForm({ cliente, acudiente }: { cliente: ClienteEdit
       {menor && (
         <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">
           <legend className="cdaf-eyebrow px-1">Acudiente (obligatorio · {edad} años)</legend>
-          <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required defaultValue={acudiente?.nombre ?? ""} />
+          <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required
+            value={acu.nombre} onChange={(v) => setAcu((s) => ({ ...s, nombre: v }))} />
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Documento" name="acudienteDocumento" defaultValue={acudiente?.documento ?? ""} />
-            <Field label="Teléfono" name="acudienteTelefono" defaultValue={acudiente?.telefono ?? ""} />
+            <Field label="Documento" name="acudienteDocumento"
+              value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
+            <Field label="Teléfono" name="acudienteTelefono"
+              value={acu.telefono} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
           </div>
-          <Field label="Parentesco" name="acudienteParentesco" defaultValue={acudiente?.parentesco ?? ""} />
+          <Field label="Parentesco" name="acudienteParentesco"
+            value={acu.parentesco} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
         </fieldset>
       )}
 
