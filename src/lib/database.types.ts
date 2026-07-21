@@ -830,9 +830,18 @@ export type Database = {
         Args: { p: { siigo_id: string; monto: number; numeros: string }[] };
         Returns: number;
       };
-      siigo_facturas_pendientes_cliente: {
+      siigo_facturas_cliente_servicio: {
         Args: { p_cliente: number };
-        Returns: { servicio_id: number | null; numero: string; fecha: string; pendiente: number }[];
+        Returns: {
+          servicio_id: number | null;
+          numero: string;
+          fecha: string;
+          facturado: number;
+          pagado: number;
+          pendiente: number;
+          nota_credito: number;
+          nc_numero: string | null;
+        }[];
       };
       siigo_top_clientes: {
         Args: { p_desde: string; p_hasta: string; p_limite?: number };

@@ -106,8 +106,12 @@ export default async function ClienteDetallePage({
   // ── Situación financiera: facturado / pagado / saldo desde Siigo (Siigo manda) ──
   const verFinanzas = can(profile.role, "cliente_finanzas");
   let resumenSiigo: { servicioId: number | null; nombre: string; facturado: number; pagado: number; saldo: number }[] = [];
-  // Qué facturas generan cada saldo (solo se muestran donde hay deuda).
-  const pendientesPorServicio = new Map<number | null, { numero: string; fecha: string; pendiente: number }[]>();
+  // Todas las facturas que componen cada servicio (pagadas, pendientes y anuladas),
+  // para que el "Facturado" sea rastreable y no parezca inflado.
+  const facturasPorServicio = new Map<
+    number | null,
+    { numero: string; fecha: string; facturado: number; pagado: number; pendiente: number; notaCredito: number }[]
+  >();
   const detallePorFactura = new Map<string, FacturaDetalleData>();
   let facturadoTotal = 0;
   let pagadoTotal = 0;
@@ -115,22 +119,28 @@ export default async function ClienteDetallePage({
     const [{ data: resumen }, { data: servicios }, { data: pendientes }] = await Promise.all([
       supabase.rpc("siigo_resumen_cliente", { p_cliente: Number(id) }),
       supabase.from("servicios").select("id, nombre"),
-      supabase.rpc("siigo_facturas_pendientes_cliente", { p_cliente: Number(id) }),
+      supabase.rpc("siigo_facturas_cliente_servicio", { p_cliente: Number(id) }),
     ]);
     for (const p of pendientes ?? []) {
       const key = p.servicio_id ?? null;
-      const arr = pendientesPorServicio.get(key) ?? [];
-      arr.push({ numero: p.numero, fecha: p.fecha, pendiente: Number(p.pendiente) });
-      pendientesPorServicio.set(key, arr);
+      const arr = facturasPorServicio.get(key) ?? [];
+      arr.push({
+        numero: p.numero,
+        fecha: p.fecha,
+        facturado: Number(p.facturado),
+        pagado: Number(p.pagado),
+        pendiente: Number(p.pendiente),
+        notaCredito: Number(p.nota_credito),
+      });
+      facturasPorServicio.set(key, arr);
     }
     const svName = new Map((servicios ?? []).map((sv) => [sv.id, sv.nombre]));
 
-    // Detalle de cada factura pendiente (para el modal al clicar su número).
+    // Detalle de TODAS sus facturas (para el modal al clicar cualquier número).
     const { data: facsPend } = await supabase
       .from("siigo_facturas")
       .select("id, numero, fecha, total, saldo, nota_credito, nc_numero")
       .eq("cliente_id", Number(id))
-      .gt("saldo", 0)
       .order("fecha");
     const idsPend = (facsPend ?? []).map((f) => f.id);
     const { data: lineasPend } = idsPend.length
@@ -310,21 +320,35 @@ export default async function ClienteDetallePage({
                     <p className="text-muted-foreground text-xs">
                       Facturado {COP.format(r.facturado)} · Pagado {COP.format(r.pagado)}
                     </p>
-                    {r.saldo > 0 && (pendientesPorServicio.get(r.servicioId) ?? []).length > 0 && (
+                    {(facturasPorServicio.get(r.servicioId) ?? []).length > 0 && (
                       <ul className="border-muted mt-2 space-y-1 border-l-2 pl-3">
-                        {(pendientesPorServicio.get(r.servicioId) ?? []).map((f) => (
-                          <li key={f.numero} className="flex items-center justify-between gap-3 text-xs">
-                            <span className="text-muted-foreground">
-                              {detallePorFactura.has(f.numero) ? (
-                                <FacturaLink factura={detallePorFactura.get(f.numero)!} />
-                              ) : (
-                                <span className="text-foreground font-medium">{f.numero}</span>
-                              )}{" "}
-                              · {fechaCorta(f.fecha)}
-                            </span>
-                            <span className="text-destructive tabular-nums">{COP.format(f.pendiente)}</span>
-                          </li>
-                        ))}
+                        {(facturasPorServicio.get(r.servicioId) ?? []).map((f) => {
+                          const anulada = f.notaCredito > 0 && f.facturado === 0;
+                          return (
+                            <li key={f.numero} className="flex items-center justify-between gap-3 text-xs">
+                              <span className="text-muted-foreground">
+                                {detallePorFactura.has(f.numero) ? (
+                                  <FacturaLink factura={detallePorFactura.get(f.numero)!} />
+                                ) : (
+                                  <span className="text-foreground font-medium">{f.numero}</span>
+                                )}{" "}
+                                · {fechaCorta(f.fecha)}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                                <span className={anulada ? "text-muted-foreground line-through" : ""}>
+                                  {COP.format(f.facturado || f.notaCredito)}
+                                </span>
+                                {anulada ? (
+                                  <span className="text-muted-foreground">Anulada</span>
+                                ) : f.pendiente > 0 ? (
+                                  <span className="text-destructive font-medium">Debe {COP.format(f.pendiente)}</span>
+                                ) : (
+                                  <span className="text-muted-foreground">Pagada</span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </li>
