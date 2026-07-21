@@ -36,15 +36,21 @@ export default async function AcademiaDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, cliente_id, plan_frecuencia, descuento_pct, dias")
+    .select("id, cliente_id, miembro_id, plan_frecuencia, descuento_pct, dias")
     .eq("academia_id", academiaId);
+  // El inscrito es el MIEMBRO (hermano); si faltara, se cae al nombre de la ficha.
+  const miembroIds = (inscripciones ?? []).map((i) => i.miembro_id).filter((x): x is number => x != null);
   const clienteIds = (inscripciones ?? []).map((i) => i.cliente_id);
-  const { data: inscritosClientes } = clienteIds.length
-    ? await supabase.from("clientes").select("id, nombres, apellidos").in("id", clienteIds)
-    : { data: [] };
-  const nombrePorId = new Map((inscritosClientes ?? []).map((c) => [c.id, `${c.apellidos}, ${c.nombres}`]));
+  const [{ data: inscritosMiembros }, { data: inscritosClientes }] = await Promise.all([
+    miembroIds.length ? supabase.from("cliente_miembros").select("id, nombres, apellidos").in("id", miembroIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
+    clienteIds.length ? supabase.from("clientes").select("id, nombres, apellidos").in("id", clienteIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
+  ]);
+  const nombreMiembro = new Map((inscritosMiembros ?? []).map((m) => [m.id, `${m.apellidos}, ${m.nombres}`]));
+  const nombreCliente = new Map((inscritosClientes ?? []).map((c) => [c.id, `${c.apellidos}, ${c.nombres}`]));
+  const nombreInscrito = (i: { miembro_id: number | null; cliente_id: number }) =>
+    (i.miembro_id != null ? nombreMiembro.get(i.miembro_id) : null) ?? nombreCliente.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`;
 
-  // Sobre-asistencia: presentes del mes en esta academia, por cliente.
+  // Sobre-asistencia: presentes del mes en esta academia, por miembro.
   const ymMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const { data: clasesMes } = await supabase
     .from("clases")
@@ -55,10 +61,10 @@ export default async function AcademiaDetallePage({
   const presentesMes = new Map<number, number>();
   const idsMes = (clasesMes ?? []).map((c) => c.id);
   if (idsMes.length) {
-    const { data: asisMes } = await supabase.from("asistencias").select("cliente_id, presente, estado").in("clase_id", idsMes);
+    const { data: asisMes } = await supabase.from("asistencias").select("miembro_id, presente, estado").in("clase_id", idsMes);
     for (const a of asisMes ?? []) {
       const ok = a.estado ? a.estado === "presente" : a.presente;
-      if (ok) presentesMes.set(a.cliente_id, (presentesMes.get(a.cliente_id) ?? 0) + 1);
+      if (ok && a.miembro_id != null) presentesMes.set(a.miembro_id, (presentesMes.get(a.miembro_id) ?? 0) + 1);
     }
   }
 
@@ -170,9 +176,9 @@ export default async function AcademiaDetallePage({
               {(inscripciones ?? []).map((i) => (
                 <li key={i.id} className="flex items-center justify-between gap-3 py-2">
                   <span className="flex flex-wrap items-center gap-2">
-                    {nombrePorId.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`}
-                    {(presentesMes.get(i.cliente_id) ?? 0) > i.plan_frecuencia * 4 && (
-                      <Badge variant="warning">Sobre-asistencia · {presentesMes.get(i.cliente_id)} este mes</Badge>
+                    {nombreInscrito(i)}
+                    {i.miembro_id != null && (presentesMes.get(i.miembro_id) ?? 0) > i.plan_frecuencia * 4 && (
+                      <Badge variant="warning">Sobre-asistencia · {presentesMes.get(i.miembro_id)} este mes</Badge>
                     )}
                   </span>
                   <span className="text-muted-foreground">
