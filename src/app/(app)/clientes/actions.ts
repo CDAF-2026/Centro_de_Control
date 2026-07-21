@@ -86,6 +86,17 @@ export async function createCliente(
     .single();
   if (error || !cli) return { error: error?.message ?? "No se pudo guardar el cliente." };
 
+  // El titular también es un miembro de la ficha (así la operación va por miembro).
+  await supabase.from("cliente_miembros").insert({
+    cliente_id: cli.id,
+    nombres: d.nombres,
+    apellidos: d.apellidos,
+    fecha_nacimiento: d.fechaNacimiento || null,
+    documento: d.documento || null,
+    deportes: leerDeportes(formData),
+    es_titular: true,
+  });
+
   await logAudit({
     action: "cliente.create",
     entity: "clientes",
@@ -249,6 +260,66 @@ export async function updateCliente(
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${id}`);
   redirect(`/clientes/${id}`);
+}
+
+/** Agrega un hermano a la ficha familiar (miembro no titular). */
+export async function agregarHermano(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(WRITE_ROLES);
+  const clienteId = Number(formData.get("clienteId"));
+  const nombres = String(formData.get("nombres") ?? "").trim();
+  const apellidos = String(formData.get("apellidos") ?? "").trim();
+  const fechaNacimiento = String(formData.get("fechaNacimiento") ?? "").trim() || null;
+  const documento = String(formData.get("documento") ?? "").trim() || null;
+  if (!clienteId) return { error: "Ficha inválida." };
+  if (!nombres || !apellidos) {
+    return { error: "Nombre y apellido del hermano son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("cliente_miembros").insert({
+    cliente_id: clienteId,
+    nombres,
+    apellidos,
+    fecha_nacimiento: fechaNacimiento,
+    documento,
+    deportes: leerDeportes(formData),
+    es_titular: false,
+  });
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "cliente.hermano.add", entity: "cliente_miembros", entityId: String(clienteId), after: { nombres, apellidos } });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: `${nombres} agregado a la familia.` };
+}
+
+/** Quita un hermano de la ficha (no el titular). Bloquea si ya tiene operación. */
+export async function quitarHermano(formData: FormData): Promise<void> {
+  await requireRole(WRITE_ROLES);
+  const miembroId = Number(formData.get("miembroId"));
+  const clienteId = Number(formData.get("clienteId"));
+  if (!miembroId) return;
+
+  const supabase = await createClient();
+  const { data: m } = await supabase.from("cliente_miembros").select("es_titular, nombres").eq("id", miembroId).maybeSingle();
+  if (!m || m.es_titular) return; // nunca borrar al titular
+
+  // Si el hermano ya tiene operación, se desactiva (no se borra su historia).
+  const [{ count: nIns }, { count: nAsi }, { count: nPq }] = await Promise.all([
+    supabase.from("inscripciones").select("*", { count: "exact", head: true }).eq("miembro_id", miembroId),
+    supabase.from("asistencias").select("*", { count: "exact", head: true }).eq("miembro_id", miembroId),
+    supabase.from("paquetes_cliente").select("*", { count: "exact", head: true }).eq("miembro_id", miembroId),
+  ]);
+  if ((nIns ?? 0) + (nAsi ?? 0) + (nPq ?? 0) > 0) {
+    await supabase.from("cliente_miembros").update({ activo: false }).eq("id", miembroId);
+  } else {
+    await supabase.from("cliente_miembros").delete().eq("id", miembroId);
+  }
+
+  await logAudit({ action: "cliente.hermano.remove", entity: "cliente_miembros", entityId: String(miembroId) });
+  revalidatePath(`/clientes/${clienteId}`);
 }
 
 /** Activa/retira un cliente (auditado). */

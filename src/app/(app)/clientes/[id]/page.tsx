@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
 import { FacturaLink, type FacturaDetalleData } from "./factura-detalle";
+import { Hermanos, type Miembro } from "./hermanos";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const FECHA_CORTA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
@@ -42,6 +43,15 @@ export default async function ClienteDetallePage({
       .single();
     acudiente = data ?? null;
   }
+
+  const { data: miembrosRaw } = await supabase
+    .from("cliente_miembros")
+    .select("id, nombres, apellidos, fecha_nacimiento, deportes, es_titular")
+    .eq("cliente_id", Number(id))
+    .eq("activo", true)
+    .order("es_titular", { ascending: false })
+    .order("created_at");
+  const miembros: Miembro[] = miembrosRaw ?? [];
 
   const { data: docsRaw } = await supabase
     .from("cliente_documentos")
@@ -258,6 +268,18 @@ export default async function ClienteDetallePage({
             <Dato label="Parentesco" valor={acudiente.parentesco} />
             <Dato label="Documento" valor={acudiente.documento} />
             <Dato label="Teléfono" valor={acudiente.telefono} />
+          </CardContent>
+        </Card>
+      )}
+
+      {cliente.es_menor && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Hermanos</CardTitle>
+            <CardDescription>Miembros de esta ficha familiar. La situación financiera es única para toda la familia.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Hermanos clienteId={cliente.id} miembros={miembros} puedeEditar={puedeEditar} />
           </CardContent>
         </Card>
       )}
