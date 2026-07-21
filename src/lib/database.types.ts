@@ -822,6 +822,10 @@ export type Database = {
         Args: Record<string, never>;
         Returns: { nit: string; nombre: string }[];
       };
+      siigo_facturas_pendientes_cliente: {
+        Args: { p_cliente: number };
+        Returns: { servicio_id: number | null; numero: string; fecha: string; pendiente: number }[];
+      };
       siigo_top_clientes: {
         Args: { p_desde: string; p_hasta: string; p_limite?: number };
         Returns: { cliente_id: number | null; nombre: string | null; pagado: number }[];

@@ -11,6 +11,8 @@ import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const FECHA_CORTA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+const fechaCorta = (iso: string) => FECHA_CORTA.format(new Date(`${iso}T00:00:00`));
 
 export default async function ClienteDetallePage({
   params,
@@ -102,20 +104,30 @@ export default async function ClienteDetallePage({
 
   // ── Situación financiera: facturado / pagado / saldo desde Siigo (Siigo manda) ──
   const verFinanzas = can(profile.role, "cliente_finanzas");
-  let resumenSiigo: { nombre: string; facturado: number; pagado: number; saldo: number }[] = [];
+  let resumenSiigo: { servicioId: number | null; nombre: string; facturado: number; pagado: number; saldo: number }[] = [];
+  // Qué facturas generan cada saldo (solo se muestran donde hay deuda).
+  const pendientesPorServicio = new Map<number | null, { numero: string; fecha: string; pendiente: number }[]>();
   let facturadoTotal = 0;
   let pagadoTotal = 0;
   if (verFinanzas) {
-    const [{ data: resumen }, { data: servicios }] = await Promise.all([
+    const [{ data: resumen }, { data: servicios }, { data: pendientes }] = await Promise.all([
       supabase.rpc("siigo_resumen_cliente", { p_cliente: Number(id) }),
       supabase.from("servicios").select("id, nombre"),
+      supabase.rpc("siigo_facturas_pendientes_cliente", { p_cliente: Number(id) }),
     ]);
+    for (const p of pendientes ?? []) {
+      const key = p.servicio_id ?? null;
+      const arr = pendientesPorServicio.get(key) ?? [];
+      arr.push({ numero: p.numero, fecha: p.fecha, pendiente: Number(p.pendiente) });
+      pendientesPorServicio.set(key, arr);
+    }
     const svName = new Map((servicios ?? []).map((sv) => [sv.id, sv.nombre]));
     resumenSiigo = (resumen ?? [])
       .map((r) => {
         const facturado = Number(r.facturado);
         const pagado = Number(r.pagado);
         return {
+          servicioId: r.servicio_id ?? null,
           nombre: r.servicio_id != null ? svName.get(r.servicio_id) ?? "Sin categoría" : "Sin categoría",
           facturado,
           pagado,
@@ -260,6 +272,18 @@ export default async function ClienteDetallePage({
                     <p className="text-muted-foreground text-xs">
                       Facturado {COP.format(r.facturado)} · Pagado {COP.format(r.pagado)}
                     </p>
+                    {r.saldo > 0 && (pendientesPorServicio.get(r.servicioId) ?? []).length > 0 && (
+                      <ul className="border-muted mt-2 space-y-1 border-l-2 pl-3">
+                        {(pendientesPorServicio.get(r.servicioId) ?? []).map((f) => (
+                          <li key={f.numero} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">
+                              <span className="text-foreground font-medium">{f.numero}</span> · {fechaCorta(f.fecha)}
+                            </span>
+                            <span className="text-destructive tabular-nums">{COP.format(f.pendiente)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </li>
                 ))}
               </ul>
