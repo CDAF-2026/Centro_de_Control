@@ -148,6 +148,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      cliente_miembros: {
+        Row: {
+          id: number;
+          cliente_id: number;
+          nombres: string;
+          apellidos: string;
+          fecha_nacimiento: string | null;
+          documento: string | null;
+          deportes: Deporte[];
+          es_titular: boolean;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          cliente_id: number;
+          nombres: string;
+          apellidos: string;
+          fecha_nacimiento?: string | null;
+          documento?: string | null;
+          deportes?: Deporte[];
+          es_titular?: boolean;
+          activo?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["cliente_miembros"]["Insert"]>;
+        Relationships: [];
+      };
       clientes: {
         Row: {
           id: number;
@@ -329,6 +357,7 @@ export type Database = {
           id: number;
           academia_id: number;
           cliente_id: number;
+          miembro_id: number | null;
           plan_frecuencia: number;
           descuento_pct: number;
           fecha_inscripcion: string;
@@ -340,6 +369,7 @@ export type Database = {
           id?: number;
           academia_id: number;
           cliente_id: number;
+          miembro_id?: number | null;
           plan_frecuencia: number;
           descuento_pct?: number;
           fecha_inscripcion?: string;
@@ -355,6 +385,7 @@ export type Database = {
           id: number;
           academia_id: number | null;
           cliente_id: number | null;
+          miembro_id: number | null;
           nombre: string;
           contacto: string | null;
           deporte: Deporte | null;
@@ -367,6 +398,7 @@ export type Database = {
           id?: number;
           academia_id?: number | null;
           cliente_id?: number | null;
+          miembro_id?: number | null;
           nombre: string;
           contacto?: string | null;
           deporte?: Deporte | null;
@@ -406,6 +438,7 @@ export type Database = {
         Row: {
           id: number;
           cliente_id: number;
+          miembro_id: number | null;
           catalogo_id: number | null;
           num_clases: number;
           clases_consumidas: number;
@@ -418,6 +451,7 @@ export type Database = {
         Insert: {
           id?: number;
           cliente_id: number;
+          miembro_id?: number | null;
           catalogo_id?: number | null;
           num_clases: number;
           clases_consumidas?: number;
@@ -436,6 +470,7 @@ export type Database = {
           tipo: ClaseTipo;
           academia_id: number | null;
           cliente_id: number | null;
+          miembro_id: number | null;
           paquete_cliente_id: number | null;
           profesor_id: string | null;
           deporte: Deporte | null;
@@ -459,6 +494,7 @@ export type Database = {
           tipo: ClaseTipo;
           academia_id?: number | null;
           cliente_id?: number | null;
+          miembro_id?: number | null;
           paquete_cliente_id?: number | null;
           profesor_id?: string | null;
           deporte?: Deporte | null;
@@ -485,6 +521,7 @@ export type Database = {
           id: number;
           clase_id: number;
           cliente_id: number;
+          miembro_id: number | null;
           presente: boolean;
           estado: AsistenciaEstado;
           registrado_por: string | null;
@@ -494,6 +531,7 @@ export type Database = {
           id?: number;
           clase_id: number;
           cliente_id: number;
+          miembro_id?: number | null;
           presente?: boolean;
           estado?: AsistenciaEstado;
           registrado_por?: string | null;
@@ -637,6 +675,7 @@ export type Database = {
           id: number;
           evento_id: number;
           cliente_id: number | null;
+          miembro_id: number | null;
           nombre_externo: string | null;
           telefono_externo: string | null;
           email_externo: string | null;
@@ -649,6 +688,7 @@ export type Database = {
           id?: number;
           evento_id: number;
           cliente_id?: number | null;
+          miembro_id?: number | null;
           nombre_externo?: string | null;
           telefono_externo?: string | null;
           email_externo?: string | null;
