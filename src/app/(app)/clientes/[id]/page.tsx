@@ -9,6 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
+import { FacturaLink, type FacturaDetalleData } from "./factura-detalle";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const FECHA_CORTA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
@@ -107,6 +108,7 @@ export default async function ClienteDetallePage({
   let resumenSiigo: { servicioId: number | null; nombre: string; facturado: number; pagado: number; saldo: number }[] = [];
   // Qué facturas generan cada saldo (solo se muestran donde hay deuda).
   const pendientesPorServicio = new Map<number | null, { numero: string; fecha: string; pendiente: number }[]>();
+  const detallePorFactura = new Map<string, FacturaDetalleData>();
   let facturadoTotal = 0;
   let pagadoTotal = 0;
   if (verFinanzas) {
@@ -122,6 +124,40 @@ export default async function ClienteDetallePage({
       pendientesPorServicio.set(key, arr);
     }
     const svName = new Map((servicios ?? []).map((sv) => [sv.id, sv.nombre]));
+
+    // Detalle de cada factura pendiente (para el modal al clicar su número).
+    const { data: facsPend } = await supabase
+      .from("siigo_facturas")
+      .select("id, numero, fecha, total, saldo")
+      .eq("cliente_id", Number(id))
+      .gt("saldo", 0)
+      .order("fecha");
+    const idsPend = (facsPend ?? []).map((f) => f.id);
+    const { data: lineasPend } = idsPend.length
+      ? await supabase
+          .from("siigo_factura_lineas")
+          .select("factura_id, codigo, descripcion, cantidad, monto, servicio_id")
+          .in("factura_id", idsPend)
+          .order("monto", { ascending: false })
+      : { data: [] as { factura_id: number; codigo: string | null; descripcion: string | null; cantidad: number; monto: number; servicio_id: number | null }[] };
+    for (const f of facsPend ?? []) {
+      if (!f.numero) continue; // sin número no hay a qué enlazar
+      detallePorFactura.set(f.numero, {
+        numero: f.numero,
+        fecha: f.fecha,
+        total: f.total,
+        saldo: f.saldo,
+        lineas: (lineasPend ?? [])
+          .filter((l) => l.factura_id === f.id)
+          .map((l) => ({
+            codigo: l.codigo,
+            descripcion: l.descripcion,
+            cantidad: Number(l.cantidad),
+            monto: l.monto,
+            servicio: l.servicio_id != null ? svName.get(l.servicio_id) ?? "Sin categoría" : "Sin categoría",
+          })),
+      });
+    }
     resumenSiigo = (resumen ?? [])
       .map((r) => {
         const facturado = Number(r.facturado);
@@ -277,7 +313,12 @@ export default async function ClienteDetallePage({
                         {(pendientesPorServicio.get(r.servicioId) ?? []).map((f) => (
                           <li key={f.numero} className="flex items-center justify-between gap-3 text-xs">
                             <span className="text-muted-foreground">
-                              <span className="text-foreground font-medium">{f.numero}</span> · {fechaCorta(f.fecha)}
+                              {detallePorFactura.has(f.numero) ? (
+                                <FacturaLink factura={detallePorFactura.get(f.numero)!} />
+                              ) : (
+                                <span className="text-foreground font-medium">{f.numero}</span>
+                              )}{" "}
+                              · {fechaCorta(f.fecha)}
                             </span>
                             <span className="text-destructive tabular-nums">{COP.format(f.pendiente)}</span>
                           </li>
