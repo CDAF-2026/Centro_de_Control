@@ -161,6 +161,8 @@ export type Database = {
           emergencia_nombre: string | null;
           emergencia_celular: string | null;
           emergencia_parentesco: string | null;
+          factura_a_nombre: string | null;
+          factura_a_nit: string | null;
           acudiente_id: number | null;
           deportes: Deporte[];
           estado: ClienteEstado;
@@ -179,6 +181,8 @@ export type Database = {
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
+          factura_a_nombre?: string | null;
+          factura_a_nit?: string | null;
           acudiente_id?: number | null;
           deportes?: Deporte[];
           estado?: ClienteEstado;
@@ -197,6 +201,8 @@ export type Database = {
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
+          factura_a_nombre?: string | null;
+          factura_a_nit?: string | null;
           acudiente_id?: number | null;
           deportes?: Deporte[];
           estado?: ClienteEstado;
@@ -811,6 +817,10 @@ export type Database = {
       siigo_ingreso_dia_servicio: {
         Args: { p_desde: string; p_hasta: string };
         Returns: { fecha: string; servicio_id: number; monto: number }[];
+      };
+      siigo_clientes_facturacion: {
+        Args: Record<string, never>;
+        Returns: { nit: string; nombre: string }[];
       };
       siigo_top_clientes: {
         Args: { p_desde: string; p_hasta: string; p_limite?: number };

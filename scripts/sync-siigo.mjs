@@ -72,11 +72,16 @@ async function main() {
   for (let i = 0; i < prodRows.length; i += 500) await s.from("siigo_productos").upsert(prodRows.slice(i, i + 500), { onConflict: "codigo" });
   console.log("  productos en caché:", prodRows.length);
 
-  // 3) Clientes (documento → id) para auto-match.
+  // 3) Clientes (documento → id) para auto-match. Además, NIT de facturación:
+  //    un cliente puede recibir sus facturas bajo otro NIT (empresa/familiar).
   const cliByDoc = new Map();
+  const cliByFactNit = new Map();
   {
-    const { data: clientes } = await s.from("clientes").select("id, documento");
-    for (const c of clientes ?? []) if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
+    const { data: clientes } = await s.from("clientes").select("id, documento, factura_a_nit");
+    for (const c of clientes ?? []) {
+      if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
+      if (c.factura_a_nit) cliByFactNit.set(String(c.factura_a_nit).trim(), c.id);
+    }
   }
 
   // 3b) Nombres de los clientes en Siigo (NIT → nombre), para identificarlos al conciliar.
@@ -124,7 +129,8 @@ async function main() {
       if (locked.has(f.id)) { lockedRows.push({ siigo_id: f.id, total, saldo }); conciliada++; continue; }
       const esReal = ident && !GENERIC_NITS.has(ident);
       let clienteId = null;
-      if (esReal) clienteId = cliByDoc.get(ident) ?? null;
+      // La cédula manda; si no empareja, se intenta por NIT de facturación.
+      if (esReal) clienteId = cliByDoc.get(ident) ?? cliByFactNit.get(ident) ?? null;
       let estado;
       if (clienteId) { estado = "auto"; auto++; }
       else if (saldo > 0 || esReal) { estado = "pendiente"; pendiente++; } // cédula real = conciliable aunque esté pagada

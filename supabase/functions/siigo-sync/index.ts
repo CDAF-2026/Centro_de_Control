@@ -112,9 +112,14 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     if (results.length < 100) break;
   }
   const cliByDoc = new Map<string, number>();
+  // NIT de facturación: un cliente puede recibir facturas bajo otro NIT (empresa/familiar).
+  const cliByFactNit = new Map<string, number>();
   {
-    const { data: clientes } = await s.from("clientes").select("id, documento");
-    for (const c of clientes ?? []) if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
+    const { data: clientes } = await s.from("clientes").select("id, documento, factura_a_nit");
+    for (const c of clientes ?? []) {
+      if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
+      if (c.factura_a_nit) cliByFactNit.set(String(c.factura_a_nit).trim(), c.id);
+    }
   }
 
   // 5) Upserts por lotes (preserva las conciliadas a mano; reemplaza líneas del resto).
@@ -140,7 +145,8 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
         continue;
       }
       const esReal = !!ident && !GENERIC.test(ident);
-      const clienteId = esReal ? cliByDoc.get(ident!) ?? null : null;
+      // La cédula manda; si no empareja, se intenta por NIT de facturación.
+      const clienteId = esReal ? cliByDoc.get(ident!) ?? cliByFactNit.get(ident!) ?? null : null;
       let estado: string;
       if (clienteId) { estado = "auto"; auto++; }
       else if (saldo > 0 || esReal) { estado = "pendiente"; pendiente++; } // cédula real = conciliable

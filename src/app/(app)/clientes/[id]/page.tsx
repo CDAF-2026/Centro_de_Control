@@ -24,7 +24,7 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, deportes, estado, acudiente_id",
+      "id, nombres, apellidos, documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
@@ -175,6 +175,16 @@ export default async function ClienteDetallePage({
                 .join(" · ") || null
             }
           />
+          <Dato
+            label="Se factura a nombre de"
+            valor={
+              cliente.factura_a_nombre || cliente.factura_a_nit
+                ? [cliente.factura_a_nombre, cliente.factura_a_nit && `NIT ${cliente.factura_a_nit}`]
+                    .filter(Boolean)
+                    .join(" · ")
+                : null
+            }
+          />
         </CardContent>
       </Card>
 
@@ -221,6 +231,13 @@ export default async function ClienteDetallePage({
           <CardTitle>Situación financiera</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
+          {verFinanzas && cliente.factura_a_nit && (
+            <p className="text-muted-foreground bg-muted/40 rounded-md px-3 py-2 text-xs">
+              Incluye las facturas a nombre de{" "}
+              <strong className="text-foreground">{cliente.factura_a_nombre || `NIT ${cliente.factura_a_nit}`}</strong>
+              {cliente.factura_a_nombre ? ` (NIT ${cliente.factura_a_nit})` : ""}.
+            </p>
+          )}
           {!verFinanzas ? (
             <p className="text-muted-foreground">Visible solo para administración.</p>
           ) : resumenSiigo.length === 0 ? (
