@@ -362,7 +362,7 @@ export async function SuperadminDashboard({
           </CardHeader>
           <CardContent>
             {familiasIngreso.length > 0 ? (
-              <ChartDonut segmentos={familiasIngreso} />
+              <ChartDonut segmentos={familiasIngreso} subtitulo={`${curStartIso} a ${curEndIso}`} />
             ) : (
               <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas verás la composición aquí." />
             )}
