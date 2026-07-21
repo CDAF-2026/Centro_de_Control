@@ -48,7 +48,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     supabase.from("profesor_compensacion").select("*"),
     supabase
       .from("clases")
-      .select("id, profesor_id, tipo, paquete_cliente_id, cliente_id, academia_id, fecha, hora_inicio, precio, valor_facturado")
+      .select("id, profesor_id, tipo, paquete_cliente_id, cliente_id, miembro_id, academia_id, fecha, hora_inicio, precio, valor_facturado")
       .eq("estado", "realizada")
       .gte("fecha", desde)
       .lte("fecha", hasta),
@@ -93,6 +93,15 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
     for (const c of data ?? []) cliName.set(c.id, `${c.apellidos}, ${c.nombres}`);
   }
+  // Nombre del deportista (hermano) para el detalle; cae al nombre de la ficha.
+  const miembroName = new Map<number, string>();
+  const miembroIds = [...new Set(clases.filter((c) => c.tipo === "individual").map((c) => c.miembro_id).filter((x): x is number => x != null))];
+  if (miembroIds.length) {
+    const { data } = await supabase.from("cliente_miembros").select("id, nombres, apellidos").in("id", miembroIds);
+    for (const m of data ?? []) miembroName.set(m.id, `${m.apellidos}, ${m.nombres}`);
+  }
+  const deportista = (c: { miembro_id: number | null; cliente_id: number | null }) =>
+    (c.miembro_id != null ? miembroName.get(c.miembro_id) : null) ?? (c.cliente_id ? cliName.get(c.cliente_id) : null) ?? "—";
   const acaInfo = new Map<number, { nombre: string; precio: number; dias: number[] }>();
   if (acaIds.length) {
     const { data } = await supabase.from("academias").select("id, nombre, precio, dias_semana").in("id", acaIds);
@@ -137,11 +146,11 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     } else if (c.paquete_cliente_id) {
       valorFacturado = c.valor_facturado ?? valorClasePq.get(c.paquete_cliente_id) ?? 0;
       tipoLabel = "Paquete";
-      detalle = c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "—";
+      detalle = deportista(c);
     } else {
       valorFacturado = c.valor_facturado ?? c.precio ?? 0;
       tipoLabel = "Particular";
-      detalle = c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Particular";
+      detalle = c.cliente_id || c.miembro_id ? deportista(c) : "Particular";
     }
 
     // Valor a pagar al profesor (según su compensación).
