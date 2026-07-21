@@ -17,6 +17,8 @@ export type FacturaDetalleData = {
   fecha: string;
   total: number;
   saldo: number;
+  notaCredito: number;
+  ncNumero: string | null;
   lineas: { codigo: string | null; descripcion: string | null; cantidad: number; monto: number; servicio: string }[];
 };
 
@@ -25,10 +27,13 @@ const cant = (n: number) => (Number.isInteger(n) ? String(n) : n.toLocaleString(
 
 /** Número de factura clicable: abre el detalle con sus líneas tal como vienen de Siigo. */
 export function FacturaLink({ factura }: { factura: FacturaDetalleData }) {
-  const pagado = factura.total - factura.saldo;
+  const anulada = factura.notaCredito > 0 && factura.notaCredito >= factura.total;
+  const pagado = Math.max(factura.total - factura.saldo - factura.notaCredito, 0);
   return (
     <Dialog>
-      <DialogTrigger className="text-foreground hover:text-primary cursor-pointer font-medium underline decoration-dotted underline-offset-2 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+      <DialogTrigger
+        className={`text-foreground hover:text-primary cursor-pointer font-medium underline decoration-dotted underline-offset-2 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${anulada ? "line-through" : ""}`}
+      >
         {factura.numero}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
@@ -38,6 +43,14 @@ export function FacturaLink({ factura }: { factura: FacturaDetalleData }) {
             {FECHA_LARGA.format(new Date(`${factura.fecha}T00:00:00`))} · Tal como está en Siigo
           </DialogDescription>
         </DialogHeader>
+
+        {factura.notaCredito > 0 && (
+          <p className="border-destructive/30 bg-destructive/5 text-destructive rounded-md border px-3 py-2 text-xs">
+            <strong>{anulada ? "Factura anulada" : "Anulación parcial"}</strong> con nota crédito{" "}
+            {factura.ncNumero ?? "(sin número)"} por {COP.format(factura.notaCredito)}.{" "}
+            {anulada ? "No cuenta como ingreso." : "Ese valor no cuenta como ingreso."}
+          </p>
+        )}
 
         <div className="grid grid-cols-3 gap-2 border-y py-2.5 text-center text-sm">
           <div>

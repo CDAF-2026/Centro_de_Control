@@ -188,8 +188,31 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     for (let j = 0; j < lines.length; j += 500) await s.from("siigo_factura_lineas").insert(lines.slice(j, j + 500));
   }
 
+  // Notas crédito: anulan facturas ya importadas. Siigo deja saldo=0 al anular,
+  // así que sin esto una anulada se contaría como "pagada". Se revisa SIEMPRE
+  // desde el inicio (una NC puede anular una factura vieja, fuera del rango).
+  const ncPorFactura = new Map<string, { monto: number; numeros: string[] }>();
+  for (let page = 1; ; page++) {
+    const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${todayIso}&page=${page}&page_size=100`);
+    const results = r.results ?? [];
+    for (const n of results) {
+      const ref = n.invoice?.id;
+      if (!ref) continue;
+      const cur = ncPorFactura.get(ref) ?? { monto: 0, numeros: [] };
+      cur.monto += Math.round(n.total ?? 0);
+      cur.numeros.push(n.name);
+      ncPorFactura.set(ref, cur);
+    }
+    if (results.length < 100) break;
+  }
+  const ncPayload = [...ncPorFactura.entries()].map(([siigo_id, v]) => ({
+    siigo_id, monto: v.monto, numeros: v.numeros.join(", "),
+  }));
+  const { error: ncErr } = await s.rpc("siigo_set_notas_credito", { p: ncPayload });
+  if (ncErr) throw new Error("notas crédito: " + ncErr.message);
+
   await touch();
-  return `${mode}: ${facturas.length} facturas | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`;
+  return `${mode}: ${facturas.length} facturas · ${ncPayload.length} anuladas por NC | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`;
 }
 
 Deno.serve(async (req) => {

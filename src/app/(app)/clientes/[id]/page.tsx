@@ -128,7 +128,7 @@ export default async function ClienteDetallePage({
     // Detalle de cada factura pendiente (para el modal al clicar su número).
     const { data: facsPend } = await supabase
       .from("siigo_facturas")
-      .select("id, numero, fecha, total, saldo")
+      .select("id, numero, fecha, total, saldo, nota_credito, nc_numero")
       .eq("cliente_id", Number(id))
       .gt("saldo", 0)
       .order("fecha");
@@ -147,6 +147,8 @@ export default async function ClienteDetallePage({
         fecha: f.fecha,
         total: f.total,
         saldo: f.saldo,
+        notaCredito: f.nota_credito ?? 0,
+        ncNumero: f.nc_numero,
         lineas: (lineasPend ?? [])
           .filter((l) => l.factura_id === f.id)
           .map((l) => ({

@@ -9,6 +9,7 @@ import { Wallet } from "lucide-react";
 import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
 import { PeriodoToggle } from "../dashboard/periodo-toggle";
 import { FiltroServicio } from "./filtro-servicio";
+import { cn } from "@/lib/utils";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const PAGE_SIZE = 20;
@@ -21,6 +22,8 @@ type FacturaRow = {
   cliente_nombre_siigo: string | null;
   total: number;
   saldo: number;
+  nota_credito: number;
+  nc_numero: string | null;
 };
 
 /** Detalle de ingresos (facturas de Siigo), del más reciente al más antiguo. */
@@ -41,7 +44,7 @@ export default async function IngresosPage({
   const supabase = await createClient();
   // Con filtro: solo facturas que tengan al menos una línea de ese servicio (join interno).
   const sel =
-    "id, numero, fecha, cliente_id, cliente_nombre_siigo, total, saldo" +
+    "id, numero, fecha, cliente_id, cliente_nombre_siigo, total, saldo, nota_credito, nc_numero" +
     (servicioId ? ", siigo_factura_lineas!inner(servicio_id)" : "");
   let query = supabase
     .from("siigo_facturas")
@@ -168,12 +171,24 @@ export default async function IngresosPage({
               </thead>
               <tbody>
                 {(facturas ?? []).map((f) => {
-                  const pagado = (f.total ?? 0) - (f.saldo ?? 0);
+                  const nc = f.nota_credito ?? 0;
+                  const anulada = nc > 0 && nc >= (f.total ?? 0);
+                  const pagado = Math.max((f.total ?? 0) - (f.saldo ?? 0) - nc, 0);
                   const svs = serviciosDe(f.id);
                   return (
-                    <tr key={f.id} className="border-t">
+                    <tr key={f.id} className={cn("border-t", anulada && "text-muted-foreground/70")}>
                       <td className="px-4 py-2 whitespace-nowrap tabular-nums">{f.fecha}</td>
-                      <td className="text-muted-foreground px-4 py-2 whitespace-nowrap">{f.numero ?? "—"}</td>
+                      <td className="text-muted-foreground px-4 py-2 whitespace-nowrap">
+                        <span className={cn(anulada && "line-through")}>{f.numero ?? "—"}</span>
+                        {nc > 0 && (
+                          <span
+                            className="border-destructive/30 text-destructive ml-2 cursor-help rounded border px-1.5 py-0.5 text-[10px] font-medium"
+                            title={`Anulada con nota crédito ${f.nc_numero ?? ""} por ${COP.format(nc)}. No cuenta como ingreso.`}
+                          >
+                            {anulada ? "Anulada" : "NC parcial"}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2">
                         {f.cliente_id ? (
                           <Link href={`/clientes/${f.cliente_id}`} className="font-medium hover:underline">
@@ -194,7 +209,12 @@ export default async function IngresosPage({
                         </div>
                       </td>
                       <td className="px-4 py-2 text-right whitespace-nowrap tabular-nums">
-                        <span className="font-medium">{COP.format(pagado)}</span>
+                        <span className={cn("font-medium", anulada && "line-through")}>{COP.format(pagado)}</span>
+                        {nc > 0 && (
+                          <span className="text-muted-foreground block text-xs">
+                            Nota crédito {f.nc_numero ?? ""} · −{COP.format(nc)}
+                          </span>
+                        )}
                         {f.saldo > 0 && (
                           <span className="text-destructive block text-xs">Debe {COP.format(f.saldo)}</span>
                         )}

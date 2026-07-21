@@ -172,6 +172,33 @@ async function main() {
   }
   console.log("");
 
+  // 5b) Notas crédito: anulan (total o parcialmente) facturas ya importadas.
+  //     Siigo deja saldo=0 al anular, así que sin esto una anulada se contaría
+  //     como "pagada". Se revisa SIEMPRE desde el inicio (son pocas y una NC
+  //     puede anular una factura vieja, fuera del rango incremental).
+  {
+    const ncPorFactura = new Map();
+    for (let page = 1; ; page++) {
+      const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${todayIso}&page=${page}&page_size=100`);
+      const results = r.results ?? [];
+      for (const n of results) {
+        const ref = n.invoice?.id;
+        if (!ref) continue;
+        const cur = ncPorFactura.get(ref) ?? { monto: 0, numeros: [] };
+        cur.monto += Math.round(n.total ?? 0);
+        cur.numeros.push(n.name);
+        ncPorFactura.set(ref, cur);
+      }
+      if (results.length < 100) break;
+    }
+    const payload = [...ncPorFactura.entries()].map(([siigo_id, v]) => ({
+      siigo_id, monto: v.monto, numeros: v.numeros.join(", "),
+    }));
+    const { data: afectadas, error: ncErr } = await s.rpc("siigo_set_notas_credito", { p: payload });
+    if (ncErr) throw new Error("notas crédito: " + ncErr.message);
+    console.log(`  notas crédito: ${payload.length} factura(s) anulada(s) · ${afectadas} actualizada(s)`);
+  }
+
   // 6) Guardar cursor.
   await s.from("siigo_sync").upsert({ id: 1, last_cursor: todayIso, updated_at: new Date().toISOString() }, { onConflict: "id" });
 

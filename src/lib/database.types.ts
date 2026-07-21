@@ -693,6 +693,8 @@ export type Database = {
           total: number;
           saldo: number;
           estado_conciliacion: string;
+          nota_credito: number;
+          nc_numero: string | null;
           created_at: string;
         };
         Insert: {
@@ -707,6 +709,8 @@ export type Database = {
           total?: number;
           saldo?: number;
           estado_conciliacion?: string;
+          nota_credito?: number;
+          nc_numero?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["siigo_facturas"]["Insert"]>;
@@ -821,6 +825,10 @@ export type Database = {
       siigo_clientes_facturacion: {
         Args: Record<string, never>;
         Returns: { nit: string; nombre: string }[];
+      };
+      siigo_set_notas_credito: {
+        Args: { p: { siigo_id: string; monto: number; numeros: string }[] };
+        Returns: number;
       };
       siigo_facturas_pendientes_cliente: {
         Args: { p_cliente: number };
