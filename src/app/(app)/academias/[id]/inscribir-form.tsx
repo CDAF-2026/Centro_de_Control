@@ -1,45 +1,26 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState } from "react";
 import { inscribirCliente, type AcademiaFormState } from "../actions";
-import { miembrosDeCliente } from "@/app/(app)/clientes/actions";
-import { ClienteAutocomplete } from "@/components/cliente-autocomplete";
+import { MiembroAutocomplete } from "@/components/miembro-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initial: AcademiaFormState = {};
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const selectCls = "border-input bg-background h-9 rounded-md border px-3 text-sm";
 
 export function InscribirForm({ academiaId }: { academiaId: number }) {
   const [state, action, pending] = useActionState(inscribirCliente, initial);
-  const [miembros, setMiembros] = useState<{ id: number; nombres: string; apellidos: string; es_titular: boolean }[]>([]);
-  const [, start] = useTransition();
   const dias = [1, 2, 3, 4, 5, 6, 0];
-
-  const onCliente = (id: number | null) => {
-    setMiembros([]);
-    if (id) start(async () => setMiembros(await miembrosDeCliente(id)));
-  };
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
       <input type="hidden" name="academiaId" value={academiaId} />
       <div className="space-y-1.5">
-        <Label>Cliente</Label>
-        <ClienteAutocomplete name="clienteId" onSelect={onCliente} />
+        <Label>Persona</Label>
+        <MiembroAutocomplete />
       </div>
-      {miembros.length > 1 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="miembroId">Hermano</Label>
-          <select id="miembroId" name="miembroId" className={selectCls}>
-            {miembros.map((m) => (
-              <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}{m.es_titular ? " (titular)" : ""}</option>
-            ))}
-          </select>
-        </div>
-      )}
       <div className="space-y-1.5">
         <Label htmlFor="plan">Plan</Label>
         <select id="plan" name="plan" className="border-input bg-background h-9 rounded-md border px-3 text-sm">

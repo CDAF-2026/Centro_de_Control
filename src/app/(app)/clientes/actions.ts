@@ -590,6 +590,36 @@ export async function miembrosDeCliente(
   return data ?? [];
 }
 
+/** Busca MIEMBROS (personas) por nombre para inscribir directo, sin pasar por el titular. */
+export async function buscarMiembros(
+  q: string,
+): Promise<{ id: number; clienteId: number; nombres: string; apellidos: string; esTitular: boolean; ficha: string | null }[]> {
+  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  const safe = q.replace(/[%,()*]/g, "").trim();
+  if (safe.length < 2) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cliente_miembros")
+    .select("id, cliente_id, nombres, apellidos, es_titular")
+    .eq("activo", true)
+    .or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%`)
+    .order("apellidos")
+    .limit(8);
+  const cliIds = [...new Set((data ?? []).map((m) => m.cliente_id))];
+  const { data: fichas } = cliIds.length
+    ? await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds)
+    : { data: [] as { id: number; nombres: string; apellidos: string }[] };
+  const fichaPorId = new Map((fichas ?? []).map((c) => [c.id, `${c.apellidos}, ${c.nombres}`]));
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    clienteId: m.cliente_id,
+    nombres: m.nombres,
+    apellidos: m.apellidos,
+    esTitular: m.es_titular,
+    ficha: fichaPorId.get(m.cliente_id) ?? null,
+  }));
+}
+
 /** Sugerencias para el buscador con autocompletar (máx 8). */
 export async function buscarClientes(
   q: string,

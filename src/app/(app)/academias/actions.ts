@@ -78,25 +78,25 @@ export async function inscribirCliente(
 ): Promise<AcademiaFormState> {
   await requireRole(INSCRIBE);
   const academiaId = Number(formData.get("academiaId"));
-  const clienteId = Number(formData.get("clienteId"));
   const plan = Number(formData.get("plan"));
   const descuento = Number(formData.get("descuento") || 0);
   const dias = formData
     .getAll("dias")
     .map((d) => Number(d))
     .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
-  if (!clienteId) return { error: "Selecciona un cliente." };
   if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
   if (descuento < 0 || descuento > 100) return { error: "Descuento inválido." };
 
   const supabase = await createClient();
-  // A quién se inscribe: el hermano elegido, o el titular por defecto.
+  // Se busca a la PERSONA (miembro): la familia (cliente_id) sale del propio miembro.
   const miembroSel = Number(formData.get("miembroId")) || null;
   let miembroId: number | null = null;
+  let clienteId = Number(formData.get("clienteId")) || 0;
   if (miembroSel) {
-    const { data } = await supabase.from("cliente_miembros").select("id").eq("id", miembroSel).eq("cliente_id", clienteId).maybeSingle();
-    miembroId = data?.id ?? null;
+    const { data } = await supabase.from("cliente_miembros").select("id, cliente_id").eq("id", miembroSel).maybeSingle();
+    if (data) { miembroId = data.id; clienteId = data.cliente_id; }
   }
+  if (!clienteId) return { error: "Selecciona a la persona." };
   if (!miembroId) {
     const { data: tit } = await supabase.from("cliente_miembros").select("id").eq("cliente_id", clienteId).eq("es_titular", true).maybeSingle();
     miembroId = tit?.id ?? null;
