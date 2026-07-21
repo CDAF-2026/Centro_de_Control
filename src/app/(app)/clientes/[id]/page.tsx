@@ -67,9 +67,12 @@ export default async function ClienteDetallePage({
     }),
   );
 
+  const miembroNombre = new Map(miembros.map((m) => [m.id, m.nombres]));
+  const conMiembro = (mid: number | null) => (mid != null && miembros.length > 1 ? miembroNombre.get(mid) ?? null : null);
+
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, plan_frecuencia, descuento_pct, fecha_inscripcion, dias")
+    .select("id, academia_id, miembro_id, plan_frecuencia, descuento_pct, fecha_inscripcion, dias")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
@@ -83,11 +86,12 @@ export default async function ClienteDetallePage({
     descuento_pct: i.descuento_pct,
     dias: i.dias,
     academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
+    miembro: conMiembro(i.miembro_id),
   }));
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")
-    .select("id, catalogo_id, num_clases, clases_consumidas, estado, descuento_pct, vence_el")
+    .select("id, catalogo_id, miembro_id, num_clases, clases_consumidas, estado, descuento_pct, vence_el")
     .eq("cliente_id", Number(id))
     .order("created_at", { ascending: false });
   const catIds = (pqCli ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null);
@@ -103,6 +107,7 @@ export default async function ClienteDetallePage({
     descuento_pct: p.descuento_pct,
     nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete",
     vence: p.vence_el,
+    miembro: conMiembro(p.miembro_id),
   }));
 
   const { data: catalogoActivo } = await supabase
@@ -294,6 +299,7 @@ export default async function ClienteDetallePage({
             inscripciones={inscripcionesView}
             paquetes={paquetesView}
             catalogo={catalogoActivo ?? []}
+            miembros={miembros}
             puedeEditar={puedeEditar}
           />
         </CardContent>

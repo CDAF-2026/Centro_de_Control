@@ -90,9 +90,22 @@ export async function inscribirCliente(
   if (descuento < 0 || descuento > 100) return { error: "Descuento inválido." };
 
   const supabase = await createClient();
+  // A quién se inscribe: el hermano elegido, o el titular por defecto.
+  const miembroSel = Number(formData.get("miembroId")) || null;
+  let miembroId: number | null = null;
+  if (miembroSel) {
+    const { data } = await supabase.from("cliente_miembros").select("id").eq("id", miembroSel).eq("cliente_id", clienteId).maybeSingle();
+    miembroId = data?.id ?? null;
+  }
+  if (!miembroId) {
+    const { data: tit } = await supabase.from("cliente_miembros").select("id").eq("cliente_id", clienteId).eq("es_titular", true).maybeSingle();
+    miembroId = tit?.id ?? null;
+  }
+
   const { error } = await supabase.from("inscripciones").insert({
     academia_id: academiaId,
     cliente_id: clienteId,
+    miembro_id: miembroId,
     plan_frecuencia: plan,
     descuento_pct: descuento,
     dias,
@@ -100,7 +113,7 @@ export async function inscribirCliente(
   if (error) {
     return {
       error: /duplicate|unique/i.test(error.message)
-        ? "El cliente ya está inscrito en esta academia."
+        ? "Ese hermano ya está inscrito en esta academia."
         : error.message,
     };
   }

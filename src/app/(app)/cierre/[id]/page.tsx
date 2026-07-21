@@ -17,42 +17,49 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, profesor_id, asistentes_no_registrados")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
 
+  // El roster se arma por MIEMBRO (hermano): así dos hermanos de la misma
+  // academia aparecen por separado y cada uno cuenta para cobro y liquidación.
   let deportistas: { id: number; nombre: string }[] = [];
   if (clase.tipo === "academia" && clase.academia_id) {
     const diaClase = new Date(`${clase.fecha}T00:00:00`).getDay();
     const { data: ins } = await supabase
       .from("inscripciones")
-      .select("cliente_id, dias")
+      .select("miembro_id, dias")
       .eq("academia_id", clase.academia_id)
       .eq("activa", true);
-    // Solo los alumnos cuyos días incluyen el día de esta clase (o sin días definidos).
     const ids = (ins ?? [])
       .filter((i) => i.dias.length === 0 || i.dias.includes(diaClase))
-      .map((i) => i.cliente_id);
+      .map((i) => i.miembro_id)
+      .filter((x): x is number => x != null);
     if (ids.length) {
-      const { data: cl } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", ids);
-      deportistas = (cl ?? []).map((c) => ({ id: c.id, nombre: `${c.apellidos}, ${c.nombres}` }));
+      const { data: ms } = await supabase.from("cliente_miembros").select("id, nombres, apellidos").in("id", ids).eq("activo", true);
+      deportistas = (ms ?? []).map((m) => ({ id: m.id, nombre: `${m.apellidos}, ${m.nombres}` }));
     }
+  } else if (clase.miembro_id) {
+    const { data: m } = await supabase.from("cliente_miembros").select("id, nombres, apellidos").eq("id", clase.miembro_id).single();
+    if (m) deportistas = [{ id: m.id, nombre: `${m.apellidos}, ${m.nombres}` }];
   } else if (clase.cliente_id) {
-    const { data: c } = await supabase
-      .from("clientes")
+    // Clase individual sin miembro fijado: cae al titular de la ficha.
+    const { data: m } = await supabase
+      .from("cliente_miembros")
       .select("id, nombres, apellidos")
-      .eq("id", clase.cliente_id)
-      .single();
-    if (c) deportistas = [{ id: c.id, nombre: `${c.apellidos}, ${c.nombres}` }];
+      .eq("cliente_id", clase.cliente_id)
+      .eq("es_titular", true)
+      .maybeSingle();
+    if (m) deportistas = [{ id: m.id, nombre: `${m.apellidos}, ${m.nombres}` }];
   }
 
   const { data: asis } = await supabase
     .from("asistencias")
-    .select("cliente_id, presente, estado")
+    .select("miembro_id, presente, estado")
     .eq("clase_id", claseId);
   const estadoPorCliente: Record<number, string> = {};
-  for (const a of asis ?? []) estadoPorCliente[a.cliente_id] = a.estado ?? (a.presente ? "presente" : "ausente");
+  for (const a of asis ?? []) if (a.miembro_id != null) estadoPorCliente[a.miembro_id] = a.estado ?? (a.presente ? "presente" : "ausente");
 
   let profesorNombre: string | null = null;
   if (clase.profesor_id) {

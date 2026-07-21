@@ -13,6 +13,20 @@ import type { AppRole, Deporte } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
 
+/** Resuelve el miembro a usar: el indicado (si pertenece a la ficha) o el titular. */
+async function resolverMiembro(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clienteId: number,
+  miembroId: number | null,
+): Promise<number | null> {
+  if (miembroId) {
+    const { data } = await supabase.from("cliente_miembros").select("id").eq("id", miembroId).eq("cliente_id", clienteId).maybeSingle();
+    if (data) return data.id;
+  }
+  const { data: tit } = await supabase.from("cliente_miembros").select("id").eq("cliente_id", clienteId).eq("es_titular", true).maybeSingle();
+  return tit?.id ?? null;
+}
+
 /** Lee los checkboxes de deportes del formulario (tenis/padel). */
 function leerDeportes(formData: FormData): Deporte[] {
   const vals = formData.getAll("deportes");
@@ -468,6 +482,7 @@ export async function asignarPaquete(
   if (!catalogoId) return { error: "Selecciona un paquete." };
 
   const supabase = await createClient();
+  const miembroId = await resolverMiembro(supabase, clienteId, Number(formData.get("miembroId")) || null);
   const { data: cat } = await supabase
     .from("paquetes_catalogo")
     .select("num_clases, nombre")
@@ -477,6 +492,7 @@ export async function asignarPaquete(
 
   const { error } = await supabase.from("paquetes_cliente").insert({
     cliente_id: clienteId,
+    miembro_id: miembroId,
     catalogo_id: catalogoId,
     num_clases: cat.num_clases,
     descuento_pct: descuento,
@@ -555,6 +571,23 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   await logAudit({ action: "cliente.sync_easycancha", entity: "clientes", after: { agregados: insertados } });
   revalidatePath("/clientes");
   return { ok: insertados > 0 ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha.` : "Sin clientes nuevos: todo al día." };
+}
+
+/** Miembros (hermanos) activos de una ficha, para elegir a quién inscribir/asignar. */
+export async function miembrosDeCliente(
+  clienteId: number,
+): Promise<{ id: number; nombres: string; apellidos: string; es_titular: boolean }[]> {
+  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  if (!clienteId) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("cliente_miembros")
+    .select("id, nombres, apellidos, es_titular")
+    .eq("cliente_id", clienteId)
+    .eq("activo", true)
+    .order("es_titular", { ascending: false })
+    .order("created_at");
+  return data ?? [];
 }
 
 /** Sugerencias para el buscador con autocompletar (máx 8). */

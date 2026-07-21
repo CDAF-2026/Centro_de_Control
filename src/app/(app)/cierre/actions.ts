@@ -50,27 +50,34 @@ export async function cerrarClase(
     .eq("id", claseId);
   if (upErr) return { error: upErr.message };
 
-  // Asistencia por deportista (estado: presente / ausente / excusa_medica).
+  // Asistencia por MIEMBRO (hermano). Los valores "deportista" son miembro_id.
   const deportistas = formData.getAll("deportista").map(Number).filter(Boolean);
-  const estadoAsis = (cid: number) => {
-    const e = String(formData.get(`asis_${cid}`) || "presente");
+  const estadoAsis = (mid: number) => {
+    const e = String(formData.get(`asis_${mid}`) || "presente");
     return (["presente", "ausente", "excusa_medica", "reposicion"].includes(e) ? e : "presente") as
       | "presente"
       | "ausente"
       | "excusa_medica"
       | "reposicion";
   };
-  for (const cid of deportistas) {
-    const est = estadoAsis(cid);
+  const { data: mrows } = deportistas.length
+    ? await supabase.from("cliente_miembros").select("id, cliente_id, nombres").in("id", deportistas)
+    : { data: [] as { id: number; cliente_id: number; nombres: string }[] };
+  const cliDeMiembro = new Map((mrows ?? []).map((m) => [m.id, m.cliente_id]));
+  for (const mid of deportistas) {
+    const est = estadoAsis(mid);
+    const cliId = cliDeMiembro.get(mid) ?? clase.cliente_id;
+    if (cliId == null) continue; // sin ficha no se puede registrar asistencia
     await supabase.from("asistencias").upsert(
       {
         clase_id: claseId,
-        cliente_id: cid,
+        miembro_id: mid,
+        cliente_id: cliId,
         presente: est === "presente",
         estado: est,
         registrado_por: profile.id,
       },
-      { onConflict: "clase_id,cliente_id" },
+      { onConflict: "clase_id,miembro_id" },
     );
   }
 
@@ -95,21 +102,27 @@ export async function cerrarClase(
     }
   }
 
-  // Notificación al cliente: clase confirmada + saldo del paquete (no bloquea el cierre).
+  // Notificación a la familia: clase confirmada + saldo del paquete (no bloquea el cierre).
   if (estado === "realizada") {
-    const presentes = deportistas.filter((cid) => estadoAsis(cid) === "presente");
+    const presentes = deportistas.filter((mid) => estadoAsis(mid) === "presente");
     if (presentes.length) {
-      const { data: cls } = await supabase.from("clientes").select("id, nombres, email").in("id", presentes);
+      const cliIds = [...new Set(presentes.map((mid) => cliDeMiembro.get(mid)).filter((x): x is number => x != null))];
+      const { data: cls } = cliIds.length
+        ? await supabase.from("clientes").select("id, nombres, email").in("id", cliIds)
+        : { data: [] as { id: number; nombres: string; email: string | null }[] };
+      const cli = new Map((cls ?? []).map((c) => [c.id, c]));
+      const nombreDe = new Map((mrows ?? []).map((m) => [m.id, m.nombres]));
       let profesorNombre: string | null = null;
       if (clase.profesor_id) {
         const { data: pr } = await supabase.from("profiles").select("nombre").eq("id", clase.profesor_id).single();
         profesorNombre = pr?.nombre ?? null;
       }
-      for (const c of cls ?? []) {
-        if (!c.email) continue;
+      for (const mid of presentes) {
+        const c = cli.get(cliDeMiembro.get(mid) ?? -1);
+        if (!c?.email) continue;
         const conSaldo = !!paqueteInfo && clase.cliente_id === c.id;
         const { subject, html } = claseConfirmadaEmail({
-          nombre: c.nombres,
+          nombre: nombreDe.get(mid) ?? c.nombres,
           deporte: clase.deporte,
           fecha: clase.fecha,
           hora: clase.hora_inicio?.slice(0, 5) ?? "",

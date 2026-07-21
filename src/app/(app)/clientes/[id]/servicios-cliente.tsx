@@ -5,7 +5,7 @@ import { asignarPaquete, type ClienteFormState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Insc = { id: number; plan_frecuencia: number; descuento_pct: number; academiaNombre: string; dias: number[] };
+type Insc = { id: number; plan_frecuencia: number; descuento_pct: number; academiaNombre: string; dias: number[]; miembro: string | null };
 type Pq = {
   id: number;
   num_clases: number;
@@ -14,6 +14,7 @@ type Pq = {
   descuento_pct: number;
   nombre: string;
   vence: string | null;
+  miembro: string | null;
 };
 
 const empty: ClienteFormState = {};
@@ -25,12 +26,14 @@ export function ServiciosCliente({
   inscripciones,
   paquetes,
   catalogo,
+  miembros = [],
   puedeEditar,
 }: {
   clienteId: number;
   inscripciones: Insc[];
   paquetes: Pq[];
   catalogo: { id: number; nombre: string; num_clases: number }[];
+  miembros?: { id: number; nombres: string; apellidos: string; es_titular: boolean }[];
   puedeEditar: boolean;
 }) {
   const [pqState, pqAction, pqPending] = useActionState(asignarPaquete, empty);
@@ -45,7 +48,10 @@ export function ServiciosCliente({
           <ul className="divide-y text-sm">
             {inscripciones.map((i) => (
               <li key={i.id} className="flex justify-between gap-3 py-2">
-                <span>{i.academiaNombre}</span>
+                <span>
+                  {i.academiaNombre}
+                  {i.miembro && <span className="text-muted-foreground"> · {i.miembro}</span>}
+                </span>
                 <span className="text-muted-foreground text-right">
                   {i.dias.length > 0 && `${[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · `}
                   {i.plan_frecuencia}×sem{i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
@@ -69,6 +75,7 @@ export function ServiciosCliente({
                 <li key={p.id} className="flex items-center justify-between gap-3 py-2">
                   <span>
                     {p.nombre}{p.descuento_pct > 0 ? ` · ${p.descuento_pct}% desc.` : ""}
+                    {p.miembro && <span className="text-muted-foreground"> · {p.miembro}</span>}
                     {p.vence && <span className="text-muted-foreground"> · vence {p.vence}</span>}
                     {p.vence && p.vence < hoy && <span className="text-destructive"> · Vencido</span>}
                   </span>
@@ -85,6 +92,13 @@ export function ServiciosCliente({
         {puedeEditar && catalogo.length > 0 && (
           <form action={pqAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="clienteId" value={clienteId} />
+            {miembros.length > 1 && (
+              <select name="miembroId" className={selectCls} title="¿Para cuál hermano?">
+                {miembros.map((m) => (
+                  <option key={m.id} value={m.id}>{m.nombres}{m.es_titular ? " (titular)" : ""}</option>
+                ))}
+              </select>
+            )}
             <select name="catalogoId" required className={selectCls}>
               <option value="">Paquete…</option>
               {catalogo.map((c) => (

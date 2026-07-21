@@ -12,10 +12,12 @@ export function ClienteAutocomplete({
   name = "clienteId",
   initialId,
   initialLabel,
+  onSelect,
 }: {
   name?: string;
   initialId?: number;
   initialLabel?: string;
+  onSelect?: (id: number | null) => void;
 }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<{ id: number; label: string } | null>(
@@ -54,7 +56,7 @@ export function ClienteAutocomplete({
       {sel ? (
         <div className="border-input flex h-9 items-center justify-between gap-2 rounded-md border bg-background px-3 text-sm">
           <span className="truncate">{sel.label}</span>
-          <button type="button" onClick={() => { setSel(null); setQ(""); }} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline">
+          <button type="button" onClick={() => { setSel(null); setQ(""); onSelect?.(null); }} className="text-muted-foreground hover:text-foreground shrink-0 text-xs underline">
             cambiar
           </button>
         </div>
@@ -73,7 +75,7 @@ export function ClienteAutocomplete({
             <li key={s.id}>
               <button
                 type="button"
-                onClick={() => { setSel({ id: s.id, label: `${s.apellidos}, ${s.nombres}` }); setOpen(false); }}
+                onClick={() => { setSel({ id: s.id, label: `${s.apellidos}, ${s.nombres}` }); setOpen(false); onSelect?.(s.id); }}
                 className="hover:bg-muted flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm"
               >
                 <span className="truncate">{s.apellidos}, {s.nombres}</span>
