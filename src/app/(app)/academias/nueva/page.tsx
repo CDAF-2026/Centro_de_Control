@@ -10,6 +10,7 @@ export default async function NuevaAcademiaPage() {
     .from("profiles")
     .select("id, nombre")
     .eq("role", "profesor")
+    .eq("activo", true)
     .order("nombre");
 
   return (

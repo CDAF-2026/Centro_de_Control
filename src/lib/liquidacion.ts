@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { valorPaquete } from "@/lib/finanzas";
+import type { ReglaConcepto, ReglaEscalon, ReglaMetodo } from "@/lib/database.types";
 
 const TIPO_LABEL: Record<string, string> = {
   por_clase: "Por clase",
@@ -11,9 +12,9 @@ export type LineaLiq = {
   claseId: number;
   fecha: string;
   hora: string | null;
-  tipoLabel: string; // Particular / Paquete / Academia / Evento
+  tipoLabel: string; // Particular / Paquete / Academia / Evento — o el nombre de la regla
   detalle: string; // cliente, academia o evento
-  valorFacturado: number; // cobrado al cliente
+  valorFacturado: number; // cobrado al cliente (o base de Siigo en alto rendimiento)
   valorProfesor: number; // a pagar al profesor
 };
 
@@ -22,39 +23,129 @@ export type LiqProfesor = {
   nombre: string;
   compLabel: string; // tipo de compensación
   clases: number;
-  facturado: number; // total cobrado a clientes
-  variable: number;
-  fijo: number;
-  comision: number;
+  facturado: number; // total cobrado a clientes (solo clases)
+  variable: number; // pago por clases
+  fijo: number; // salario fijo (modelo viejo)
+  comision: number; // comisión quincenal (modelo viejo "físico")
+  siigo: number; // pago por % de facturación Siigo (reglas alto rendimiento)
   eventos: number; // pago por eventos (torneos/clínicas/masterclass), aparte de clases
   total: number; // total a liquidar
   lineas: LineaLiq[];
 };
 
+/** El escalón aplicable: desde `min` asistentes se cobra `valor`; toma el mayor `min` ≤ n. */
+function valorEscalon(escalones: ReglaEscalon[] | null, n: number): number {
+  if (!escalones?.length) return 0;
+  let valor = 0;
+  for (const e of [...escalones].sort((a, b) => a.min - b.min)) {
+    if (n >= e.min) valor = e.valor;
+  }
+  return valor;
+}
+
+/** Concepto (tipo de trabajo) de una clase, para casar con la regla del profesor. */
+function conceptoDeClase(c: { tipo: string; paquete_cliente_id: number | null }): ReglaConcepto {
+  if (c.tipo === "academia") return "academia";
+  if (c.paquete_cliente_id) return "paquete";
+  return "clase_particular";
+}
+
+type ReglaRow = {
+  id: number;
+  nombre: string;
+  concepto: ReglaConcepto;
+  metodo: ReglaMetodo;
+  pct: number;
+  valor: number;
+  servicio_id: number | null;
+  escalones: ReglaEscalon[] | null;
+  dias: number[] | null;
+  hora_desde: string | null;
+  hora_hasta: string | null;
+  activo: boolean;
+};
+
+const METODOS_CLASE: ReglaMetodo[] = ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno"];
+
+/**
+ * ¿La regla (de clase) aplica a esta clase? Casa por concepto (o comodín `clase`)
+ * y, si tiene filtro, por día de la semana y por hora de inicio (rango [desde, hasta)).
+ */
+function reglaClaseAplica(
+  r: ReglaRow,
+  concepto: ReglaConcepto,
+  weekday: number,
+  horaInicio: string | null,
+): boolean {
+  if (!METODOS_CLASE.includes(r.metodo)) return false;
+  if (r.concepto !== concepto && r.concepto !== "clase") return false;
+  if (r.dias && r.dias.length > 0 && !r.dias.includes(weekday)) return false;
+  if (r.hora_desde || r.hora_hasta) {
+    if (!horaInicio) return false;
+    const h = horaInicio.slice(0, 8);
+    if (r.hora_desde && h < r.hora_desde.slice(0, 8)) return false;
+    if (r.hora_hasta && h >= r.hora_hasta.slice(0, 8)) return false;
+  }
+  return true;
+}
+
+/** Pago de una clase según la regla (los métodos de Siigo se resuelven aparte). */
+function pagoReglaClase(
+  r: ReglaRow,
+  ctx: { valorFacturado: number; alumnos: number; nPersonas: number },
+): number {
+  switch (r.metodo) {
+    case "pct_facturado":
+      return Math.round((ctx.valorFacturado * Number(r.pct)) / 100);
+    case "fijo_por_clase":
+      return r.valor;
+    case "por_alumno":
+      return ctx.alumnos * r.valor;
+    case "escalonado_asistentes":
+      return valorEscalon(r.escalones, ctx.nPersonas);
+    default:
+      return 0; // pct_siigo_servicio no depende de la clase
+  }
+}
+
 /**
  * Liquidación por profesor en un periodo. Solo clases REALIZADAS.
- * Por cada clase calcula:
- *   - Valor facturado (cobrado al cliente): academia = alumnos × (mensualidad ÷ días×4);
- *     paquete = precio paquete ÷ nº clases; particular = precio de la clase.
- *   - Valor a pagar al profesor (según su compensación): particular/paquete = % × facturado;
- *     academia = alumnos × tarifa por alumno; físico = asistentes × pago.
- *   + salario fijo (fijo_comision) o comisión quincenal (físico), prorrateados por `quincenas`.
+ *
+ * Convivencia de modelos:
+ *   - Profesor CON reglas (`profesor_regla`) → se liquida por reglas (una por concepto):
+ *     clase_particular / paquete / academia salen de las clases cerradas; el concepto
+ *     `siigo` (alto rendimiento) = % de lo facturado en Siigo del servicio en el periodo.
+ *   - Profesor SIN reglas → modelo viejo (`profesor_compensacion`), INTACTO:
+ *     particular/paquete = % × facturado; academia = alumnos × tarifa; físico = asistentes × pago;
+ *     + salario fijo / comisión quincenal prorrateados por `quincenas`.
+ * Los eventos se pagan igual en ambos modelos (evento_profesores.pago).
  */
 export async function calcularLiquidacion(desde: string, hasta: string, quincenas: number): Promise<LiqProfesor[]> {
   const supabase = await createClient();
 
-  const [{ data: profesores }, { data: comps }, { data: clasesRaw }] = await Promise.all([
+  const [{ data: profesores }, { data: comps }, { data: reglasRaw }, { data: clasesRaw }] = await Promise.all([
     supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
     supabase.from("profesor_compensacion").select("*"),
     supabase
+      .from("profesor_regla")
+      .select("id, profesor_id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, activo, orden")
+      .eq("activo", true)
+      .order("orden"),
+    supabase
       .from("clases")
-      .select("id, profesor_id, tipo, paquete_cliente_id, cliente_id, miembro_id, academia_id, fecha, hora_inicio, precio, valor_facturado")
+      .select("id, profesor_id, tipo, paquete_cliente_id, cliente_id, miembro_id, academia_id, fecha, hora_inicio, precio, valor_facturado, num_asistentes")
       .eq("estado", "realizada")
       .gte("fecha", desde)
       .lte("fecha", hasta),
   ]);
 
   const compById = new Map((comps ?? []).map((c) => [c.profesor_id, c]));
+  const reglasByProf = new Map<string, ReglaRow[]>();
+  for (const r of reglasRaw ?? []) {
+    const arr = reglasByProf.get(r.profesor_id) ?? [];
+    arr.push(r as ReglaRow);
+    reglasByProf.set(r.profesor_id, arr);
+  }
   const clases = clasesRaw ?? [];
 
   // Asistentes presentes por clase (academia / físico).
@@ -111,15 +202,17 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   const porProf = new Map<string, LiqProfesor>();
   for (const p of profesores ?? []) {
     const comp = compById.get(p.id);
+    const tieneReglas = (reglasByProf.get(p.id)?.length ?? 0) > 0;
     porProf.set(p.id, {
       id: p.id,
       nombre: p.nombre ?? "—",
-      compLabel: comp ? TIPO_LABEL[comp.tipo] ?? comp.tipo : "Sin configurar",
+      compLabel: tieneReglas ? "Reglas personalizadas" : comp ? TIPO_LABEL[comp.tipo] ?? comp.tipo : "Sin configurar",
       clases: 0,
       facturado: 0,
       variable: 0,
       fijo: 0,
       comision: 0,
+      siigo: 0,
       eventos: 0,
       total: 0,
       lineas: [],
@@ -131,7 +224,10 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const fila = porProf.get(c.profesor_id);
     if (!fila) continue;
     const comp = compById.get(c.profesor_id);
+    const reglas = reglasByProf.get(c.profesor_id) ?? [];
     const alumnos = presentes.get(c.id) ?? 0;
+    // Nº de personas de la clase particular (define el escalón). Cae a los presentes, o 1.
+    const nPersonas = c.num_asistentes ?? Math.max(alumnos, 1);
 
     // Valor cobrado al cliente.
     let valorFacturado = 0;
@@ -153,16 +249,52 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
       detalle = c.cliente_id || c.miembro_id ? deportista(c) : "Particular";
     }
 
-    // Valor a pagar al profesor (según su compensación).
+    // Valor a pagar al profesor.
     let valorProfesor: number;
-    if (comp?.tipo === "fisico") valorProfesor = alumnos * comp.pago_asistencia;
-    else if (c.tipo === "academia") valorProfesor = alumnos * (comp?.valor_alumno_academia ?? 0);
-    else valorProfesor = Math.round((valorFacturado * (comp ? Number(comp.pct_clase) : 0)) / 100);
+    if (reglas.length) {
+      // Modelo nuevo: la primera regla (por orden) que aplique a esta clase.
+      const concepto = conceptoDeClase(c);
+      const weekday = new Date(`${c.fecha}T00:00:00`).getDay();
+      const regla = reglas.find((r) => reglaClaseAplica(r, concepto, weekday, c.hora_inicio));
+      valorProfesor = regla ? pagoReglaClase(regla, { valorFacturado, alumnos, nPersonas }) : 0;
+      if (regla) tipoLabel = regla.nombre; // etiqueta exacta ("Academia Recreativa Pádel", "Comisión 7 a.m."…)
+    } else if (comp?.tipo === "fisico") {
+      valorProfesor = alumnos * comp.pago_asistencia;
+    } else if (c.tipo === "academia") {
+      valorProfesor = alumnos * (comp?.valor_alumno_academia ?? 0);
+    } else {
+      valorProfesor = Math.round((valorFacturado * (comp ? Number(comp.pct_clase) : 0)) / 100);
+    }
 
     fila.clases += 1;
     fila.facturado += valorFacturado;
     fila.variable += valorProfesor;
     fila.lineas.push({ claseId: c.id, fecha: c.fecha, hora: c.hora_inicio, tipoLabel, detalle, valorFacturado, valorProfesor });
+  }
+
+  // ───────── Reglas de Siigo (alto rendimiento): % de lo facturado en el periodo ─────────
+  const siigoReglas = [...reglasByProf].flatMap(([pid, rs]) =>
+    rs.filter((r) => r.metodo === "pct_siigo_servicio").map((r) => ({ pid, r })),
+  );
+  if (siigoReglas.length) {
+    const { data: ingreso } = await supabase.rpc("siigo_ingreso_servicio", { p_desde: desde, p_hasta: hasta });
+    const montoServ = new Map<number, number>((ingreso ?? []).map((x) => [x.servicio_id, Number(x.monto)]));
+    for (const { pid, r } of siigoReglas) {
+      const fila = porProf.get(pid);
+      if (!fila) continue;
+      const base = r.servicio_id != null ? montoServ.get(r.servicio_id) ?? 0 : 0;
+      const pago = Math.round((base * Number(r.pct)) / 100);
+      fila.siigo += pago;
+      fila.lineas.push({
+        claseId: -r.id, // negativo: no choca con ids de clases
+        fecha: hasta,
+        hora: null,
+        tipoLabel: r.nombre,
+        detalle: `${Number(r.pct)}% de lo facturado en Siigo`,
+        valorFacturado: base,
+        valorProfesor: pago,
+      });
+    }
   }
 
   // ───────── Eventos del periodo (pago a profesores, aparte de las clases) ─────────
@@ -196,10 +328,18 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   }
 
   for (const fila of porProf.values()) {
-    const comp = compById.get(fila.id);
-    if (comp?.tipo === "fijo_comision") fila.fijo = comp.salario_fijo * quincenas;
-    if (comp?.tipo === "fisico") fila.comision = comp.comision_quincenal * quincenas;
-    fila.total = fila.variable + fila.fijo + fila.comision + fila.eventos;
+    const reglas = reglasByProf.get(fila.id) ?? [];
+    if (reglas.length) {
+      // Salario fijo (regla): `valor` es MENSUAL → se prorratea por quincena (mes = 2 quincenas).
+      const salMensual = reglas.filter((r) => r.metodo === "salario_fijo").reduce((s, r) => s + r.valor, 0);
+      if (salMensual > 0) fila.fijo += Math.round((salMensual * quincenas) / 2);
+    } else {
+      // Modelo viejo (los profes con reglas no lo usan).
+      const comp = compById.get(fila.id);
+      if (comp?.tipo === "fijo_comision") fila.fijo = comp.salario_fijo * quincenas;
+      if (comp?.tipo === "fisico") fila.comision = comp.comision_quincenal * quincenas;
+    }
+    fila.total = fila.variable + fila.fijo + fila.comision + fila.siigo + fila.eventos;
     fila.lineas.sort((a, b) => a.fecha.localeCompare(b.fecha) || (a.hora ?? "").localeCompare(b.hora ?? ""));
   }
 

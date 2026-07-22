@@ -20,9 +20,11 @@ export default async function EmpleadosPage({
   const safe = q.replace(/[%,()*]/g, "").trim();
 
   const supabase = await createClient();
+  // Solo empleados activos: los inactivos (p.ej. duplicados unificados) no se listan.
   let query = supabase
     .from("profiles")
     .select("id, nombre, telefono, activo")
+    .eq("activo", true)
     .order("nombre", { nullsFirst: false });
   if (safe) query = query.or(`nombre.ilike.%${safe}%,documento.ilike.%${safe}%`);
   const { data: empleados } = await query;

@@ -34,7 +34,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
     evento.servicio_id
       ? supabase.from("servicios").select("nombre").eq("id", evento.servicio_id).single()
       : Promise.resolve({ data: null as { nombre: string } | null }),
-    supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+    supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre"),
     supabase.from("siigo_facturas").select("total, saldo").eq("evento_id", eventoId),
   ]);
 

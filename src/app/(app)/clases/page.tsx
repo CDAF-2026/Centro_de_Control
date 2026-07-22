@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
-import { getBookings, deporteDeSport, profesorDeCancha } from "@/lib/easycancha/client";
+import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
@@ -110,6 +110,27 @@ export default async function ClasesPage({
     for (const a of data ?? []) acaName.set(a.id, a.nombre);
   }
 
+  // Alias EasyCancha → perfil canónico (unifica duplicados como Willington en el calendario).
+  const aliasCanon = new Map<string, string>();
+  {
+    const { data: aliasRows } = await supabase.from("easycancha_profesor_alias").select("clave, profesor_id");
+    const ids = [...new Set((aliasRows ?? []).map((a) => a.profesor_id))];
+    const nombres = new Map<string, string>();
+    if (ids.length) {
+      const { data } = await supabase.from("profiles").select("id, nombre").in("id", ids);
+      for (const p of data ?? []) nombres.set(p.id, p.nombre ?? "—");
+    }
+    for (const a of aliasRows ?? []) {
+      const n = nombres.get(a.profesor_id);
+      if (n) aliasCanon.set(a.clave, n);
+    }
+  }
+  const resolverProfesor = (raw: string | null): string | null => {
+    if (!raw) return raw;
+    const clave = claveProfesor(raw);
+    return (clave ? aliasCanon.get(clave) : null) ?? raw;
+  };
+
   const internas: CalEvento[] = lista.map((c) => {
     const hora = c.hora_inicio?.slice(0, 5) ?? "";
     const horaFin = c.hora_fin?.slice(0, 5) ?? "";
@@ -155,7 +176,7 @@ export default async function ClasesPage({
       const hora = (b.localStartTime ?? "").slice(0, 5);
       const fin = (b.localEndTime ?? "").slice(0, 5);
       const nombre = `${b.userFirstName ?? ""} ${b.userLastName ?? ""}`.trim() || "Reserva";
-      const profesor = profesorDeCancha(b.courtName);
+      const profesor = resolverProfesor(profesorDeCancha(b.courtName));
       const est = EST_EC[b.status] ?? { label: b.status, tone: "warn" as const };
       const det: [string, string][] = [["Fecha y hora", `${b.localDate} · ${hora}${fin ? `–${fin}` : ""}`]];
       if (profesor) det.push(["Profesor", profesor]);

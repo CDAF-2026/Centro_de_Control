@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CompensacionForm, type Comp } from "./compensacion-form";
+import { ReglasForm, type ReglaInicial } from "./reglas-form";
 import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
 import { correoVisible } from "@/lib/empleado";
 
@@ -54,13 +55,31 @@ export default async function EmpleadoDetallePage({
   const esAdmin = esSuperadmin || profile.role === "coord_admin";
 
   let comp: Comp | null = null;
+  let reglas: ReglaInicial[] = [];
+  let serviciosSiigo: { id: number; nombre: string }[] = [];
   if (emp.role === "profesor") {
-    const { data: c } = await supabase
-      .from("profesor_compensacion")
-      .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal, valor_alumno_academia")
-      .eq("profesor_id", id)
-      .maybeSingle();
+    const [{ data: c }, { data: rs }, { data: servs }] = await Promise.all([
+      supabase
+        .from("profesor_compensacion")
+        .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal, valor_alumno_academia")
+        .eq("profesor_id", id)
+        .maybeSingle(),
+      supabase
+        .from("profesor_regla")
+        .select("nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta")
+        .eq("profesor_id", id)
+        .eq("activo", true)
+        .order("orden"),
+      supabase
+        .from("servicios")
+        .select("id, nombre")
+        .not("siigo_grupo", "is", null)
+        .eq("activo", true)
+        .order("orden"),
+    ]);
     comp = c ?? null;
+    reglas = (rs ?? []).map((r) => ({ ...r, pct: Number(r.pct), valor: Number(r.valor) }));
+    serviciosSiigo = servs ?? [];
   }
   const compDefault: Comp = comp ?? {
     tipo: "por_clase",
@@ -130,11 +149,23 @@ export default async function EmpleadoDetallePage({
         <Card>
           <CardHeader>
             <CardTitle>Compensación</CardTitle>
-            <CardDescription>Cómo se le liquida a este profesor.</CardDescription>
+            <CardDescription>
+              Reglas de pago de este profesor. Cada regla dice, para un tipo de trabajo, cómo se le paga.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             {esAdmin ? (
-              <CompensacionForm profesorId={emp.id} comp={compDefault} />
+              <>
+                <ReglasForm profesorId={emp.id} reglasIniciales={reglas} servicios={serviciosSiigo} />
+                {reglas.length === 0 && comp && (
+                  <div className="space-y-3 border-t pt-4">
+                    <p className="text-muted-foreground text-xs">
+                      <strong>Configuración anterior</strong> — se usa para liquidar mientras este profesor no tenga reglas.
+                    </p>
+                    <CompensacionForm profesorId={emp.id} comp={compDefault} />
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-muted-foreground text-sm">Solo administración puede ver o editar la compensación.</p>
             )}

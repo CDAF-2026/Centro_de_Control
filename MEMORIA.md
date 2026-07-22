@@ -54,8 +54,24 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
   (clave, color, categoria_saldo, siigo_grupo ↔ account_group de Siigo).
-- **Nómina**: `profesor_compensacion` (por_clase | fijo_comision | fisico + valor_alumno_academia);
-  liquidación calculada en `src/lib/liquidacion.ts` (clases realizadas + eventos, etiquetados).
+- **Nómina**: modelo de **reglas por entrenador** `profesor_regla` (nombre + concepto
+  {clase_particular|paquete|academia|siigo|**clase**(comodín)|**salario**} + metodo {pct_facturado|
+  fijo_por_clase|escalonado_asistentes|por_alumno|pct_siigo_servicio|**salario_fijo**} +
+  pct/valor/servicio_id/escalones + **filtro dias[]/hora_desde/hora_hasta**). Liquidación en
+  `src/lib/liquidacion.ts` con **convivencia**: si el profe tiene reglas → se liquida por reglas; si no →
+  modelo viejo `profesor_compensacion` (por_clase | fijo_comision | fisico) INTACTO. `clases.num_asistentes`
+  (capturado al cerrar una particular en `/cierre`) alimenta el escalón. Alto rendimiento = % de
+  `siigo_ingreso_servicio` del periodo. `salario_fijo`.valor = MENSUAL (prorrateado ×quincenas/2). El filtro
+  día/hora hace que una regla de clase aplique solo a clases que inician en ese rango/días (ej. Willington:
+  comisión 50% solo lun–sáb 07:00–08:00). **TODOS los entrenadores activos están migrados** al modelo de
+  reglas (Leo, Joaquín, Dairon, Cristian, Willington, Esteban, Sebastián, Jorge); nadie usa ya el modelo
+  viejo, pero `profesor_compensacion`/`profesor_valor_clase` quedan como respaldo/tumba. **Pickers de
+  profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
+  (07:00 y 13:00, lun–sáb) = 2 reglas.
+- **EasyCancha ↔ profesor**: el courtName ("Profesor Willinton - Cancha 3") da el profe del calendario
+  vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil)
+  para unificar duplicados (Willington estaba 2 veces: "Profesor" y "Entrenador"). Materializar reserva =
+  se elige el perfil a mano (solo activos).
 - **Tablas en desuso** (persisten, no borrar aún): `pagos`, `asignaciones_pago`, `abonos`,
   `profesor_valor_clase`.
 

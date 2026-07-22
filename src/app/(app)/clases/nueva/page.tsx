@@ -7,7 +7,7 @@ export default async function NuevaClasePage() {
   await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
   const supabase = await createClient();
   const [{ data: profesores }, { data: pqRaw }] = await Promise.all([
-    supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+    supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre"),
     supabase
       .from("paquetes_cliente")
       .select("id, miembro_id, catalogo_id, num_clases, clases_consumidas")

@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
-import { createEmpleadoSchema, updateEmpleadoSchema, valorClaseSchema } from "@/lib/validations/empleado";
+import { createEmpleadoSchema, updateEmpleadoSchema, valorClaseSchema, reglasSchema } from "@/lib/validations/empleado";
 import type { EmpleadoDocumentoTipo } from "@/lib/database.types";
 
 export type EmpleadoFormState = {
@@ -162,6 +162,68 @@ export async function guardarCompensacion(
   await logAudit({ action: "compensacion.update", entity: "profesor_compensacion", entityId: profesorId, after: { tipo } });
   revalidatePath(`/empleados/${profesorId}`);
   return { ok: "Compensación guardada." };
+}
+
+/**
+ * Guarda el conjunto de reglas de compensación de un profesor (modelo flexible).
+ * Reemplaza todas sus reglas por el set recibido; un set vacío lo devuelve al modelo viejo.
+ */
+export async function guardarReglas(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin", "coord_admin"]);
+
+  const profesorId = String(formData.get("profesorId") || "");
+  if (!profesorId) return { error: "Falta el profesor." };
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(String(formData.get("reglas") || "[]"));
+  } catch {
+    return { error: "No se pudieron leer las reglas." };
+  }
+  const parsed = reglasSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Revisa las reglas." };
+  }
+
+  const esClaseMetodo = (m: string) =>
+    ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno"].includes(m);
+  const rows = parsed.data.map((r, i) => ({
+    profesor_id: profesorId,
+    nombre: r.nombre,
+    concepto: r.concepto,
+    metodo: r.metodo,
+    pct: r.metodo === "pct_facturado" || r.metodo === "pct_siigo_servicio" ? r.pct : 0,
+    valor: r.metodo === "fijo_por_clase" || r.metodo === "por_alumno" || r.metodo === "salario_fijo" ? r.valor : 0,
+    servicio_id: r.metodo === "pct_siigo_servicio" ? r.servicio_id : null,
+    escalones: r.metodo === "escalonado_asistentes" ? r.escalones : null,
+    // Filtro día/hora: solo para reglas de clase.
+    dias: esClaseMetodo(r.metodo) && r.dias && r.dias.length ? r.dias : null,
+    hora_desde: esClaseMetodo(r.metodo) ? r.hora_desde : null,
+    hora_hasta: esClaseMetodo(r.metodo) ? r.hora_hasta : null,
+    orden: i,
+    activo: true,
+  }));
+
+  const supabase = await createClient();
+  // Reemplaza el set completo (borra + inserta): simple y correcto para pocas reglas.
+  const { error: delErr } = await supabase.from("profesor_regla").delete().eq("profesor_id", profesorId);
+  if (delErr) return { error: delErr.message };
+  if (rows.length) {
+    const { error: insErr } = await supabase.from("profesor_regla").insert(rows);
+    if (insErr) return { error: insErr.message };
+  }
+
+  await logAudit({
+    action: "reglas.update",
+    entity: "profesor_regla",
+    entityId: profesorId,
+    after: { reglas: rows.length },
+  });
+  revalidatePath(`/empleados/${profesorId}`);
+  return { ok: rows.length ? "Reglas guardadas." : "Reglas eliminadas (vuelve al modelo anterior)." };
 }
 
 /** Edita datos del empleado (nombre, correo, documento, teléfono). Solo superadministrador. */

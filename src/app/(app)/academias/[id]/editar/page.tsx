@@ -16,6 +16,7 @@ export default async function EditarAcademiaPage({ params }: { params: Promise<{
     .from("profiles")
     .select("id, nombre")
     .eq("role", "profesor")
+    .eq("activo", true)
     .order("nombre");
 
   return (

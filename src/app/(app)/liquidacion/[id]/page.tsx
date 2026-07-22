@@ -98,6 +98,12 @@ export default async function LiquidacionDetallePage({
                 <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.comision)}</td>
               </tr>
             )}
+            {prof.siigo > 0 && (
+              <tr className="font-medium">
+                <td className="px-3 py-1" colSpan={4}>Alto rendimiento (Siigo)</td>
+                <td className="px-3 py-1 text-right tabular-nums">{COP.format(prof.siigo)}</td>
+              </tr>
+            )}
             {prof.eventos > 0 && (
               <tr className="font-medium">
                 <td className="px-3 py-1" colSpan={4}>Eventos</td>
@@ -113,8 +119,9 @@ export default async function LiquidacionDetallePage({
       </div>
 
       <p className="text-muted-foreground text-xs">
-        <strong>Valor cobrado al cliente</strong> = lo facturado por esa clase. <strong>Valor a pagar al profesor</strong> =
-        según su compensación (% del facturado, alumnos × tarifa de academia, o pago por asistencia). Solo clases realizadas.
+        <strong>Valor cobrado al cliente</strong> = lo facturado por esa clase (o la base de Siigo en alto rendimiento).{" "}
+        <strong>Valor a pagar al profesor</strong> = según sus reglas de compensación. Solo clases realizadas; el alto
+        rendimiento sale de la facturación de Siigo del periodo.
       </p>
     </div>
   );

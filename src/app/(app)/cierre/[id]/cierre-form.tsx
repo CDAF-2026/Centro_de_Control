@@ -14,6 +14,7 @@ export function CierreForm({
   estadoPorCliente,
   esAcademia,
   noRegistrados,
+  numAsistentes,
 }: {
   claseId: number;
   estadoActual: string;
@@ -21,6 +22,7 @@ export function CierreForm({
   estadoPorCliente: Record<number, string>;
   esAcademia: boolean;
   noRegistrados: string;
+  numAsistentes: number;
 }) {
   const [state, action, pending] = useActionState<CierreState, FormData>(cerrarClase, {});
 
@@ -56,6 +58,28 @@ export function CierreForm({
               </select>
             </div>
           ))}
+        </div>
+      )}
+
+      {!esAcademia && (
+        <div className="space-y-1.5">
+          <Label htmlFor="num_asistentes">¿Cuántas personas tomaron la clase?</Label>
+          <select
+            id="num_asistentes"
+            name="num_asistentes"
+            defaultValue={String(Math.max(1, numAsistentes))}
+            className="border-input bg-background h-11 w-full rounded-md border px-3 text-base"
+          >
+            <option value="1">1 persona</option>
+            <option value="2">2 personas</option>
+            <option value="3">3 personas</option>
+            <option value="4">4 personas</option>
+            <option value="5">5 personas</option>
+            <option value="6">6 personas</option>
+          </select>
+          <p className="text-muted-foreground text-xs">
+            Para clases compartidas. Define el valor cuando el profesor cobra por nº de personas.
+          </p>
         </div>
       )}
 

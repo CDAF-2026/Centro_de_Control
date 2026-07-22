@@ -92,7 +92,7 @@ export async function prepararAsignacion(email: string): Promise<PrepararAsignac
   await requireRole(WRITE);
   const supabase = await createClient();
 
-  const profs = (await supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre")).data ?? [];
+  const profs = (await supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre")).data ?? [];
   const profesores = profs.map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
 
   const em = email.trim().toLowerCase();

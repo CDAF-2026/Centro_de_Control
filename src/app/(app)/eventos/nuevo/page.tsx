@@ -8,7 +8,7 @@ export default async function NuevoEventoPage() {
   const supabase = await createClient();
   const [serviciosRes, profesoresRes] = await Promise.all([
     supabase.from("servicios").select("id, nombre").eq("activo", true).order("orden"),
-    supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+    supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre"),
   ]);
 
   return (

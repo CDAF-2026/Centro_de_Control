@@ -63,6 +63,24 @@ export function profesorDeCancha(courtName: string | null): string | null {
 }
 
 /**
+ * Clave normalizada de un nombre de profesor derivado de EasyCancha, para unificar
+ * variantes del mismo courtName ("Profesor Willinton", "Entrenador  Willinton",
+ * "/ Profesor Willinton" → "willinton"). Se casa contra `easycancha_profesor_alias`.
+ */
+export function claveProfesor(nombre: string | null): string | null {
+  if (!nombre) return null;
+  const c = nombre
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(profesor|entrenador|profe)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return c || null;
+}
+
+/**
  * Trae las reservas del club para un periodo [from, to] (YYYY-MM-DD, inclusivos).
  * Devuelve `error` (no lanza) para que el calendario degrade con elegancia.
  * Cachea 5 min por URL para no golpear la API en cada navegación de mes.

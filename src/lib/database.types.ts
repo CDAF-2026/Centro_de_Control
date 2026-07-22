@@ -30,6 +30,16 @@ export type ServicioCategoriaSaldo = "academia" | "paquete" | "particular";
 export type PagoEstado = "sin_asignar" | "asignado";
 export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
 export type AsistenciaEstado = "presente" | "ausente" | "excusa_medica" | "reposicion";
+export type ReglaConcepto = "clase_particular" | "paquete" | "academia" | "siigo" | "clase" | "salario";
+export type ReglaMetodo =
+  | "pct_facturado"
+  | "fijo_por_clase"
+  | "escalonado_asistentes"
+  | "por_alumno"
+  | "pct_siigo_servicio"
+  | "salario_fijo";
+/** Un escalón del método `escalonado_asistentes`: desde `min` asistentes, se cobra `valor`. */
+export type ReglaEscalon = { min: number; valor: number };
 
 export type Database = {
   public: {
@@ -116,6 +126,60 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profesor_compensacion"]["Insert"]>;
+        Relationships: [];
+      };
+      profesor_regla: {
+        Row: {
+          id: number;
+          profesor_id: string;
+          nombre: string;
+          concepto: ReglaConcepto;
+          metodo: ReglaMetodo;
+          pct: number;
+          valor: number;
+          servicio_id: number | null;
+          escalones: ReglaEscalon[] | null;
+          dias: number[] | null;
+          hora_desde: string | null;
+          hora_hasta: string | null;
+          orden: number;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          profesor_id: string;
+          nombre: string;
+          concepto: ReglaConcepto;
+          metodo: ReglaMetodo;
+          pct?: number;
+          valor?: number;
+          servicio_id?: number | null;
+          escalones?: ReglaEscalon[] | null;
+          dias?: number[] | null;
+          hora_desde?: string | null;
+          hora_hasta?: string | null;
+          orden?: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["profesor_regla"]["Insert"]>;
+        Relationships: [];
+      };
+      easycancha_profesor_alias: {
+        Row: {
+          clave: string;
+          profesor_id: string;
+          created_at: string;
+        };
+        Insert: {
+          clave: string;
+          profesor_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["easycancha_profesor_alias"]["Insert"]>;
         Relationships: [];
       };
       acudientes: {
@@ -485,6 +549,7 @@ export type Database = {
           estado: ClaseEstado;
           registrada_por: string | null;
           asistentes_no_registrados: string | null;
+          num_asistentes: number | null;
           easycancha_booking_id: string | null;
           created_at: string;
           updated_at: string;
@@ -509,6 +574,7 @@ export type Database = {
           estado?: ClaseEstado;
           registrada_por?: string | null;
           asistentes_no_registrados?: string | null;
+          num_asistentes?: number | null;
           easycancha_booking_id?: string | null;
           created_at?: string;
           updated_at?: string;

@@ -25,7 +25,7 @@ export async function cerrarClase(
   const supabase = await createClient();
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, profesor_id, fecha, hora_inicio, deporte, cliente_id, paquete_cliente_id")
+    .select("id, tipo, profesor_id, fecha, hora_inicio, deporte, cliente_id, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) return { error: "Clase no encontrada." };
@@ -44,9 +44,20 @@ export async function cerrarClase(
   }
 
   const noRegistrados = String(formData.get("asistentes_no_registrados") || "").trim() || null;
+  // Nº de personas de la clase particular (define el escalón de precio en la liquidación).
+  const numRaw = formData.get("num_asistentes");
+  const numAsistentes =
+    clase.tipo !== "academia" && numRaw != null && String(numRaw).trim() !== ""
+      ? Math.max(1, Math.floor(Number(numRaw)))
+      : null;
   const { error: upErr } = await supabase
     .from("clases")
-    .update({ estado, registrada_por: profile.id, asistentes_no_registrados: noRegistrados })
+    .update({
+      estado,
+      registrada_por: profile.id,
+      asistentes_no_registrados: noRegistrados,
+      ...(numAsistentes != null ? { num_asistentes: numAsistentes } : {}),
+    })
     .eq("id", claseId);
   if (upErr) return { error: upErr.message };
 
