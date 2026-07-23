@@ -56,6 +56,26 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   return { ok: bulk > 0 ? `Conciliada · +${bulk} factura(s) del mismo NIT.` : "Factura conciliada." };
 }
 
+/**
+ * Devuelve una factura a la cola de conciliación. Sirve para deshacer un "Es mostrador"
+ * marcado por error, o para rescatar una venta que Siigo facturó al NIT genérico pero que
+ * sí tiene dueño. El sync respeta este estado y no la vuelve a cerrar como mostrador.
+ */
+export async function devolverACola(_prev: PagoState, formData: FormData): Promise<PagoState> {
+  await requireRole(ADMIN);
+  const facturaId = Number(formData.get("facturaId"));
+  if (!facturaId) return { error: "Factura inválida." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("siigo_facturas")
+    .update({ estado_conciliacion: "pendiente", cliente_id: null, evento_id: null })
+    .eq("id", facturaId);
+  if (error) return { error: error.message };
+  await logAudit({ action: "siigo.devolver_cola", entity: "siigo_facturas", entityId: String(facturaId) });
+  revalidatePath("/pagos");
+  return { ok: "Devuelta a la cola de conciliación." };
+}
+
 /** Marca una factura como ingreso de mostrador (anónimo): sale de la cola, cuenta como ingreso. */
 export async function marcarMostrador(_prev: PagoState, formData: FormData): Promise<PagoState> {
   await requireRole(ADMIN);

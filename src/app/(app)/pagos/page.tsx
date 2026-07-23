@@ -2,15 +2,32 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
-import { ConciliarForm } from "./conciliar-form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ConciliarForm, DevolverACola } from "./conciliar-form";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Wallet } from "lucide-react";
+import { Wallet, Search } from "lucide-react";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-export default async function PagosPage() {
+/** Etiqueta legible del estado de conciliación. */
+const ESTADO: Record<string, { texto: string; clase: string }> = {
+  pendiente: { texto: "Por conciliar", clase: "border-primary/40" },
+  mostrador: { texto: "Mostrador", clase: "text-muted-foreground" },
+  auto: { texto: "Cliente identificado", clase: "" },
+  conciliada: { texto: "Conciliada", clase: "" },
+};
+
+export default async function PagosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requireRole(rolesForModule("bolsa_pagos"));
   const supabase = await createClient();
+  // Buscador: encuentra CUALQUIER factura (también las de mostrador, que no salen en la cola).
+  // Se limpian comas y paréntesis porque romperían el filtro `or` de PostgREST.
+  const q = ((await searchParams).q ?? "").replace(/[,()*]/g, " ").trim();
 
   const { data: pendientes } = await supabase
     .from("siigo_facturas")
@@ -31,6 +48,15 @@ export default async function PagosPage() {
       supabase.from("siigo_facturas").select("*", { count: "exact", head: true }).eq("estado_conciliacion", "mostrador"),
       supabase.from("siigo_facturas").select("*", { count: "exact", head: true }).eq("estado_conciliacion", "conciliada"),
     ]);
+
+  const { data: encontradas } = q
+    ? await supabase
+        .from("siigo_facturas")
+        .select("id, numero, fecha, cliente_identificacion, cliente_nombre_siigo, total, saldo, estado_conciliacion")
+        .or(`numero.ilike.%${q}%,cliente_nombre_siigo.ilike.%${q}%,cliente_identificacion.ilike.%${q}%`)
+        .order("fecha", { ascending: false })
+        .limit(20)
+    : { data: null };
 
   const svName = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
   const lineasByFac = new Map<number, { descripcion: string | null; servicio_id: number | null; monto: number }[]>();
@@ -55,6 +81,57 @@ export default async function PagosPage() {
         aplica—. Las ventas de mostrador anónimas ya entraron como ingreso y no aparecen aquí. La sincronización con Siigo
         corre sola cada 20 minutos (y cada noche se refrescan los saldos).
       </p>
+
+      {/* Buscador: rescata facturas que no están en la cola (mostrador, ya conciliadas…). */}
+      <section className="space-y-3 rounded-lg border p-4">
+        <h2 className="cdaf-title">Buscar una factura</h2>
+        <p className="text-muted-foreground text-sm">
+          Busca por número de factura, nombre o NIT — incluye las de mostrador, que no salen en la cola. Si una venta
+          quedó cerrada por error, devuélvela a la cola para conciliarla.
+        </p>
+        <form method="GET" className="flex flex-wrap items-center gap-2">
+          <Input name="q" defaultValue={q} placeholder="Ej: 5618, FV-2-5618, un nombre o un NIT…" className="max-w-xs" />
+          <Button type="submit" size="sm" variant="outline">
+            <Search className="size-4" /> Buscar
+          </Button>
+        </form>
+
+        {q && (
+          <div className="space-y-2">
+            {(encontradas ?? []).map((f) => {
+              const est = ESTADO[f.estado_conciliacion ?? ""] ?? { texto: f.estado_conciliacion ?? "—", clase: "" };
+              return (
+                <div key={f.id} className="rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold tabular-nums">{COP.format(f.total)}</span>
+                    <Badge variant="outline" className={est.clase}>{est.texto}</Badge>
+                    {f.saldo > 0 && (
+                      <Badge variant="outline" className="text-destructive border-destructive/40">Debe {COP.format(f.saldo)}</Badge>
+                    )}
+                    <span className="text-muted-foreground text-sm">
+                      {f.cliente_nombre_siigo ? <strong className="text-foreground">{f.cliente_nombre_siigo}</strong> : null}
+                      {f.cliente_nombre_siigo ? " · " : ""}
+                      {f.numero ?? "—"} · {f.fecha} · NIT {f.cliente_identificacion ?? "—"}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    {f.estado_conciliacion === "pendiente" ? (
+                      <ConciliarForm facturaId={f.id} eventos={eventos ?? []} />
+                    ) : (
+                      <DevolverACola facturaId={f.id} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {(encontradas ?? []).length === 0 && (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                Ninguna factura coincide con «{q}».
+              </p>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="cdaf-title">Por conciliar ({pendientes?.length ?? 0})</h2>
