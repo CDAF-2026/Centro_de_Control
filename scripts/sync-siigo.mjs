@@ -20,11 +20,15 @@ const PARTNER_ID = "CentroDeControlCDAF";
 const SIIGO = "https://api.siigo.com";
 const DEFAULT_FROM = "2026-06-01";
 const GENERIC_NITS = new Set(["222222222222"]);
+/** Tope de facturas abiertas a repasar por corrida (guarda por si la cartera crece mucho). */
+const MAX_ABIERTAS = 400;
 
 const args = process.argv.slice(2);
 const fromArg = (args.find((a) => a.startsWith("--from=")) || "").split("=")[1];
 const full = args.includes("--full");
 const todayIso = new Date().toISOString().slice(0, 10);
+/** Tope para pedir notas crédito: `created_end` es exclusivo, así que va mañana para incluir hoy. */
+const ncHasta = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
 let token = null;
 async function auth() {
@@ -42,6 +46,53 @@ async function sg(path) {
   if (r.status === 401) { await auth(); return sg(path); }
   if (!r.ok) throw new Error(`Siigo ${path}: HTTP ${r.status} ${(await r.text()).slice(0, 150)}`);
   return r.json();
+}
+
+/**
+ * Repaso de facturas con saldo abierto. Una deuda vieja que se paga HOY no entra por el
+ * rango de fechas (la factura conserva su fecha original), así que el sync incremental
+ * nunca se enteraba y había que esperar al refresh nocturno. Se consultan una a una por
+ * id —son decenas— y solo se escriben las que cambiaron. Toca ÚNICAMENTE total/saldo:
+ * nunca el estado de conciliación (respeta las conciliadas a mano).
+ */
+async function repasarAbiertas() {
+  const { data } = await s
+    .from("siigo_facturas")
+    .select("siigo_id, total, saldo")
+    .gt("saldo", 0)
+    .limit(MAX_ABIERTAS);
+  const abiertas = data ?? [];
+  if (!abiertas.length) return 0;
+
+  const cambios = [];
+  for (let i = 0; i < abiertas.length; i += 5) {
+    const res = await Promise.all(
+      abiertas.slice(i, i + 5).map(async (row) => {
+        try {
+          const f = await sg(`/v1/invoices/${row.siigo_id}`);
+          const total = Math.round(f.total ?? 0);
+          const saldo = Math.round(f.balance ?? 0);
+          if (total === row.total && saldo === row.saldo) return null;
+          return { siigo_id: row.siigo_id, total, saldo };
+        } catch {
+          return null; // una factura borrada/inaccesible no debe tumbar el sync
+        }
+      }),
+    );
+    for (const r of res) if (r) cambios.push(r);
+  }
+  // OJO: aquí NO sirve upsert parcial. PostgREST manda un INSERT ... ON CONFLICT y la fila
+  // propuesta viola el NOT NULL de `fecha`, así que falla en silencio. Va update por fila.
+  let escritas = 0;
+  for (const c of cambios) {
+    const { error } = await s
+      .from("siigo_facturas")
+      .update({ total: c.total, saldo: c.saldo })
+      .eq("siigo_id", c.siigo_id);
+    if (error) throw new Error(`actualizar saldo ${c.siigo_id}: ${error.message}`);
+    escritas++;
+  }
+  return escritas;
 }
 
 async function main() {
@@ -118,6 +169,9 @@ async function main() {
     const batchIds = results.map((f) => f.id);
     const { data: prev } = await s.from("siigo_facturas").select("siigo_id, estado_conciliacion").in("siigo_id", batchIds);
     const locked = new Set((prev ?? []).filter((x) => x.estado_conciliacion === "conciliada").map((x) => x.siigo_id));
+    // Las que están en la cola de conciliación tampoco se cierran solas como mostrador:
+    // alguien las puso ahí a mano (ver devolverACola en /pagos) y deben seguir visibles.
+    const enCola = new Set((prev ?? []).filter((x) => x.estado_conciliacion === "pendiente").map((x) => x.siigo_id));
 
     const normalRows = [];
     const lockedRows = [];
@@ -134,11 +188,20 @@ async function main() {
       let estado;
       if (clienteId) { estado = "auto"; auto++; }
       else if (saldo > 0 || esReal) { estado = "pendiente"; pendiente++; } // cédula real = conciliable aunque esté pagada
+      else if (enCola.has(f.id)) { estado = "pendiente"; pendiente++; }    // rescatada a mano: se respeta
       else { estado = "mostrador"; mostrador++; }
       normalRows.push({ siigo_id: f.id, numero: f.name, fecha: f.date, cliente_identificacion: ident, cliente_nombre_siigo: esReal ? nombrePorNit.get(ident) ?? null : null, cliente_id: clienteId, total, saldo, estado_conciliacion: estado });
     }
 
-    if (lockedRows.length) await s.from("siigo_facturas").upsert(lockedRows, { onConflict: "siigo_id" });
+    // Las conciliadas a mano solo refrescan total/saldo. Va update por fila: el upsert
+    // parcial rebota contra el NOT NULL de `fecha` (fallaba en silencio).
+    for (const lr of lockedRows) {
+      const { error } = await s
+        .from("siigo_facturas")
+        .update({ total: lr.total, saldo: lr.saldo })
+        .eq("siigo_id", lr.siigo_id);
+      if (error) throw new Error(`refrescar conciliada ${lr.siigo_id}: ${error.message}`);
+    }
 
     let idBySiigo = new Map();
     if (normalRows.length) {
@@ -172,6 +235,14 @@ async function main() {
   }
   console.log("");
 
+  // 5a-bis) Repaso de deudas viejas que se pagaron. Solo en incremental: con --full ya se
+  //         re-lee todo el rango y los saldos vienen frescos de ahí.
+  let abiertasAct = 0;
+  if (!full) {
+    abiertasAct = await repasarAbiertas();
+    console.log(`  saldos actualizados (facturas abiertas): ${abiertasAct}`);
+  }
+
   // 5b) Notas crédito: anulan (total o parcialmente) facturas ya importadas.
   //     Siigo deja saldo=0 al anular, así que sin esto una anulada se contaría
   //     como "pagada". Se revisa SIEMPRE desde el inicio (son pocas y una NC
@@ -179,7 +250,10 @@ async function main() {
   {
     const ncPorFactura = new Map();
     for (let page = 1; ; page++) {
-      const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${todayIso}&page=${page}&page_size=100`);
+      // OJO: `created_end` es EXCLUSIVO del día indicado — con created_end=hoy, las notas
+      // crédito hechas HOY quedaban fuera y la factura anulada se contaba como cobrada.
+      // Por eso se pide hasta MAÑANA. (Verificado 2026-07-23 con NC-1-644.)
+      const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${ncHasta}&page=${page}&page_size=100`);
       const results = r.results ?? [];
       for (const n of results) {
         const ref = n.invoice?.id;
@@ -202,6 +276,6 @@ async function main() {
   // 6) Guardar cursor.
   await s.from("siigo_sync").upsert({ id: 1, last_cursor: todayIso, updated_at: new Date().toISOString() }, { onConflict: "id" });
 
-  console.log(`\n✅ Siigo sync: ${totalFac} facturas | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`);
+  console.log(`\n✅ Siigo sync: ${totalFac} facturas · saldos actualizados ${abiertasAct} | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`);
 }
 main().catch((e) => { console.error("❌", e.message); process.exit(1); });

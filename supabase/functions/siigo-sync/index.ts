@@ -14,6 +14,8 @@ const SIIGO = "https://api.siigo.com";
 const PARTNER_ID = "CentroDeControlCDAF";
 const DEFAULT_FROM = "2026-06-01";
 const GENERIC = /^(\d)\1+$/;
+/** Tope de facturas abiertas a repasar por corrida (guarda por si la cartera crece mucho). */
+const MAX_ABIERTAS = 400;
 
 let token: string | null = null;
 
@@ -44,6 +46,90 @@ async function sg(path: string): Promise<any> {
   return r.json();
 }
 
+/**
+ * Repaso de facturas con saldo abierto. Una deuda vieja que se paga HOY no entra por el
+ * rango de fechas (la factura conserva su fecha original), así que el sync incremental
+ * nunca se enteraba y había que esperar al refresh nocturno. Se consultan una a una por
+ * id —son decenas— y solo se escriben las que cambiaron. Toca ÚNICAMENTE total/saldo:
+ * nunca el estado de conciliación (respeta las conciliadas a mano).
+ */
+// deno-lint-ignore no-explicit-any
+async function repasarAbiertas(s: any): Promise<number> {
+  const { data } = await s
+    .from("siigo_facturas")
+    .select("siigo_id, total, saldo")
+    .gt("saldo", 0)
+    .limit(MAX_ABIERTAS);
+  const abiertas = data ?? [];
+  if (!abiertas.length) return 0;
+
+  const cambios: { siigo_id: string; total: number; saldo: number }[] = [];
+  for (let i = 0; i < abiertas.length; i += 5) {
+    const res = await Promise.all(
+      // deno-lint-ignore no-explicit-any
+      abiertas.slice(i, i + 5).map(async (row: any) => {
+        try {
+          const f = await sg(`/v1/invoices/${row.siigo_id}`);
+          const total = Math.round(f.total ?? 0);
+          const saldo = Math.round(f.balance ?? 0);
+          if (total === row.total && saldo === row.saldo) return null;
+          return { siigo_id: row.siigo_id, total, saldo };
+        } catch {
+          return null; // una factura borrada/inaccesible no debe tumbar el sync
+        }
+      }),
+    );
+    for (const r of res) if (r) cambios.push(r);
+  }
+  // OJO: aquí NO sirve upsert parcial. PostgREST manda un INSERT ... ON CONFLICT y la fila
+  // propuesta viola el NOT NULL de `fecha`, así que falla en silencio. Va update por fila.
+  let escritas = 0;
+  for (const c of cambios) {
+    const { error } = await s
+      .from("siigo_facturas")
+      .update({ total: c.total, saldo: c.saldo })
+      .eq("siigo_id", c.siigo_id);
+    if (error) throw new Error(`actualizar saldo ${c.siigo_id}: ${error.message}`);
+    escritas++;
+  }
+  return escritas;
+}
+
+/** Tope para pedir notas crédito: `created_end` es EXCLUSIVO, así que va mañana para incluir hoy. */
+const ncHasta = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+/**
+ * Notas crédito: anulan (total o parcialmente) facturas ya importadas. Siigo deja saldo=0 al
+ * anular, así que sin esto una anulada se contaría como "pagada". Se revisa SIEMPRE desde el
+ * inicio: una NC puede anular una factura vieja, fuera del rango incremental.
+ */
+// deno-lint-ignore no-explicit-any
+async function reconciliarNotasCredito(s: any): Promise<number> {
+  const ncPorFactura = new Map<string, { monto: number; numeros: string[] }>();
+  for (let page = 1; ; page++) {
+    // OJO con `created_end`: es EXCLUSIVO del día indicado. Con created_end=hoy las notas
+    // crédito hechas HOY quedaban fuera y la factura anulada se contaba como cobrada
+    // (verificado 2026-07-23 con NC-1-644 sobre FV-2-5555). Por eso se pide hasta mañana.
+    const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${ncHasta()}&page=${page}&page_size=100`);
+    const results = r.results ?? [];
+    for (const n of results) {
+      const ref = n.invoice?.id;
+      if (!ref) continue;
+      const cur = ncPorFactura.get(ref) ?? { monto: 0, numeros: [] };
+      cur.monto += Math.round(n.total ?? 0);
+      cur.numeros.push(n.name);
+      ncPorFactura.set(ref, cur);
+    }
+    if (results.length < 100) break;
+  }
+  const payload = [...ncPorFactura.entries()].map(([siigo_id, v]) => ({
+    siigo_id, monto: v.monto, numeros: v.numeros.join(", "),
+  }));
+  const { error } = await s.rpc("siigo_set_notas_credito", { p: payload });
+  if (error) throw new Error("notas crédito: " + error.message);
+  return payload.length;
+}
+
 async function runSync(mode: "incremental" | "refresh"): Promise<string> {
   const s = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -70,9 +156,18 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
       { id: 1, last_cursor: todayIso, updated_at: new Date().toISOString() },
       { onConflict: "id" },
     );
+  // 1b) Repaso de deudas viejas que se pagaron. Va ANTES de la salida temprana: los días
+  //     en que Siigo aún no cargó facturación (rezago de ~1 día) igual hay que refrescar
+  //     los saldos abiertos. En modo refresh es redundante: ahí se re-lee todo el rango.
+  const abiertasAct = mode === "incremental" ? await repasarAbiertas(s) : 0;
+
   if (facturas.length === 0) {
+    // Las notas crédito se reconcilian IGUAL: con el rezago de ~1 día de Siigo, "sin facturas
+    // nuevas" es el caso de todas las mañanas, y si se saltara, una factura anulada hoy
+    // quedaría con saldo 0 y sin nota crédito → contaría como ingreso cobrado.
+    const ncAnuladas = await reconciliarNotasCredito(s);
     await touch();
-    return `sin facturas nuevas (${desde} → ${todayIso})`;
+    return `sin facturas nuevas (${desde} → ${todayIso}) · saldos actualizados ${abiertasAct} · ${ncAnuladas} anuladas por NC`;
   }
 
   // 2) Grupo de Siigo → servicio del catálogo.
@@ -129,6 +224,9 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     const ids = batch.map((f) => f.id);
     const { data: prev } = await s.from("siigo_facturas").select("siigo_id, estado_conciliacion").in("siigo_id", ids);
     const locked = new Set((prev ?? []).filter((x) => x.estado_conciliacion === "conciliada").map((x) => x.siigo_id));
+    // Las que están en la cola de conciliación tampoco se cierran solas como mostrador:
+    // alguien las puso ahí a mano (ver devolverACola en /pagos) y deben seguir visibles.
+    const enCola = new Set((prev ?? []).filter((x) => x.estado_conciliacion === "pendiente").map((x) => x.siigo_id));
 
     // deno-lint-ignore no-explicit-any
     const normalRows: any[] = [];
@@ -150,6 +248,7 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
       let estado: string;
       if (clienteId) { estado = "auto"; auto++; }
       else if (saldo > 0 || esReal) { estado = "pendiente"; pendiente++; } // cédula real = conciliable
+      else if (enCola.has(f.id)) { estado = "pendiente"; pendiente++; }    // rescatada a mano: se respeta
       else { estado = "mostrador"; mostrador++; }
       normalRows.push({
         siigo_id: f.id, numero: f.name, fecha: f.date,
@@ -159,7 +258,15 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
       });
     }
 
-    if (lockedRows.length) await s.from("siigo_facturas").upsert(lockedRows, { onConflict: "siigo_id" });
+    // Las conciliadas a mano solo refrescan total/saldo. Va update por fila: el upsert
+    // parcial rebota contra el NOT NULL de `fecha` (fallaba en silencio).
+    for (const lr of lockedRows) {
+      const { error } = await s
+        .from("siigo_facturas")
+        .update({ total: lr.total, saldo: lr.saldo })
+        .eq("siigo_id", lr.siigo_id);
+      if (error) throw new Error(`refrescar conciliada ${lr.siigo_id}: ${error.message}`);
+    }
 
     let idBySiigo = new Map<string, number>();
     if (normalRows.length) {
@@ -188,31 +295,10 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     for (let j = 0; j < lines.length; j += 500) await s.from("siigo_factura_lineas").insert(lines.slice(j, j + 500));
   }
 
-  // Notas crédito: anulan facturas ya importadas. Siigo deja saldo=0 al anular,
-  // así que sin esto una anulada se contaría como "pagada". Se revisa SIEMPRE
-  // desde el inicio (una NC puede anular una factura vieja, fuera del rango).
-  const ncPorFactura = new Map<string, { monto: number; numeros: string[] }>();
-  for (let page = 1; ; page++) {
-    const r = await sg(`/v1/credit-notes?created_start=${DEFAULT_FROM}&created_end=${todayIso}&page=${page}&page_size=100`);
-    const results = r.results ?? [];
-    for (const n of results) {
-      const ref = n.invoice?.id;
-      if (!ref) continue;
-      const cur = ncPorFactura.get(ref) ?? { monto: 0, numeros: [] };
-      cur.monto += Math.round(n.total ?? 0);
-      cur.numeros.push(n.name);
-      ncPorFactura.set(ref, cur);
-    }
-    if (results.length < 100) break;
-  }
-  const ncPayload = [...ncPorFactura.entries()].map(([siigo_id, v]) => ({
-    siigo_id, monto: v.monto, numeros: v.numeros.join(", "),
-  }));
-  const { error: ncErr } = await s.rpc("siigo_set_notas_credito", { p: ncPayload });
-  if (ncErr) throw new Error("notas crédito: " + ncErr.message);
+  const ncAnuladas = await reconciliarNotasCredito(s);
 
   await touch();
-  return `${mode}: ${facturas.length} facturas · ${ncPayload.length} anuladas por NC | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`;
+  return `${mode}: ${facturas.length} facturas · ${ncAnuladas} anuladas por NC · saldos actualizados ${abiertasAct} | auto ${auto} · pendiente ${pendiente} · mostrador ${mostrador} · conciliada ${conciliada} | con saldo ${conSaldo}`;
 }
 
 Deno.serve(async (req) => {
