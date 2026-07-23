@@ -10,6 +10,7 @@ import { getBookings, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
 import type { AppRole, Deporte, TipoDocumento } from "@/lib/database.types";
+import { clausulasBusqueda } from "./buscar";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
 
@@ -610,13 +611,14 @@ export async function buscarMiembros(
   const safe = q.replace(/[%,()*]/g, "").trim();
   if (safe.length < 2) return [];
   const supabase = await createClient();
-  const { data } = await supabase
+  let mq = supabase
     .from("cliente_miembros")
     .select("id, cliente_id, nombres, apellidos, es_titular")
     .eq("activo", true)
-    .or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%`)
     .order("apellidos")
     .limit(8);
+  for (const cl of clausulasBusqueda(safe, ["nombres", "apellidos"])) mq = mq.or(cl);
+  const { data } = await mq;
   const cliIds = [...new Set((data ?? []).map((m) => m.cliente_id))];
   const { data: fichas } = cliIds.length
     ? await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds)
@@ -640,11 +642,12 @@ export async function buscarClientes(
   const safe = q.replace(/[%,()*]/g, "").trim();
   if (safe.length < 2) return [];
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("clientes")
     .select("id, nombres, apellidos, celular")
-    .or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%,documento.ilike.%${safe}%`)
     .order("apellidos")
     .limit(8);
+  for (const cl of clausulasBusqueda(safe)) query = query.or(cl);
+  const { data } = await query;
   return data ?? [];
 }

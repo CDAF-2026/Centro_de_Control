@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SyncClientesButton } from "./sync-clientes-button";
 import { ClienteBuscador } from "./cliente-buscador";
+import { clausulasBusqueda } from "./buscar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Users } from "lucide-react";
 
@@ -29,7 +30,7 @@ export default async function ClientesPage({
     .select("id, nombres, apellidos, celular, estado, es_menor, deportes", { count: "exact" })
     .order("apellidos")
     .range(from, to);
-  if (safe) query = query.or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%,documento.ilike.%${safe}%`);
+  for (const cl of clausulasBusqueda(safe)) query = query.or(cl);
   if (estado === "activo" || estado === "retirado") query = query.eq("estado", estado);
   const { data: clientes, count } = await query;
 

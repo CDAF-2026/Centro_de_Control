@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { clausulasBusqueda } from "../buscar";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       .order("apellidos")
       .order("nombres")
       .range(desde, desde + BATCH - 1);
-    if (safe) query = query.or(`nombres.ilike.%${safe}%,apellidos.ilike.%${safe}%,documento.ilike.%${safe}%`);
+    for (const cl of clausulasBusqueda(safe)) query = query.or(cl);
     if (estado === "activo" || estado === "retirado") query = query.eq("estado", estado);
 
     const { data, error } = await query;
