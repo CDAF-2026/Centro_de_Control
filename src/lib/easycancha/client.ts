@@ -30,6 +30,10 @@ export type EcBooking = {
   userLastName: string | null;
   userEmail: string | null;
   userPhone: string | null;
+  userBirthDate: string | null; // YYYY-MM-DD
+  userFoidType: string | null; // "NI" (identificación) | "PP" (pasaporte)
+  userFoidCountry: string | null; // ISO-2: "CO", "FR"…
+  userFoidNumber: string | null; // número del documento
   status: EcStatus | string;
   amount: number | null;
   totalAmount: number | null;
@@ -78,6 +82,27 @@ export function claveProfesor(nombre: string | null): string | null {
     .replace(/\s+/g, " ")
     .trim();
   return c || null;
+}
+
+/**
+ * Normaliza el documento de identidad que viene en una reserva de EasyCancha.
+ * Devuelve null cuando el dato es basura: hay gente que escribió su correo en el
+ * campo (p. ej. "SIMONAVILAICLOUDCOM"), así que se exige al menos un dígito, y
+ * las cédulas (tipo "NI") además deben ser puro número de 5 a 11 dígitos.
+ *
+ * OJO: el número es la llave contra Siigo (documento = NIT), por eso conviene
+ * ser estricto: un documento equivocado le atribuye la plata a quien no es.
+ */
+export function documentoDeBooking(b: {
+  userFoidNumber?: string | null;
+  userFoidType?: string | null;
+}): { documento: string; tipo: "CC" | "PP" } | null {
+  const crudo = (b.userFoidNumber ?? "").trim().replace(/[\s.\-]/g, "").toUpperCase();
+  if (!crudo || !/\d/.test(crudo)) return null; // sin dígitos = basura
+  const tipo = (b.userFoidType ?? "").toUpperCase() === "PP" ? "PP" : "CC";
+  if (tipo === "CC" && !/^\d{5,11}$/.test(crudo)) return null;
+  if (tipo === "PP" && !/^[A-Z0-9]{5,20}$/.test(crudo)) return null;
+  return { documento: crudo, tipo };
 }
 
 /**

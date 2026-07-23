@@ -9,7 +9,7 @@ import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
 import { getBookings, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
-import type { AppRole, Deporte } from "@/lib/database.types";
+import type { AppRole, Deporte, TipoDocumento } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
 
@@ -33,6 +33,14 @@ function leerDeportes(formData: FormData): Deporte[] {
   return (["tenis", "padel"] as const).filter((dep) => vals.includes(dep));
 }
 
+/** Tipo de documento del formulario. Sin número no hay tipo que guardar, y un
+ *  valor fuera de la lista lo rechazaría el CHECK de la base. */
+function leerTipoDocumento(formData: FormData, documento?: string | null): TipoDocumento | null {
+  if (!documento) return null;
+  const v = String(formData.get("tipoDocumento") ?? "").trim().toUpperCase();
+  return (["CC", "TI", "CE", "PP", "NIT"] as const).find((t) => t === v) ?? null;
+}
+
 export type ClienteFormState = {
   error?: string;
   ok?: string;
@@ -53,6 +61,7 @@ export async function createCliente(
   }
   const d = parsed.data;
   const menor = esMenorDeEdad(d.fechaNacimiento);
+  const tipoDocumento = leerTipoDocumento(formData, d.documento);
 
   // Regla dura: un menor exige acudiente.
   if (menor && !d.acudienteNombre) {
@@ -86,6 +95,7 @@ export async function createCliente(
       nombres: d.nombres,
       apellidos: d.apellidos,
       documento: d.documento || null,
+      tipo_documento: tipoDocumento,
       fecha_nacimiento: d.fechaNacimiento || null,
       es_menor: menor,
       celular: d.celular || null,
@@ -107,6 +117,7 @@ export async function createCliente(
     apellidos: d.apellidos,
     fecha_nacimiento: d.fechaNacimiento || null,
     documento: d.documento || null,
+    tipo_documento: tipoDocumento,
     deportes: leerDeportes(formData),
     es_titular: true,
   });
@@ -248,6 +259,7 @@ export async function updateCliente(
       nombres: d.nombres,
       apellidos: d.apellidos,
       documento: d.documento || null,
+      tipo_documento: leerTipoDocumento(formData, d.documento),
       fecha_nacimiento: d.fechaNacimiento || null,
       es_menor: menor,
       celular: d.celular || null,

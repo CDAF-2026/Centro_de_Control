@@ -18,7 +18,8 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | **Migraciones** | `npm run db:apply` (Management API/HTTPS con PAT en .env). ⚠️ `db:push` NO sirve desde el agente (Postgres directo es IPv6-only) |
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
 | Backfill cédulas por nombre | `npm run match:siigo -- --apply` |
-| Sync clientes EasyCancha | `npm run sync:clientes` |
+| Sync clientes EasyCancha | `npm run sync:clientes` (nuevos entran ya con cédula/tipo/nacimiento) |
+| Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
 | Redeploy Edge Function siigo-sync | `node --env-file=.env scripts/deploy-siigo-fn.mjs`; re-agendar cron: `scripts/schedule-siigo-cron.mjs` |
 | Verificar esquema/datos | script one-off con Management API (`POST /v1/projects/$REF/database/query`, token de .env) o service-role |
 
@@ -44,7 +45,9 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 8. `tsconfig` excluye `supabase/functions/` (código Deno; no lo toca el typecheck de Next).
 
 ## Datos (dominios → tablas)
-- **Clientes/CRM**: `clientes` (deportes[], documento=cédula, importados de EasyCancha), `acudientes`,
+- **Clientes/CRM**: `clientes` (deportes[], documento=cédula + `tipo_documento` CC/TI/CE/PP/NIT,
+  `fecha_nacimiento`; documento/tipo/nacimiento vienen de EasyCancha `userFoidNumber`/`userFoidType`/
+  `userBirthDate`, cruce por correo, ver `documentoDeBooking()` en easycancha/client.ts), `acudientes`,
   `cliente_documentos` (Storage). Ficha: situación financiera = `siigo_resumen_cliente(id)`.
 - **Operación**: `academias`, `inscripciones` (dias[]), `clases` (tipo academia|individual,
   valor_facturado), `asistencias` (estado: presente/ausente/excusa_medica/reposicion),

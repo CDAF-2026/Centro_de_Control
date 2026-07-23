@@ -19,6 +19,9 @@ export type AppRole =
 
 export type ClienteEstado = "activo" | "retirado";
 
+/** Tipo del documento de identidad. Desde EasyCancha: NI→CC, PP→PP. */
+export type TipoDocumento = "CC" | "TI" | "CE" | "PP" | "NIT";
+
 export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
 export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 
@@ -220,6 +223,7 @@ export type Database = {
           apellidos: string;
           fecha_nacimiento: string | null;
           documento: string | null;
+          tipo_documento: TipoDocumento | null;
           deportes: Deporte[];
           es_titular: boolean;
           activo: boolean;
@@ -232,6 +236,7 @@ export type Database = {
           apellidos: string;
           fecha_nacimiento?: string | null;
           documento?: string | null;
+          tipo_documento?: TipoDocumento | null;
           deportes?: Deporte[];
           es_titular?: boolean;
           activo?: boolean;
@@ -246,6 +251,7 @@ export type Database = {
           nombres: string;
           apellidos: string;
           documento: string | null;
+          tipo_documento: TipoDocumento | null;
           fecha_nacimiento: string | null;
           es_menor: boolean;
           celular: string | null;
@@ -266,6 +272,7 @@ export type Database = {
           nombres: string;
           apellidos: string;
           documento?: string | null;
+          tipo_documento?: TipoDocumento | null;
           fecha_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;
@@ -286,6 +293,7 @@ export type Database = {
           nombres?: string;
           apellidos?: string;
           documento?: string | null;
+          tipo_documento?: TipoDocumento | null;
           fecha_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;

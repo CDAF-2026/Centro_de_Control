@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createCliente, type ClienteFormState } from "../actions";
+import { DocumentoField } from "../documento-field";
 import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,7 @@ export function ClienteForm() {
         <Field label="Apellidos" name="apellidos" error={fe.apellidos} required />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Documento" name="documento" error={fe.documento} />
+        <DocumentoField tipo="" numero="" error={fe.documento} />
         <Field
           label="Fecha de nacimiento"
           name="fechaNacimiento"

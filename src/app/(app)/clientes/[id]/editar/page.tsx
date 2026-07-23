@@ -11,7 +11,7 @@ export default async function EditarClientePage({ params }: { params: Promise<{ 
   const supabase = await createClient();
   const { data: cliente } = await supabase
     .from("clientes")
-    .select("id, nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, acudiente_id")
+    .select("id, nombres, apellidos, documento, tipo_documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, acudiente_id")
     .eq("id", Number(id))
     .maybeSingle();
   if (!cliente) notFound();

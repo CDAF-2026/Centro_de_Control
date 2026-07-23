@@ -11,6 +11,7 @@ import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
 import { FacturaLink, type FacturaDetalleData } from "./factura-detalle";
 import { Hermanos, type Miembro } from "./hermanos";
+import { documentoLegible } from "../documento";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const FECHA_CORTA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
@@ -28,7 +29,7 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, estado, acudiente_id",
+      "id, nombres, apellidos, documento, tipo_documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
@@ -237,7 +238,7 @@ export default async function ClienteDetallePage({
           <CardTitle>Datos</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <Dato label="Documento" valor={cliente.documento} />
+          <Dato label="Documento" valor={documentoLegible(cliente.tipo_documento, cliente.documento)} />
           <Dato label="Fecha de nacimiento" valor={cliente.fecha_nacimiento} />
           <Dato label="Celular" valor={cliente.celular} />
           <Dato label="Correo" valor={cliente.email} />

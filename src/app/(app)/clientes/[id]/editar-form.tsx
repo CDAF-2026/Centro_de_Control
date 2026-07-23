@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { updateCliente, type ClienteFormState } from "../actions";
+import { DocumentoField } from "../documento-field";
 import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ export type ClienteEditable = {
   nombres: string;
   apellidos: string;
   documento: string | null;
+  tipo_documento: string | null;
   fecha_nacimiento: string | null;
   celular: string | null;
   email: string | null;
@@ -122,7 +124,11 @@ export function EditarClienteForm({
         <Field label="Apellidos" name="apellidos" error={fe.apellidos} required defaultValue={cliente.apellidos} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Documento / Cédula" name="documento" error={fe.documento} defaultValue={cliente.documento ?? ""} />
+        <DocumentoField
+          tipo={cliente.tipo_documento ?? ""}
+          numero={cliente.documento ?? ""}
+          error={fe.documento}
+        />
         <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" error={fe.fechaNacimiento} defaultValue={cliente.fecha_nacimiento ?? ""} onChange={setFecha} />
       </div>
       <div className="grid grid-cols-2 gap-4">
