@@ -15,12 +15,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
 import { clasesSemanaPorProfesor } from "@/lib/easycancha";
+import { ocupacionCanchas } from "@/lib/easycancha/ocupacion";
 import { rangoPeriodo, isoDia, type Periodo } from "@/lib/periodo";
 import { PeriodoToggle } from "./periodo-toggle";
 import { CountUp } from "./count-up";
 import { ChartArea } from "./chart-area";
 import { ChartBarrasSemana } from "./chart-barras-semana";
 import { ChartDonut } from "./chart-donut";
+import { ChartOcupacion } from "./chart-ocupacion";
 import { RadialGauge } from "./radial-gauge";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -44,6 +46,7 @@ export async function SuperadminDashboard({
   const now = new Date();
   const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
   const semanaECPromise = clasesSemanaPorProfesor(); // EasyCancha en paralelo (cache 10 min)
+  const ocupacionPromise = ocupacionCanchas(); // idem: ocupación de canchas de la semana
   const hace6Iso = isoDia(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
 
   // OJO: todas las sumas se hacen en la BASE (RPCs). Traer facturas fila a fila
@@ -199,8 +202,8 @@ export async function SuperadminDashboard({
   }
   const totalPend = (pendRes.data ?? []).length;
 
-  // ───────── Clases agendadas de la semana (EasyCancha) ─────────
-  const semanaEC = await semanaECPromise;
+  // ───────── Clases agendadas y ocupación de canchas de la semana (EasyCancha) ─────────
+  const [semanaEC, ocupacion] = await Promise.all([semanaECPromise, ocupacionPromise]);
   const ecMax = Math.max(1, ...semanaEC.ranking.map((r) => r.clases));
 
   // ───────── Nombres de clientes (deudores + top) ─────────
@@ -472,8 +475,32 @@ export async function SuperadminDashboard({
         </Card>
       </div>
 
+      {/* ── Ocupación de canchas (EasyCancha) ── */}
+      <section className={ENTRAR} style={retraso(4)}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ocupación de canchas</CardTitle>
+            <CardDescription>
+              Tiempo de cancha reservado sobre el disponible · EasyCancha · semana del {ocupacion.desde} al{" "}
+              {ocupacion.hasta}
+            </CardDescription>
+            <CardAction>
+              <Link
+                href="/clases?vista=cancha"
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium"
+              >
+                Ver calendario <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <ChartOcupacion datos={ocupacion} />
+          </CardContent>
+        </Card>
+      </section>
+
       {/* ── EasyCancha + tendencias ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(4)}>
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(5)}>
         <Card>
           <CardHeader>
             <CardTitle>Clases agendadas esta semana</CardTitle>
