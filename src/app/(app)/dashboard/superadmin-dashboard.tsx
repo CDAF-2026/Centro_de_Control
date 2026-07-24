@@ -135,7 +135,8 @@ export async function SuperadminDashboard({
   }
   const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
   const diaLargoFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
-  const dias7: { fecha: string; label: string; fechaLarga: string; monto: number; facturas: number; esHoy: boolean; detalle: { nombre: string; total: number; color: string }[] }[] = [];
+  const fechaCortaFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+  const dias7: { fecha: string; label: string; fechaLarga: string; fechaCorta: string; monto: number; facturas: number; esHoy: boolean; detalle: { nombre: string; total: number; color: string }[] }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     const isoD = isoDia(d);
@@ -143,6 +144,7 @@ export async function SuperadminDashboard({
       fecha: isoD,
       label: diaSemanaFmt.format(d).replace(".", ""),
       fechaLarga: diaLargoFmt.format(d),
+      fechaCorta: fechaCortaFmt.format(d).replace(".", ""),
       monto: dia7Map.get(isoD)?.monto ?? 0,
       facturas: dia7Map.get(isoD)?.facturas ?? 0,
       esHoy: isoD === todayIso,
@@ -150,8 +152,13 @@ export async function SuperadminDashboard({
     });
   }
   const totalSemana = dias7.reduce((s, d) => s + d.monto, 0);
-  const hoyTotal = dia7Map.get(todayIso)?.monto ?? 0;
+  // Marcador de hoy: Siigo carga la facturación con ~1 día de rezago, así que "hoy"
+  // suele quedar en $0 hasta el día siguiente. Para no mostrar un cero que parece daño,
+  // si hoy aún no tiene facturas caemos al último día con facturación (último cierre).
   const hoyFacturas = dia7Map.get(todayIso)?.facturas ?? 0;
+  const hoyPendiente = hoyFacturas === 0;
+  const ultimoCierre = hoyPendiente ? [...dias7].reverse().find((d) => d.facturas > 0) ?? null : null;
+  const marcadorMonto = hoyPendiente ? ultimoCierre?.monto ?? 0 : dia7Map.get(todayIso)?.monto ?? 0;
 
   // ───────── Tendencias: qué servicios suben y cuáles bajan vs. el periodo anterior ─────────
   const prevPorServicio = new Map<number, number>();
@@ -245,10 +252,16 @@ export async function SuperadminDashboard({
             </div>
             <div className="flex items-center gap-6">
               <div className="text-right">
-                <CountUp value={hoyTotal} className="font-heading text-primary block text-3xl font-bold tracking-tight sm:text-4xl" />
-                <p className="mt-0.5 text-xs text-white/70">
-                  {hoyFacturas} factura(s) hoy · sync cada 20 min
-                </p>
+                <CountUp value={marcadorMonto} className="font-heading text-primary block text-3xl font-bold tracking-tight sm:text-4xl" />
+                {hoyPendiente ? (
+                  <p className="mt-0.5 text-xs font-medium text-white/90">
+                    {ultimoCierre ? `Último cierre · ${ultimoCierre.label} ${ultimoCierre.fechaCorta}` : "Sin facturación reciente en Siigo"}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-white/70">
+                    {hoyFacturas} factura(s) hoy · sync cada 20 min
+                  </p>
+                )}
               </div>
               <Link href={hrefIngresos} className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
                 Ver ingresos
