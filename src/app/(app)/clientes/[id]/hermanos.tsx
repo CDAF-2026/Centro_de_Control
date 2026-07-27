@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { agregarHermano, quitarHermano, type ClienteFormState } from "../actions";
+import { agregarHermano, editarHermano, quitarHermano, type ClienteFormState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 
 const initial: ClienteFormState = {};
 
@@ -15,6 +15,7 @@ export type Miembro = {
   nombres: string;
   apellidos: string;
   fecha_nacimiento: string | null;
+  documento: string | null;
   deportes: string[];
   es_titular: boolean;
 };
@@ -29,6 +30,91 @@ function edad(fn: string | null): number | null {
 }
 const depLabel = (d: string) => (d === "tenis" ? "Tenis" : "Pádel");
 
+/** Formulario de hermano: sirve para crear (sin `miembro`) y para editar (con él). */
+function FormHermano({
+  clienteId,
+  miembro,
+  state,
+  action,
+  pending,
+  onCancel,
+}: {
+  clienteId: number;
+  miembro?: Miembro;
+  state: ClienteFormState;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  onCancel: () => void;
+}) {
+  const fe = state.fieldErrors ?? {};
+  const uid = miembro ? `h${miembro.id}` : "h";
+
+  return (
+    <form action={action} className="bg-muted/30 space-y-3 rounded-lg border p-4">
+      <input type="hidden" name="clienteId" value={clienteId} />
+      {miembro && <input type="hidden" name="miembroId" value={miembro.id} />}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${uid}-nombres`}>Nombres</Label>
+          <Input id={`${uid}-nombres`} name="nombres" defaultValue={miembro?.nombres ?? ""} required />
+          {fe.nombres && <p className="text-destructive text-xs">{fe.nombres}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${uid}-apellidos`}>Apellidos</Label>
+          <Input id={`${uid}-apellidos`} name="apellidos" defaultValue={miembro?.apellidos ?? ""} required />
+          {fe.apellidos && <p className="text-destructive text-xs">{fe.apellidos}</p>}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor={`${uid}-fecha`}>Fecha de nacimiento</Label>
+          <Input
+            id={`${uid}-fecha`}
+            name="fechaNacimiento"
+            type="date"
+            defaultValue={miembro?.fecha_nacimiento ?? ""}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${uid}-doc`}>Documento</Label>
+          <Input id={`${uid}-doc`} name="documento" defaultValue={miembro?.documento ?? ""} />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="deportes"
+            value="tenis"
+            className="size-4"
+            defaultChecked={miembro?.deportes.includes("tenis")}
+          />{" "}
+          Tenis
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="deportes"
+            value="padel"
+            className="size-4"
+            defaultChecked={miembro?.deportes.includes("padel")}
+          />{" "}
+          Pádel
+        </label>
+      </div>
+      {state.error && <p className="text-destructive text-sm">{state.error}</p>}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "Guardando…" : miembro ? "Guardar cambios" : "Guardar hermano"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function Hermanos({
   clienteId,
   miembros,
@@ -38,14 +124,47 @@ export function Hermanos({
   miembros: Miembro[];
   puedeEditar: boolean;
 }) {
-  const [state, action, pending] = useActionState(agregarHermano, initial);
-  const [abierto, setAbierto] = useState(false);
-  const fe = state.fieldErrors ?? {};
+  // Un solo formulario abierto a la vez: "nuevo" o el id del hermano en edición.
+  const [modo, setModo] = useState<number | "nuevo" | null>(null);
+
+  const [stateAdd, accionAdd, pendingAdd] = useActionState(
+    async (prev: ClienteFormState, fd: FormData) => {
+      const r = await agregarHermano(prev, fd);
+      if (r.ok) setModo(null);
+      return r;
+    },
+    initial,
+  );
+  // A qué hermano pertenece `stateEdit`, para no arrastrarle el error a otro.
+  const [editId, setEditId] = useState<number | null>(null);
+  const [stateEdit, accionEdit, pendingEdit] = useActionState(
+    async (prev: ClienteFormState, fd: FormData) => {
+      setEditId(Number(fd.get("miembroId")));
+      const r = await editarHermano(prev, fd);
+      if (r.ok) setModo(null);
+      return r;
+    },
+    initial,
+  );
 
   return (
     <div className="space-y-3">
       <ul className="divide-y">
         {miembros.map((m) => {
+          if (modo === m.id) {
+            return (
+              <li key={m.id} className="py-2">
+                <FormHermano
+                  clienteId={clienteId}
+                  miembro={m}
+                  state={editId === m.id ? stateEdit : initial}
+                  action={accionEdit}
+                  pending={pendingEdit}
+                  onCancel={() => setModo(null)}
+                />
+              </li>
+            );
+          }
           const e = edad(m.fecha_nacimiento);
           return (
             <li key={m.id} className="flex items-center justify-between gap-3 py-2">
@@ -60,13 +179,24 @@ export function Hermanos({
                 </p>
               </div>
               {puedeEditar && !m.es_titular && (
-                <form action={quitarHermano}>
-                  <input type="hidden" name="miembroId" value={m.id} />
-                  <input type="hidden" name="clienteId" value={clienteId} />
-                  <Button type="submit" variant="ghost" size="icon-sm" title="Quitar hermano">
-                    <X className="size-4" />
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    title="Editar hermano"
+                    onClick={() => setModo(m.id)}
+                  >
+                    <Pencil className="size-4" />
                   </Button>
-                </form>
+                  <form action={quitarHermano}>
+                    <input type="hidden" name="miembroId" value={m.id} />
+                    <input type="hidden" name="clienteId" value={clienteId} />
+                    <Button type="submit" variant="ghost" size="icon-sm" title="Quitar hermano">
+                      <X className="size-4" />
+                    </Button>
+                  </form>
+                </div>
               )}
             </li>
           );
@@ -74,50 +204,19 @@ export function Hermanos({
       </ul>
 
       {puedeEditar &&
-        (abierto ? (
-          <form action={action} className="bg-muted/30 space-y-3 rounded-lg border p-4">
-            <input type="hidden" name="clienteId" value={clienteId} />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="h-nombres">Nombres</Label>
-                <Input id="h-nombres" name="nombres" required />
-                {fe.nombres && <p className="text-destructive text-xs">{fe.nombres}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="h-apellidos">Apellidos</Label>
-                <Input id="h-apellidos" name="apellidos" required />
-                {fe.apellidos && <p className="text-destructive text-xs">{fe.apellidos}</p>}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="h-fecha">Fecha de nacimiento</Label>
-                <Input id="h-fecha" name="fechaNacimiento" type="date" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="h-doc">Documento</Label>
-                <Input id="h-doc" name="documento" />
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="deportes" value="tenis" className="size-4" /> Tenis
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="deportes" value="padel" className="size-4" /> Pádel
-              </label>
-            </div>
-            {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={pending}>{pending ? "Guardando…" : "Guardar hermano"}</Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setAbierto(false)}>Cancelar</Button>
-            </div>
-          </form>
-        ) : (
-          <Button type="button" variant="outline" size="sm" onClick={() => setAbierto(true)}>
+        (modo === "nuevo" ? (
+          <FormHermano
+            clienteId={clienteId}
+            state={stateAdd}
+            action={accionAdd}
+            pending={pendingAdd}
+            onCancel={() => setModo(null)}
+          />
+        ) : modo === null ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setModo("nuevo")}>
             <Plus className="size-4" /> Agregar hermano
           </Button>
-        ))}
+        ) : null)}
     </div>
   );
 }

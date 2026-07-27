@@ -322,6 +322,51 @@ export async function agregarHermano(
   return { ok: `${nombres} agregado a la familia.` };
 }
 
+/** Edita los datos de un hermano ya creado (miembro no titular de la ficha). */
+export async function editarHermano(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(WRITE_ROLES);
+  const miembroId = Number(formData.get("miembroId"));
+  const clienteId = Number(formData.get("clienteId"));
+  const nombres = String(formData.get("nombres") ?? "").trim();
+  const apellidos = String(formData.get("apellidos") ?? "").trim();
+  const fechaNacimiento = String(formData.get("fechaNacimiento") ?? "").trim() || null;
+  const documento = String(formData.get("documento") ?? "").trim() || null;
+  if (!miembroId || !clienteId) return { error: "Ficha inválida." };
+  if (!nombres || !apellidos) {
+    return { error: "Nombre y apellido del hermano son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
+  }
+
+  const supabase = await createClient();
+  const { data: m } = await supabase
+    .from("cliente_miembros")
+    .select("es_titular")
+    .eq("id", miembroId)
+    .eq("cliente_id", clienteId)
+    .maybeSingle();
+  if (!m) return { error: "Ese hermano no pertenece a esta ficha." };
+  // El titular se edita desde los datos del cliente, no desde aquí.
+  if (m.es_titular) return { error: "El titular se edita en los datos del cliente." };
+
+  const { error } = await supabase
+    .from("cliente_miembros")
+    .update({
+      nombres,
+      apellidos,
+      fecha_nacimiento: fechaNacimiento,
+      documento,
+      deportes: leerDeportes(formData),
+    })
+    .eq("id", miembroId);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "cliente.hermano.update", entity: "cliente_miembros", entityId: String(miembroId), after: { nombres, apellidos } });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: `${nombres} actualizado.` };
+}
+
 /** Quita un hermano de la ficha (no el titular). Bloquea si ya tiene operación. */
 export async function quitarHermano(formData: FormData): Promise<void> {
   await requireRole(WRITE_ROLES);

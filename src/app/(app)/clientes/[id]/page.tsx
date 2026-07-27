@@ -47,7 +47,7 @@ export default async function ClienteDetallePage({
 
   const { data: miembrosRaw } = await supabase
     .from("cliente_miembros")
-    .select("id, nombres, apellidos, fecha_nacimiento, deportes, es_titular")
+    .select("id, nombres, apellidos, fecha_nacimiento, documento, deportes, es_titular")
     .eq("cliente_id", Number(id))
     .eq("activo", true)
     .order("es_titular", { ascending: false })
