@@ -97,9 +97,31 @@ async function main() {
   let insertados = 0;
   for (let i = 0; i < nuevos.length; i += 500) {
     const chunk = nuevos.slice(i, i + 500);
-    const { error } = await s.from("clientes").insert(chunk);
-    if (error) console.error("  insert:", error.message);
-    else insertados += chunk.length;
+    const { data: creados, error } = await s
+      .from("clientes")
+      .insert(chunk)
+      .select("id, nombres, apellidos, fecha_nacimiento, documento, tipo_documento, deportes");
+    if (error || !creados) {
+      console.error("  insert:", error?.message ?? "sin respuesta");
+      continue;
+    }
+    insertados += creados.length;
+
+    // Cada ficha necesita su fila de titular: la operación (asistencia, paquetes,
+    // inscripciones) cuelga del miembro, no de la ficha.
+    const { error: errTit } = await s.from("cliente_miembros").insert(
+      creados.map((c) => ({
+        cliente_id: c.id,
+        nombres: c.nombres,
+        apellidos: c.apellidos,
+        fecha_nacimiento: c.fecha_nacimiento,
+        documento: c.documento,
+        tipo_documento: c.tipo_documento,
+        deportes: c.deportes,
+        es_titular: true,
+      })),
+    );
+    if (errTit) console.error("  titular:", errTit.message);
   }
 
   const total = (await s.from("clientes").select("*", { count: "exact", head: true })).count;

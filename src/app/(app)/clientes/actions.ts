@@ -28,6 +28,38 @@ async function resolverMiembro(
   return tit?.id ?? null;
 }
 
+/**
+ * El titular vive dos veces: en `clientes` y en su fila espejo de
+ * `cliente_miembros`. Al editar la ficha hay que mover las dos, o la tarjeta
+ * de Hermanos y los selectores de miembro se quedan con el dato viejo.
+ */
+async function sincronizarTitular(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clienteId: number,
+  datos: {
+    nombres: string;
+    apellidos: string;
+    fecha_nacimiento: string | null;
+    documento: string | null;
+    tipo_documento: TipoDocumento | null;
+    deportes: Deporte[];
+  },
+): Promise<void> {
+  const { data: titular } = await supabase
+    .from("cliente_miembros")
+    .select("id")
+    .eq("cliente_id", clienteId)
+    .eq("es_titular", true)
+    .maybeSingle();
+
+  if (titular) {
+    await supabase.from("cliente_miembros").update(datos).eq("id", titular.id);
+  } else {
+    // Ficha que se quedó sin fila de titular (alta a medias): se crea al vuelo.
+    await supabase.from("cliente_miembros").insert({ ...datos, cliente_id: clienteId, es_titular: true });
+  }
+}
+
 /** Lee los checkboxes de deportes del formulario (tenis/padel). */
 function leerDeportes(formData: FormData): Deporte[] {
   const vals = formData.getAll("deportes");
@@ -254,14 +286,20 @@ export async function updateCliente(
     }
   }
 
+  // Datos que el titular comparte con su fila de miembro (se guardan en ambas).
+  const propios = {
+    nombres: d.nombres,
+    apellidos: d.apellidos,
+    documento: d.documento || null,
+    tipo_documento: leerTipoDocumento(formData, d.documento),
+    fecha_nacimiento: d.fechaNacimiento || null,
+    deportes: leerDeportes(formData),
+  };
+
   const { error } = await supabase
     .from("clientes")
     .update({
-      nombres: d.nombres,
-      apellidos: d.apellidos,
-      documento: d.documento || null,
-      tipo_documento: leerTipoDocumento(formData, d.documento),
-      fecha_nacimiento: d.fechaNacimiento || null,
+      ...propios,
       es_menor: menor,
       celular: d.celular || null,
       email: d.email || null,
@@ -270,12 +308,12 @@ export async function updateCliente(
       emergencia_parentesco: d.emergenciaParentesco || null,
       factura_a_nombre: facturaANombre,
       factura_a_nit: facturaANit,
-      deportes: leerDeportes(formData),
       acudiente_id: acudienteId,
     })
     .eq("id", id);
   if (error) return { error: error.message };
 
+  await sincronizarTitular(supabase, id, propios);
   await reatribuirFacturas(supabase, id, d.documento || null, facturaANit);
 
   await logAudit({
