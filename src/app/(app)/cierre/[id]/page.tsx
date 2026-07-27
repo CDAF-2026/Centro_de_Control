@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { valorPaquete } from "@/lib/finanzas";
 import { CierreForm } from "./cierre-form";
 
 export default async function CerrarClasePage({
@@ -17,10 +18,32 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
+
+  // Valor que se factura al cliente por esta clase (solo lectura, para que el profe lo vea al cerrar).
+  // Se calcula igual que la liquidación. Academia = por alumno asistente → no hay un valor fijo aquí.
+  let valorFacturado: number | null = null;
+  if (clase.tipo !== "academia") {
+    if (clase.paquete_cliente_id) {
+      const { data: pc } = await supabase
+        .from("paquetes_cliente")
+        .select("catalogo_id, num_clases, descuento_pct")
+        .eq("id", clase.paquete_cliente_id)
+        .single();
+      if (pc) {
+        const { data: cat } = pc.catalogo_id
+          ? await supabase.from("paquetes_catalogo").select("precio, descuento_pct").eq("id", pc.catalogo_id).single()
+          : { data: null };
+        const base = cat ? valorPaquete(cat.precio, Number(cat.descuento_pct), Number(pc.descuento_pct)) : 0;
+        valorFacturado = clase.valor_facturado ?? (pc.num_clases > 0 ? Math.round(base / pc.num_clases) : 0);
+      }
+    } else {
+      valorFacturado = clase.valor_facturado ?? clase.precio ?? 0;
+    }
+  }
 
   // El roster se arma por MIEMBRO (hermano): así dos hermanos de la misma
   // academia aparecen por separado y cada uno cuenta para cobro y liquidación.
@@ -98,6 +121,7 @@ export default async function CerrarClasePage({
         esAcademia={clase.tipo === "academia"}
         noRegistrados={clase.asistentes_no_registrados ?? ""}
         numAsistentes={clase.num_asistentes ?? 1}
+        valorFacturado={valorFacturado}
       />
     </div>
   );

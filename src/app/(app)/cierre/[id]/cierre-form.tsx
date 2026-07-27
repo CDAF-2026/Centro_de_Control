@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 const SELECT = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 export function CierreForm({
   claseId,
@@ -15,6 +16,7 @@ export function CierreForm({
   esAcademia,
   noRegistrados,
   numAsistentes,
+  valorFacturado,
 }: {
   claseId: number;
   estadoActual: string;
@@ -23,12 +25,20 @@ export function CierreForm({
   esAcademia: boolean;
   noRegistrados: string;
   numAsistentes: number;
+  valorFacturado: number | null;
 }) {
   const [state, action, pending] = useActionState<CierreState, FormData>(cerrarClase, {});
 
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="claseId" value={claseId} />
+
+      {valorFacturado != null && (
+        <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-md border px-3 py-2.5">
+          <span className="text-sm font-medium">Valor de la clase (se factura)</span>
+          <span className="text-lg font-semibold tabular-nums">{COP.format(valorFacturado)}</span>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label htmlFor="estado">¿La clase se dictó?</Label>
