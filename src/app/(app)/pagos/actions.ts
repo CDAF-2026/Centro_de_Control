@@ -20,6 +20,14 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   if (!clienteId && !eventoId) return { error: "Selecciona un cliente o un evento." };
 
   const supabase = await createClient();
+
+  // Un evento cerrado tiene su utilidad congelada y ya publicada en el dashboard: meterle
+  // una factura después dejaría el snapshot desfasado del detalle. Hay que reabrirlo.
+  if (eventoId) {
+    const { data: ev } = await supabase.from("eventos").select("cerrado_el").eq("id", eventoId).single();
+    if (ev?.cerrado_el) return { error: "Ese evento ya está cerrado. Reábrelo antes de atarle facturas." };
+  }
+
   const { data: fac } = await supabase
     .from("siigo_facturas")
     .select("cliente_identificacion")
@@ -52,7 +60,11 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   await logAudit({ action: "siigo.conciliar", entity: "siigo_facturas", entityId: String(facturaId), after: { clienteId, eventoId, nit, bulk } });
   revalidatePath("/pagos");
   if (clienteId) revalidatePath(`/clientes/${clienteId}`);
-  if (eventoId) revalidatePath(`/eventos/${eventoId}`);
+  if (eventoId) {
+    revalidatePath(`/eventos/${eventoId}`);
+    revalidatePath("/eventos");
+    revalidatePath("/dashboard"); // el bruto de esa factura sale de las cifras al instante
+  }
   return { ok: bulk > 0 ? `Conciliada · +${bulk} factura(s) del mismo NIT.` : "Factura conciliada." };
 }
 

@@ -31,6 +31,12 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 2. **PostgREST corta a 1000 filas**: NUNCA traer facturas/filas masivas y agregarlas en JS. Toda
    suma/agrupación va en **RPCs SQL** (ya existen: `siigo_recaudo`, `siigo_ingreso_diario`,
    `siigo_top_clientes`, `siigo_ingreso_servicio`, `siigo_cartera`, `siigo_resumen_cliente`).
+   ⚠️ `siigo_recaudo`, `siigo_ingreso_diario`, `siigo_facturado_diario` y `siigo_facturado_servicio`
+   tienen un 3er parámetro **`p_excluir_eventos` (default false)**: SOLO el dashboard lo pasa en
+   `true`, para que un torneo aporte su utilidad neta y no su bruto. Con el default, `/ingresos`,
+   `/cartera`, `/reportes` y la **liquidación** (comisión de alto rendimiento vía
+   `siigo_ingreso_servicio`, que NO se tocó) siguen viendo el 100% y cuadrando con Siigo.
+   Al agregar parámetros hay que **DROP + CREATE**: dejar las dos firmas vuelve ambigua la llamada.
 3. **Siigo manda para el dinero** (ingresos/pagos/deuda = facturas de Siigo; deuda = `saldo`).
    El cálculo interno viejo de saldos ya no se usa. **NIT de Siigo = cédula** del cliente.
 4. **Secretos solo en `.env`** (gitignored): service_role, OpenAI, Resend, EasyCancha, Siigo
@@ -62,6 +68,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   valor_facturado), `asistencias` (estado: presente/ausente/excusa_medica/reposicion),
   `paquetes_catalogo`, `paquetes_cliente` (inicia_el/vence_el), `eventos` + `evento_participantes`
   + `evento_profesores` (eventos NO crean pagos; su ingreso = facturas Siigo con evento_id).
+- **P&G de eventos** (migraciones 0048–0049): `evento_gastos` (concepto, categoria
+  refrigerios|premios|logistica|publicidad|arbitraje|staff_externo|otro, monto, proveedor, fecha,
+  `soporte_path` en bucket **`evento-docs`**). Costo del evento = gastos **+ `evento_profesores.pago`**
+  (se toma automático: registrarlo también como gasto lo contaría DOBLE). Utilidad = facturado − costo.
+  **Cierre**: `eventos.cerrado_el/cerrado_por` + snapshot **congelado** `cierre_ingreso/cierre_costo/
+  cierre_utilidad`. Se congela para que una factura tardía o un gasto corregido no muevan un mes ya
+  publicado; para corregir hay que **reabrir** (solo SA, queda en audit_log). Con el evento cerrado
+  no se puede editar gastos/participantes/profes ni atarle facturas desde `/pagos`.
+  RPCs: `eventos_pyg(p_evento default null)` (P&G de uno o de todos, una sola llamada para el
+  listado), `eventos_resultado_periodo(desde,hasta)` (utilidad congelada de los CERRADOS, con su
+  fecha), `eventos_retenido(desde,hasta)` (bruto de los ABIERTOS que cae en el periodo → el aviso).
+  ⚠️ **Decidido NO usar el centro de costos de Siigo**: en las facturas de venta está apagado
+  (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
+  torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los
+  gastos a mano y no importar las ~600 compras.
 - **Dinero (Siigo)**: `siigo_facturas` (siigo_id único, total, saldo=deuda, cliente_id, evento_id,
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
@@ -123,7 +144,8 @@ CLI — mantener ambas en sintonía). pg_cron la invoca: **cada 20 min** (increm
 chart-area, chart-barras-semana, chart-donut, radial-gauge) · `/ingresos` y `/cartera` detalle paginado
 (20/pág, filtro por servicio; ingresos también por periodo) · `/pagos` cola de conciliación (asignar
 cliente/evento por NIT; "mostrador" no aparece) · `/clientes` (paginado 30, autocomplete) · `/academias`
-· `/paquetes` · `/eventos` · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
+· `/paquetes` · `/eventos` (P&G por evento + cierre; el dashboard solo ve la utilidad de los
+cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
 `/empleados` (compensación) · `/config` (catálogo de servicios) · `/reportes` · `/agente` (aún lee
 modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del staff (ver abajo).

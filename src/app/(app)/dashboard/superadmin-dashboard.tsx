@@ -7,6 +7,7 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowRight,
+  Trophy,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,11 +69,19 @@ export async function SuperadminDashboard({
     factDiarioPrevRes,
     factServicioRes,
     factServicioPrevRes,
+    evResRes,
+    evResPrevRes,
+    evRetenidoRes,
+    evRes7Res,
   ] = await Promise.all([
-    supabase.rpc("siigo_recaudo", { p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso }),
-    supabase.rpc("siigo_ingreso_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("siigo_ingreso_diario", { p_desde: hace6Iso, p_hasta: todayIso }),
+    // `p_excluir_eventos: true` saca las facturas atadas a un evento de TODA la lectura de
+    // ingresos: un torneo no aporta su bruto sino su utilidad (ver más abajo), y solo cuando
+    // está cerrado. Ojo: el default es false, así que /ingresos, /cartera, /reportes y la
+    // liquidación siguen viendo el 100% y cuadrando con Siigo.
+    supabase.rpc("siigo_recaudo", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
+    supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso, p_excluir_eventos: true }),
+    supabase.rpc("siigo_ingreso_diario", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
+    supabase.rpc("siigo_ingreso_diario", { p_desde: hace6Iso, p_hasta: todayIso, p_excluir_eventos: true }),
     supabase.rpc("siigo_ingreso_dia_servicio", { p_desde: hace6Iso, p_hasta: todayIso }),
     supabase.rpc("siigo_top_clientes", { p_desde: curStartIso, p_hasta: curEndIso, p_limite: 5 }),
     supabase.rpc("siigo_cartera"),
@@ -86,17 +95,44 @@ export async function SuperadminDashboard({
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     // Comparativo de FACTURADO (no cobrado): periodo actual vs. el inmediatamente anterior.
-    supabase.rpc("siigo_facturado_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("siigo_facturado_diario", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    supabase.rpc("siigo_facturado_diario", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
+    supabase.rpc("siigo_facturado_diario", { p_desde: prevStartIso, p_hasta: prevEndIso, p_excluir_eventos: true }),
     // Composición del ingreso y tendencias: ambas sobre lo FACTURADO (no lo cobrado).
-    supabase.rpc("siigo_facturado_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("siigo_facturado_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    supabase.rpc("siigo_facturado_servicio", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
+    supabase.rpc("siigo_facturado_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso, p_excluir_eventos: true }),
+    // Lo que los eventos SÍ aportan: la utilidad congelada de los que ya están cerrados.
+    supabase.rpc("eventos_resultado_periodo", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("eventos_resultado_periodo", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    // Y lo que se está reteniendo: facturado de eventos aún sin cerrar, para avisarlo.
+    supabase.rpc("eventos_retenido", { p_desde: curStartIso, p_hasta: curEndIso }),
+    // Los últimos 7 días son su propia ventana (no el periodo): necesitan su propio corte.
+    supabase.rpc("eventos_resultado_periodo", { p_desde: hace6Iso, p_hasta: todayIso }),
   ]);
 
+  // ───────── Aporte neto de los eventos (torneos, clínicas…) ─────────
+  // Un evento no suma su facturación bruta: suma su UTILIDAD (ingresos − gastos − pago a
+  // profesores), y solo desde que se cierra. Si no, un torneo que factura 4 y cuesta 3 se
+  // leería como si hubieran entrado 4. La utilidad se imputa a la fecha del evento.
+  const evResultados = evResRes.data ?? [];
+  const utilEventos = evResultados.reduce((s, e) => s + Number(e.utilidad), 0);
+  const utilEventosPrev = (evResPrevRes.data ?? []).reduce((s, e) => s + Number(e.utilidad), 0);
+  const utilEventosPorDia = new Map<string, number>();
+  for (const e of evResultados) {
+    utilEventosPorDia.set(e.fecha, (utilEventosPorDia.get(e.fecha) ?? 0) + Number(e.utilidad));
+  }
+  // Facturado de eventos ABIERTOS que cae en el periodo: lo que el dashboard aún no muestra.
+  const retenido = evRetenidoRes.data?.[0] ?? { eventos: 0, facturado: 0 };
+  const eventosAbiertos = Number(retenido.eventos);
+  const facturadoRetenido = Number(retenido.facturado);
+
   // ───────── Recaudo del periodo (nivel factura, sumado en la base) ─────────
+  // La utilidad del evento se suma a facturado Y a cobrado: así se preserva la identidad
+  // facturado − cobrado = pendiente que hace legible el gauge (un evento cerrado es un
+  // resultado ya resuelto, no una cuenta por cobrar). La deuda viva de sus facturas sigue
+  // contando en la cartera total de abajo, que no filtra eventos.
   const recaudo = recaudoRes.data?.[0] ?? { facturado: 0, cobrado: 0, pendiente: 0 };
-  const facturadoPeriodo = Number(recaudo.facturado);
-  const cobradoPeriodo = Number(recaudo.cobrado);
+  const facturadoPeriodo = Number(recaudo.facturado) + utilEventos;
+  const cobradoPeriodo = Number(recaudo.cobrado) + utilEventos;
   const saldoPeriodo = Number(recaudo.pendiente);
   const pctRecaudo = facturadoPeriodo > 0 ? (cobradoPeriodo / facturadoPeriodo) * 100 : 0;
 
@@ -104,12 +140,16 @@ export async function SuperadminDashboard({
   // Acumulado día a día, así cada curva termina exactamente en el total facturado
   // del periodo y se lee a la vez el total y el ritmo. OJO: facturado (total - NC),
   // no cobrado — es una lectura distinta a la del marcador.
+  // La utilidad de cada evento cerrado entra el día del evento, para que la curva no se
+  // deforme (`eventos` = utilEventosPorDia del periodo correspondiente).
   const acumularFacturado = (
     rows: { fecha: string; monto: number }[] | null,
     desdeIso: string,
     hastaIso: string,
+    eventos: { fecha: string; utilidad: number }[],
   ): number[] => {
     const porDia = new Map((rows ?? []).map((r) => [r.fecha, Number(r.monto)]));
+    for (const e of eventos) porDia.set(e.fecha, (porDia.get(e.fecha) ?? 0) + Number(e.utilidad));
     const out: number[] = [];
     let suma = 0;
     for (const d = new Date(`${desdeIso}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
@@ -120,8 +160,8 @@ export async function SuperadminDashboard({
     }
     return out;
   };
-  const acumFactActual = acumularFacturado(factDiarioRes.data, curStartIso, curEndIso);
-  const acumFactPrevio = acumularFacturado(factDiarioPrevRes.data, prevStartIso, prevEndIso);
+  const acumFactActual = acumularFacturado(factDiarioRes.data, curStartIso, curEndIso, evResultados);
+  const acumFactPrevio = acumularFacturado(factDiarioPrevRes.data, prevStartIso, prevEndIso, evResPrevRes.data ?? []);
 
   const diaMesFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
   const mesFmt = new Intl.DateTimeFormat("es-CO", { month: "long" });
@@ -139,7 +179,7 @@ export async function SuperadminDashboard({
 
   // El marcador del héroe usa la MISMA cifra que el gauge ("Cobrado"), para que cuadren entre sí.
   const periodTotal = cobradoPeriodo;
-  const prevTotal = Number(recaudoPrevRes.data?.[0]?.cobrado ?? 0);
+  const prevTotal = Number(recaudoPrevRes.data?.[0]?.cobrado ?? 0) + utilEventosPrev;
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
   // ───────── Composición por servicio (donut + tendencias) ─────────
@@ -147,31 +187,48 @@ export async function SuperadminDashboard({
   // que el centro vendió aunque parte siga pendiente de pago, y así el donut y las
   // tendencias hablan de la misma cifra.
   const servicioCat = new Map((serviciosRes.data ?? []).map((s) => [s.id, s]));
-  const porServicio = (rows: { servicio_id: number | null; monto: number }[] | null) => {
+  /** Cubeta para los eventos cerrados que no tienen servicio asignado. */
+  const CLAVE_EVENTOS = -2;
+  // Cada evento cerrado entra por su servicio (normalmente "Torneos", conservando su color
+  // del catálogo) con su UTILIDAD, no con su bruto. Si un evento dio pérdida y deja la
+  // cubeta en negativo, el filtro de abajo la saca: no se puede dibujar una tajada negativa.
+  const porServicio = (
+    rows: { servicio_id: number | null; monto: number }[] | null,
+    eventos: { servicio_id: number | null; utilidad: number }[],
+  ) => {
     const m = new Map<number, number>();
     for (const r of rows ?? []) {
       const id = r.servicio_id ?? -1;
       m.set(id, (m.get(id) ?? 0) + Number(r.monto));
     }
+    for (const e of eventos) {
+      const id = e.servicio_id ?? CLAVE_EVENTOS;
+      m.set(id, (m.get(id) ?? 0) + Number(e.utilidad));
+    }
     return m;
   };
-  const famFacturado = porServicio(factServicioRes.data);
-  const famFacturadoPrev = porServicio(factServicioPrevRes.data);
+  const famFacturado = porServicio(factServicioRes.data, evResultados);
+  const famFacturadoPrev = porServicio(factServicioPrevRes.data, evResPrevRes.data ?? []);
+  const nombreFamilia = (id: number) =>
+    id === CLAVE_EVENTOS ? "Eventos" : servicioCat.get(id)?.nombre ?? "Sin categoría";
   const familiasIngreso = [...famFacturado.entries()]
-    .map(([id, total]) => {
-      const sv = servicioCat.get(id);
-      return { nombre: sv?.nombre ?? "Sin categoría", total, color: sv?.color ?? COLOR_SERVICIO_DEFAULT };
-    })
+    .map(([id, total]) => ({
+      nombre: nombreFamilia(id),
+      total,
+      color: servicioCat.get(id)?.color ?? COLOR_SERVICIO_DEFAULT,
+    }))
     .filter((t) => t.total > 0)
     .sort((a, b) => b.total - a.total);
 
   // ───────── Serie diaria + barras de la semana + marcador de hoy ─────────
+  // La curva del marcador tiene que sumar exactamente `periodTotal`, así que el día de
+  // cada evento cerrado lleva su utilidad además de lo cobrado del día.
   const pagadoPorDia = new Map((diarioRes.data ?? []).map((r) => [r.fecha, Number(r.monto)]));
   const serieDiaria: { fecha: string; monto: number }[] = [];
   for (let d = new Date(`${curStartIso}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
     const isoD = isoDia(d);
     if (isoD > curEndIso) break;
-    serieDiaria.push({ fecha: isoD, monto: pagadoPorDia.get(isoD) ?? 0 });
+    serieDiaria.push({ fecha: isoD, monto: (pagadoPorDia.get(isoD) ?? 0) + (utilEventosPorDia.get(isoD) ?? 0) });
   }
 
   const dia7Map = new Map((dias7Res.data ?? []).map((r) => [r.fecha, { monto: Number(r.monto), facturas: Number(r.facturas) }]));
@@ -182,6 +239,15 @@ export async function SuperadminDashboard({
     const arr = detPorDia.get(r.fecha) ?? [];
     arr.push({ nombre: sv?.nombre ?? "Sin categoría", total: Number(r.monto), color: sv?.color ?? COLOR_SERVICIO_DEFAULT });
     detPorDia.set(r.fecha, arr);
+  }
+  // Mismo tratamiento en la ventana de 7 días: la barra y su modal deben decir lo mismo.
+  for (const e of evRes7Res.data ?? []) {
+    const dia = dia7Map.get(e.fecha) ?? { monto: 0, facturas: 0 };
+    dia7Map.set(e.fecha, { monto: dia.monto + Number(e.utilidad), facturas: dia.facturas });
+    const sv = e.servicio_id != null ? servicioCat.get(e.servicio_id) : undefined;
+    const arr = detPorDia.get(e.fecha) ?? [];
+    arr.push({ nombre: sv?.nombre ?? "Eventos", total: Number(e.utilidad), color: sv?.color ?? COLOR_SERVICIO_DEFAULT });
+    detPorDia.set(e.fecha, arr);
   }
   const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
   const diaLargoFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
@@ -216,11 +282,10 @@ export async function SuperadminDashboard({
     .map((id) => {
       const actual = famFacturado.get(id) ?? 0;
       const previo = famFacturadoPrev.get(id) ?? 0;
-      const sv = servicioCat.get(id);
       return {
         id,
-        nombre: sv?.nombre ?? "Sin categoría",
-        color: sv?.color ?? COLOR_SERVICIO_DEFAULT,
+        nombre: nombreFamilia(id),
+        color: servicioCat.get(id)?.color ?? COLOR_SERVICIO_DEFAULT,
         actual,
         delta: actual - previo,
         pct: previo > 0 ? Math.round(((actual - previo) / previo) * 100) : null,
@@ -326,12 +391,31 @@ export async function SuperadminDashboard({
         </div>
       )}
 
+      {/* Transparencia: las cifras de arriba NO incluyen los eventos sin cerrar. Sin este
+          aviso, el dashboard no cuadraría con Siigo y no se sabría por qué. */}
+      {facturadoRetenido > 0 && (
+        <div className="border-warning/40 bg-warning/10 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
+          <span className="flex items-center gap-2.5 text-sm">
+            <Trophy className="text-warning size-5 shrink-0" />
+            <span>
+              <strong className="tabular-nums">{COP.format(facturadoRetenido)}</strong> facturados en{" "}
+              <strong>{eventosAbiertos}</strong> evento(s) sin cerrar todavía no entran a estas cifras. Al cerrarlos
+              entra su <strong>utilidad</strong> (ingresos − gastos), no el bruto.
+            </span>
+          </span>
+          <Link href="/eventos" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Ver eventos</Link>
+        </div>
+      )}
+
       {/* ── Bento: marcador del periodo + comparativo de facturado ── */}
       <div className={cn("grid gap-4 lg:grid-cols-3", ENTRAR)} style={retraso(1)}>
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Marcador del periodo</CardTitle>
-            <CardDescription>Ingresos pagados (Siigo) · {curStartIso} a {curEndIso}</CardDescription>
+            <CardDescription>
+              Ingresos pagados (Siigo) · {curStartIso} a {curEndIso}
+              {utilEventos !== 0 && ` · incluye ${COP.format(utilEventos)} de utilidad de eventos cerrados`}
+            </CardDescription>
             <CardAction>
               <Link href={hrefIngresos} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
                 Ver detalle <ArrowRight className="size-3.5" />
@@ -420,6 +504,7 @@ export async function SuperadminDashboard({
             </div>
             <p className="text-muted-foreground border-t pt-2.5 text-xs">
               Cartera total (todas las fechas): <strong className="text-foreground tabular-nums">{COP.format(carteraGlobal)}</strong>
+              {" — incluye la deuda de los eventos, que sí se sigue cobrando."}
             </p>
           </CardContent>
         </Card>

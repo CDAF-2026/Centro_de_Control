@@ -729,6 +729,13 @@ export type Database = {
           estado: string;
           notas: string | null;
           created_at: string;
+          /** Cierre financiero: hasta que no esté, el evento no aporta nada al dashboard. */
+          cerrado_el: string | null;
+          cerrado_por: string | null;
+          /** Snapshot congelado al cerrar (para que el histórico no se mueva). */
+          cierre_ingreso: number | null;
+          cierre_costo: number | null;
+          cierre_utilidad: number | null;
         };
         Insert: {
           id?: number;
@@ -745,6 +752,11 @@ export type Database = {
           estado?: string;
           notas?: string | null;
           created_at?: string;
+          cerrado_el?: string | null;
+          cerrado_por?: string | null;
+          cierre_ingreso?: number | null;
+          cierre_costo?: number | null;
+          cierre_utilidad?: number | null;
         };
         Update: Partial<Database["public"]["Tables"]["eventos"]["Insert"]>;
         Relationships: [];
@@ -797,6 +809,38 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["evento_profesores"]["Insert"]>;
+        Relationships: [];
+      };
+      evento_gastos: {
+        Row: {
+          id: number;
+          evento_id: number;
+          concepto: string;
+          /** refrigerios | premios | logistica | publicidad | arbitraje | staff_externo | otro */
+          categoria: string;
+          monto: number;
+          proveedor: string | null;
+          fecha: string;
+          /** Soporte en el bucket `evento-docs` (factura del proveedor, foto del recibo). */
+          soporte_path: string | null;
+          registrado_por: string | null;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          evento_id: number;
+          concepto: string;
+          categoria?: string;
+          monto?: number;
+          proveedor?: string | null;
+          fecha?: string;
+          soporte_path?: string | null;
+          registrado_por?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["evento_gastos"]["Insert"]>;
         Relationships: [];
       };
       siigo_facturas: {
@@ -1064,6 +1108,38 @@ export type Database = {
           created_at: string;
         }[];
       };
+      /** P&G del evento (sin `p_evento` = todos). Ingreso = facturas de Siigo con ese evento_id. */
+      eventos_pyg: {
+        Args: { p_evento?: number | null };
+        Returns: {
+          evento_id: number;
+          ingreso_facturado: number;
+          ingreso_cobrado: number;
+          pendiente_cobro: number;
+          gastos: number;
+          pago_profesores: number;
+          costo_total: number;
+          utilidad: number;
+          facturas: number;
+        }[];
+      };
+      /** Utilidad congelada de los eventos CERRADOS imputados al periodo (lo que suma el dashboard). */
+      eventos_resultado_periodo: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          evento_id: number;
+          nombre: string;
+          servicio_id: number | null;
+          /** Fecha de imputación: coalesce(fecha_fin, fecha_inicio). */
+          fecha: string;
+          utilidad: number;
+        }[];
+      };
+      /** Facturado de eventos ABIERTOS que cae en el periodo: lo que el dashboard aún no muestra. */
+      eventos_retenido: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { eventos: number; facturado: number }[];
+      };
       siigo_ingreso_servicio: {
         Args: { p_desde: string; p_hasta: string };
         Returns: { servicio_id: number; monto: number }[];
@@ -1076,22 +1152,27 @@ export type Database = {
         Args: { p_cliente: number };
         Returns: { servicio_id: number; facturado: number; pagado: number }[];
       };
+      /**
+       * `p_excluir_eventos` (solo lo usa el dashboard) deja fuera las facturas atadas a un
+       * evento: su aporte entra como utilidad neta vía `eventos_resultado_periodo`, no como
+       * bruto. Con el default (false) las cifras son las de siempre y cuadran con Siigo.
+       */
       siigo_recaudo: {
-        Args: { p_desde: string; p_hasta: string };
+        Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { facturado: number; cobrado: number; pendiente: number }[];
       };
       siigo_ingreso_diario: {
-        Args: { p_desde: string; p_hasta: string };
+        Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { fecha: string; monto: number; facturas: number }[];
       };
       /** Facturado por día (total - nota_credito). OJO: `siigo_ingreso_diario` es lo COBRADO. */
       siigo_facturado_diario: {
-        Args: { p_desde: string; p_hasta: string };
+        Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { fecha: string; monto: number; facturas: number }[];
       };
       /** Facturado por servicio. OJO: `siigo_ingreso_servicio` es lo COBRADO. */
       siigo_facturado_servicio: {
-        Args: { p_desde: string; p_hasta: string };
+        Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { servicio_id: number; monto: number }[];
       };
       siigo_ingreso_dia_servicio: {
@@ -1144,6 +1225,8 @@ export type Servicio = Database["public"]["Tables"]["servicios"]["Row"];
 export type Evento = Database["public"]["Tables"]["eventos"]["Row"];
 export type EventoParticipante = Database["public"]["Tables"]["evento_participantes"]["Row"];
 export type EventoProfesor = Database["public"]["Tables"]["evento_profesores"]["Row"];
+export type EventoGasto = Database["public"]["Tables"]["evento_gastos"]["Row"];
+export type EventoPyg = Database["public"]["Functions"]["eventos_pyg"]["Returns"][number];
 export type SiigoFactura = Database["public"]["Tables"]["siigo_facturas"]["Row"];
 export type SiigoFacturaLinea = Database["public"]["Tables"]["siigo_factura_lineas"]["Row"];
 export type Nota = Database["public"]["Tables"]["notas"]["Row"];
