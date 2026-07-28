@@ -31,12 +31,28 @@ export function rangoPeriodo(periodo: Periodo, now: Date, desde?: string, hasta?
   } else if (periodo === "3m") {
     curStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
   } else {
-    curStart = addDays(today, -29);
+    // "mes": del 1 del mes EN CURSO hasta hoy (mes calendario, no ventana móvil de 30 días).
+    curStart = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
   const curEndIso = iso(curEnd);
-  const spanDays = Math.max(1, Math.round((curEnd.getTime() - curStart.getTime()) / DAY) + 1);
-  const prevEnd = addDays(curStart, -1);
-  const prevStart = addDays(prevEnd, -(spanDays - 1));
+
+  // Periodo anterior para comparar. En "mes" es el mes calendario previo hasta el
+  // mismo día (jul 1–27 vs jun 1–27), para que sea comparable; en el resto, la
+  // ventana de igual longitud inmediatamente anterior.
+  let prevStart: Date;
+  let prevEnd: Date;
+  if (periodo === "mes") {
+    const y = today.getFullYear();
+    const m = today.getMonth();
+    prevStart = new Date(y, m - 1, 1);
+    const ultimoDiaMesPrev = new Date(y, m, 0).getDate();
+    prevEnd = new Date(y, m - 1, Math.min(today.getDate(), ultimoDiaMesPrev));
+  } else {
+    const spanDays = Math.max(1, Math.round((curEnd.getTime() - curStart.getTime()) / DAY) + 1);
+    prevEnd = addDays(curStart, -1);
+    prevStart = addDays(prevEnd, -(spanDays - 1));
+  }
+
   return { curStartIso: iso(curStart), curEndIso, todayIso, prevStartIso: iso(prevStart), prevEndIso: iso(prevEnd) };
 }
