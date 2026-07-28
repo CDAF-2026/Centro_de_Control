@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { nombreStaff } from "@/lib/staff";
 import { valorPaquete } from "@/lib/finanzas";
 import { CierreForm } from "./cierre-form";
 
@@ -84,11 +85,7 @@ export default async function CerrarClasePage({
   const estadoPorCliente: Record<number, string> = {};
   for (const a of asis ?? []) if (a.miembro_id != null) estadoPorCliente[a.miembro_id] = a.estado ?? (a.presente ? "presente" : "ausente");
 
-  let profesorNombre: string | null = null;
-  if (clase.profesor_id) {
-    const { data: p } = await supabase.from("profiles").select("nombre").eq("id", clase.profesor_id).single();
-    profesorNombre = p?.nombre ?? null;
-  }
+  const profesorNombre = await nombreStaff(clase.profesor_id);
   let academiaNombre: string | null = null;
   if (clase.tipo === "academia" && clase.academia_id) {
     const { data: a } = await supabase.from("academias").select("nombre").eq("id", clase.academia_id).single();

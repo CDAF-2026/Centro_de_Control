@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
+import { profesoresActivos } from "@/lib/staff";
 import { createClaseSchema } from "@/lib/validations/clase";
 import type { AppRole } from "@/lib/database.types";
 
@@ -92,8 +93,7 @@ export async function prepararAsignacion(email: string): Promise<PrepararAsignac
   await requireRole(WRITE);
   const supabase = await createClient();
 
-  const profs = (await supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre")).data ?? [];
-  const profesores = profs.map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
+  const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
 
   const em = email.trim().toLowerCase();
   if (!em) return { sinCorreo: true, sinCliente: true, paquetes: [], profesores };

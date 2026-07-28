@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { profesoresActivos } from "@/lib/staff";
 import { AcademiaForm } from "./academia-form";
 
 export default async function NuevaAcademiaPage() {
   await requireRole(["superadmin", "coord_admin", "coord_deportivo"]);
-  const supabase = await createClient();
-  const { data: profesores } = await supabase
-    .from("profiles")
-    .select("id, nombre")
-    .eq("role", "profesor")
-    .eq("activo", true)
-    .order("nombre");
+  const profesores = await profesoresActivos();
 
   return (
     <div className="max-w-xl space-y-6">

@@ -11,6 +11,10 @@ import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
 import { FacturaLink, type FacturaDetalleData } from "./factura-detalle";
 import { Hermanos, type Miembro } from "./hermanos";
+import { NotaRapida } from "@/app/(app)/notas/nota-rapida";
+import { NotaCard } from "@/app/(app)/notas/nota-card";
+import { listarNotas } from "@/lib/notas";
+import { staffDirectorio } from "@/lib/staff";
 import { documentoLegible } from "../documento";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -204,6 +208,12 @@ export default async function ClienteDetallePage({
   }
   const saldoTotal = facturadoTotal - pagadoTotal;
 
+  // Notas internas enganchadas a este cliente (ver módulo /notas).
+  const [staff, notasCliente] = await Promise.all([
+    staffDirectorio(profile.id),
+    listarNotas({ clienteId: cliente.id, perfilId: profile.id, role: profile.role, limite: 20 }),
+  ]);
+
   return (
     <div className="max-w-2xl space-y-6">
       <div>
@@ -303,6 +313,35 @@ export default async function ClienteDetallePage({
             miembros={miembros}
             puedeEditar={puedeEditar}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notas del equipo</CardTitle>
+          <CardDescription>
+            Recados internos sobre este cliente. Etiqueta con @ a quien debe encargarse.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <NotaRapida
+            staff={staff}
+            clienteId={cliente.id}
+            placeholder={`Recado sobre ${cliente.nombres}… usa @ para asignárselo a alguien`}
+          />
+          {notasCliente.length > 0 && (
+            <div className="space-y-3">
+              {notasCliente.map((n) => (
+                <NotaCard
+                  key={n.id}
+                  nota={n}
+                  staff={staff}
+                  puedeResolver={n.puedeEditar}
+                  vista="ficha"
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

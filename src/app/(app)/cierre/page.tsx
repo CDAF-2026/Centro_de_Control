@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { mapaNombresStaff, profesoresParaFiltrar } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
@@ -42,9 +43,8 @@ export default async function CierrePage({
   const lista = clases ?? [];
 
   // Listas para los filtros (solo staff que ve varias clases).
-  const profesores = !esProfesor
-    ? (await supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre")).data ?? []
-    : [];
+  // Incluye inactivos: quien ya no está pudo dar las clases que se consultan.
+  const profesores = !esProfesor ? await profesoresParaFiltrar() : [];
   let clienteFilterName = "";
   if (clienteFilter) {
     const { data } = await supabase.from("clientes").select("nombres, apellidos").eq("id", clienteFilter).maybeSingle();
@@ -60,8 +60,8 @@ export default async function CierrePage({
   if (profIds.length) {
     const faltan = profIds.filter((id) => !profName.has(id));
     if (faltan.length) {
-      const { data } = await supabase.from("profiles").select("id, nombre").in("id", faltan);
-      for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+      const nombres = await mapaNombresStaff();
+      for (const id of faltan) profName.set(id, nombres.get(id) ?? "—");
     }
   }
   const cliName = new Map<number, string>();

@@ -43,6 +43,15 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
    con firma `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 7. Next 16 tiene breaking changes: ante dudas de API, leer `node_modules/next/dist/docs/`.
 8. `tsconfig` excluye `supabase/functions/` (código Deno; no lo toca el typecheck de Next).
+9. **Nunca leer `public.profiles` directo para listar compañeros**: `profiles_select` (0001) solo deja
+   ver el propio perfil salvo a SA/CA, así que a recepción/coord. deportivo/profesor los selectores
+   les salen VACÍOS y los nombres como "—". Usar los helpers de **`src/lib/staff.ts`**
+   (`profesoresActivos` para elegir · `profesoresParaFiltrar` para filtros históricos, incluye
+   inactivos · `mapaNombresStaff`/`nombreStaff` para nombres de registros viejos · `staffDirectorio`
+   para el @ de notas), que pasan por el RPC **`staff_directorio(p_solo_activos, p_role)`**
+   (SECURITY DEFINER; devuelve solo id/nombre/rol/activo, nunca documento ni teléfono. Migración
+   0046). Excepción legítima: `/empleados`, `/liquidacion` y `/agente`, que son solo SA/CA y sí
+   necesitan los datos completos.
 
 ## Datos (dominios → tablas)
 - **Clientes/CRM**: `clientes` (deportes[], documento=cédula + `tipo_documento` CC/TI/CE/PP/NIT,
@@ -77,6 +86,29 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil)
   para unificar duplicados (Willington estaba 2 veces: "Profesor" y "Entrenador"). Materializar reserva =
   se elige el perfil a mano (solo activos).
+- **Notas (relevo de turno)**: `notas` (texto, autor_id, prioridad normal|alta, estado
+  pendiente|resuelta, `para_todos`, enganche opcional a cliente_id/clase_id/evento_id) +
+  `nota_destinatarios` (nota_id + perfil_id + `leida_el`). Etiquetar con **@** = asignar responsable;
+  **sin etiquetar = tablón general** y se reparte a todo el staff activo menos el autor. `leida_el`
+  alimenta el contador de la campanita (leer ≠ resolver). Lectura por RPC **`notas_listar`**
+  (filtros mias|todas|resueltas|**sin_leer**, o por cliente) porque agrega destinatarios en jsonb y
+  resuelve nombres. Aviso en vivo por **Realtime** sobre `nota_destinatarios` filtrado por perfil.
+  **"Para mí" = pendientes + cualquier nota sin abrir** (aunque esté resuelta), y la campanita usa
+  `sin_leer`: si no, un comentario en una nota resuelta encendía el contador y la pestaña salía vacía.
+- **Comentarios de nota** (`nota_comentarios`): hilo plegado dentro del post-it, la tarjeta solo
+  muestra el contador (`notas_listar.n_comentarios`) y el hilo se pide al desplegar
+  (`nota_comentarios_listar`). Se comenta por el RPC **`nota_comentar`** (SECURITY DEFINER, porque
+  `nota_dest_insert` solo deja etiquetar al autor de la nota): guarda el texto y **vuelve a poner
+  `leida_el = null`** para los involucrados = autor + quienes ya comentaron + etiquetados con @ en el
+  comentario + los responsables de la nota **solo si NO es `para_todos`** (un comentario en el tablón
+  general no re-avisa a los 9). Comentar una nota resuelta NO la reabre. Migración 0047.
+  UI en `notas/` (`mencion-textarea`, `nota-composer`, `nota-card`, `nota-comentarios`,
+  `nota-rapida`) + campanita en `app-shell/notas-campana.tsx`. Migraciones 0044–0045, 0047.
+- ⚠️ **Fechas en componentes de cliente**: usar `fechaHoraCorta`/`tiempoRelativo` de
+  **`src/lib/fecha.ts`**, NUNCA `Intl.DateTimeFormat("es-CO")` en algo que se renderice en servidor
+  y navegador: el español mete un espacio fino (U+202F) antes de "p. m." en Node pero no siempre en
+  el navegador, React lo lee como texto distinto y **descarta la hidratación del árbol entero**
+  (la pantalla deja de pintar). El helper arma el texto a mano desde `formatToParts`.
 - **Tablas en desuso** (persisten, no borrar aún): `pagos`, `asignaciones_pago`, `abonos`,
   `profesor_valor_clase`.
 
@@ -94,7 +126,7 @@ cliente/evento por NIT; "mostrador" no aparece) · `/clientes` (paginado 30, aut
 · `/paquetes` · `/eventos` · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
 `/empleados` (compensación) · `/config` (catálogo de servicios) · `/reportes` · `/agente` (aún lee
-modelo viejo — pendiente repuntar a Siigo).
+modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del staff (ver abajo).
 
 ## Contexto de negocio (decisiones de Laura)
 - Conciliación manual = solo deudas + facturas con cliente identificado; el mostrador anónimo queda

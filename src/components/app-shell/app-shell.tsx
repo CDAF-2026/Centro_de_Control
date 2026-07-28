@@ -9,6 +9,7 @@ import { NAV_ITEMS } from "@/lib/nav";
 import { can } from "@/lib/auth/permissions";
 import { logout } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
+import { NotasCampana } from "./notas-campana";
 import type { AppRole } from "@/lib/database.types";
 
 const ROLE_LABEL: Record<AppRole, string> = {
@@ -28,10 +29,14 @@ function iniciales(nombre: string) {
 export function AppShell({
   role,
   nombre,
+  perfilId,
+  notasSinLeer,
   children,
 }: {
   role: AppRole;
   nombre: string;
+  perfilId: string;
+  notasSinLeer: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -104,6 +109,11 @@ export function AppShell({
                   )}
                 />
                 {item.label}
+                {item.module === "notas" && notasSinLeer > 0 && (
+                  <span className="bg-sidebar-primary text-sidebar-primary-foreground ml-auto flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] leading-4 font-bold">
+                    {notasSinLeer > 9 ? "9+" : notasSinLeer}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -164,6 +174,7 @@ export function AppShell({
             </span>
           </div>
           <div className="ml-auto flex items-center gap-3">
+            <NotasCampana perfilId={perfilId} inicial={notasSinLeer} />
             <span className="hidden text-right leading-tight sm:block">
               <span className="text-foreground block text-sm font-medium">{nombre}</span>
               <span className="text-muted-foreground block text-xs">{ROLE_LABEL[role]}</span>

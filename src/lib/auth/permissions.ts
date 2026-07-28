@@ -13,6 +13,7 @@ export type ModuleKey =
   | "paquetes"
   | "eventos"
   | "clases"
+  | "notas"
   | "cierre_clase"
   | "bolsa_pagos"
   | "descuentos"
@@ -39,6 +40,8 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: L },
   eventos: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: L, profesor: L },
   clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: L },
+  // Tablón interno de recados: todo el staff escribe y resuelve (es el relevo de turno).
+  notas: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E },
   cierre_clase: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: N, profesor: E },
   bolsa_pagos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
   descuentos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },

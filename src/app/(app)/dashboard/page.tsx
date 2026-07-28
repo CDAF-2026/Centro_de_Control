@@ -12,6 +12,7 @@ import {
 import { requireProfile } from "@/lib/auth";
 import { can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { listarStaff } from "@/lib/staff";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -82,11 +83,13 @@ export default async function DashboardPage({
   const esProfesor = profile.role === "profesor";
   const esFinanzas = can(profile.role, "reportes_financieros", "read");
 
-  const [{ count: nClientes }, { count: nProfes }, { count: nAcademias }] = await Promise.all([
+  const [{ count: nClientes }, profesores, { count: nAcademias }] = await Promise.all([
     supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "profesor"),
+    // Por RPC: leer `profiles` directo devolvería 1 a quien no es administrador.
+    listarStaff({ soloActivos: false, role: "profesor" }),
     supabase.from("academias").select("*", { count: "exact", head: true }).eq("activa", true),
   ]);
+  const nProfes = profesores.length;
 
   let proxQ = supabase
     .from("clases")

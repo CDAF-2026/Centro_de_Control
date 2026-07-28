@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { profesoresParaFiltrar } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,11 +29,8 @@ export default async function ClasesCerradasPage({
 
   const supabase = await createClient();
 
-  const { data: profesores } = await supabase
-    .from("profiles")
-    .select("id, nombre")
-    .eq("role", "profesor")
-    .order("nombre");
+  // Incluye inactivos: el histórico de clases cerradas puede ser suyo.
+  const profesores = await profesoresParaFiltrar();
 
   let q = supabase
     .from("clases")

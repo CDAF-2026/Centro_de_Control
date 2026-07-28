@@ -33,6 +33,8 @@ export type ServicioCategoriaSaldo = "academia" | "paquete" | "particular";
 export type PagoEstado = "sin_asignar" | "asignado";
 export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
 export type AsistenciaEstado = "presente" | "ausente" | "excusa_medica" | "reposicion";
+export type NotaPrioridad = "normal" | "alta";
+export type NotaEstado = "pendiente" | "resuelta";
 export type ReglaConcepto = "clase_particular" | "paquete" | "academia" | "siigo" | "clase" | "salario";
 export type ReglaMetodo =
   | "pct_facturado"
@@ -912,9 +914,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      notas: {
+        Row: {
+          id: number;
+          texto: string;
+          autor_id: string;
+          prioridad: NotaPrioridad;
+          estado: NotaEstado;
+          para_todos: boolean;
+          cliente_id: number | null;
+          clase_id: number | null;
+          evento_id: number | null;
+          resuelta_por: string | null;
+          resuelta_el: string | null;
+          editada_el: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          texto: string;
+          autor_id: string;
+          prioridad?: NotaPrioridad;
+          estado?: NotaEstado;
+          para_todos?: boolean;
+          cliente_id?: number | null;
+          clase_id?: number | null;
+          evento_id?: number | null;
+          resuelta_por?: string | null;
+          resuelta_el?: string | null;
+          editada_el?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: number;
+          texto?: string;
+          autor_id?: string;
+          prioridad?: NotaPrioridad;
+          estado?: NotaEstado;
+          para_todos?: boolean;
+          cliente_id?: number | null;
+          clase_id?: number | null;
+          evento_id?: number | null;
+          resuelta_por?: string | null;
+          resuelta_el?: string | null;
+          editada_el?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      nota_comentarios: {
+        Row: {
+          id: number;
+          nota_id: number;
+          autor_id: string;
+          texto: string;
+          editado_el: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nota_id: number;
+          autor_id: string;
+          texto: string;
+          editado_el?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          nota_id?: number;
+          autor_id?: string;
+          texto?: string;
+          editado_el?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      nota_destinatarios: {
+        Row: {
+          id: number;
+          nota_id: number;
+          perfil_id: string;
+          leida_el: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nota_id: number;
+          perfil_id: string;
+          leida_el?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          nota_id?: number;
+          perfil_id?: string;
+          leida_el?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      staff_directorio: {
+        Args: { p_solo_activos?: boolean; p_role?: AppRole | null };
+        Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
+      };
+      notas_listar: {
+        Args: { p_filtro?: string; p_cliente?: number | null; p_limite?: number };
+        Returns: {
+          id: number;
+          texto: string;
+          autor_id: string;
+          autor_nombre: string | null;
+          prioridad: NotaPrioridad;
+          estado: NotaEstado;
+          para_todos: boolean;
+          cliente_id: number | null;
+          cliente_nombre: string | null;
+          clase_id: number | null;
+          clase_etiqueta: string | null;
+          evento_id: number | null;
+          evento_nombre: string | null;
+          resuelta_por_nombre: string | null;
+          resuelta_el: string | null;
+          editada_el: string | null;
+          created_at: string;
+          destinatarios: { id: string; nombre: string | null; leida: boolean }[];
+          soy_destinatario: boolean;
+          leida_por_mi: boolean;
+          n_comentarios: number;
+        }[];
+      };
+      nota_comentar: {
+        Args: { p_nota_id: number; p_texto: string; p_destinatarios?: string[] };
+        Returns: number;
+      };
+      nota_comentarios_listar: {
+        Args: { p_nota_id: number };
+        Returns: {
+          id: number;
+          autor_id: string;
+          autor_nombre: string | null;
+          texto: string;
+          editado_el: string | null;
+          created_at: string;
+        }[];
+      };
       siigo_ingreso_servicio: {
         Args: { p_desde: string; p_hasta: string };
         Returns: { servicio_id: number; monto: number }[];
@@ -997,3 +1146,13 @@ export type EventoParticipante = Database["public"]["Tables"]["evento_participan
 export type EventoProfesor = Database["public"]["Tables"]["evento_profesores"]["Row"];
 export type SiigoFactura = Database["public"]["Tables"]["siigo_facturas"]["Row"];
 export type SiigoFacturaLinea = Database["public"]["Tables"]["siigo_factura_lineas"]["Row"];
+export type Nota = Database["public"]["Tables"]["notas"]["Row"];
+export type NotaDestinatario = Database["public"]["Tables"]["nota_destinatarios"]["Row"];
+export type NotaComentario = Database["public"]["Tables"]["nota_comentarios"]["Row"];
+/** Miembro del staff visible para todo el equipo — nunca documento ni teléfono. */
+export type StaffMiembro = {
+  id: string;
+  nombre: string | null;
+  role: AppRole;
+  activo: boolean;
+};

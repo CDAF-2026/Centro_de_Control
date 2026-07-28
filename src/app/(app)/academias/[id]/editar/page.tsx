@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { profesoresActivos } from "@/lib/staff";
 import { EditarAcademiaForm } from "../editar-academia-form";
 
 export default async function EditarAcademiaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,12 +13,7 @@ export default async function EditarAcademiaPage({ params }: { params: Promise<{
   const { data: a } = await supabase.from("academias").select("*").eq("id", Number(id)).maybeSingle();
   if (!a) notFound();
 
-  const { data: profesores } = await supabase
-    .from("profiles")
-    .select("id, nombre")
-    .eq("role", "profesor")
-    .eq("activo", true)
-    .order("nombre");
+  const profesores = await profesoresActivos();
 
   return (
     <div className="max-w-xl space-y-6">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { mapaNombresStaff } from "@/lib/staff";
 import { buttonVariants } from "@/components/ui/button";
 import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
@@ -96,8 +97,8 @@ export default async function ClasesPage({
 
   const profName = new Map<string, string>();
   if (profIds.length) {
-    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
-    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+    const nombres = await mapaNombresStaff();
+    for (const id of profIds) profName.set(id, nombres.get(id) ?? "—");
   }
   const cliName = new Map<number, string>();
   if (cliIds.length) {
@@ -115,11 +116,7 @@ export default async function ClasesPage({
   {
     const { data: aliasRows } = await supabase.from("easycancha_profesor_alias").select("clave, profesor_id");
     const ids = [...new Set((aliasRows ?? []).map((a) => a.profesor_id))];
-    const nombres = new Map<string, string>();
-    if (ids.length) {
-      const { data } = await supabase.from("profiles").select("id, nombre").in("id", ids);
-      for (const p of data ?? []) nombres.set(p.id, p.nombre ?? "—");
-    }
+    const nombres = ids.length ? await mapaNombresStaff() : new Map<string, string>();
     for (const a of aliasRows ?? []) {
       const n = nombres.get(a.profesor_id);
       if (n) aliasCanon.set(a.clave, n);

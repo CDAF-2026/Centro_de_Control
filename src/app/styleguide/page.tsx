@@ -11,6 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NotaCard } from "@/app/(app)/notas/nota-card";
+import type { NotaVista } from "@/lib/notas";
 
 function Swatch({
   name,
@@ -119,6 +121,94 @@ export default function StyleguidePage() {
           </CardFooter>
         </Card>
       </section>
+
+      <section className="space-y-4">
+        <h2 className="cdaf-title">Tablón de notas</h2>
+        <p className="text-muted-foreground text-sm">
+          Post-it con chincheta sobre hoja rayada. Se endereza al pasar el mouse. Ámbar = urgente,
+          apagado = resuelta; la lima queda solo en la chincheta y en las menciones.
+        </p>
+        <TablonDemo />
+      </section>
     </main>
+  );
+}
+
+/** Muestra del tablón de /notas con datos de ejemplo (no toca la base). */
+function TablonDemo() {
+  const base = {
+    autorId: "demo",
+    editadaEl: null,
+    resueltaEl: null,
+    resueltaPorNombre: null,
+    soyDestinatario: true,
+    leidaPorMi: false,
+    clienteId: null,
+    claseId: null,
+    eventoId: null,
+    nComentarios: 0,
+    puedeEditar: true,
+    puedeEliminar: true,
+  } as const;
+
+  const ejemplos: NotaVista[] = [
+    {
+      ...base,
+      id: 1,
+      texto:
+        "El cliente Pérez no pagó la clase de hoy, quedó de traer el efectivo mañana. @Ana Ruiz recuérdaselo cuando llegue.",
+      autorNombre: "Camila Ríos",
+      prioridad: "alta",
+      estado: "pendiente",
+      paraTodos: false,
+      createdAt: new Date(Date.now() - 25 * 60000).toISOString(),
+      destinatarios: [{ id: "a", nombre: "Ana Ruiz", leida: false }],
+      enlace: { label: "Pérez, Juan", href: "#" },
+    },
+    {
+      ...base,
+      id: 2,
+      texto: "Se cancela la academia de la tarde por lluvia. Ya avisamos a los papás por WhatsApp.",
+      autorNombre: "Camila Ríos",
+      prioridad: "normal",
+      estado: "pendiente",
+      paraTodos: true,
+      createdAt: new Date(Date.now() - 3 * 3600000).toISOString(),
+      destinatarios: [],
+      enlace: null,
+      nComentarios: 2,
+    },
+    {
+      ...base,
+      id: 3,
+      texto: "Faltan pelotas en la cancha 3, pedir al proveedor.",
+      autorNombre: "Diego Salas",
+      prioridad: "normal",
+      estado: "resuelta",
+      paraTodos: true,
+      createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+      resueltaEl: new Date().toISOString(),
+      resueltaPorNombre: "Ana Ruiz",
+      destinatarios: [],
+      enlace: null,
+    },
+  ];
+
+  return (
+    <div className="relative isolate px-2 py-4 sm:px-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 rounded-2xl opacity-[0.07]"
+        style={{
+          backgroundImage: "linear-gradient(var(--color-charcoal) 1px, transparent 1px)",
+          backgroundSize: "100% 32px",
+        }}
+      />
+      <div className="grid items-start gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        {ejemplos.map((n) => (
+          <NotaCard key={n.id} nota={n} staff={[]} puedeResolver />
+        ))}
+      </div>
+    </div>
   );
 }

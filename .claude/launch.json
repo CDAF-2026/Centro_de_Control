@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "autoPort": true,
+  "configurations": [
+    {
+      "name": "cdaf-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"]
+    }
+  ]
+}

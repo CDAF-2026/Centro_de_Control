@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { mapaNombresStaff } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,8 +36,8 @@ export default async function ClasesVencidasPage() {
   const acaIds = [...new Set(vencidas.map((c) => c.academia_id).filter((x): x is number => x != null))];
   const profName = new Map<string, string>();
   if (profIds.length) {
-    const { data } = await supabase.from("profiles").select("id, nombre").in("id", profIds);
-    for (const p of data ?? []) profName.set(p.id, p.nombre ?? "—");
+    const nombres = await mapaNombresStaff();
+    for (const id of profIds) profName.set(id, nombres.get(id) ?? "—");
   }
   const cliName = new Map<number, string>();
   if (cliIds.length) {

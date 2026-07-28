@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireProfile, requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { nombreStaff } from "@/lib/staff";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/resend";
 import { claseConfirmadaEmail } from "@/lib/email/clase-confirmada";
@@ -123,11 +124,7 @@ export async function cerrarClase(
         : { data: [] as { id: number; nombres: string; email: string | null }[] };
       const cli = new Map((cls ?? []).map((c) => [c.id, c]));
       const nombreDe = new Map((mrows ?? []).map((m) => [m.id, m.nombres]));
-      let profesorNombre: string | null = null;
-      if (clase.profesor_id) {
-        const { data: pr } = await supabase.from("profiles").select("nombre").eq("id", clase.profesor_id).single();
-        profesorNombre = pr?.nombre ?? null;
-      }
+      const profesorNombre = await nombreStaff(clase.profesor_id);
       for (const mid of presentes) {
         const c = cli.get(cliDeMiembro.get(mid) ?? -1);
         if (!c?.email) continue;

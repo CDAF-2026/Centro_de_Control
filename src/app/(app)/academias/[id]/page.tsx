@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { nombreStaff } from "@/lib/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -28,11 +29,7 @@ export default async function AcademiaDetallePage({
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  let profesorNombre: string | null = null;
-  if (a.profesor_id) {
-    const { data } = await supabase.from("profiles").select("nombre").eq("id", a.profesor_id).single();
-    profesorNombre = data?.nombre ?? null;
-  }
+  const profesorNombre = await nombreStaff(a.profesor_id);
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")

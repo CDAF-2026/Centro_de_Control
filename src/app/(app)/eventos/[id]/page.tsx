@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { profesoresActivos } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ParticipanteForm } from "./participante-form";
@@ -34,13 +35,13 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
     evento.servicio_id
       ? supabase.from("servicios").select("nombre").eq("id", evento.servicio_id).single()
       : Promise.resolve({ data: null as { nombre: string } | null }),
-    supabase.from("profiles").select("id, nombre").eq("role", "profesor").eq("activo", true).order("nombre"),
+    profesoresActivos(),
     supabase.from("siigo_facturas").select("total, saldo").eq("evento_id", eventoId),
   ]);
 
   const parts = partsRes.data ?? [];
   const profes = profesRes.data ?? [];
-  const profesores = profesoresRes.data ?? [];
+  const profesores = profesoresRes;
 
   const cliIds = parts.map((p) => p.cliente_id).filter((x): x is number => x != null);
   const { data: clientes } = cliIds.length
