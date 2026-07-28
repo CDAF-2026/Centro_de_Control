@@ -932,6 +932,16 @@ export type Database = {
         Args: { p_desde: string; p_hasta: string };
         Returns: { fecha: string; monto: number; facturas: number }[];
       };
+      /** Facturado por día (total - nota_credito). OJO: `siigo_ingreso_diario` es lo COBRADO. */
+      siigo_facturado_diario: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { fecha: string; monto: number; facturas: number }[];
+      };
+      /** Facturado por servicio. OJO: `siigo_ingreso_servicio` es lo COBRADO. */
+      siigo_facturado_servicio: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { servicio_id: number; monto: number }[];
+      };
       siigo_ingreso_dia_servicio: {
         Args: { p_desde: string; p_hasta: string };
         Returns: { fecha: string; servicio_id: number; monto: number }[];

@@ -4,6 +4,7 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { SyncClientesButton } from "./sync-clientes-button";
 import { ClienteBuscador } from "./cliente-buscador";
 import { clausulasBusqueda } from "./buscar";
@@ -32,7 +33,12 @@ export default async function ClientesPage({
     .range(from, to);
   for (const cl of clausulasBusqueda(safe)) query = query.or(cl);
   if (estado === "activo" || estado === "retirado") query = query.eq("estado", estado);
-  const { data: clientes, count } = await query;
+
+  // Clientes activos: total del club, independiente del filtro/búsqueda de la tabla.
+  const [{ data: clientes, count }, { count: activosCount }] = await Promise.all([
+    query,
+    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
+  ]);
 
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -58,22 +64,39 @@ export default async function ClientesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="cdaf-headline">Clientes / Deportistas</h1>
-        {puedeEditar && (
-          <div className="flex flex-wrap items-center gap-2">
-            <SyncClientesButton />
-            <a href={exportarHref} className={buttonVariants({ variant: "outline" })}>
-              Descargar CSV
-            </a>
-            <Link href="/clientes/importar" className={buttonVariants({ variant: "outline" })}>
-              Importar CSV
-            </Link>
-            <Link href="/clientes/nuevo" className={buttonVariants()}>
-              + Nuevo cliente
-            </Link>
-          </div>
-        )}
+        {/* Columna de acciones: los botones y, debajo, el contador de activos
+            alineado con el primer botón (Sincronizar con EasyCancha). */}
+        <div className="flex flex-col items-start gap-2">
+          {puedeEditar && (
+            <div className="flex flex-wrap items-center gap-2">
+              <SyncClientesButton />
+              <a href={exportarHref} className={buttonVariants({ variant: "outline" })}>
+                Descargar CSV
+              </a>
+              <Link href="/clientes/importar" className={buttonVariants({ variant: "outline" })}>
+                Importar CSV
+              </Link>
+              <Link href="/clientes/nuevo" className={buttonVariants()}>
+                + Nuevo cliente
+              </Link>
+            </div>
+          )}
+          {/* Clientes activos del club: total real, no el de la búsqueda/filtro.
+              `py-0` anula el relleno vertical propio de Card para que quede compacta. */}
+          <Card className="w-fit py-0">
+            <CardContent className="flex items-center gap-2.5 px-3 py-2">
+              <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-7 shrink-0 items-center justify-center rounded-lg ring-1">
+                <Users className="size-4" />
+              </span>
+              <span className="font-heading text-lg font-bold tracking-tight tabular-nums">
+                {(activosCount ?? 0).toLocaleString("es-CO")}
+              </span>
+              <span className="text-muted-foreground text-xs">Clientes activos</span>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <form className="flex flex-wrap items-center gap-3">

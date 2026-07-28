@@ -22,6 +22,7 @@ import { CountUp } from "./count-up";
 import { ChartArea } from "./chart-area";
 import { ChartBarrasSemana } from "./chart-barras-semana";
 import { ChartDonut } from "./chart-donut";
+import { ChartComparativo } from "./chart-comparativo";
 import { ChartOcupacion } from "./chart-ocupacion";
 import { RadialGauge } from "./radial-gauge";
 
@@ -52,8 +53,6 @@ export async function SuperadminDashboard({
   // OJO: todas las sumas se hacen en la BASE (RPCs). Traer facturas fila a fila
   // y sumarlas aquí trunca en 1000 filas (tope de PostgREST) y daña las cifras.
   const [
-    ingresoActualRes,
-    ingresoPrevRes,
     recaudoRes,
     recaudoPrevRes,
     diarioRes,
@@ -65,10 +64,11 @@ export async function SuperadminDashboard({
     topPendRes,
     serviciosRes,
     pendRes,
-    clientesRes,
+    factDiarioRes,
+    factDiarioPrevRes,
+    factServicioRes,
+    factServicioPrevRes,
   ] = await Promise.all([
-    supabase.rpc("siigo_ingreso_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("siigo_ingreso_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
     supabase.rpc("siigo_recaudo", { p_desde: curStartIso, p_hasta: curEndIso }),
     supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso }),
     supabase.rpc("siigo_ingreso_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
@@ -85,7 +85,12 @@ export async function SuperadminDashboard({
       .limit(5),
     supabase.from("servicios").select("id, nombre, color"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
-    supabase.from("clientes").select("*", { count: "exact", head: true }).eq("estado", "activo"),
+    // Comparativo de FACTURADO (no cobrado): periodo actual vs. el inmediatamente anterior.
+    supabase.rpc("siigo_facturado_diario", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("siigo_facturado_diario", { p_desde: prevStartIso, p_hasta: prevEndIso }),
+    // Composición del ingreso y tendencias: ambas sobre lo FACTURADO (no lo cobrado).
+    supabase.rpc("siigo_facturado_servicio", { p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("siigo_facturado_servicio", { p_desde: prevStartIso, p_hasta: prevEndIso }),
   ]);
 
   // ───────── Recaudo del periodo (nivel factura, sumado en la base) ─────────
@@ -95,19 +100,64 @@ export async function SuperadminDashboard({
   const saldoPeriodo = Number(recaudo.pendiente);
   const pctRecaudo = facturadoPeriodo > 0 ? (cobradoPeriodo / facturadoPeriodo) * 100 : 0;
 
+  // ───────── Comparativo de FACTURADO: periodo actual vs. el anterior ─────────
+  // Acumulado día a día, así cada curva termina exactamente en el total facturado
+  // del periodo y se lee a la vez el total y el ritmo. OJO: facturado (total - NC),
+  // no cobrado — es una lectura distinta a la del marcador.
+  const acumularFacturado = (
+    rows: { fecha: string; monto: number }[] | null,
+    desdeIso: string,
+    hastaIso: string,
+  ): number[] => {
+    const porDia = new Map((rows ?? []).map((r) => [r.fecha, Number(r.monto)]));
+    const out: number[] = [];
+    let suma = 0;
+    for (const d = new Date(`${desdeIso}T00:00:00`); ; d.setDate(d.getDate() + 1)) {
+      const iso = isoDia(d);
+      if (iso > hastaIso) break;
+      suma += porDia.get(iso) ?? 0;
+      out.push(suma);
+    }
+    return out;
+  };
+  const acumFactActual = acumularFacturado(factDiarioRes.data, curStartIso, curEndIso);
+  const acumFactPrevio = acumularFacturado(factDiarioPrevRes.data, prevStartIso, prevEndIso);
+
+  const diaMesFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
+  const mesFmt = new Intl.DateTimeFormat("es-CO", { month: "long" });
+  const capitaliza = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  /** "1–27 jul" si es el mismo mes; "28 jun – 27 jul" si cruza de mes. */
+  const rangoCorto = (aIso: string, bIso: string) => {
+    const a = new Date(`${aIso}T12:00:00`);
+    const b = new Date(`${bIso}T12:00:00`);
+    const mesB = diaMesFmt.format(b).replace(".", "");
+    if (aIso.slice(0, 7) === bIso.slice(0, 7)) return `${a.getDate()}–${mesB}`;
+    return `${diaMesFmt.format(a).replace(".", "")} – ${mesB}`;
+  };
+  const etiquetaPeriodo = (iso: string, fallback: string) =>
+    periodo === "mes" ? capitaliza(mesFmt.format(new Date(`${iso}T12:00:00`))) : fallback;
+
   // El marcador del héroe usa la MISMA cifra que el gauge ("Cobrado"), para que cuadren entre sí.
   const periodTotal = cobradoPeriodo;
   const prevTotal = Number(recaudoPrevRes.data?.[0]?.cobrado ?? 0);
   const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
   // ───────── Composición por servicio (donut + tendencias) ─────────
+  // Ambas lecturas van sobre lo FACTURADO del periodo (no lo cobrado): reflejan lo
+  // que el centro vendió aunque parte siga pendiente de pago, y así el donut y las
+  // tendencias hablan de la misma cifra.
   const servicioCat = new Map((serviciosRes.data ?? []).map((s) => [s.id, s]));
-  const famTotal = new Map<number, number>();
-  for (const r of ingresoActualRes.data ?? []) {
-    const id = r.servicio_id ?? -1;
-    famTotal.set(id, (famTotal.get(id) ?? 0) + Number(r.monto));
-  }
-  const familiasIngreso = [...famTotal.entries()]
+  const porServicio = (rows: { servicio_id: number | null; monto: number }[] | null) => {
+    const m = new Map<number, number>();
+    for (const r of rows ?? []) {
+      const id = r.servicio_id ?? -1;
+      m.set(id, (m.get(id) ?? 0) + Number(r.monto));
+    }
+    return m;
+  };
+  const famFacturado = porServicio(factServicioRes.data);
+  const famFacturadoPrev = porServicio(factServicioPrevRes.data);
+  const familiasIngreso = [...famFacturado.entries()]
     .map(([id, total]) => {
       const sv = servicioCat.get(id);
       return { nombre: sv?.nombre ?? "Sin categoría", total, color: sv?.color ?? COLOR_SERVICIO_DEFAULT };
@@ -161,15 +211,11 @@ export async function SuperadminDashboard({
   const marcadorMonto = hoyPendiente ? ultimoCierre?.monto ?? 0 : dia7Map.get(todayIso)?.monto ?? 0;
 
   // ───────── Tendencias: qué servicios suben y cuáles bajan vs. el periodo anterior ─────────
-  const prevPorServicio = new Map<number, number>();
-  for (const r of ingresoPrevRes.data ?? []) {
-    const id = r.servicio_id ?? -1;
-    prevPorServicio.set(id, (prevPorServicio.get(id) ?? 0) + Number(r.monto));
-  }
-  const movimientos = [...new Set([...famTotal.keys(), ...prevPorServicio.keys()])]
+  // Sobre lo FACTURADO, igual que el donut de composición.
+  const movimientos = [...new Set([...famFacturado.keys(), ...famFacturadoPrev.keys()])]
     .map((id) => {
-      const actual = famTotal.get(id) ?? 0;
-      const previo = prevPorServicio.get(id) ?? 0;
+      const actual = famFacturado.get(id) ?? 0;
+      const previo = famFacturadoPrev.get(id) ?? 0;
       const sv = servicioCat.get(id);
       return {
         id,
@@ -207,7 +253,6 @@ export async function SuperadminDashboard({
     const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime();
     if (nowMs > dt + 24 * 3600 * 1000) totalVencidas++;
   }
-  const totalPend = (pendRes.data ?? []).length;
 
   // ───────── Clases agendadas y ocupación de canchas de la semana (EasyCancha) ─────────
   const [semanaEC, ocupacion] = await Promise.all([semanaECPromise, ocupacionPromise]);
@@ -281,7 +326,7 @@ export async function SuperadminDashboard({
         </div>
       )}
 
-      {/* ── Bento: héroe del periodo + recaudo + mini-tiles ── */}
+      {/* ── Bento: marcador del periodo + comparativo de facturado ── */}
       <div className={cn("grid gap-4 lg:grid-cols-3", ENTRAR)} style={retraso(1)}>
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -293,7 +338,7 @@ export async function SuperadminDashboard({
               </Link>
             </CardAction>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="flex flex-1 flex-col gap-6">
             <div className="flex flex-wrap items-baseline gap-3">
               <CountUp value={periodTotal} durationMs={1100} className="font-heading text-4xl font-bold tracking-tight" />
               {deltaPct !== null && (
@@ -305,8 +350,8 @@ export async function SuperadminDashboard({
               )}
             </div>
             {serieDiaria.length > 1 ? (
-              <div className="pb-5">
-                <ChartArea puntos={serieDiaria} height={110} />
+              <div className="min-h-[150px] flex-1">
+                <ChartArea puntos={serieDiaria} fill />
               </div>
             ) : (
               <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas de Siigo verás la curva aquí." />
@@ -314,72 +359,88 @@ export async function SuperadminDashboard({
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-4">
-          <Card className="flex-1">
-            <CardHeader>
-              <CardTitle>Recaudo del periodo</CardTitle>
-              <CardAction>
-                <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                  Ver cartera <ArrowRight className="size-3.5" />
-                </Link>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <RadialGauge pct={pctRecaudo} />
-                <dl className="space-y-2 text-sm">
-                  <div>
-                    <dt className="text-muted-foreground text-xs">Facturado en el periodo</dt>
-                    <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground text-xs">Cobrado</dt>
-                    <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground text-xs">Pendiente del periodo</dt>
-                    <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
-                  </div>
-                </dl>
-              </div>
-              <p className="text-muted-foreground border-t pt-2.5 text-xs">
-                Cartera total (todas las fechas): <strong className="text-foreground tabular-nums">{COP.format(carteraGlobal)}</strong>
-              </p>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardContent className="space-y-1.5">
-                <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-10 items-center justify-center rounded-xl ring-1">
-                  <Users className="size-5" />
-                </span>
-                <CountUp value={clientesRes.count ?? 0} format="num" className="font-heading block text-2xl font-bold tracking-tight" />
-                <p className="text-muted-foreground text-xs">Clientes activos</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="space-y-1.5">
-                <span
-                  className={cn(
-                    "flex size-10 items-center justify-center rounded-xl",
-                    totalVencidas > 0 ? "bg-warning/15 text-[#8a5600]" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  <CalendarClock className="size-5" />
-                </span>
-                <CountUp value={totalPend} format="num" className="font-heading block text-2xl font-bold tracking-tight" />
-                <p className="text-muted-foreground text-xs">
-                  Clases por cerrar{totalVencidas > 0 ? ` · ${totalVencidas} vencidas` : ""}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Facturado vs. periodo anterior</CardTitle>
+            <CardDescription>Lo emitido en facturas (no lo cobrado)</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            {acumFactActual.length > 1 && acumFactPrevio.length > 1 ? (
+              <ChartComparativo
+                actual={{
+                  label: etiquetaPeriodo(curStartIso, "Este periodo"),
+                  rango: rangoCorto(curStartIso, curEndIso),
+                  acum: acumFactActual,
+                }}
+                previo={{
+                  label: etiquetaPeriodo(prevStartIso, "Periodo anterior"),
+                  rango: rangoCorto(prevStartIso, prevEndIso),
+                  acum: acumFactPrevio,
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={Wallet}
+                title="Sin facturación para comparar"
+                description="Se necesitan datos del periodo anterior para el comparativo."
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* ── Semana + composición ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(2)}>
+      {/* ── Recaudo + composición del ingreso ── */}
+      <div className={cn("grid gap-4 lg:grid-cols-4", ENTRAR)} style={retraso(2)}>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Recaudo del periodo</CardTitle>
+            <CardAction>
+              <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
+                Ver cartera <ArrowRight className="size-3.5" />
+              </Link>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <RadialGauge pct={pctRecaudo} />
+              <dl className="grid flex-1 gap-2 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-muted-foreground text-xs">Facturado en el periodo</dt>
+                  <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Cobrado</dt>
+                  <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Pendiente del periodo</dt>
+                  <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
+                </div>
+              </dl>
+            </div>
+            <p className="text-muted-foreground border-t pt-2.5 text-xs">
+              Cartera total (todas las fechas): <strong className="text-foreground tabular-nums">{COP.format(carteraGlobal)}</strong>
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Composición del ingreso</CardTitle>
+            <CardDescription>Por servicio · facturado · {curStartIso} a {curEndIso}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {familiasIngreso.length > 0 ? (
+              <ChartDonut segmentos={familiasIngreso} subtitulo={`${curStartIso} a ${curEndIso}`} />
+            ) : (
+              <EmptyState icon={Wallet} title="Sin facturación en el periodo" description="Cuando entren facturas verás la composición aquí." />
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Semana + tendencias ── */}
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(3)}>
         <Card>
           <CardHeader>
             <CardTitle>Los últimos 7 días</CardTitle>
@@ -392,21 +453,55 @@ export async function SuperadminDashboard({
 
         <Card>
           <CardHeader>
-            <CardTitle>Composición del ingreso</CardTitle>
-            <CardDescription>Por servicio · {curStartIso} a {curEndIso}</CardDescription>
+            <CardTitle>Tendencias por servicio</CardTitle>
+            <CardDescription>
+              Facturado del periodo vs. el anterior ({prevStartIso} a {prevEndIso})
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            {familiasIngreso.length > 0 ? (
-              <ChartDonut segmentos={familiasIngreso} subtitulo={`${curStartIso} a ${curEndIso}`} />
+          <CardContent className="space-y-4">
+            {enAlza.length === 0 && enBaja.length === 0 ? (
+              <EmptyState icon={TrendingUp} title="Sin variaciones" description="No hay cambios frente al periodo anterior." />
             ) : (
-              <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas verás la composición aquí." />
+              [
+                { titulo: "En alza", items: enAlza, up: true },
+                { titulo: "En baja", items: enBaja, up: false },
+              ].map(
+                (sec) =>
+                  sec.items.length > 0 && (
+                    <div key={sec.titulo}>
+                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">{sec.titulo}</p>
+                      <ul className="divide-y">
+                        {sec.items.map((m) => (
+                          <li key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: m.color }} />
+                              <span className="truncate font-medium">{m.nombre}</span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2 tabular-nums">
+                              <span className="text-muted-foreground">{COP.format(m.actual)}</span>
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-0.5 text-xs font-semibold",
+                                  sec.up ? "text-[#46530a]" : "text-destructive",
+                                )}
+                              >
+                                {sec.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                                {m.pct === null ? "nuevo" : `${m.pct > 0 ? "+" : ""}${m.pct}%`}
+                              </span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ),
+              )
             )}
           </CardContent>
         </Card>
       </div>
 
       {/* ── Top clientes + top deudores ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(3)}>
+      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(4)}>
         <Card>
           <CardHeader>
             <CardTitle>Top clientes</CardTitle>
@@ -489,7 +584,7 @@ export async function SuperadminDashboard({
       </div>
 
       {/* ── Ocupación de canchas (EasyCancha) ── */}
-      <section className={ENTRAR} style={retraso(4)}>
+      <section className={ENTRAR} style={retraso(5)}>
         <Card>
           <CardHeader>
             <CardTitle>Ocupación de canchas</CardTitle>
@@ -512,8 +607,8 @@ export async function SuperadminDashboard({
         </Card>
       </section>
 
-      {/* ── EasyCancha + tendencias ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(5)}>
+      {/* ── Clases agendadas (EasyCancha) ── */}
+      <div className={cn(ENTRAR)} style={retraso(6)}>
         <Card>
           <CardHeader>
             <CardTitle>Clases agendadas esta semana</CardTitle>
@@ -545,54 +640,8 @@ export async function SuperadminDashboard({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Tendencias por servicio</CardTitle>
-            <CardDescription>
-              Ingresos del periodo vs. el anterior ({prevStartIso} a {prevEndIso})
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {enAlza.length === 0 && enBaja.length === 0 ? (
-              <EmptyState icon={TrendingUp} title="Sin variaciones" description="No hay cambios frente al periodo anterior." />
-            ) : (
-              [
-                { titulo: "En alza", items: enAlza, up: true },
-                { titulo: "En baja", items: enBaja, up: false },
-              ].map(
-                (sec) =>
-                  sec.items.length > 0 && (
-                    <div key={sec.titulo}>
-                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">{sec.titulo}</p>
-                      <ul className="divide-y">
-                        {sec.items.map((m) => (
-                          <li key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: m.color }} />
-                              <span className="truncate font-medium">{m.nombre}</span>
-                            </span>
-                            <span className="flex shrink-0 items-center gap-2 tabular-nums">
-                              <span className="text-muted-foreground">{COP.format(m.actual)}</span>
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-0.5 text-xs font-semibold",
-                                  sec.up ? "text-[#46530a]" : "text-destructive",
-                                )}
-                              >
-                                {sec.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                                {m.pct === null ? "nuevo" : `${m.pct > 0 ? "+" : ""}${m.pct}%`}
-                              </span>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ),
-              )
-            )}
-          </CardContent>
-        </Card>
       </div>
+
     </div>
   );
 }

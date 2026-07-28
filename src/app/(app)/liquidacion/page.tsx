@@ -4,7 +4,9 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Users } from "lucide-react";
+import { Users, CalendarClock } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { calcularLiquidacion, rangoPeriodoLiq } from "@/lib/liquidacion";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -26,7 +28,20 @@ export default async function LiquidacionPage({
   const ym = /^\d{4}-\d{2}$/.test(sp.ym ?? "") ? sp.ym! : ymActual();
   const { desde, hasta, quincenas } = rangoPeriodoLiq(periodo, ym);
 
-  const filas = await calcularLiquidacion(desde, hasta, quincenas);
+  // Clases por cerrar (viene del dashboard): se muestra aquí porque una clase sin
+  // cerrar no entra en la liquidación, así que conviene verlo antes de calcular.
+  const supabase = await createClient();
+  const hoy = new Date();
+  const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  const [filas, { data: pendientes }] = await Promise.all([
+    calcularLiquidacion(desde, hasta, quincenas),
+    supabase.from("clases").select("fecha, hora_inicio").eq("estado", "programada").lte("fecha", hoyIso),
+  ]);
+  const ahoraMs = hoy.getTime();
+  const porCerrar = (pendientes ?? []).length;
+  const vencidas = (pendientes ?? []).filter(
+    (c) => ahoraMs > new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime() + 24 * 3600 * 1000,
+  ).length;
   const conMovim = filas.filter((f) => f.clases > 0 || f.total > 0);
   const facturadoGeneral = filas.reduce((s, f) => s + f.facturado, 0);
   const totalGeneral = filas.reduce((s, f) => s + f.total, 0);
@@ -50,6 +65,27 @@ export default async function LiquidacionPage({
           <input id="ym" name="ym" type="month" defaultValue={ym} className={SELECT} />
         </div>
         <button type="submit" className={buttonVariants()}>Calcular</button>
+
+        {/* Clases por cerrar: enlaza al cierre, porque lo no cerrado no se liquida. */}
+        <Link
+          href={vencidas > 0 ? "/cierre/vencidas" : "/cierre"}
+          className="bg-card hover:bg-muted/40 flex items-center gap-3 rounded-xl border p-2.5 shadow-sm transition-colors"
+        >
+          <span
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-lg",
+              vencidas > 0 ? "bg-warning/15 text-[#8a5600]" : "bg-muted text-muted-foreground",
+            )}
+          >
+            <CalendarClock className="size-4.5" />
+          </span>
+          <span className="leading-tight">
+            <span className="font-heading block text-xl font-bold tracking-tight tabular-nums">{porCerrar}</span>
+            <span className="text-muted-foreground text-xs">
+              Clases por cerrar{vencidas > 0 ? ` · ${vencidas} vencidas` : ""}
+            </span>
+          </span>
+        </Link>
       </form>
 
       <div className="cdaf-table-wrap">
