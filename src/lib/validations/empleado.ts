@@ -55,6 +55,7 @@ export const reglaSchema = z
       "por_alumno",
       "pct_siigo_servicio",
       "salario_fijo",
+      "comision_umbral",
     ]),
     pct: z.coerce.number().min(0).max(100).default(0),
     valor: z.coerce.number().int().min(0).default(0),
@@ -63,6 +64,7 @@ export const reglaSchema = z
     dias: z.array(z.coerce.number().int().min(0).max(6)).nullable().default(null),
     hora_desde: z.string().regex(HORA_RE, "Hora inválida").nullable().default(null),
     hora_hasta: z.string().regex(HORA_RE, "Hora inválida").nullable().default(null),
+    umbral: z.coerce.number().int().min(0).nullable().default(null),
   })
   .refine((r) => r.metodo !== "pct_siigo_servicio" || r.servicio_id != null, {
     message: "Elige el servicio de Siigo para la regla de alto rendimiento",
@@ -75,6 +77,10 @@ export const reglaSchema = z
   .refine((r) => r.metodo !== "salario_fijo" || r.valor > 0, {
     message: "Ponle un valor al salario fijo",
     path: ["valor"],
+  })
+  .refine((r) => r.metodo !== "comision_umbral" || (r.umbral != null && r.umbral > 0 && r.pct > 0), {
+    message: "La comisión por tope necesita el nº de clases y el porcentaje",
+    path: ["umbral"],
   });
 
 export const reglasSchema = z.array(reglaSchema);

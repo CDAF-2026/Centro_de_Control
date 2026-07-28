@@ -40,7 +40,8 @@ export type ReglaMetodo =
   | "escalonado_asistentes"
   | "por_alumno"
   | "pct_siigo_servicio"
-  | "salario_fijo";
+  | "salario_fijo"
+  | "comision_umbral";
 /** Un escalón del método `escalonado_asistentes`: desde `min` asistentes, se cobra `valor`. */
 export type ReglaEscalon = { min: number; valor: number };
 
@@ -145,6 +146,7 @@ export type Database = {
           dias: number[] | null;
           hora_desde: string | null;
           hora_hasta: string | null;
+          umbral: number | null;
           orden: number;
           activo: boolean;
           created_at: string;
@@ -163,6 +165,7 @@ export type Database = {
           dias?: number[] | null;
           hora_desde?: string | null;
           hora_hasta?: string | null;
+          umbral?: number | null;
           orden?: number;
           activo?: boolean;
           created_at?: string;

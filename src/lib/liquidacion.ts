@@ -62,10 +62,11 @@ type ReglaRow = {
   dias: number[] | null;
   hora_desde: string | null;
   hora_hasta: string | null;
+  umbral: number | null;
   activo: boolean;
 };
 
-const METODOS_CLASE: ReglaMetodo[] = ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno"];
+const METODOS_CLASE: ReglaMetodo[] = ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno", "comision_umbral"];
 
 /**
  * ¿La regla (de clase) aplica a esta clase? Casa por concepto (o comodín `clase`)
@@ -92,7 +93,7 @@ function reglaClaseAplica(
 /** Pago de una clase según la regla (los métodos de Siigo se resuelven aparte). */
 function pagoReglaClase(
   r: ReglaRow,
-  ctx: { valorFacturado: number; alumnos: number; nPersonas: number },
+  ctx: { valorFacturado: number; alumnos: number; nPersonas: number; monthRank: number | null },
 ): number {
   switch (r.metodo) {
     case "pct_facturado":
@@ -103,6 +104,11 @@ function pagoReglaClase(
       return ctx.alumnos * r.valor;
     case "escalonado_asistentes":
       return valorEscalon(r.escalones, ctx.nPersonas);
+    case "comision_umbral":
+      // El fijo cubre las primeras `umbral` clases del mes; desde la (umbral+1) paga pct%.
+      return ctx.monthRank != null && r.umbral != null && ctx.monthRank > r.umbral
+        ? Math.round((ctx.valorFacturado * Number(r.pct)) / 100)
+        : 0;
     default:
       return 0; // pct_siigo_servicio no depende de la clase
   }
@@ -128,7 +134,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     supabase.from("profesor_compensacion").select("*"),
     supabase
       .from("profesor_regla")
-      .select("id, profesor_id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, activo, orden")
+      .select("id, profesor_id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral, activo, orden")
       .eq("activo", true)
       .order("orden"),
     supabase
@@ -147,6 +153,33 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     reglasByProf.set(r.profesor_id, arr);
   }
   const clases = clasesRaw ?? [];
+
+  // Ranking mensual de clases para reglas de tope (comision_umbral): cuenta TODAS las
+  // clases realizadas del profesor desde el 1° del mes hasta `hasta` (acumulado del mes,
+  // no por quincena), para saber cuál es la clase nº 1, 2, … N del mes.
+  const rangoMes = new Map<number, number>(); // claseId → nº de clase del mes (1..N)
+  const umbralProfIds = [...reglasByProf.entries()]
+    .filter(([, rs]) => rs.some((r) => r.metodo === "comision_umbral"))
+    .map(([pid]) => pid);
+  if (umbralProfIds.length) {
+    const mesDesde = `${desde.slice(0, 7)}-01`;
+    const { data: mesClases } = await supabase
+      .from("clases")
+      .select("id, profesor_id, fecha, hora_inicio")
+      .eq("estado", "realizada")
+      .in("profesor_id", umbralProfIds)
+      .gte("fecha", mesDesde)
+      .lte("fecha", hasta)
+      .order("fecha")
+      .order("hora_inicio", { nullsFirst: true });
+    const contador = new Map<string, number>();
+    for (const mc of mesClases ?? []) {
+      if (!mc.profesor_id) continue;
+      const n = (contador.get(mc.profesor_id) ?? 0) + 1;
+      contador.set(mc.profesor_id, n);
+      rangoMes.set(mc.id, n);
+    }
+  }
 
   // Asistentes presentes por clase (academia / físico).
   const presentes = new Map<number, number>();
@@ -256,8 +289,14 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
       const concepto = conceptoDeClase(c);
       const weekday = new Date(`${c.fecha}T00:00:00`).getDay();
       const regla = reglas.find((r) => reglaClaseAplica(r, concepto, weekday, c.hora_inicio));
-      valorProfesor = regla ? pagoReglaClase(regla, { valorFacturado, alumnos, nPersonas }) : 0;
-      if (regla) tipoLabel = regla.nombre; // etiqueta exacta ("Academia Recreativa Pádel", "Comisión 7 a.m."…)
+      const monthRank = rangoMes.get(c.id) ?? null;
+      valorProfesor = regla ? pagoReglaClase(regla, { valorFacturado, alumnos, nPersonas, monthRank }) : 0;
+      if (regla) {
+        tipoLabel = regla.nombre; // etiqueta exacta ("Academia Recreativa Pádel", "Comisión 7 a.m."…)
+        if (regla.metodo === "comision_umbral" && monthRank != null) {
+          detalle = `${detalle} · clase #${monthRank} del mes`;
+        }
+      }
     } else if (comp?.tipo === "fisico") {
       valorProfesor = alumnos * comp.pago_asistencia;
     } else if (c.tipo === "academia") {

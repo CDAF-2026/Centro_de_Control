@@ -27,6 +27,7 @@ const METODOS: { v: ReglaMetodo; l: string }[] = [
   { v: "por_alumno", l: "Por alumno presente" },
   { v: "pct_siigo_servicio", l: "% de facturación Siigo" },
   { v: "salario_fijo", l: "Salario fijo (mensual)" },
+  { v: "comision_umbral", l: "Comisión al pasar un tope de clases" },
 ];
 // Días de la semana (0=domingo … 6=sábado), en orden L→D para mostrar.
 const DIAS = [
@@ -55,6 +56,7 @@ type EditRegla = {
   dias: number[];
   horaDesde: string;
   horaHasta: string;
+  umbral: string;
 };
 
 export type ReglaInicial = {
@@ -68,6 +70,7 @@ export type ReglaInicial = {
   dias: number[] | null;
   hora_desde: string | null;
   hora_hasta: string | null;
+  umbral: number | null;
 };
 
 const nuevaKey = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
@@ -86,6 +89,7 @@ function aEdit(r: ReglaInicial): EditRegla {
     dias: r.dias ?? [],
     horaDesde: hhmm(r.hora_desde),
     horaHasta: hhmm(r.hora_hasta),
+    umbral: r.umbral != null ? String(r.umbral) : "",
   };
 }
 
@@ -124,6 +128,7 @@ export function ReglasForm({
         const next: EditRegla = { ...r, metodo };
         if (metodo === "pct_siigo_servicio") next.concepto = "siigo";
         else if (metodo === "salario_fijo") next.concepto = "salario";
+        else if (metodo === "comision_umbral") next.concepto = "clase"; // cuenta cualquier clase
         else if (r.concepto === "siigo" || r.concepto === "salario") next.concepto = "clase_particular";
         if (metodo === "escalonado_asistentes" && r.escalones.length === 0) {
           next.escalones = [{ min: "1", valor: "" }];
@@ -147,6 +152,7 @@ export function ReglasForm({
         dias: [],
         horaDesde: "",
         horaHasta: "",
+        umbral: "",
       },
     ]);
 
@@ -185,6 +191,7 @@ export function ReglasForm({
     dias: esClaseMetodo(r.metodo) && r.dias.length ? [...r.dias].sort((a, b) => a - b) : null,
     hora_desde: esClaseMetodo(r.metodo) && r.horaDesde ? r.horaDesde : null,
     hora_hasta: esClaseMetodo(r.metodo) && r.horaHasta ? r.horaHasta : null,
+    umbral: r.metodo === "comision_umbral" && r.umbral ? Number(r.umbral) : null,
   }));
 
   return (
@@ -205,6 +212,7 @@ export function ReglasForm({
           const esSalario = r.metodo === "salario_fijo";
           const esPct = r.metodo === "pct_facturado";
           const esEscalon = r.metodo === "escalonado_asistentes";
+          const esUmbral = r.metodo === "comision_umbral";
           const conFiltro = esClaseMetodo(r.metodo);
           return (
             <div key={r.key} className="bg-muted/30 space-y-3 rounded-lg border p-3">
@@ -274,6 +282,22 @@ export function ReglasForm({
                   <Label>Salario mensual (COP)</Label>
                   <Input type="number" min={0} className="w-48" value={r.valor} onChange={(e) => patch(r.key, { valor: e.target.value })} />
                   <p className="text-muted-foreground text-xs">Se prorratea por quincena (media quincena = la mitad).</p>
+                </div>
+              )}
+
+              {esUmbral && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>El fijo cubre (clases/mes)</Label>
+                    <Input type="number" min={1} value={r.umbral} onChange={(e) => patch(r.key, { umbral: e.target.value })} placeholder="140" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>% desde la clase siguiente</Label>
+                    <Input type="number" min={0} max={100} value={r.pct} onChange={(e) => patch(r.key, { pct: e.target.value })} placeholder="30" />
+                  </div>
+                  <p className="text-muted-foreground col-span-2 text-xs">
+                    El salario cubre las primeras N clases del mes; desde la clase N+1 comisiona ese % de lo facturado. Cuenta el acumulado del mes (todas las clases).
+                  </p>
                 </div>
               )}
 

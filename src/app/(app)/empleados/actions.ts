@@ -195,14 +195,15 @@ export async function guardarReglas(
     nombre: r.nombre,
     concepto: r.concepto,
     metodo: r.metodo,
-    pct: r.metodo === "pct_facturado" || r.metodo === "pct_siigo_servicio" ? r.pct : 0,
+    pct: r.metodo === "pct_facturado" || r.metodo === "pct_siigo_servicio" || r.metodo === "comision_umbral" ? r.pct : 0,
     valor: r.metodo === "fijo_por_clase" || r.metodo === "por_alumno" || r.metodo === "salario_fijo" ? r.valor : 0,
     servicio_id: r.metodo === "pct_siigo_servicio" ? r.servicio_id : null,
     escalones: r.metodo === "escalonado_asistentes" ? r.escalones : null,
-    // Filtro día/hora: solo para reglas de clase.
-    dias: esClaseMetodo(r.metodo) && r.dias && r.dias.length ? r.dias : null,
-    hora_desde: esClaseMetodo(r.metodo) ? r.hora_desde : null,
-    hora_hasta: esClaseMetodo(r.metodo) ? r.hora_hasta : null,
+    // Filtro día/hora: solo para reglas de clase con franja (no aplica al tope mensual).
+    dias: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" && r.dias && r.dias.length ? r.dias : null,
+    hora_desde: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" ? r.hora_desde : null,
+    hora_hasta: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" ? r.hora_hasta : null,
+    umbral: r.metodo === "comision_umbral" ? r.umbral : null,
     orden: i,
     activo: true,
   }));

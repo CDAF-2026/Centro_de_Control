@@ -59,8 +59,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   (clave, color, categoria_saldo, siigo_grupo ↔ account_group de Siigo).
 - **Nómina**: modelo de **reglas por entrenador** `profesor_regla` (nombre + concepto
   {clase_particular|paquete|academia|siigo|**clase**(comodín)|**salario**} + metodo {pct_facturado|
-  fijo_por_clase|escalonado_asistentes|por_alumno|pct_siigo_servicio|**salario_fijo**} +
-  pct/valor/servicio_id/escalones + **filtro dias[]/hora_desde/hora_hasta**). Liquidación en
+  fijo_por_clase|escalonado_asistentes|por_alumno|pct_siigo_servicio|**salario_fijo**|**comision_umbral**} +
+  pct/valor/servicio_id/escalones/**umbral** + **filtro dias[]/hora_desde/hora_hasta**). `comision_umbral` =
+  el fijo cubre las primeras `umbral` clases del mes y desde la (umbral+1) paga pct% del facturado, contando
+  el **acumulado del mes** (Sebastián: 140 clases, luego 30%). Liquidación en
   `src/lib/liquidacion.ts` con **convivencia**: si el profe tiene reglas → se liquida por reglas; si no →
   modelo viejo `profesor_compensacion` (por_clase | fijo_comision | fisico) INTACTO. `clases.num_asistentes`
   (capturado al cerrar una particular en `/cierre`) alimenta el escalón. Alto rendimiento = % de

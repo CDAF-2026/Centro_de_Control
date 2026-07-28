@@ -66,7 +66,7 @@ export default async function EmpleadoDetallePage({
         .maybeSingle(),
       supabase
         .from("profesor_regla")
-        .select("nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta")
+        .select("nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral")
         .eq("profesor_id", id)
         .eq("activo", true)
         .order("orden"),
