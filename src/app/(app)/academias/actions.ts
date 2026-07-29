@@ -151,55 +151,6 @@ export async function addListaEspera(
   return { ok: "Agregado a la lista de espera." };
 }
 
-/** Genera las clases del periodo según los días/horas de la academia. */
-export async function generarProgramacion(
-  _prev: AcademiaFormState,
-  formData: FormData,
-): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
-  const academiaId = Number(formData.get("academiaId"));
-  const supabase = await createClient();
-  const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
-  if (!a) return { error: "Academia no encontrada." };
-  if (!a.periodo_inicio || !a.periodo_fin || !a.dias_semana?.length) {
-    return { error: "Define periodo (inicio/fin) y días de la semana antes de programar." };
-  }
-
-  // Regenera: borra las clases aún programadas y crea el calendario del periodo.
-  await supabase.from("clases").delete().eq("academia_id", academiaId).eq("estado", "programada");
-
-  const rows: { tipo: "academia"; academia_id: number; profesor_id: string | null; deporte: typeof a.deporte; nivel: string | null; cancha: string | null; fecha: string; hora_inicio: string | null; hora_fin: string | null; estado: "programada" }[] = [];
-  const end = new Date(`${a.periodo_fin}T00:00:00`);
-  for (let d = new Date(`${a.periodo_inicio}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
-    if (a.dias_semana.includes(d.getDay())) {
-      rows.push({
-        tipo: "academia",
-        academia_id: academiaId,
-        profesor_id: a.profesor_id,
-        deporte: a.deporte,
-        nivel: a.nivel,
-        cancha: a.cancha,
-        fecha: d.toISOString().slice(0, 10),
-        hora_inicio: a.hora_inicio,
-        hora_fin: a.hora_fin,
-        estado: "programada",
-      });
-    }
-  }
-  if (rows.length) {
-    const { error } = await supabase.from("clases").insert(rows);
-    if (error) return { error: error.message };
-  }
-  await logAudit({
-    action: "academia.programar",
-    entity: "academias",
-    entityId: String(academiaId),
-    after: { clases_generadas: rows.length },
-  });
-  revalidatePath(`/academias/${academiaId}`);
-  return { ok: `${rows.length} clases programadas.` };
-}
-
 /** Edita los datos de una academia existente. */
 export async function updateAcademia(
   _prev: AcademiaFormState,
@@ -241,52 +192,6 @@ export async function updateAcademia(
   revalidatePath("/academias");
   revalidatePath(`/academias/${id}`);
   redirect(`/academias/${id}`);
-}
-
-/** Reprograma una clase puntual (cambio espontáneo): cambia fecha y/u hora. */
-export async function reprogramarClase(
-  _prev: AcademiaFormState,
-  formData: FormData,
-): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
-  const claseId = Number(formData.get("claseId"));
-  const academiaId = Number(formData.get("academiaId"));
-  const fecha = String(formData.get("fecha") || "");
-  const horaInicio = String(formData.get("horaInicio") || "") || null;
-  const horaFin = String(formData.get("horaFin") || "") || null;
-  if (!claseId || !fecha) return { error: "Fecha requerida." };
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("clases")
-    .update({ fecha, hora_inicio: horaInicio, hora_fin: horaFin })
-    .eq("id", claseId);
-  if (error) return { error: error.message };
-
-  await logAudit({ action: "clase.reprogramar", entity: "clases", entityId: String(claseId), after: { fecha, horaInicio, horaFin } });
-  revalidatePath(`/academias/${academiaId}`);
-  revalidatePath("/clases");
-  return { ok: "Clase reprogramada." };
-}
-
-/** Cancela una clase puntual (no la borra: queda como cancelada). */
-export async function cancelarClase(
-  _prev: AcademiaFormState,
-  formData: FormData,
-): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
-  const claseId = Number(formData.get("claseId"));
-  const academiaId = Number(formData.get("academiaId"));
-  if (!claseId) return { error: "Clase inválida." };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("clases").update({ estado: "cancelada" }).eq("id", claseId);
-  if (error) return { error: error.message };
-
-  await logAudit({ action: "clase.cancelar", entity: "clases", entityId: String(claseId), after: { estado: "cancelada" } });
-  revalidatePath(`/academias/${academiaId}`);
-  revalidatePath("/clases");
-  return { ok: "Clase cancelada." };
 }
 
 /** Elimina una academia. Conserva el historial: las clases NO programadas (realizadas/

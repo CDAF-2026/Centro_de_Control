@@ -9,8 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
-import { ProgramarForm } from "./programar-form";
-import { ClaseAcademiaRow } from "./clase-academia-row";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
 
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -65,11 +63,6 @@ export default async function AcademiaDetallePage({
     }
   }
 
-  const { count: clasesCount } = await supabase
-    .from("clases")
-    .select("*", { count: "exact", head: true })
-    .eq("academia_id", academiaId);
-
   const { data: listaEspera } = await supabase
     .from("lista_espera")
     .select("id, nombre, contacto, nivel, edad, disponibilidad")
@@ -78,18 +71,6 @@ export default async function AcademiaDetallePage({
 
   const puedeGestionar = can(profile.role, "academias", "edit");
   const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
-
-  const hoy = new Date().toISOString().slice(0, 10);
-  const { data: proximas } = puedeGestionar
-    ? await supabase
-        .from("clases")
-        .select("id, fecha, hora_inicio, hora_fin")
-        .eq("academia_id", academiaId)
-        .eq("estado", "programada")
-        .gte("fecha", hoy)
-        .order("fecha")
-        .limit(40)
-    : { data: [] };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -129,39 +110,21 @@ export default async function AcademiaDetallePage({
         </CardContent>
       </Card>
 
+      {/* La programación ya no nace aquí: las clases entran desde la reserva de
+          EasyCancha y se registran en el calendario (decidido con el club, jul-2026). */}
       <Card>
         <CardHeader>
-          <CardTitle>Programación</CardTitle>
+          <CardTitle>Clases</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm">
-            <strong>{clasesCount ?? 0}</strong> clases generadas para el periodo.
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            Las clases de academia entran desde la reserva de EasyCancha. Ábrela en el{" "}
+            <Link href="/clases" className="underline">calendario de clases</Link> y regístrala con el
+            botón <strong>Academia</strong>; la asistencia se toma en{" "}
+            <Link href="/cierre" className="underline">cierre de clases</Link>.
           </p>
-          {puedeGestionar && <ProgramarForm academiaId={academiaId} />}
         </CardContent>
       </Card>
-
-      {puedeGestionar && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Próximas clases ({proximas?.length ?? 0})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-2 text-xs">
-              Cambios espontáneos: mueve la fecha/hora de una clase puntual o cancélala (no afecta las demás).
-            </p>
-            {(proximas ?? []).length > 0 ? (
-              <ul>
-                {(proximas ?? []).map((c) => (
-                  <ClaseAcademiaRow key={c.id} academiaId={academiaId} clase={c} />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground text-sm">No hay clases programadas próximas. Usa “Generar programación”.</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       <Card className="overflow-visible">
         <CardHeader>

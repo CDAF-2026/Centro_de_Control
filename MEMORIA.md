@@ -258,7 +258,10 @@ academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
 - **Cierre**: los inscritos esperados a esa hora llegan **pre-marcados** y visualmente distintos, los
   demás inscritos abajo (reposiciones), y antes de cerrar un conteo explícito ("6 presentes de 8
   inscritos") para que un olvido salte a la vista. Nada se guarda hasta confirmar.
-- **Se quita** "Generar / regenerar programación" y el reprogramar/cancelar de `/academias`.
+- ✅ **YA SE QUITÓ** de `/academias` la programación: `generarProgramacion`, `reprogramarClase`,
+  `cancelarClase` + los componentes `programar-form.tsx` y `clase-academia-row.tsx`. En su lugar la
+  ficha explica que las clases entran por EasyCancha. **El botón "+ Nueva academia" se dejó a
+  propósito** (Laura necesita crear academias de prueba); se quita cuando existan las 4 fijas.
 - Las 11 academias actuales NO se migran (tenían 1 sola inscripción): se archivan y se arranca desde
   un Excel que llena el club (una fila por niño y por día).
 
