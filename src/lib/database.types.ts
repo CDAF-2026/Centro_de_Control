@@ -1124,12 +1124,13 @@ export type Database = {
         }[];
       };
       /**
-       * Facturas que podrían ser del evento (mismo servicio, ±15 días) y aún no están atadas.
+       * Facturas que podrían ser del evento (±15 días) y aún no están atadas.
        * NO filtra por estado_conciliacion a propósito: las `auto` y `mostrador` nunca pasan
        * por la cola de /pagos, así que este es el único sitio donde se pueden atar.
+       * `p_solo_servicio` en false trae todo lo facturado en la ventana (consumo de asistentes).
        */
       evento_facturas_candidatas: {
-        Args: { p_evento: number };
+        Args: { p_evento: number; p_solo_servicio?: boolean };
         Returns: {
           id: number;
           numero: string | null;
@@ -1141,6 +1142,8 @@ export type Database = {
           saldo: number;
           estado_conciliacion: string;
           detalle: string | null;
+          /** Parte de la factura que es del servicio del evento. Informativo: se ata completa. */
+          monto_evento: number;
           /** Totales de TODO el conjunto candidato, no solo de las filas devueltas. */
           n_candidatas: number;
           monto_candidatas: number;

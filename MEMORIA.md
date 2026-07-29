@@ -93,6 +93,24 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   en la ficha del evento (`facturas-evento.tsx`) con acciones `atarFacturas`/`soltarFactura`. **Atar no
   concilia**: `estado_conciliacion` y `cliente_id` se dejan intactos (una mostrador sigue anónima).
   Al cerrar, si quedan candidatas sueltas se avisa para no publicar el torneo con el ingreso corto.
+- 💡 **El evento se mide por CONTRIBUCIÓN, no por inscripción pura** (decisión de Laura, jul-2026, y
+  está zanjada — no reproponer partir por línea). La mitad de las facturas de torneo son **canastas
+  mixtas** (21 de 42: inscripción + cafetería + almacén en el mismo documento; ej. FV-4-15577 = $90.000
+  de TORNEO PADEL + $65.500 de agua, café, banano y gorra). Se ata la factura **COMPLETA** porque *si no
+  hubiera torneo esa persona no habría estado en el club consumiendo*: el consumo durante el evento es
+  plata que el evento generó. Por eso `evento_id` vive en `siigo_facturas` y NO en
+  `siigo_factura_lineas`. Consecuencias a tener presentes al leer cifras: (a) la tajada de
+  Cafetería/Almacén del dashboard se achica —esa plata pasa a la utilidad del evento—, el total del
+  club NO cambia; (b) el margen del torneo sale **optimista**, porque entra la venta de cafetería a
+  precio lleno pero su costo de mercancía no está en `evento_gastos` (registrarlo ahí si se quiere el
+  margen fino). `monto_evento` del RPC es solo informativo (columna "Inscripción"), no parte la plata.
+  `evento_facturas_candidatas(p_evento, p_solo_servicio default true)`: en **false** trae TODO lo
+  facturado en la ventana (≈195 facturas / $21M en un fin de semana) para el asistente que vino al
+  torneo y solo consumió; va como opción (`?todas=1`), nunca por defecto. El aviso del cierre usa
+  siempre el conteo **estricto**, si no en modo ampliado sería falsa alarma.
+  ⚠️ Un **centro de costos de Siigo no sirve para esto**: se marca en la factura completa, así que a
+  la canasta mixta le pondría "Torneos" con banano incluido — es MÁS GRUESO que el grupo de producto,
+  que ya distingue línea por línea. Descartado por segunda vez.
   ⚠️ **Decidido NO usar el centro de costos de Siigo**: en las facturas de venta está apagado
   (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
   torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useActionState } from "react";
+import Link from "next/link";
 import { Link2 } from "lucide-react";
 import { atarFacturas } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -32,21 +33,30 @@ export type Candidata = {
   total: number;
   estado_conciliacion: string;
   detalle: string | null;
+  /** Parte de la factura que es del servicio del evento (la inscripción). */
+  monto_evento: number;
 };
 
 /**
  * Selector de facturas candidatas del evento. El padre lo monta con `key` = los ids de
  * las candidatas, así la selección se limpia sola cuando la lista cambia tras atar.
+ *
+ * La factura se ata COMPLETA: el evento se mide por contribución (si no hubiera torneo
+ * esa persona no habría estado en el club consumiendo). La columna "Inscripción" es solo
+ * para ver qué parte es cobro del evento y qué parte es consumo.
  */
 export function FacturasCandidatas({
   eventoId,
   candidatas,
   ventana,
+  todas,
 }: {
   eventoId: number;
   candidatas: Candidata[];
   /** "23 jul → 23 ago", ya formateado en el servidor. */
   ventana: string;
+  /** true = se están mostrando TODAS las facturas de la ventana, no solo las del servicio. */
+  todas: boolean;
 }) {
   const [state, action, pending] = useActionState(atarFacturas, {});
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -83,8 +93,9 @@ export function FacturasCandidatas({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs">
-          Facturas del servicio del evento entre {ventana} que aún no están atadas a ningún evento.
-          Marca las que sean de este torneo.
+          {todas
+            ? `Todo lo facturado entre ${ventana}, tenga o no cobro del evento. Marca lo que se vendió gracias al evento.`
+            : `Facturas con cobro del evento entre ${ventana} que aún no están atadas. Se atan completas, con el consumo incluido.`}
         </p>
         {candidatas.length > 6 && (
           <Input
@@ -113,7 +124,10 @@ export function FacturasCandidatas({
               <th className="px-4 py-2">Cliente</th>
               <th className="px-4 py-2">Concepto</th>
               <th className="px-4 py-2">Fecha</th>
-              <th className="px-4 py-2 text-right">Total</th>
+              <th className="px-4 py-2 text-right" title="Parte de la factura que es cobro del evento">
+                Inscripción
+              </th>
+              <th className="px-4 py-2 text-right">Total factura</th>
             </tr>
           </thead>
           <tbody>
@@ -146,12 +160,19 @@ export function FacturasCandidatas({
                   {c.detalle ?? "—"}
                 </td>
                 <td className="text-muted-foreground px-4 py-2 tabular-nums">{c.fecha}</td>
+                <td className="px-4 py-2 text-right tabular-nums">
+                  {c.monto_evento > 0 ? (
+                    COP.format(c.monto_evento)
+                  ) : (
+                    <span className="text-muted-foreground" title="Esta factura no tiene cobro del evento">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-right tabular-nums">{COP.format(c.total)}</td>
               </tr>
             ))}
             {visibles.length === 0 && (
               <tr className="border-t">
-                <td colSpan={6} className="text-muted-foreground px-4 py-3 text-sm">
+                <td colSpan={7} className="text-muted-foreground px-4 py-3 text-sm">
                   Ninguna candidata coincide con “{q}”.
                 </td>
               </tr>
@@ -176,6 +197,28 @@ export function FacturasCandidatas({
         {state.error && <p className="text-destructive text-xs">{state.error}</p>}
         {state.ok && <p className="text-muted-foreground text-xs">{state.ok}</p>}
       </form>
+
+      {/* El evento se mide por contribución: quien vino al torneo y solo consumió también
+          cuenta, aunque su factura no tenga ninguna línea del servicio del evento. */}
+      <p className="text-muted-foreground border-t pt-3 text-xs">
+        {todas ? (
+          <>
+            Estás viendo todo lo facturado en las fechas del evento, así que hay mucho que no es suyo.{" "}
+            <Link href={`/eventos/${eventoId}`} className="underline">
+              Volver a las que tienen cobro del evento
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            ¿Falta alguien que vino al evento y solo consumió en cafetería?{" "}
+            <Link href={`/eventos/${eventoId}?todas=1`} className="underline">
+              Ver todas las facturas de estas fechas
+            </Link>
+            .
+          </>
+        )}
+      </p>
     </div>
   );
 }

@@ -23,10 +23,19 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 /** "julio 2026" armado a mano: `Intl` en español no da el mismo texto en Node y en el navegador. */
 const mesDe = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
 
-export default async function EventoDetallePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventoDetallePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ todas?: string }>;
+}) {
   const profile = await requireRole(rolesForModule("eventos"));
   const { id } = await params;
   const eventoId = Number(id);
+  // ?todas=1 → candidatas ampliadas: todo lo facturado en las fechas, no solo lo del
+  // servicio del evento. Para el asistente que vino al torneo y solo consumió.
+  const verTodas = (await searchParams).todas === "1";
   const supabase = await createClient();
 
   const { data: evento } = await supabase.from("eventos").select("*").eq("id", eventoId).single();
@@ -63,7 +72,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
       .order("fecha"),
     // Candidatas: mismo servicio y ±15 días, sin filtrar por estado_conciliacion — las
     // `auto` y `mostrador` nunca pasan por /pagos, así que este es su único sitio.
-    supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId }),
+    supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId, p_solo_servicio: !verTodas }),
   ]);
 
   const parts = partsRes.data ?? [];
@@ -110,10 +119,16 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
   // ── Facturas del evento: las atadas (su ingreso) y las que aún podrían serlo ──
   const atadas = atadasRes.data ?? [];
   const candidatas = candidatasRes.data ?? [];
+  // El aviso del cierre se calcula SIEMPRE sobre las candidatas estrictas (las que tienen
+  // cobro del evento). En modo ampliado la lista trae cientos de facturas ajenas y ese
+  // conteo convertiría el aviso en una falsa alarma.
+  const estrictasRes = verTodas
+    ? await supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId, p_solo_servicio: true })
+    : candidatasRes;
   // Los totales vienen repetidos en cada fila (window sobre el conjunto completo), así
-  // el aviso del cierre es exacto aunque la lista venga recortada por el limit del RPC.
-  const nCandidatas = Number(candidatas[0]?.n_candidatas ?? 0);
-  const montoCandidatas = Number(candidatas[0]?.monto_candidatas ?? 0);
+  // el aviso es exacto aunque la lista venga recortada por el limit del RPC.
+  const nCandidatas = Number(estrictasRes.data?.[0]?.n_candidatas ?? 0);
+  const montoCandidatas = Number(estrictasRes.data?.[0]?.monto_candidatas ?? 0);
   const corre = (iso: string, dias: number) => {
     const d = new Date(`${iso}T00:00:00`);
     d.setDate(d.getDate() + dias);
@@ -295,18 +310,22 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
             <p className="text-muted-foreground text-sm">Ninguna factura atada todavía.</p>
           )}
 
-          {puedeEditar && !evento.servicio_id && (
+          {puedeEditar && !evento.servicio_id && !verTodas && (
             <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-xs">
               Este evento no tiene servicio asignado, así que no se pueden proponer facturas candidatas.
-              Asígnale uno (p. ej. “Torneo”) para que aparezcan solas.
+              Asígnale uno (p. ej. “Torneo”) para que aparezcan solas, o{" "}
+              <Link href={`/eventos/${eventoId}?todas=1`} className="underline">
+                mira todas las facturas de estas fechas
+              </Link>
+              .
             </p>
           )}
 
-          {puedeEditar && evento.servicio_id != null && (
+          {puedeEditar && (evento.servicio_id != null || verTodas) && (
             <div className="border-t pt-4">
               <h3 className="font-heading mb-2 text-sm font-semibold">
-                Candidatas{" "}
-                {nCandidatas > 0 && (
+                {verTodas ? "Todas las facturas de las fechas" : "Candidatas"}{" "}
+                {nCandidatas > 0 && !verTodas && (
                   <span className="text-muted-foreground font-sans font-normal tabular-nums">
                     {nCandidatas} · {COP.format(montoCandidatas)}
                   </span>
@@ -318,10 +337,13 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
                   eventoId={eventoId}
                   candidatas={candidatas}
                   ventana={ventana}
+                  todas={verTodas}
                 />
               ) : (
                 <p className="text-muted-foreground text-sm">
-                  No hay facturas sueltas de {servicioRes.data?.nombre ?? "este servicio"} entre {ventana}.
+                  {verTodas
+                    ? `No hay facturas sin atar entre ${ventana}.`
+                    : `No hay facturas sueltas de ${servicioRes.data?.nombre ?? "este servicio"} entre ${ventana}.`}
                 </p>
               )}
             </div>
