@@ -39,9 +39,30 @@ export type EcBooking = {
   totalAmount: number | null;
   totalAmountPaid: number | null;
   customerCodes: string | null;
+  /** Nota libre que escribe quien reserva. En los bloqueos de academia el club
+   *  apunta ahí el profesor o el grupo ("ACADEMIA CON WILLY"). Ver `esBloqueoAcademia`. */
+  comments: string | null;
 };
 
 export type EcResult = { bookings: EcBooking[]; error: string | null };
+
+/**
+ * Correo con el que el club se auto-reserva las canchas de la academia
+ * (usuario "BLOQUEOS ACADEMIAS" de EasyCancha).
+ */
+export const CORREO_BLOQUEOS_ACADEMIA = "agentecdaf@gmail.com";
+
+/**
+ * ¿La reserva es un bloqueo de academia?
+ *
+ * El correo es el criterio confiable: en jun–jul 2026 las 529 reservas con ese
+ * correo son del mismo usuario ("BLOQUEOS ACADEMIAS") y ninguna reserva de
+ * bloqueo llegó con otro correo. `bookedBy: "club"` NO sirve: también sale así
+ * cuando recepción reserva a nombre de un cliente.
+ */
+export function esBloqueoAcademia(b: { userEmail?: string | null }): boolean {
+  return (b.userEmail ?? "").trim().toLowerCase() === CORREO_BLOQUEOS_ACADEMIA;
+}
 
 /** Deriva el deporte interno (tenis/padel) a partir del nombre del deporte de EasyCancha. */
 export function deporteDeSport(sportName: string | null): "tenis" | "padel" | null {

@@ -4,7 +4,7 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
 import { buttonVariants } from "@/components/ui/button";
-import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
+import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
@@ -178,6 +178,10 @@ export default async function ClasesPage({
       const det: [string, string][] = [["Fecha y hora", `${b.localDate} · ${hora}${fin ? `–${fin}` : ""}`]];
       if (profesor) det.push(["Profesor", profesor]);
       if (b.courtName) det.push(["Cancha", b.courtName]);
+      // El comentario SOLO se muestra en los bloqueos de academia: ahí el club apunta
+      // el profesor/grupo. En las reservas de clientes esa nota trae datos privados
+      // ("PAGA LA PRIMERA SEMANA DE MAYO"), así que no se saca a la vista.
+      if (esBloqueoAcademia(b) && b.comments?.trim()) det.push(["Comentario", b.comments.trim()]);
       if (b.userPhone) det.push(["Teléfono", b.userPhone]);
       if (b.userEmail) det.push(["Correo", b.userEmail]);
       if (b.totalAmount != null)

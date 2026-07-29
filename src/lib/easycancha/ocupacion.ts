@@ -1,5 +1,5 @@
 import "server-only";
-import { getBookings, deporteDeSport, type EcBooking } from "./client";
+import { getBookings, deporteDeSport, CORREO_BLOQUEOS_ACADEMIA, type EcBooking } from "./client";
 
 /**
  * Ocupación de canchas a partir de las reservas de EasyCancha, desglosada
@@ -39,7 +39,7 @@ const MIN_DIA = (CIERRE_H - APERTURA_H) * 60;
  * recepción reserva a nombre de un cliente (602 de 678 reservas en julio).
  */
 const CORREOS_INTERNOS = new Set([
-  "agentecdaf@gmail.com", // BLOQUEOS ACADEMIAS
+  CORREO_BLOQUEOS_ACADEMIA, // BLOQUEOS ACADEMIAS
   "coordinacioncdaf@gmail.com", // Coordinación Deportiva
   "centrodeportivoaf@gmail.com", // CENTRO DEPORTIVO ALEJANDRO FALLA
 ]);

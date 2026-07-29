@@ -139,6 +139,19 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil)
   para unificar duplicados (Willington estaba 2 veces: "Profesor" y "Entrenador"). Materializar reserva =
   se elige el perfil a mano (solo activos).
+- **Bloqueos de academia (EasyCancha)**: el club se auto-reserva las canchas de academia con el usuario
+  **"BLOQUEOS ACADEMIAS"** (correo `agentecdaf@gmail.com`, userId 1759452). El correo es el criterio
+  confiable → `esBloqueoAcademia()` en easycancha/client.ts (jun–jul 2026: las 529 reservas con ese correo
+  son de ese usuario y ningún bloqueo llegó con otro correo). ⚠️ `bookedBy:"club"` NO sirve: sale así
+  también cuando recepción reserva a nombre de un cliente (2.269 de 2.529). El campo **`comments`** de la
+  API sí existe y ya se lee, pero **solo se muestra en los bloqueos de academia**: en las reservas de
+  clientes esa nota trae datos privados ("PAGA LA PRIMERA SEMANA DE MAYO", "…pagadas por Peter Lemus").
+  ⚠️ Datos duros antes de apoyarse en él: viene lleno en **14 de 529 bloqueos (2,6%)** y no siempre es el
+  profesor ("ACADEMIA CON WILLY" sí; "Alicia Londoño", "esta mojada porque limpiaron los vidrios" no).
+  El `courtName` de estos bloqueos es "Cancha N" pelado → `profesorDeCancha()` da null.
+  ⚠️ **Un bloqueo ≠ una clase**: el 77% dura ≥2h (hay de 6,5h) y adentro caben varios grupos seguidos;
+  la academia se paga `fijo_por_clase` (Joaquín $100k, Leo $90k, Cristian apoyo $35k), así que meter un
+  bloque de 4h como UNA clase paga de menos. 30% de los bloqueos se cancela o permuta.
 - **Notas (relevo de turno)**: `notas` (texto, autor_id, prioridad normal|alta, estado
   pendiente|resuelta, `para_todos`, enganche opcional a cliente_id/clase_id/evento_id) +
   `nota_destinatarios` (nota_id + perfil_id + `leida_el`). Etiquetar con **@** = asignar responsable;
