@@ -15,18 +15,10 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   await requireRole(ADMIN);
   const facturaId = Number(formData.get("facturaId"));
   const clienteId = Number(formData.get("clienteId")) || null;
-  const eventoId = Number(formData.get("eventoId")) || null;
   if (!facturaId) return { error: "Factura inválida." };
-  if (!clienteId && !eventoId) return { error: "Selecciona un cliente o un evento." };
+  if (!clienteId) return { error: "Selecciona un cliente." };
 
   const supabase = await createClient();
-
-  // Un evento cerrado tiene su utilidad congelada y ya publicada en el dashboard: meterle
-  // una factura después dejaría el snapshot desfasado del detalle. Hay que reabrirlo.
-  if (eventoId) {
-    const { data: ev } = await supabase.from("eventos").select("cerrado_el").eq("id", eventoId).single();
-    if (ev?.cerrado_el) return { error: "Ese evento ya está cerrado. Reábrelo antes de atarle facturas." };
-  }
 
   const { data: fac } = await supabase
     .from("siigo_facturas")
@@ -36,10 +28,11 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
   const nit = fac?.cliente_identificacion?.trim() || null;
   const esGenerico = !nit || /^(\d)\1+$/.test(nit);
 
-  // La factura específica (incluye el evento si aplica).
+  // Solo cliente + estado. `evento_id` NO se toca: lo maneja la ficha del evento, y
+  // escribirlo aquí borraba el evento de una factura que ya estaba atada.
   const { error } = await supabase
     .from("siigo_facturas")
-    .update({ cliente_id: clienteId, evento_id: eventoId, estado_conciliacion: "conciliada" })
+    .update({ cliente_id: clienteId, estado_conciliacion: "conciliada" })
     .eq("id", facturaId);
   if (error) return { error: error.message };
 
@@ -57,14 +50,9 @@ export async function conciliarFactura(_prev: PagoState, formData: FormData): Pr
     if (!cli?.documento) await supabase.from("clientes").update({ documento: nit }).eq("id", clienteId);
   }
 
-  await logAudit({ action: "siigo.conciliar", entity: "siigo_facturas", entityId: String(facturaId), after: { clienteId, eventoId, nit, bulk } });
+  await logAudit({ action: "siigo.conciliar", entity: "siigo_facturas", entityId: String(facturaId), after: { clienteId, nit, bulk } });
   revalidatePath("/pagos");
   if (clienteId) revalidatePath(`/clientes/${clienteId}`);
-  if (eventoId) {
-    revalidatePath(`/eventos/${eventoId}`);
-    revalidatePath("/eventos");
-    revalidatePath("/dashboard"); // el bruto de esa factura sale de las cifras al instante
-  }
   return { ok: bulk > 0 ? `Conciliada · +${bulk} factura(s) del mismo NIT.` : "Factura conciliada." };
 }
 

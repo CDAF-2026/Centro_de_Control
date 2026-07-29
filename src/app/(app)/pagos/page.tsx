@@ -37,20 +37,12 @@ export default async function PagosPage({
     .order("fecha", { ascending: false });
 
   const ids = (pendientes ?? []).map((f) => f.id);
-  const [{ data: lineas }, { data: servicios }, { data: eventos }, { data: sync }, mostradorRes, conciliadasRes] =
+  const [{ data: lineas }, { data: servicios }, { data: sync }, mostradorRes, conciliadasRes] =
     await Promise.all([
       ids.length
         ? supabase.from("siigo_factura_lineas").select("factura_id, descripcion, servicio_id, monto").in("factura_id", ids)
         : Promise.resolve({ data: [] as { factura_id: number; descripcion: string | null; servicio_id: number | null; monto: number }[] }),
       supabase.from("servicios").select("id, nombre"),
-      // Solo eventos ABIERTOS: atarle una factura a uno ya cerrado dejaría su snapshot
-      // (el que está publicado en el dashboard) desfasado del detalle. Para eso se reabre.
-      supabase
-        .from("eventos")
-        .select("id, nombre, servicio_id, fecha_inicio, fecha_fin")
-        .is("cerrado_el", null)
-        .neq("estado", "cancelado")
-        .order("fecha_inicio", { ascending: false }),
       supabase.from("siigo_sync").select("updated_at").eq("id", 1).maybeSingle(),
       supabase.from("siigo_facturas").select("*", { count: "exact", head: true }).eq("estado_conciliacion", "mostrador"),
       supabase.from("siigo_facturas").select("*", { count: "exact", head: true }).eq("estado_conciliacion", "conciliada"),
@@ -72,38 +64,6 @@ export default async function PagosPage({
     a.push(l);
     lineasByFac.set(l.factura_id, a);
   }
-
-  /**
-   * Sugerencia de evento: si la factura tiene una línea del servicio de un evento abierto
-   * (p. ej. "Torneos") y su fecha cae cerca del evento, se preselecciona. Sin esto nadie
-   * ata las facturas a mano y el P&G de todos los torneos daría pérdida.
-   *
-   * La ventana va 15 días antes y después: las inscripciones se facturan desde antes del
-   * torneo y las cuentas de última hora, días después.
-   */
-  const TOLERANCIA_DIAS = 15;
-  const corre = (iso: string, dias: number) => {
-    const d = new Date(`${iso}T00:00:00`);
-    d.setDate(d.getDate() + dias);
-    return d.toISOString().slice(0, 10);
-  };
-  const ventanas = (eventos ?? []).map((e) => ({
-    id: e.id,
-    nombre: e.nombre,
-    servicioId: e.servicio_id,
-    desde: corre(e.fecha_inicio, -TOLERANCIA_DIAS),
-    hasta: corre(e.fecha_fin ?? e.fecha_inicio, TOLERANCIA_DIAS),
-  }));
-  const eventoSugerido = (facturaId: number, fecha: string): { id: number; nombre: string } | null => {
-    const servicioIds = new Set(
-      (lineasByFac.get(facturaId) ?? []).map((l) => l.servicio_id).filter((x): x is number => x != null),
-    );
-    if (servicioIds.size === 0) return null;
-    const m = ventanas.find(
-      (v) => v.servicioId != null && servicioIds.has(v.servicioId) && fecha >= v.desde && fecha <= v.hasta,
-    );
-    return m ? { id: m.id, nombre: m.nombre } : null;
-  };
 
   return (
     <div className="space-y-6">
@@ -155,11 +115,7 @@ export default async function PagosPage({
                   </div>
                   <div className="mt-2">
                     {f.estado_conciliacion === "pendiente" ? (
-                      <ConciliarForm
-                        facturaId={f.id}
-                        eventos={eventos ?? []}
-                        sugerido={eventoSugerido(f.id, f.fecha)}
-                      />
+                      <ConciliarForm facturaId={f.id} />
                     ) : (
                       <DevolverACola facturaId={f.id} />
                     )}
@@ -199,7 +155,7 @@ export default async function PagosPage({
                   .slice(0, 220)}
               </p>
               <div className="mt-2">
-                <ConciliarForm facturaId={f.id} eventos={eventos ?? []} sugerido={eventoSugerido(f.id, f.fecha)} />
+                <ConciliarForm facturaId={f.id} />
               </div>
             </div>
           ))}

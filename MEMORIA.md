@@ -156,10 +156,11 @@ CLI — mantener ambas en sintonía). pg_cron la invoca: **cada 20 min** (increm
 ## Módulos (rutas → fuente)
 `/dashboard` bento animado (RPCs Siigo + EasyCancha semanal; componentes en `dashboard/`: count-up,
 chart-area, chart-barras-semana, chart-donut, radial-gauge) · `/ingresos` y `/cartera` detalle paginado
-(20/pág, filtro por servicio; ingresos también por periodo) · `/pagos` cola de conciliación (asignar
-cliente/evento por NIT; "mostrador" no aparece) · `/clientes` (paginado 30, autocomplete) · `/academias`
-· `/paquetes` · `/eventos` (P&G por evento + cierre; el dashboard solo ve la utilidad de los
-cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
+(20/pág, filtro por servicio; ingresos también por periodo) · `/pagos` cola de conciliación (SOLO
+asignar cliente por NIT; "mostrador" no aparece. **Atar a un evento NO se hace aquí** — ver P&G de
+eventos) · `/clientes` (paginado 30, autocomplete) · `/academias`
+· `/paquetes` · `/eventos` (P&G por evento + cierre + atar sus facturas; el dashboard solo ve la
+utilidad de los cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
 `/empleados` (compensación) · `/config` (catálogo de servicios) · `/reportes` · `/agente` (aún lee
 modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del staff (ver abajo).
