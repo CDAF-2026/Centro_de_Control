@@ -144,11 +144,13 @@ export async function materializarReserva(input: {
   await requireRole(WRITE);
   const supabase = await createClient();
 
-  // Idempotente: una reserva = una clase.
+  // Idempotente. Se busca "alguna" clase, no exactamente una: un bloqueo de
+  // academia puede haberse registrado partido en varias.
   const { data: existe } = await supabase
     .from("clases")
     .select("id")
     .eq("easycancha_booking_id", input.bookingId)
+    .limit(1)
     .maybeSingle();
   if (existe) return { error: "Esta reserva ya estaba registrada como clase." };
 
@@ -221,3 +223,127 @@ export async function materializarReserva(input: {
 }
 
 type CierreLikeState = { error?: string; ok?: string };
+
+// ─────────────────────────────────────────────────────────────
+// Registrar un bloqueo de academia de EasyCancha como clase(s)
+// ─────────────────────────────────────────────────────────────
+
+export type AcademiaOpcion = {
+  id: number;
+  nombre: string;
+  deporte: string | null;
+  dias: number[];
+  horaInicio: string | null;
+  horaFin: string | null;
+  cancha: string | null;
+  profesorId: string | null;
+};
+
+export type PrepararAcademia = {
+  academias: AcademiaOpcion[];
+  profesores: { id: string; nombre: string }[];
+};
+
+/** Academias activas + profesores, para el modo "Academia" del modal. */
+export async function prepararAcademia(): Promise<PrepararAcademia> {
+  await requireRole(WRITE);
+  const supabase = await createClient();
+
+  const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
+  const { data } = await supabase
+    .from("academias")
+    .select("id, nombre, deporte, dias_semana, hora_inicio, hora_fin, cancha, profesor_id")
+    .eq("activa", true)
+    .order("nombre");
+
+  const academias = (data ?? []).map((a) => ({
+    id: a.id,
+    nombre: a.nombre,
+    deporte: a.deporte,
+    dias: a.dias_semana ?? [],
+    horaInicio: a.hora_inicio?.slice(0, 5) ?? null,
+    horaFin: a.hora_fin?.slice(0, 5) ?? null,
+    cancha: a.cancha,
+    profesorId: a.profesor_id,
+  }));
+  return { academias, profesores };
+}
+
+/**
+ * Registra un bloqueo de academia como una o varias clases.
+ *
+ * Un bloque de EasyCancha puede durar horas y contener academias DISTINTAS
+ * seguidas (miércoles 08:00–12:00 en Cancha 4 = Bola Naranja 08:00 + Bola
+ * Amarilla 11:00), por eso entra una lista de {academia, hora} ya armada en el
+ * modal y aquí solo se valida y se inserta.
+ *
+ * Sin cliente: el bloque es del club, no de una persona; el cobro de academia
+ * sale de la asistencia. `profesorId` vacío = cada clase con el profesor de su
+ * propia academia.
+ */
+export async function materializarAcademia(input: {
+  bookingId: string;
+  fecha: string;
+  deporte: "tenis" | "padel" | null;
+  cancha: string;
+  profesorId: string;
+  clases: { academiaId: number; inicio: string; fin: string }[];
+}): Promise<CierreLikeState> {
+  await requireRole(WRITE);
+  const supabase = await createClient();
+
+  if (!input.clases.length) return { error: "Escoge al menos una clase que registrar." };
+
+  const { data: existe } = await supabase
+    .from("clases")
+    .select("id")
+    .eq("easycancha_booking_id", input.bookingId)
+    .limit(1)
+    .maybeSingle();
+  if (existe) return { error: "Este bloqueo ya estaba registrado como clase." };
+
+  const ids = [...new Set(input.clases.map((c) => c.academiaId))];
+  const { data: acas } = await supabase
+    .from("academias")
+    .select("id, nombre, nivel, profesor_id")
+    .in("id", ids);
+  const porId = new Map((acas ?? []).map((a) => [a.id, a]));
+  if (ids.some((id) => !porId.has(id))) return { error: "Alguna academia ya no existe." };
+
+  const filas = input.clases.map((c) => {
+    const a = porId.get(c.academiaId)!;
+    return {
+      tipo: "academia" as const,
+      academia_id: a.id,
+      profesor_id: input.profesorId || a.profesor_id || null,
+      deporte: input.deporte,
+      nivel: a.nivel,
+      cancha: input.cancha || null,
+      fecha: input.fecha,
+      hora_inicio: c.inicio || null,
+      hora_fin: c.fin || null, // un bloqueo sin hora de fin entra como clase suelta
+      precio: 0,
+      estado: "programada" as const,
+      easycancha_booking_id: input.bookingId,
+    };
+  });
+
+  const { error } = await supabase.from("clases").insert(filas);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "clase.academia",
+    entity: "clases",
+    entityId: input.bookingId,
+    after: { easycancha_booking_id: input.bookingId, clases: filas.length, academias: ids },
+  });
+  revalidatePath("/clases");
+  revalidatePath("/cierre");
+
+  const nombres = [...new Set(ids.map((id) => porId.get(id)!.nombre))];
+  return {
+    ok: filas.length === 1
+      ? `Clase de ${nombres[0]} registrada. Ya aparece en clases por cerrar.`
+      : `${filas.length} clases registradas (${nombres.join(", ")}). Ya aparecen en clases por cerrar.`,
+  };
+}

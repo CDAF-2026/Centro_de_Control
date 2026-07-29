@@ -214,6 +214,8 @@ export default async function ClasesPage({
           apellidos: b.userLastName ?? "",
           telefono: b.userPhone ?? "",
           profesorMatched: profesor,
+          esBloqueo: esBloqueoAcademia(b),
+          comentario: esBloqueoAcademia(b) ? (b.comments ?? "").trim() : "",
         },
       };
     });

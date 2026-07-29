@@ -152,6 +152,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   ⚠️ **Un bloqueo ≠ una clase**: el 77% dura ≥2h (hay de 6,5h) y adentro caben varios grupos seguidos;
   la academia se paga `fijo_por_clase` (Joaquín $100k, Leo $90k, Cristian apoyo $35k), así que meter un
   bloque de 4h como UNA clase paga de menos. 30% de los bloqueos se cancela o permuta.
+  💡 Y un bloque largo NO es "una academia repetida": son academias **distintas** seguidas (martes
+  15:00–18:00 en Cancha 3 = Bola Roja + Bola Verde + Bola Amarilla). Por eso el modal propone
+  **`academiasEnBloque()`** (types.ts): cruza día de la semana + solapamiento de horas + deporte, y
+  recorta el horario de cada clase al bloque. **La cancha NO filtra, solo marca** (`mismaCancha`):
+  exigirla dejaba fuera 19 de 22 bloques de julio porque las academias de la mañana están configuradas
+  en Cancha 4 y el club bloquea la Cancha 1. Vienen marcadas solo las que coinciden en cancha; las de
+  otra cancha se muestran sin marcar (si no, el mismo horario bloqueado en 2 canchas crearía la clase
+  dos veces). Sin candidatas → modo manual (escoger academia + en cuántas clases partir el bloque).
+- **Registrar un bloqueo como clase(s)**: botón **Academia** en el modal de `/clases`
+  (`asignar-paquete.tsx` → `materializarAcademia`). En un bloqueo se muestra SOLO ese botón: paquete/
+  particular crearían un "cliente" llamado BLOQUEOS ACADEMIAS. Las clases entran sin `cliente_id`
+  (el cobro sale de la asistencia) y con el profesor de cada academia, con override opcional para todas.
+  ⚠️ Migración **0052**: `clases_ec_booking_uidx` (ÚNICO) → `clases_ec_booking_idx` (normal), porque un
+  bloqueo puede generar N clases. La deduplicación del calendario ya era por "existe alguna clase con
+  este booking", no por unicidad.
 - **Notas (relevo de turno)**: `notas` (texto, autor_id, prioridad normal|alta, estado
   pendiente|resuelta, `para_todos`, enganche opcional a cliente_id/clase_id/evento_id) +
   `nota_destinatarios` (nota_id + perfil_id + `leida_el`). Etiquetar con **@** = asignar responsable;
