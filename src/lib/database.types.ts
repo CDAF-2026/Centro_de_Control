@@ -26,6 +26,8 @@ export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "ot
 export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 
 export type Deporte = "tenis" | "padel";
+/** Las academias son 4 fijas: categoría × deporte. No es un enum de Postgres, es un CHECK. */
+export type AcademiaCategoria = "recreativa" | "competencia";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido";
@@ -389,6 +391,10 @@ export type Database = {
           codigo: string;
           nombre: string;
           deporte: Deporte;
+          /** recreativa | competencia — las 4 academias fijas son categoría × deporte. */
+          categoria: AcademiaCategoria | null;
+          /** Servicio de Siigo con el que se factura. El ingreso sale de ahí, NO de `precio`. */
+          servicio_id: number | null;
           nivel: string | null;
           profesor_id: string | null;
           cancha: string | null;
@@ -410,6 +416,8 @@ export type Database = {
           codigo: string;
           nombre: string;
           deporte: Deporte;
+          categoria?: AcademiaCategoria | null;
+          servicio_id?: number | null;
           nivel?: string | null;
           profesor_id?: string | null;
           cancha?: string | null;

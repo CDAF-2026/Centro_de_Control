@@ -231,7 +231,17 @@ modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del 
 - Academia: cobro por sesión asistida (excusa médica no se cobra) + matrícula UNA por deporte, SEMESTRAL.
 - Historia de datos arranca el **1-jun-2026**: comparativas "Mes vs anterior" serán completas desde agosto.
 
-## 🔄 Rediseño de Academias (decidido con el club el 29-jul-2026, AÚN NO construido)
+## 🔄 Rediseño de Academias (decidido con el club el 29-jul-2026 · en construcción)
+**Ya hecho** (migración 0053): `academias.categoria` (recreativa|competencia, CHECK) +
+`academias.servicio_id` → `servicios`. Existen las **4 fijas** (`ACA-2026-TEN-REC/TEN-COM/PAD-REC/
+PAD-COM`) atadas a su grupo de producto de Siigo, y se borraron las 11 viejas (cascada se llevó sus 46
+clases y 1 inscripción; 0 asistencias, nada que perder). Formularios de nueva/editar academia
+simplificados: solo nombre, deporte, categoría, servicio de Siigo y precio/matrícula **de referencia**.
+`dias_semana`/`hora_inicio`/`hora_fin`/`cancha`/`profesor_id`/`nivel` **siguen en la tabla pero SIN
+USO** (bajan al horario de cada inscrito, que aún no existe) — no borrarlas todavía.
+**Falta**: horarios por inscrito, importador del Excel, modal de `/clases` apuntando a las 4, cierre
+con pre-marcado, reportes, y quitar la columna "Facturado" inventada de la liquidación.
+
 El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
 academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
 - **4 academias fijas**: Recreativa/Competencia × tenis/pádel. Cada una apunta a su **servicio de

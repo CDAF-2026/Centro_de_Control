@@ -10,8 +10,8 @@ export default async function AcademiasPage() {
   const supabase = await createClient();
   const { data: academias } = await supabase
     .from("academias")
-    .select("id, codigo, nombre, deporte, nivel, activa")
-    .order("codigo", { ascending: false });
+    .select("id, codigo, nombre, deporte, categoria, activa")
+    .order("codigo");
 
   const puedeEditar = can(profile.role, "academias", "edit");
 
@@ -40,7 +40,7 @@ export default async function AcademiasPage() {
               </Badge>
             </div>
             <p className="mt-2 font-semibold">{a.nombre}</p>
-            <p className="text-muted-foreground text-sm">{a.nivel ?? "—"}</p>
+            <p className="text-muted-foreground text-sm capitalize">{a.categoria ?? "—"}</p>
             {!a.activa && <Badge variant="outline" className="mt-2">Inactiva</Badge>}
           </Link>
         ))}

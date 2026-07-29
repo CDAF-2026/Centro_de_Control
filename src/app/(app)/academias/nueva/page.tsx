@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { profesoresActivos } from "@/lib/staff";
+import { createClient } from "@/lib/supabase/server";
 import { AcademiaForm } from "./academia-form";
 
 export default async function NuevaAcademiaPage() {
   await requireRole(["superadmin", "coord_admin", "coord_deportivo"]);
-  const profesores = await profesoresActivos();
+
+  // Solo los servicios de Siigo que son de academia (categoria_saldo = 'academia').
+  const supabase = await createClient();
+  const { data: servicios } = await supabase
+    .from("servicios")
+    .select("id, nombre")
+    .eq("categoria_saldo", "academia")
+    .order("nombre");
 
   return (
     <div className="max-w-xl space-y-6">
@@ -15,7 +22,7 @@ export default async function NuevaAcademiaPage() {
         </Link>
         <h1 className="cdaf-headline mt-1">Nueva academia</h1>
       </div>
-      <AcademiaForm profesores={profesores ?? []} />
+      <AcademiaForm servicios={servicios ?? []} />
     </div>
   );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { profesoresActivos } from "@/lib/staff";
 import { EditarAcademiaForm } from "../editar-academia-form";
 
 export default async function EditarAcademiaPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +12,11 @@ export default async function EditarAcademiaPage({ params }: { params: Promise<{
   const { data: a } = await supabase.from("academias").select("*").eq("id", Number(id)).maybeSingle();
   if (!a) notFound();
 
-  const profesores = await profesoresActivos();
+  const { data: servicios } = await supabase
+    .from("servicios")
+    .select("id, nombre")
+    .eq("categoria_saldo", "academia")
+    .order("nombre");
 
   return (
     <div className="max-w-xl space-y-6">
@@ -23,7 +26,7 @@ export default async function EditarAcademiaPage({ params }: { params: Promise<{
         </Link>
         <h1 className="cdaf-headline mt-1">Editar academia</h1>
       </div>
-      <EditarAcademiaForm academia={a} profesores={profesores ?? []} />
+      <EditarAcademiaForm academia={a} servicios={servicios ?? []} />
     </div>
   );
 }

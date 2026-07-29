@@ -1,18 +1,26 @@
 import { z } from "zod";
 
+/**
+ * Una academia es un SERVICIO (recreativa/competencia × tenis/pádel), no un grupo.
+ * El horario, el profesor y la cancha ya no viven aquí: bajan al horario de cada
+ * inscrito, porque un niño puede ir martes 16:30 con un profe y sábado 12:00 con
+ * otro. Y el ingreso sale de Siigo (`servicioId`), no de `precio`.
+ */
 export const createAcademiaSchema = z.object({
   nombre: z.string().trim().min(2, "Nombre requerido"),
   deporte: z.enum(["tenis", "padel"]),
-  nivel: z.string().trim().optional(),
-  profesorId: z.string().uuid().optional().or(z.literal("")),
-  cancha: z.string().trim().optional(),
+  categoria: z.enum(["recreativa", "competencia"]),
+  /** id del servicio de Siigo; llega del select como string ("" = sin atar). */
+  servicioId: z.string().trim().optional(),
+  /** Solo referencia para quien contesta el teléfono. NO se usa para calcular. */
   precio: z.coerce.number().int().min(0).default(0),
   matricula: z.coerce.number().int().min(0).default(0),
-  periodoInicio: z.string().trim().optional(),
-  periodoFin: z.string().trim().optional(),
-  horaInicio: z.string().trim().optional(),
-  horaFin: z.string().trim().optional(),
 });
+
+export const CATEGORIAS = [
+  { value: "recreativa", label: "Recreativa" },
+  { value: "competencia", label: "Competencia" },
+] as const;
 
 export const DIAS = [
   { value: 1, label: "Lun" },

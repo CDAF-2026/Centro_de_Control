@@ -29,10 +29,6 @@ export async function createAcademia(
     return { error: "Revisa los campos.", fieldErrors };
   }
   const d = parsed.data;
-  const dias = formData
-    .getAll("dias")
-    .map((x) => Number(x))
-    .filter((n) => n >= 0 && n <= 6);
 
   const supabase = await createClient();
   const { count } = await supabase
@@ -47,16 +43,10 @@ export async function createAcademia(
       codigo,
       nombre: d.nombre,
       deporte: d.deporte,
-      nivel: d.nivel || null,
-      profesor_id: d.profesorId || null,
-      cancha: d.cancha || null,
+      categoria: d.categoria,
+      servicio_id: Number(d.servicioId) || null,
       precio: d.precio,
       matricula: d.matricula,
-      periodo_inicio: d.periodoInicio || null,
-      periodo_fin: d.periodoFin || null,
-      dias_semana: dias,
-      hora_inicio: d.horaInicio || null,
-      hora_fin: d.horaFin || null,
     })
     .select("id")
     .single();
@@ -166,7 +156,6 @@ export async function updateAcademia(
     return { error: "Revisa los campos.", fieldErrors };
   }
   const d = parsed.data;
-  const dias = formData.getAll("dias").map((x) => Number(x)).filter((n) => n >= 0 && n <= 6);
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -174,16 +163,10 @@ export async function updateAcademia(
     .update({
       nombre: d.nombre,
       deporte: d.deporte,
-      nivel: d.nivel || null,
-      profesor_id: d.profesorId || null,
-      cancha: d.cancha || null,
+      categoria: d.categoria,
+      servicio_id: Number(d.servicioId) || null,
       precio: d.precio,
       matricula: d.matricula,
-      periodo_inicio: d.periodoInicio || null,
-      periodo_fin: d.periodoFin || null,
-      dias_semana: dias,
-      hora_inicio: d.horaInicio || null,
-      hora_fin: d.horaFin || null,
     })
     .eq("id", id);
   if (error) return { error: error.message };

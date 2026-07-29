@@ -2,35 +2,32 @@
 
 import { useActionState } from "react";
 import { updateAcademia, type AcademiaFormState } from "../actions";
-import { DIAS } from "@/lib/validations/academia";
+import { CATEGORIAS } from "@/lib/validations/academia";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { AcademiaCategoria } from "@/lib/database.types";
 
 const initial: AcademiaFormState = {};
+const SELECT = "border-input bg-background h-9 w-full rounded-md border px-3 text-sm";
 
 export type AcademiaEditable = {
   id: number;
   nombre: string;
   deporte: "tenis" | "padel";
-  nivel: string | null;
-  profesor_id: string | null;
-  cancha: string | null;
+  categoria: AcademiaCategoria | null;
+  servicio_id: number | null;
   precio: number;
   matricula: number;
-  periodo_inicio: string | null;
-  periodo_fin: string | null;
-  dias_semana: number[];
-  hora_inicio: string | null;
-  hora_fin: string | null;
 };
 
+/** Mismos campos que "nueva": la academia es un servicio, no un grupo. */
 export function EditarAcademiaForm({
   academia,
-  profesores,
+  servicios,
 }: {
   academia: AcademiaEditable;
-  profesores: { id: string; nombre: string | null }[];
+  servicios: { id: number; nombre: string }[];
 }) {
   const [state, action, pending] = useActionState(updateAcademia, initial);
   const fe = state.fieldErrors ?? {};
@@ -48,80 +45,53 @@ export function EditarAcademiaForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label htmlFor="deporte">Deporte</Label>
-          <select id="deporte" name="deporte" defaultValue={academia.deporte} className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm">
+          <select id="deporte" name="deporte" defaultValue={academia.deporte} className={SELECT}>
             <option value="tenis">Tenis</option>
             <option value="padel">Pádel</option>
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="nivel">Nivel</Label>
-          <Input id="nivel" name="nivel" defaultValue={academia.nivel ?? ""} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="profesorId">Profesor</Label>
-          <select id="profesorId" name="profesorId" defaultValue={academia.profesor_id ?? ""} className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm">
-            <option value="">— Sin asignar —</option>
-            {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>)}
+          <Label htmlFor="categoria">Categoría</Label>
+          <select id="categoria" name="categoria" defaultValue={academia.categoria ?? "recreativa"} className={SELECT}>
+            {CATEGORIAS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
           </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="cancha">Cancha</Label>
-          <Input id="cancha" name="cancha" defaultValue={academia.cancha ?? ""} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="precio">Precio (COP)</Label>
-          <Input id="precio" name="precio" type="number" min={0} defaultValue={academia.precio} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="matricula">Matrícula (COP)</Label>
-          <Input id="matricula" name="matricula" type="number" min={0} defaultValue={academia.matricula} />
+          {fe.categoria && <p className="text-destructive text-sm">{fe.categoria}</p>}
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <Label>Días de la semana</Label>
-        <div className="flex flex-wrap gap-3">
-          {DIAS.map((d) => (
-            <label key={d.value} className="flex items-center gap-1.5 text-sm">
-              <input type="checkbox" name="dias" value={d.value} defaultChecked={academia.dias_semana.includes(d.value)} /> {d.label}
-            </label>
+        <Label htmlFor="servicioId">Servicio en Siigo</Label>
+        <select id="servicioId" name="servicioId" defaultValue={academia.servicio_id ? String(academia.servicio_id) : ""} className={SELECT}>
+          <option value="">— Sin atar —</option>
+          {servicios.map((s) => (
+            <option key={s.id} value={s.id}>{s.nombre}</option>
           ))}
-        </div>
+        </select>
+        <p className="text-muted-foreground text-xs">
+          Con qué grupo de producto se factura en Siigo. De ahí sale el ingreso de la academia.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="horaInicio">Hora inicio</Label>
-          <Input id="horaInicio" name="horaInicio" type="time" defaultValue={academia.hora_inicio?.slice(0, 5) ?? ""} />
+          <Label htmlFor="precio">Precio de referencia (COP)</Label>
+          <Input id="precio" name="precio" type="number" min={0} defaultValue={academia.precio} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="horaFin">Hora fin</Label>
-          <Input id="horaFin" name="horaFin" type="time" defaultValue={academia.hora_fin?.slice(0, 5) ?? ""} />
+          <Label htmlFor="matricula">Matrícula de referencia (COP)</Label>
+          <Input id="matricula" name="matricula" type="number" min={0} defaultValue={academia.matricula} />
         </div>
       </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="periodoInicio">Periodo: inicio</Label>
-          <Input id="periodoInicio" name="periodoInicio" type="date" defaultValue={academia.periodo_inicio ?? ""} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="periodoFin">Periodo: fin</Label>
-          <Input id="periodoFin" name="periodoFin" type="date" defaultValue={academia.periodo_fin ?? ""} />
-        </div>
-      </div>
+      <p className="text-muted-foreground text-xs">
+        Estos dos valores son solo informativos. La plata que se cobra sale de las facturas de Siigo.
+      </p>
 
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-      <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar cambios"}</Button>
-      <p className="text-muted-foreground text-xs">
-        Si cambiaste días, horas o periodo, vuelve a la ficha y usa <strong>“Generar programación”</strong> para recrear el calendario.
-      </p>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Guardando…" : "Guardar cambios"}
+      </Button>
     </form>
   );
 }

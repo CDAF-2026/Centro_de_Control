@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { nombreStaff } from "@/lib/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -27,7 +26,10 @@ export default async function AcademiaDetallePage({
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const profesorNombre = await nombreStaff(a.profesor_id);
+  // Servicio de Siigo con el que se factura: es el puente con la plata.
+  const { data: servicio } = a.servicio_id
+    ? await supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
+    : { data: null };
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
@@ -99,14 +101,21 @@ export default async function AcademiaDetallePage({
         <CardHeader>
           <CardTitle>Información</CardTitle>
         </CardHeader>
+        {/* La academia es un SERVICIO: no tiene un horario ni un profesor, porque cada
+            inscrito tiene los suyos. Lo que describe es el servicio y su tamaño. */}
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <Dato label="Profesor" valor={profesorNombre} />
-          <Dato label="Nivel" valor={a.nivel} />
-          <Dato label="Cancha" valor={a.cancha} />
-          <Dato label="Horario" valor={a.dias_semana.length ? `${a.dias_semana.map((d) => DIA_LABEL[d]).join(", ")} ${a.hora_inicio ?? ""}–${a.hora_fin ?? ""}` : null} />
-          <Dato label="Precio" valor={COP.format(a.precio)} />
-          <Dato label="Matrícula" valor={COP.format(a.matricula)} />
-          <Dato label="Periodo" valor={a.periodo_inicio ? `${a.periodo_inicio} → ${a.periodo_fin ?? "?"}` : null} />
+          <Dato label="Categoría" valor={a.categoria === "competencia" ? "Competencia" : a.categoria === "recreativa" ? "Recreativa" : null} />
+          <Dato label="Inscritos" valor={`${inscripciones?.length ?? 0} ${(inscripciones?.length ?? 0) === 1 ? "niño" : "niños"}`} />
+          <Dato label="Servicio en Siigo" valor={servicio?.nombre ?? null} />
+          <Dato label="Grupo de producto" valor={servicio?.siigo_grupo ?? null} />
+          <Dato label="Precio de referencia" valor={COP.format(a.precio)} />
+          <Dato label="Matrícula de referencia" valor={COP.format(a.matricula)} />
+        </CardContent>
+        <CardContent className="pt-0">
+          <p className="text-muted-foreground text-xs">
+            El ingreso de la academia sale de las facturas de Siigo del servicio de arriba. Los
+            valores de referencia son solo para consulta, no se usan para calcular.
+          </p>
         </CardContent>
       </Card>
 
