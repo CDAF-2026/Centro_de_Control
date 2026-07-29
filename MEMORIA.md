@@ -130,7 +130,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   (capturado al cerrar una particular en `/cierre`) alimenta el escalón. Alto rendimiento = % de
   `siigo_ingreso_servicio` del periodo. `salario_fijo`.valor = MENSUAL (prorrateado ×quincenas/2). El filtro
   día/hora hace que una regla de clase aplique solo a clases que inician en ese rango/días (ej. Willington:
-  comisión 50% solo lun–sáb 07:00–08:00). **TODOS los entrenadores activos están migrados** al modelo de
+  comisión 50% solo lun–sáb 07:00–08:00).
+  ⚠️ **El concepto exacto le gana al comodín `clase`, sin importar el `orden`** (liquidacion.ts, dos
+  `find` en cascada). Antes ganaba el primero por `orden`: como `clase` casa con TODO, una "Comisión
+  50% de las clases de 7 a.m." le tapaba a la regla de academia solo por estar más arriba, y pagaba
+  $60.000 donde van $0. Verificado con las reglas reales de Esteban: con el blindaje la academia paga
+  $0 aunque la regla esté al final de la lista, y la clase particular de 7 a.m. sigue pagando 50%.
+  ⚠️ Esteban y Jorge dan academia con **salario fijo**: tienen regla explícita `academia` /
+  `fijo_por_clase` en **$0** llamada "Academia · cubierta por salario fijo" (ids 25 y 26, insertadas a
+  mano en la BD, no en migración). No cambia el pago —ya era $0 por no casar ninguna regla— pero la
+  liquidación ahora dice POR QUÉ: antes "$0 porque va en su salario" y "$0 porque falta configurar la
+  regla" se veían idénticos, así que un olvido era invisible. Regla general: **todo el que dé academia
+  necesita regla de academia, aunque sea en $0.** **TODOS los entrenadores activos están migrados** al modelo de
   reglas (Leo, Joaquín, Dairon, Cristian, Willington, Esteban, Sebastián, Jorge); nadie usa ya el modelo
   viejo, pero `profesor_compensacion`/`profesor_valor_clase` quedan como respaldo/tumba. **Pickers de
   profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
@@ -219,6 +230,37 @@ modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del 
   catálogo `servicios`, match con trim/lowercase — ojo espacios finales en Siigo).
 - Academia: cobro por sesión asistida (excusa médica no se cobra) + matrícula UNA por deporte, SEMESTRAL.
 - Historia de datos arranca el **1-jun-2026**: comparativas "Mes vs anterior" serán completas desde agosto.
+
+## 🔄 Rediseño de Academias (decidido con el club el 29-jul-2026, AÚN NO construido)
+El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
+academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
+- **4 academias fijas**: Recreativa/Competencia × tenis/pádel. Cada una apunta a su **servicio de
+  Siigo** (`Academia de Tenis`, `Alto rendimiento tenis`, `Academia de Padel`, `Academia Alto
+  Rendimiento Padel`) — no a un precio interno.
+- **NO existe entidad "grupo"**. Decisión de Laura: mostrarlo confunde. Lo que se guarda es la lista
+  de inscritos de cada academia, y por inscrito sus **horarios por día** (día, hora, duración,
+  profesor, cancha) + nivel. El "grupo" es un cálculo invisible (agrupar por día+hora+profesor), usado
+  solo para pre-marcar la asistencia y para el reporte de ocupación.
+- **Inscripción única por niño y por deporte** (un niño no está en recreativa y competencia a la vez;
+  sí puede hacer tenis y pádel). El alumno es un **`cliente_miembros`**, no la ficha familiar.
+- **Nivel** = progresión de tenis (Bola Roja/Naranja/Verde/Amarilla) + Principiantes/Iniciados/
+  Intermedio, en lista cerrada (si cada uno escribe libre, el reporte por nivel no sirve).
+- **`precio`/`matricula` dejan de ser cálculo** (la plata sale de Siigo). Se quita la columna
+  "Facturado" inventada de la liquidación para academia (era `precio ÷ (días×4) × alumnos`). Verificado:
+  las 3 reglas de academia son `fijo_por_clase` y NO usan el facturado → impacto $0. Control correcto
+  = cruzar **quién asistió** vs **a quién le facturó Siigo**, por personas, no por precio.
+- **El club deja de hacer bloqueos largos**: una reserva de EasyCancha = una clase (instrucción de
+  Laura al club, jul-2026). El usuario BLOQUEOS ACADEMIAS es EXCLUSIVO de academias.
+- **Formato del comentario**: "Academia Recreativa Esteban". ⚠️ Pero **no se depende de él**: en el
+  modal la academia se escoge SIEMPRE a mano (arranca vacía, sin pre-seleccionar) porque define a
+  quién se le cobra; el **profesor** sí viene sugerido del comentario y se **confirma al cerrar la
+  clase** (obligatorio: hoy una clase sin `profesor_id` desaparece de la liquidación en silencio).
+- **Cierre**: los inscritos esperados a esa hora llegan **pre-marcados** y visualmente distintos, los
+  demás inscritos abajo (reposiciones), y antes de cerrar un conteo explícito ("6 presentes de 8
+  inscritos") para que un olvido salte a la vista. Nada se guarda hasta confirmar.
+- **Se quita** "Generar / regenerar programación" y el reprogramar/cancelar de `/academias`.
+- Las 11 academias actuales NO se migran (tenían 1 sola inscripción): se archivan y se arranca desde
+  un Excel que llena el club (una fila por niño y por día).
 
 ## Pendientes conocidos
 - Rotar tokens expuestos en chat: PAT de Supabase y access_key de Siigo (Laura debe regenerarlos).

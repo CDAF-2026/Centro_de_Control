@@ -285,10 +285,17 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     // Valor a pagar al profesor.
     let valorProfesor: number;
     if (reglas.length) {
-      // Modelo nuevo: la primera regla (por orden) que aplique a esta clase.
+      // Modelo nuevo: la primera regla (por orden) que aplique a esta clase, pero el
+      // CONCEPTO EXACTO le gana al comodín `clase` sin importar el `orden`. Si no, una
+      // comisión genérica ("50% de las clases de 7 a.m.") le tapa a la regla hecha para
+      // academia solo por estar más arriba en la lista, y el profe cobra por la vía
+      // equivocada sin que nadie se entere.
       const concepto = conceptoDeClase(c);
       const weekday = new Date(`${c.fecha}T00:00:00`).getDay();
-      const regla = reglas.find((r) => reglaClaseAplica(r, concepto, weekday, c.hora_inicio));
+      const aplica = (r: ReglaRow) => reglaClaseAplica(r, concepto, weekday, c.hora_inicio);
+      const regla =
+        reglas.find((r) => r.concepto === concepto && aplica(r)) ??
+        reglas.find((r) => r.concepto === "clase" && aplica(r));
       const monthRank = rangoMes.get(c.id) ?? null;
       valorProfesor = regla ? pagoReglaClase(regla, { valorFacturado, alumnos, nPersonas, monthRank }) : 0;
       if (regla) {
