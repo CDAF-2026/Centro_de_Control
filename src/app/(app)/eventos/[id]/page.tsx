@@ -12,8 +12,9 @@ import { ParticipanteForm } from "./participante-form";
 import { ProfesorForm } from "./profesor-form";
 import { GastoForm, CATEGORIA_LABEL } from "./gasto-form";
 import { CerrarEvento, ReabrirEvento } from "./cierre-evento";
+import { FacturasCandidatas } from "./facturas-evento";
 import { RemoveButton } from "./remove-button";
-import { quitarParticipante, quitarProfesor, quitarGasto } from "../actions";
+import { quitarParticipante, quitarProfesor, quitarGasto, soltarFactura } from "../actions";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const TIPO_LABEL: Record<string, string> = { torneo: "Torneo", clinica: "Clínica", masterclass: "Masterclass", otro: "Otro" };
@@ -36,7 +37,7 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
   // publicado en el dashboard dejara de corresponder con el detalle de abajo.
   const puedeEditar = can(profile.role, "eventos", "edit") && !cerrado;
 
-  const [partsRes, profesRes, gastosRes, servicioRes, profesoresRes, pygRes] = await Promise.all([
+  const [partsRes, profesRes, gastosRes, servicioRes, profesoresRes, pygRes, atadasRes, candidatasRes] = await Promise.all([
     supabase
       .from("evento_participantes")
       .select("id, cliente_id, nombre_externo, telefono_externo, monto, estado")
@@ -54,6 +55,15 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
     profesoresActivos(),
     // El P&G se suma en la BASE (RPC): nunca traer facturas fila a fila para agregarlas aquí.
     supabase.rpc("eventos_pyg", { p_evento: eventoId }),
+    // Las facturas YA atadas: son el ingreso del evento. Conjunto acotado (las de un torneo).
+    supabase
+      .from("siigo_facturas")
+      .select("id, numero, fecha, cliente_nombre_siigo, total, saldo, estado_conciliacion")
+      .eq("evento_id", eventoId)
+      .order("fecha"),
+    // Candidatas: mismo servicio y ±15 días, sin filtrar por estado_conciliacion — las
+    // `auto` y `mostrador` nunca pasan por /pagos, así que este es su único sitio.
+    supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId }),
   ]);
 
   const parts = partsRes.data ?? [];
@@ -97,6 +107,21 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
   const desfase = cerrado && (ingresoVivo !== ingreso || costoVivo !== costo);
   const margen = ingreso > 0 ? Math.round((utilidad / ingreso) * 100) : null;
 
+  // ── Facturas del evento: las atadas (su ingreso) y las que aún podrían serlo ──
+  const atadas = atadasRes.data ?? [];
+  const candidatas = candidatasRes.data ?? [];
+  // Los totales vienen repetidos en cada fila (window sobre el conjunto completo), así
+  // el aviso del cierre es exacto aunque la lista venga recortada por el limit del RPC.
+  const nCandidatas = Number(candidatas[0]?.n_candidatas ?? 0);
+  const montoCandidatas = Number(candidatas[0]?.monto_candidatas ?? 0);
+  const corre = (iso: string, dias: number) => {
+    const d = new Date(`${iso}T00:00:00`);
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  };
+  const diaMes = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1].slice(0, 3)}`;
+  const ventana = `${diaMes(corre(evento.fecha_inicio, -15))} → ${diaMes(corre(evento.fecha_fin ?? evento.fecha_inicio, 15))}`;
+
   const fechaImputacion = evento.fecha_fin ?? evento.fecha_inicio;
   const esSuperadmin = profile.role === "superadmin";
   const puedeCerrar = can(profile.role, "eventos", "edit") && !cerrado && evento.estado !== "cancelado";
@@ -126,6 +151,8 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
                 utilidad={utilidadViva}
                 pendienteCobro={pendienteCobro}
                 mesImputacion={mesDe(fechaImputacion)}
+                nCandidatas={nCandidatas}
+                montoCandidatas={montoCandidatas}
               />
             )}
             {cerrado && esSuperadmin && <ReabrirEvento eventoId={eventoId} />}
@@ -187,8 +214,10 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
 
           {ingreso === 0 && !cerrado && (
             <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-xs">
-              Este evento no tiene facturas atadas todavía. Los ingresos se atan desde{" "}
-              <Link href="/pagos" className="underline">Pagos</Link>, asignándole el evento a cada factura de Siigo.
+              Este evento no tiene facturas atadas todavía, así que su ingreso está en cero.
+              {nCandidatas > 0
+                ? ` Abajo hay ${nCandidatas} factura${nCandidatas === 1 ? "" : "s"} que podría${nCandidatas === 1 ? "" : "n"} ser de este evento.`
+                : " En cuanto Siigo traiga las inscripciones aparecerán abajo como candidatas."}
             </p>
           )}
 
@@ -201,6 +230,101 @@ export default async function EventoDetallePage({ params }: { params: Promise<{ 
                 actualizarla, reabre el evento y vuélvelo a cerrar.
               </span>
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Facturas del evento: de dónde sale su ingreso ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Facturas del evento</CardTitle>
+          <p className="text-muted-foreground text-xs">
+            El ingreso de arriba son estas facturas de Siigo. Atar una factura no la concilia: si es de
+            mostrador sigue siendo anónima, solo queda dicho de qué evento es.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {atadas.length > 0 ? (
+            <div className="cdaf-table-wrap">
+              <table className="cdaf-table">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2">Factura</th>
+                    <th className="px-4 py-2">Cliente</th>
+                    <th className="px-4 py-2">Fecha</th>
+                    <th className="px-4 py-2 text-right">Total</th>
+                    <th className="px-4 py-2 text-right">Por cobrar</th>
+                    <th className="px-4 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {atadas.map((f) => (
+                    <tr key={f.id} className="border-t">
+                      <td className="px-4 py-2 tabular-nums">{f.numero ?? `#${f.id}`}</td>
+                      <td className="px-4 py-2">
+                        {f.cliente_nombre_siigo ?? <span className="text-muted-foreground">Sin identificar</span>}
+                      </td>
+                      <td className="text-muted-foreground px-4 py-2 tabular-nums">{f.fecha}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{COP.format(f.total)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {f.saldo > 0 ? COP.format(f.saldo) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {puedeEditar && (
+                          <RemoveButton action={soltarFactura} id={f.id} eventoId={eventoId} label="Soltar" />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-muted/40 border-t font-medium">
+                    <td className="px-4 py-2" colSpan={3}>
+                      {atadas.length} {atadas.length === 1 ? "factura atada" : "facturas atadas"}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {COP.format(atadas.reduce((s, f) => s + f.total, 0))}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {COP.format(atadas.reduce((s, f) => s + f.saldo, 0))}
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">Ninguna factura atada todavía.</p>
+          )}
+
+          {puedeEditar && !evento.servicio_id && (
+            <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-xs">
+              Este evento no tiene servicio asignado, así que no se pueden proponer facturas candidatas.
+              Asígnale uno (p. ej. “Torneo”) para que aparezcan solas.
+            </p>
+          )}
+
+          {puedeEditar && evento.servicio_id != null && (
+            <div className="border-t pt-4">
+              <h3 className="font-heading mb-2 text-sm font-semibold">
+                Candidatas{" "}
+                {nCandidatas > 0 && (
+                  <span className="text-muted-foreground font-sans font-normal tabular-nums">
+                    {nCandidatas} · {COP.format(montoCandidatas)}
+                  </span>
+                )}
+              </h3>
+              {candidatas.length > 0 ? (
+                <FacturasCandidatas
+                  key={candidatas.map((c) => c.id).join("-")}
+                  eventoId={eventoId}
+                  candidatas={candidatas}
+                  ventana={ventana}
+                />
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  No hay facturas sueltas de {servicioRes.data?.nombre ?? "este servicio"} entre {ventana}.
+                </p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

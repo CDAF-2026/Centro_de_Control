@@ -79,6 +79,20 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   RPCs: `eventos_pyg(p_evento default null)` (P&G de uno o de todos, una sola llamada para el
   listado), `eventos_resultado_periodo(desde,hasta)` (utilidad congelada de los CERRADOS, con su
   fecha), `eventos_retenido(desde,hasta)` (bruto de los ABIERTOS que cae en el periodo → el aviso).
+  ⚠️ **Atar facturas NO se hace (solo) desde `/pagos`** (migración 0050). La cola de `/pagos` lista
+  únicamente las `pendiente`, pero una factura de torneo casi nunca llega ahí: si el NIT empareja con
+  un cliente conocido el sync la marca **`auto`**, y si el pago es anónimo la marca **`mostrador`** —
+  ninguna de las dos aparece en la cola. Medido en jun–jul 2026: de 42 facturas con línea de torneo,
+  38 mostrador + 3 auto + 1 pendiente → el **98% del dinero de torneos nunca pasaba por un sitio donde
+  atarlo**, así que el P&G salía sin ingresos (solo costos = pérdida) y el dashboard seguía contando el
+  bruto. Fondo del asunto: *¿de quién es esta plata?* (`cliente_id`, conciliación) y *¿de cuál torneo
+  es?* (`evento_id`) son preguntas distintas y el único botón para la segunda vivía dentro de la
+  pantalla de la primera. Solución: **`evento_facturas_candidatas(p_evento)`** (mismo servicio, ±15
+  días, `evento_id is null`, **sin filtrar por estado_conciliacion**; trae `n_candidatas`/
+  `monto_candidatas` por window function para que el aviso sea exacto pese al `limit 200`) + selector
+  en la ficha del evento (`facturas-evento.tsx`) con acciones `atarFacturas`/`soltarFactura`. **Atar no
+  concilia**: `estado_conciliacion` y `cliente_id` se dejan intactos (una mostrador sigue anónima).
+  Al cerrar, si quedan candidatas sueltas se avisa para no publicar el torneo con el ingreso corto.
   ⚠️ **Decidido NO usar el centro de costos de Siigo**: en las facturas de venta está apagado
   (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
   torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los

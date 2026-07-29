@@ -242,6 +242,73 @@ export async function quitarGasto(_prev: EventoState, formData: FormData): Promi
   return { ok: "Gasto eliminado." };
 }
 
+// ──────────────────────── Facturas del evento (sus ingresos) ────────────────────────
+
+/**
+ * Ata facturas de Siigo al evento: es lo que hace que su plata cuente como ingreso del
+ * P&G y salga del bruto del dashboard.
+ *
+ * OJO — atar NO es conciliar. `estado_conciliacion` y `cliente_id` se dejan intactos:
+ * una factura de mostrador sigue siendo anónima, solo queda dicho de qué torneo es.
+ * Son dos preguntas distintas y por eso este botón vive en la ficha del evento y no en
+ * la cola de /pagos, donde las `auto` y las `mostrador` nunca aparecen (ver 0050).
+ */
+export async function atarFacturas(_prev: EventoState, formData: FormData): Promise<EventoState> {
+  await requireRole(ADMIN);
+  const eventoId = Number(formData.get("evento_id"));
+  const ids = formData.getAll("factura_id").map(Number).filter((n) => Number.isFinite(n) && n > 0);
+  if (!eventoId) return { error: "Evento inválido." };
+  if (!ids.length) return { error: "Marca al menos una factura." };
+
+  const supabase = await createClient();
+  const cerrado = await evitarSiCerrado(supabase, eventoId);
+  if (cerrado) return { error: cerrado };
+
+  // `is("evento_id", null)`: si otro evento ya se llevó alguna de estas facturas no se
+  // la quitamos por debajo — solo se ata lo que está libre.
+  const { data, error } = await supabase
+    .from("siigo_facturas")
+    .update({ evento_id: eventoId })
+    .in("id", ids)
+    .is("evento_id", null)
+    .select("id");
+  if (error) return { error: error.message };
+
+  const n = data?.length ?? 0;
+  await logAudit({
+    action: "evento.atar_facturas",
+    entity: "eventos",
+    entityId: String(eventoId),
+    after: { pedidas: ids.length, atadas: n },
+  });
+  revalidatePath(`/eventos/${eventoId}`);
+  revalidatePath("/eventos");
+  revalidatePath("/pagos");
+  if (n < ids.length) return { ok: `${n} de ${ids.length} atadas; el resto ya estaba en otro evento.` };
+  return { ok: n === 1 ? "Factura atada al evento." : `${n} facturas atadas al evento.` };
+}
+
+/** Suelta una factura del evento: su plata vuelve a contar como facturación normal. */
+export async function soltarFactura(_prev: EventoState, formData: FormData): Promise<EventoState> {
+  await requireRole(ADMIN);
+  const id = Number(formData.get("id"));
+  const eventoId = Number(formData.get("evento_id"));
+  if (!id || !eventoId) return { error: "Inválido." };
+
+  const supabase = await createClient();
+  const cerrado = await evitarSiCerrado(supabase, eventoId);
+  if (cerrado) return { error: cerrado };
+
+  const { error } = await supabase.from("siigo_facturas").update({ evento_id: null }).eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "evento.soltar_factura", entity: "siigo_facturas", entityId: String(id) });
+  revalidatePath(`/eventos/${eventoId}`);
+  revalidatePath("/eventos");
+  revalidatePath("/pagos");
+  return { ok: "Factura desatada del evento." };
+}
+
 // ──────────────────────────── Cierre financiero del evento ────────────────────────────
 
 /**

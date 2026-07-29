@@ -1123,6 +1123,29 @@ export type Database = {
           facturas: number;
         }[];
       };
+      /**
+       * Facturas que podrían ser del evento (mismo servicio, ±15 días) y aún no están atadas.
+       * NO filtra por estado_conciliacion a propósito: las `auto` y `mostrador` nunca pasan
+       * por la cola de /pagos, así que este es el único sitio donde se pueden atar.
+       */
+      evento_facturas_candidatas: {
+        Args: { p_evento: number };
+        Returns: {
+          id: number;
+          numero: string | null;
+          fecha: string;
+          cliente_nombre_siigo: string | null;
+          cliente_identificacion: string | null;
+          cliente_id: number | null;
+          total: number;
+          saldo: number;
+          estado_conciliacion: string;
+          detalle: string | null;
+          /** Totales de TODO el conjunto candidato, no solo de las filas devueltas. */
+          n_candidatas: number;
+          monto_candidatas: number;
+        }[];
+      };
       /** Utilidad congelada de los eventos CERRADOS imputados al periodo (lo que suma el dashboard). */
       eventos_resultado_periodo: {
         Args: { p_desde: string; p_hasta: string };

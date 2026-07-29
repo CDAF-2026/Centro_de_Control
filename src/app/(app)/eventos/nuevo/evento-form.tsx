@@ -59,9 +59,6 @@ export function EventoForm({
             <option key={s.id} value={s.id}>{s.nombre}</option>
           ))}
         </select>
-        <p className="text-muted-foreground text-xs">
-          Los cobros a participantes se etiquetan con este servicio en la bolsa de pagos.
-        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

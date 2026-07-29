@@ -29,6 +29,8 @@ export function CerrarEvento({
   utilidad,
   pendienteCobro,
   mesImputacion,
+  nCandidatas,
+  montoCandidatas,
 }: {
   eventoId: number;
   ingreso: number;
@@ -37,6 +39,9 @@ export function CerrarEvento({
   pendienteCobro: number;
   /** Ya formateado en el servidor ("julio 2026"): `Intl` en español difiere entre Node y el navegador. */
   mesImputacion: string;
+  /** Facturas que podrían ser del evento y siguen sueltas: cerrar sin ellas subestima el ingreso. */
+  nCandidatas: number;
+  montoCandidatas: number;
 }) {
   const [state, action, pending] = useActionState(cerrarEvento, init);
 
@@ -74,6 +79,16 @@ export function CerrarEvento({
         <p className="text-muted-foreground text-xs">
           Se imputa a <strong className="text-foreground">{mesImputacion}</strong>, el mes del evento.
         </p>
+
+        {nCandidatas > 0 && (
+          <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-xs">
+            Ojo: quedan <strong className="tabular-nums">{nCandidatas}</strong>{" "}
+            {nCandidatas === 1 ? "factura" : "facturas"} por{" "}
+            <strong className="tabular-nums">{COP.format(montoCandidatas)}</strong> que podrían ser de este
+            evento y no están atadas. Si alguna lo es, ciérralo después de atarla: si no, su ingreso queda
+            subestimado y la utilidad que se publica sale más baja de lo real.
+          </p>
+        )}
 
         {pendienteCobro > 0 && (
           <p className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-xs">
