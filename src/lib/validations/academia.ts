@@ -22,6 +22,28 @@ export const CATEGORIAS = [
   { value: "competencia", label: "Competencia" },
 ] as const;
 
+/**
+ * Nivel del niño, en lista cerrada. Los cuatro primeros son la progresión de
+ * tenis que el club ya usaba en los nombres de sus grupos ("Bola Roja M-J").
+ * Si cada uno escribe libre, el reporte por nivel no sirve.
+ */
+export const NIVELES = [
+  "Bola Roja",
+  "Bola Naranja",
+  "Bola Verde",
+  "Bola Amarilla",
+  "Principiantes",
+  "Iniciados",
+  "Intermedio",
+] as const;
+
+/** Duraciones que usa el club (vistas en los horarios reales de las academias). */
+export const DURACIONES = [
+  { value: 60, label: "1 hora" },
+  { value: 90, label: "1 hora y media" },
+  { value: 120, label: "2 horas" },
+] as const;
+
 export const DIAS = [
   { value: 1, label: "Lun" },
   { value: 2, label: "Mar" },

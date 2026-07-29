@@ -6,11 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { mapaNombresStaff, profesoresActivos } from "@/lib/staff";
 import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
+import { InscritoRow, type Inscrito } from "./inscrito-row";
 
-const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 export default async function AcademiaDetallePage({
@@ -33,7 +34,7 @@ export default async function AcademiaDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, cliente_id, miembro_id, plan_frecuencia, descuento_pct, dias")
+    .select("id, cliente_id, miembro_id, nivel, descuento_pct")
     .eq("academia_id", academiaId);
   // El inscrito es el MIEMBRO (hermano); si faltara, se cae al nombre de la ficha.
   const miembroIds = (inscripciones ?? []).map((i) => i.miembro_id).filter((x): x is number => x != null);
@@ -64,6 +65,40 @@ export default async function AcademiaDetallePage({
       if (ok && a.miembro_id != null) presentesMes.set(a.miembro_id, (presentesMes.get(a.miembro_id) ?? 0) + 1);
     }
   }
+
+  // Horarios de cada inscrito + el nombre del profesor de cada uno.
+  const insIds = (inscripciones ?? []).map((i) => i.id);
+  const { data: horarios } = insIds.length
+    ? await supabase
+        .from("inscripcion_horarios")
+        .select("id, inscripcion_id, dia_semana, hora_inicio, hora_fin, profesor_id, cancha")
+        .in("inscripcion_id", insIds)
+        .order("dia_semana")
+        .order("hora_inicio")
+    : { data: [] };
+  const nombresStaff = (horarios ?? []).some((h) => h.profesor_id) ? await mapaNombresStaff() : new Map<string, string>();
+
+  const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre }));
+
+  const inscritos: Inscrito[] = (inscripciones ?? [])
+    .map((i) => ({
+      inscripcionId: i.id,
+      nombre: nombreInscrito(i),
+      nivel: i.nivel,
+      descuento: Number(i.descuento_pct),
+      presentesMes: i.miembro_id != null ? presentesMes.get(i.miembro_id) ?? 0 : 0,
+      horarios: (horarios ?? [])
+        .filter((h) => h.inscripcion_id === i.id)
+        .map((h) => ({
+          id: h.id,
+          dia_semana: h.dia_semana,
+          hora_inicio: h.hora_inicio,
+          hora_fin: h.hora_fin,
+          profesorNombre: h.profesor_id ? nombresStaff.get(h.profesor_id) ?? null : null,
+          cancha: h.cancha,
+        })),
+    }))
+    .sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
 
   const { data: listaEspera } = await supabase
     .from("lista_espera")
@@ -137,27 +172,19 @@ export default async function AcademiaDetallePage({
 
       <Card className="overflow-visible">
         <CardHeader>
-          <CardTitle>Inscritos ({inscripciones?.length ?? 0})</CardTitle>
+          <CardTitle>Inscritos ({inscritos.length})</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {(inscripciones ?? []).length > 0 ? (
-            <ul className="divide-y text-sm">
-              {(inscripciones ?? []).map((i) => (
-                <li key={i.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="flex flex-wrap items-center gap-2">
-                    {nombreInscrito(i)}
-                    {i.miembro_id != null && (presentesMes.get(i.miembro_id) ?? 0) > i.plan_frecuencia * 4 && (
-                      <Badge variant="warning">Sobre-asistencia · {presentesMes.get(i.miembro_id)} este mes</Badge>
-                    )}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {i.dias && i.dias.length > 0 && (
-                      <>{[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · </>
-                    )}
-                    {i.plan_frecuencia}×sem
-                    {i.descuento_pct > 0 && ` · ${i.descuento_pct}% desc.`}
-                  </span>
-                </li>
+          {inscritos.length > 0 ? (
+            <ul className="divide-y">
+              {inscritos.map((i) => (
+                <InscritoRow
+                  key={i.inscripcionId}
+                  academiaId={academiaId}
+                  inscrito={i}
+                  profesores={profesores}
+                  puedeEditar={puedeInscribir}
+                />
               ))}
             </ul>
           ) : (
@@ -165,7 +192,7 @@ export default async function AcademiaDetallePage({
           )}
           {puedeInscribir && (
             <div className="border-t pt-4">
-              <InscribirForm academiaId={academiaId} />
+              <InscribirForm academiaId={academiaId} profesores={profesores} />
             </div>
           )}
         </CardContent>

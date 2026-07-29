@@ -62,20 +62,71 @@ export async function createAcademia(
   redirect(`/academias/${ac.id}`);
 }
 
+/** "16:30" + 90 min → "18:00". Devuelve null si la hora no parsea. */
+function sumarMinutos(hhmm: string, minutos: number): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm.trim());
+  if (!m) return null;
+  const total = Number(m[1]) * 60 + Number(m[2]) + minutos;
+  if (total > 24 * 60) return null;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Lee los horarios del formulario. Vienen como arreglos paralelos (una posición
+ * por fila): día, hora de inicio, duración en minutos, profesor y cancha.
+ */
+function horariosDelForm(formData: FormData) {
+  const dias = formData.getAll("h_dia").map(String);
+  const horas = formData.getAll("h_hora").map(String);
+  const durs = formData.getAll("h_dur").map(String);
+  const profes = formData.getAll("h_profesor").map(String);
+  const canchas = formData.getAll("h_cancha").map(String);
+
+  const out: { dia_semana: number; hora_inicio: string; hora_fin: string; profesor_id: string | null; cancha: string | null }[] = [];
+  for (let i = 0; i < dias.length; i++) {
+    const dia = Number(dias[i]);
+    const hora = (horas[i] ?? "").trim();
+    const dur = Number(durs[i]) || 60;
+    if (!Number.isInteger(dia) || dia < 0 || dia > 6 || !hora) continue; // fila vacía
+    const fin = sumarMinutos(hora, dur);
+    if (!fin) continue;
+    out.push({
+      dia_semana: dia,
+      hora_inicio: hora,
+      hora_fin: fin,
+      profesor_id: (profes[i] ?? "").trim() || null,
+      cancha: (canchas[i] ?? "").trim() || null,
+    });
+  }
+  return out;
+}
+
+/** Traduce el error de Postgres a algo que se entienda en pantalla. */
+function errorInscripcion(msg: string): string {
+  if (/una sola academia por deporte/i.test(msg)) return msg.replace(/^.*?:\s*/, "");
+  if (/duplicate|unique/i.test(msg)) return "Esa persona ya está inscrita en esta academia.";
+  return msg;
+}
+
+/**
+ * Inscribe a un niño en una academia con sus horarios.
+ *
+ * El horario cuelga del INSCRITO, no de la academia: el mismo niño puede venir
+ * martes 16:30 con un profesor y sábado 12:00 con otro. Cada fila del formulario
+ * es una de esas venidas.
+ */
 export async function inscribirCliente(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
   await requireRole(INSCRIBE);
   const academiaId = Number(formData.get("academiaId"));
-  const plan = Number(formData.get("plan"));
+  const nivel = String(formData.get("nivel") || "").trim() || null;
   const descuento = Number(formData.get("descuento") || 0);
-  const dias = formData
-    .getAll("dias")
-    .map((d) => Number(d))
-    .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
-  if (![1, 2, 3].includes(plan)) return { error: "Plan inválido." };
   if (descuento < 0 || descuento > 100) return { error: "Descuento inválido." };
+
+  const horarios = horariosDelForm(formData);
+  if (horarios.length === 0) return { error: "Agrega al menos un día con su hora." };
 
   const supabase = await createClient();
   // Se busca a la PERSONA (miembro): la familia (cliente_id) sale del propio miembro.
@@ -92,29 +143,80 @@ export async function inscribirCliente(
     miembroId = tit?.id ?? null;
   }
 
-  const { error } = await supabase.from("inscripciones").insert({
-    academia_id: academiaId,
-    cliente_id: clienteId,
-    miembro_id: miembroId,
-    plan_frecuencia: plan,
-    descuento_pct: descuento,
-    dias,
-  });
-  if (error) {
-    return {
-      error: /duplicate|unique/i.test(error.message)
-        ? "Ese hermano ya está inscrito en esta academia."
-        : error.message,
-    };
+  const { data: ins, error } = await supabase
+    .from("inscripciones")
+    .insert({ academia_id: academiaId, cliente_id: clienteId, miembro_id: miembroId, nivel, descuento_pct: descuento })
+    .select("id")
+    .single();
+  if (error || !ins) return { error: errorInscripcion(error?.message ?? "No se pudo inscribir.") };
+
+  const { error: errH } = await supabase
+    .from("inscripcion_horarios")
+    .insert(horarios.map((h) => ({ ...h, inscripcion_id: ins.id })));
+  if (errH) {
+    // Sin horarios la inscripción no sirve para nada: mejor deshacerla que dejarla a medias.
+    await supabase.from("inscripciones").delete().eq("id", ins.id);
+    return { error: `No se pudieron guardar los horarios: ${errH.message}` };
   }
+
   await logAudit({
     action: "academia.inscribir",
     entity: "inscripciones",
-    entityId: String(academiaId),
-    after: { cliente_id: clienteId, plan, descuento_pct: descuento },
+    entityId: String(ins.id),
+    after: { academia_id: academiaId, miembro_id: miembroId, nivel, horarios: horarios.length },
   });
   revalidatePath(`/academias/${academiaId}`);
-  return { ok: "Cliente inscrito." };
+  return { ok: `Inscrito con ${horarios.length} ${horarios.length === 1 ? "horario" : "horarios"}.` };
+}
+
+/** Agrega un día más al horario de un inscrito ya existente. */
+export async function agregarHorario(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(INSCRIBE);
+  const inscripcionId = Number(formData.get("inscripcionId"));
+  const academiaId = Number(formData.get("academiaId"));
+  const horarios = horariosDelForm(formData);
+  if (!inscripcionId || horarios.length === 0) return { error: "Falta el día y la hora." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("inscripcion_horarios")
+    .insert(horarios.map((h) => ({ ...h, inscripcion_id: inscripcionId })));
+  if (error) {
+    return {
+      error: /duplicate|unique/i.test(error.message)
+        ? "Ya tiene un horario ese día a esa hora."
+        : error.message,
+    };
+  }
+
+  await logAudit({ action: "academia.horario_add", entity: "inscripcion_horarios", entityId: String(inscripcionId), after: horarios[0] });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: "Horario agregado." };
+}
+
+/** Quita un día del horario de un inscrito. */
+export async function quitarHorario(horarioId: number, academiaId: number): Promise<AcademiaFormState> {
+  await requireRole(INSCRIBE);
+  const supabase = await createClient();
+  const { error } = await supabase.from("inscripcion_horarios").delete().eq("id", horarioId);
+  if (error) return { error: error.message };
+  await logAudit({ action: "academia.horario_del", entity: "inscripcion_horarios", entityId: String(horarioId) });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: "Horario quitado." };
+}
+
+/** Saca a un niño de la academia (se van sus horarios en cascada). */
+export async function quitarInscripcion(inscripcionId: number, academiaId: number): Promise<AcademiaFormState> {
+  await requireRole(INSCRIBE);
+  const supabase = await createClient();
+  const { error } = await supabase.from("inscripciones").delete().eq("id", inscripcionId);
+  if (error) return { error: error.message };
+  await logAudit({ action: "academia.desinscribir", entity: "inscripciones", entityId: String(inscripcionId) });
+  revalidatePath(`/academias/${academiaId}`);
+  return { ok: "Retirado de la academia." };
 }
 
 export async function addListaEspera(

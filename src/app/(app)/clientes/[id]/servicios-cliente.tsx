@@ -5,7 +5,16 @@ import { asignarPaquete, type ClienteFormState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Insc = { id: number; plan_frecuencia: number; descuento_pct: number; academiaNombre: string; dias: number[]; miembro: string | null };
+type InscHorario = { dia: number; inicio: string; fin: string; cancha: string | null };
+type Insc = {
+  id: number;
+  nivel: string | null;
+  descuento_pct: number;
+  academiaNombre: string;
+  miembro: string | null;
+  /** Cuándo viene: el horario es del inscrito, no de la academia. */
+  horarios: InscHorario[];
+};
 type Pq = {
   id: number;
   num_clases: number;
@@ -51,10 +60,19 @@ export function ServiciosCliente({
                 <span>
                   {i.academiaNombre}
                   {i.miembro && <span className="text-muted-foreground"> · {i.miembro}</span>}
+                  {i.nivel && <span className="text-muted-foreground"> · {i.nivel}</span>}
                 </span>
                 <span className="text-muted-foreground text-right">
-                  {i.dias.length > 0 && `${[...i.dias].sort((a, b) => a - b).map((d) => DIA_LABEL[d]).join(" · ")} · `}
-                  {i.plan_frecuencia}×sem{i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
+                  {i.horarios.length > 0 ? (
+                    <>
+                      {i.horarios.map((h) => `${DIA_LABEL[h.dia]} ${h.inicio}`).join(" · ")}
+                      {" · "}
+                      {i.horarios.length}×sem
+                    </>
+                  ) : (
+                    "sin horario"
+                  )}
+                  {i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
                 </span>
               </li>
             ))}

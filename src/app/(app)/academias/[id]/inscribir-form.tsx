@@ -1,52 +1,90 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { inscribirCliente, type AcademiaFormState } from "../actions";
+import { NIVELES, DURACIONES, DIAS } from "@/lib/validations/academia";
 import { MiembroAutocomplete } from "@/components/miembro-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HorarioFila, type Profesor } from "./horario-fila";
 
 const initial: AcademiaFormState = {};
-const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const SELECT = "border-input bg-background h-9 rounded-md border px-3 text-sm";
 
-export function InscribirForm({ academiaId }: { academiaId: number }) {
+/**
+ * Inscribe un niño con SUS horarios. Cada fila es una venida a la semana, con su
+ * propio profesor y cancha: así se puede decir "martes 16:30 con Jorge y sábado
+ * 12:00 con Graciano", que es lo que el modelo viejo no podía representar.
+ */
+export function InscribirForm({
+  academiaId,
+  profesores,
+}: {
+  academiaId: number;
+  profesores: Profesor[];
+}) {
   const [state, action, pending] = useActionState(inscribirCliente, initial);
-  const dias = [1, 2, 3, 4, 5, 6, 0];
+  // Cada número es solo una llave de React; los valores viven en el DOM del form.
+  const [filas, setFilas] = useState<number[]>([0]);
+  const [siguiente, setSiguiente] = useState(1);
+
+  function agregar() {
+    setFilas((f) => [...f, siguiente]);
+    setSiguiente((n) => n + 1);
+  }
 
   return (
-    <form action={action} className="flex flex-wrap items-end gap-3">
+    <form action={action} className="space-y-4">
       <input type="hidden" name="academiaId" value={academiaId} />
-      <div className="space-y-1.5">
-        <Label>Persona</Label>
-        <MiembroAutocomplete />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="plan">Plan</Label>
-        <select id="plan" name="plan" className="border-input bg-background h-9 rounded-md border px-3 text-sm">
-          <option value="1">1×sem</option>
-          <option value="2">2×sem</option>
-          <option value="3">3×sem</option>
-        </select>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="descuento">Desc. %</Label>
-        <Input id="descuento" name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Días que asiste</Label>
-        <div className="flex flex-wrap items-center gap-2 py-1.5">
-          {dias.map((d) => (
-            <label key={d} className="flex items-center gap-1 text-sm">
-              <input type="checkbox" name="dias" value={d} className="accent-primary size-4" />
-              {DIA_LABEL[d]}
-            </label>
-          ))}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1.5">
+          <Label>Niño</Label>
+          <MiembroAutocomplete />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="nivel">Nivel</Label>
+          <select id="nivel" name="nivel" className={SELECT}>
+            <option value="">— Sin definir —</option>
+            {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="descuento">Desc. %</Label>
+          <Input id="descuento" name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
         </div>
       </div>
-      <Button type="submit" disabled={pending}>Inscribir</Button>
-      {state.error && <p className="text-destructive w-full text-sm">{state.error}</p>}
-      {state.ok && <p className="text-primary w-full text-sm">{state.ok}</p>}
+
+      <div className="space-y-2">
+        <div>
+          <Label>Días que asiste</Label>
+          <p className="text-muted-foreground text-xs">
+            Una fila por cada día. Si un día lo atiende otro profesor o es en otra cancha, se pone en su fila.
+          </p>
+        </div>
+
+        {filas.map((k, i) => (
+          <HorarioFila
+            key={k}
+            profesores={profesores}
+            dias={DIAS}
+            duraciones={DURACIONES}
+            onQuitar={filas.length > 1 ? () => setFilas((f) => f.filter((x) => x !== k)) : undefined}
+            autoFocus={i > 0}
+          />
+        ))}
+
+        <Button type="button" variant="outline" size="sm" onClick={agregar}>
+          + Otro día
+        </Button>
+      </div>
+
+      <Button type="submit" disabled={pending}>
+        {pending ? "Inscribiendo…" : "Inscribir"}
+      </Button>
+      {state.error && <p className="text-destructive text-sm">{state.error}</p>}
+      {state.ok && <p className="text-primary text-sm">{state.ok}</p>}
     </form>
   );
 }

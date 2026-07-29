@@ -239,8 +239,27 @@ clases y 1 inscripción; 0 asistencias, nada que perder). Formularios de nueva/e
 simplificados: solo nombre, deporte, categoría, servicio de Siigo y precio/matrícula **de referencia**.
 `dias_semana`/`hora_inicio`/`hora_fin`/`cancha`/`profesor_id`/`nivel` **siguen en la tabla pero SIN
 USO** (bajan al horario de cada inscrito, que aún no existe) — no borrarlas todavía.
-**Falta**: horarios por inscrito, importador del Excel, modal de `/clases` apuntando a las 4, cierre
-con pre-marcado, reportes, y quitar la columna "Facturado" inventada de la liquidación.
+**Horarios por inscrito** (migraciones 0054–0056): `inscripciones.nivel` (nivel del NIÑO, lista cerrada
+`NIVELES` en validations/academia.ts: Bola Roja/Naranja/Verde/Amarilla + Principiantes/Iniciados/
+Intermedio) + tabla **`inscripcion_horarios`** (inscripcion_id, dia_semana, hora_inicio, hora_fin,
+profesor_id, cancha). Una fila = una venida a la semana, con SU profesor y SU cancha: así se
+representa "mar+jue 16:30 con Jorge y sáb 12:00 con Graciano", que era imposible antes.
+- **La frecuencia se cuenta, no se declara**: 3 horarios = 3×sem. `plan_frecuencia` y `dias[]` quedan
+  EN DESUSO (0055 le quitó el NOT NULL a `plan_frecuencia`, que obligaba a inventar un valor).
+- **Trigger `inscripcion_un_deporte`**: un niño no puede estar en recreativa Y competencia del mismo
+  deporte (sí puede tenis + pádel). No se puede con índice único porque el deporte vive en la academia.
+  Verificado con prueba revertida: bloquea el 2º deporte igual y el horario duplicado, deja pasar el
+  otro deporte y los 3 horarios del mismo niño.
+- ⚠️ 0056 corrigió las políticas RLS de 0054, que usaban subconsulta a `profiles` (choca con la regla 9)
+  y un SELECT `using(true)`. Ahora usan **`private.user_role()`** y los mismos roles que `inscripciones`
+  — al escribir políticas nuevas, seguir ese patrón.
+- UI: `horario-fila.tsx` (una venida; campos como arreglos paralelos `h_dia`/`h_hora`/`h_dur`/
+  `h_profesor`/`h_cancha` que el servidor lee con `getAll`) · `inscrito-row.tsx` (inscrito con sus
+  horarios, agregar/quitar día, retirar) · `inscribir-form.tsx` (niño + nivel + N filas).
+  La ficha del cliente también muestra los horarios en vez del `plan_frecuencia`.
+
+**Falta**: importador del Excel, modal de `/clases` apuntando a las 4, cierre con pre-marcado,
+reportes (por día · por niño · ocupación), y quitar la columna "Facturado" inventada de la liquidación.
 
 El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
 academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:

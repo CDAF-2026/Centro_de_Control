@@ -437,15 +437,43 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["academias"]["Insert"]>;
         Relationships: [];
       };
+      inscripcion_horarios: {
+        Row: {
+          id: number;
+          inscripcion_id: number;
+          dia_semana: number;
+          hora_inicio: string;
+          hora_fin: string;
+          profesor_id: string | null;
+          cancha: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          inscripcion_id: number;
+          dia_semana: number;
+          hora_inicio: string;
+          hora_fin: string;
+          profesor_id?: string | null;
+          cancha?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["inscripcion_horarios"]["Insert"]>;
+        Relationships: [];
+      };
       inscripciones: {
         Row: {
           id: number;
           academia_id: number;
           cliente_id: number;
           miembro_id: number | null;
-          plan_frecuencia: number;
+          /** Nivel del NIÑO (Bola Roja/Naranja/Verde/Amarilla…). Antes vivía en la academia. */
+          nivel: string | null;
+          /** EN DESUSO: la frecuencia se cuenta con los horarios. */
+          plan_frecuencia: number | null;
           descuento_pct: number;
           fecha_inscripcion: string;
+          /** EN DESUSO: reemplazado por inscripcion_horarios. */
           dias: number[];
           activa: boolean;
           created_at: string;
@@ -455,7 +483,8 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id?: number | null;
-          plan_frecuencia: number;
+          nivel?: string | null;
+          plan_frecuencia?: number | null;
           descuento_pct?: number;
           fecha_inscripcion?: string;
           dias?: number[];

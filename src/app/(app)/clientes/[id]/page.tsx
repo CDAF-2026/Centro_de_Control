@@ -77,21 +77,39 @@ export default async function ClienteDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, miembro_id, plan_frecuencia, descuento_pct, fecha_inscripcion, dias")
+    .select("id, academia_id, miembro_id, nivel, descuento_pct, fecha_inscripcion")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
   const { data: acaData } = acaIds.length
-    ? await supabase.from("academias").select("id, nombre, precio, matricula, deporte, dias_semana").in("id", acaIds)
-    : { data: [] as { id: number; nombre: string; precio: number; matricula: number; deporte: "tenis" | "padel"; dias_semana: number[] }[] };
+    ? await supabase.from("academias").select("id, nombre").in("id", acaIds)
+    : { data: [] as { id: number; nombre: string }[] };
   const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
+
+  // El horario es del inscrito, no de la academia: se muestra día por día.
+  const inscIds = (inscripciones ?? []).map((i) => i.id);
+  const { data: inscHorarios } = inscIds.length
+    ? await supabase
+        .from("inscripcion_horarios")
+        .select("inscripcion_id, dia_semana, hora_inicio, hora_fin, cancha")
+        .in("inscripcion_id", inscIds)
+        .order("dia_semana")
+        .order("hora_inicio")
+    : { data: [] };
   const inscripcionesView = (inscripciones ?? []).map((i) => ({
     id: i.id,
-    plan_frecuencia: i.plan_frecuencia,
+    nivel: i.nivel,
     descuento_pct: i.descuento_pct,
-    dias: i.dias,
     academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
     miembro: conMiembro(i.miembro_id),
+    horarios: (inscHorarios ?? [])
+      .filter((h) => h.inscripcion_id === i.id)
+      .map((h) => ({
+        dia: h.dia_semana,
+        inicio: h.hora_inicio.slice(0, 5),
+        fin: h.hora_fin.slice(0, 5),
+        cancha: h.cancha,
+      })),
   }));
 
   const { data: pqCli } = await supabase
