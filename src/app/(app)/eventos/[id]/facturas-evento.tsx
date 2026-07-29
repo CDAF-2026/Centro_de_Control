@@ -8,6 +8,7 @@ import { atarFacturas } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { FacturaLink, type FacturaDetalleData } from "@/components/factura-detalle";
 import { cn } from "@/lib/utils";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -35,6 +36,8 @@ export type Candidata = {
   detalle: string | null;
   /** Parte de la factura que es del servicio del evento (la inscripción). */
   monto_evento: number;
+  /** Para abrir el detalle con sus líneas, igual que en la ficha del cliente. */
+  detalleFactura: FacturaDetalleData | null;
 };
 
 /**
@@ -148,7 +151,14 @@ export function FacturasCandidatas({
                   />
                 </td>
                 <td className="px-4 py-2">
-                  <span className="tabular-nums">{c.numero ?? `#${c.id}`}</span>
+                  {/* El clic en el número abre el detalle; no debe marcar/desmarcar la fila. */}
+                  <span className="tabular-nums" onClick={(e) => e.stopPropagation()}>
+                    {c.detalleFactura ? (
+                      <FacturaLink factura={c.detalleFactura} />
+                    ) : (
+                      (c.numero ?? `#${c.id}`)
+                    )}
+                  </span>
                   <Badge variant="outline" className="ml-2 text-[10px]">
                     {ESTADO[c.estado_conciliacion] ?? c.estado_conciliacion}
                   </Badge>

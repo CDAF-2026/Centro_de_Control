@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { profesoresActivos } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FacturaLink, type FacturaDetalleData } from "@/components/factura-detalle";
 import { cn } from "@/lib/utils";
 import { ParticipanteForm } from "./participante-form";
 import { ProfesorForm } from "./profesor-form";
@@ -22,6 +23,50 @@ const ESTADO_LABEL: Record<string, string> = { planeado: "Planeado", en_curso: "
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 /** "julio 2026" armado a mano: `Intl` en español no da el mismo texto en Node y en el navegador. */
 const mesDe = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+
+type NcFila = {
+  id: number;
+  numero: string | null;
+  fecha: string;
+  total: number;
+  saldo: number;
+  nota_credito: number;
+  nc_numero: string | null;
+};
+type LineaFila = {
+  factura_id: number;
+  codigo: string | null;
+  descripcion: string | null;
+  cantidad: number;
+  monto: number;
+  servicio_id: number | null;
+};
+
+/**
+ * Líneas de un conjunto de facturas, paginando.
+ * PostgREST corta en 1000 filas y en el modo ampliado (`?todas=1`) se piden hasta 200
+ * facturas, que juntas pasan de mil líneas: sin paginar, el modal de las últimas saldría vacío.
+ */
+async function lineasDeFacturas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: number[],
+): Promise<LineaFila[]> {
+  if (!ids.length) return [];
+  const PAGINA = 1000;
+  const out: LineaFila[] = [];
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data } = await supabase
+      .from("siigo_factura_lineas")
+      .select("factura_id, codigo, descripcion, cantidad, monto, servicio_id")
+      .in("factura_id", ids)
+      .order("id")
+      .range(desde, desde + PAGINA - 1);
+    const filas = data ?? [];
+    out.push(...filas);
+    if (filas.length < PAGINA) break;
+  }
+  return out;
+}
 
 export default async function EventoDetallePage({
   params,
@@ -67,7 +112,7 @@ export default async function EventoDetallePage({
     // Las facturas YA atadas: son el ingreso del evento. Conjunto acotado (las de un torneo).
     supabase
       .from("siigo_facturas")
-      .select("id, numero, fecha, cliente_nombre_siigo, total, saldo, estado_conciliacion")
+      .select("id, numero, fecha, cliente_nombre_siigo, total, saldo, nota_credito, nc_numero, estado_conciliacion")
       .eq("evento_id", eventoId)
       .order("fecha"),
     // Candidatas: mismo servicio y ±15 días, sin filtrar por estado_conciliacion — las
@@ -136,6 +181,41 @@ export default async function EventoDetallePage({
   };
   const diaMes = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1].slice(0, 3)}`;
   const ventana = `${diaMes(corre(evento.fecha_inicio, -15))} → ${diaMes(corre(evento.fecha_fin ?? evento.fecha_inicio, 15))}`;
+
+  // ── Detalle de cada factura para el modal (el mismo de la ficha del cliente) ──
+  const idsFactura = [...new Set([...atadas.map((f) => f.id), ...candidatas.map((c) => c.id)])];
+  const [{ data: serviciosTodos }, ncRes, lineasFactura] = await Promise.all([
+    supabase.from("servicios").select("id, nombre"),
+    idsFactura.length
+      ? supabase.from("siigo_facturas").select("id, numero, fecha, total, saldo, nota_credito, nc_numero").in("id", idsFactura)
+      : Promise.resolve({ data: [] as NcFila[] }),
+    lineasDeFacturas(supabase, idsFactura),
+  ]);
+  const svNombre = new Map((serviciosTodos ?? []).map((s) => [s.id, s.nombre]));
+  const lineasPorFactura = new Map<number, typeof lineasFactura>();
+  for (const l of lineasFactura) {
+    const a = lineasPorFactura.get(l.factura_id) ?? [];
+    a.push(l);
+    lineasPorFactura.set(l.factura_id, a);
+  }
+  const detalleFactura = new Map<number, FacturaDetalleData>();
+  for (const f of ncRes.data ?? []) {
+    detalleFactura.set(f.id, {
+      numero: f.numero ?? `#${f.id}`,
+      fecha: f.fecha,
+      total: f.total,
+      saldo: f.saldo,
+      notaCredito: f.nota_credito ?? 0,
+      ncNumero: f.nc_numero,
+      lineas: (lineasPorFactura.get(f.id) ?? []).map((l) => ({
+        codigo: l.codigo,
+        descripcion: l.descripcion,
+        cantidad: Number(l.cantidad),
+        monto: l.monto,
+        servicio: svNombre.get(l.servicio_id ?? -1) ?? "Sin categoría",
+      })),
+    });
+  }
 
   const fechaImputacion = evento.fecha_fin ?? evento.fecha_inicio;
   const esSuperadmin = profile.role === "superadmin";
@@ -275,7 +355,13 @@ export default async function EventoDetallePage({
                 <tbody>
                   {atadas.map((f) => (
                     <tr key={f.id} className="border-t">
-                      <td className="px-4 py-2 tabular-nums">{f.numero ?? `#${f.id}`}</td>
+                      <td className="px-4 py-2 tabular-nums">
+                        {detalleFactura.has(f.id) ? (
+                          <FacturaLink factura={detalleFactura.get(f.id)!} />
+                        ) : (
+                          f.numero ?? `#${f.id}`
+                        )}
+                      </td>
                       <td className="px-4 py-2">
                         {f.cliente_nombre_siigo ?? <span className="text-muted-foreground">Sin identificar</span>}
                       </td>
@@ -335,7 +421,7 @@ export default async function EventoDetallePage({
                 <FacturasCandidatas
                   key={candidatas.map((c) => c.id).join("-")}
                   eventoId={eventoId}
-                  candidatas={candidatas}
+                  candidatas={candidatas.map((c) => ({ ...c, detalleFactura: detalleFactura.get(c.id) ?? null }))}
                   ventana={ventana}
                   todas={verTodas}
                 />

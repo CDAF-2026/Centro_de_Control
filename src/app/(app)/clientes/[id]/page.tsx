@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EstadoForm } from "./estado-form";
 import { Documentos, type DocItem } from "./documentos";
 import { ServiciosCliente } from "./servicios-cliente";
-import { FacturaLink, type FacturaDetalleData } from "./factura-detalle";
+import { FacturaLink, type FacturaDetalleData } from "@/components/factura-detalle";
 import { Hermanos, type Miembro } from "./hermanos";
 import { NotaRapida } from "@/app/(app)/notas/nota-rapida";
 import { NotaCard } from "@/app/(app)/notas/nota-card";
