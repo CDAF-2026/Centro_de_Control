@@ -7,21 +7,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { mapaNombresStaff, profesoresActivos } from "@/lib/staff";
+import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
+import { PeriodoToggle } from "../../dashboard/periodo-toggle";
 import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
 import { InscritoRow, type Inscrito } from "./inscrito-row";
+import { RendimientoFranjas, type Franja } from "./rendimiento-franjas";
+import { ClasesDictadas, type ClaseDictada } from "./clases-dictadas";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 export default async function AcademiaDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
   const academiaId = Number(id);
+  const sp = await searchParams;
+  // Mismo filtro de periodo que el dashboard y los ingresos: sin él, "clases
+  // dictadas" se acumula desde el principio de los tiempos y los % no dicen nada.
+  const periodo = parsePeriodo(sp.periodo);
+  const { curStartIso, curEndIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
   const supabase = await createClient();
 
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
@@ -76,7 +87,8 @@ export default async function AcademiaDetallePage({
         .order("dia_semana")
         .order("hora_inicio")
     : { data: [] };
-  const nombresStaff = (horarios ?? []).some((h) => h.profesor_id) ? await mapaNombresStaff() : new Map<string, string>();
+  // Sin condicionar: lo necesitan los horarios Y las clases dictadas del rendimiento.
+  const nombresStaff = await mapaNombresStaff();
 
   const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre }));
 
@@ -99,6 +111,17 @@ export default async function AcademiaDetallePage({
         })),
     }))
     .sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
+
+  // ───────── Rendimiento del periodo (agregado en SQL, ver migración 0057) ─────────
+  const [{ data: franjasRaw }, { data: clasesRaw }] = await Promise.all([
+    supabase.rpc("academia_rendimiento_franja", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("academia_clases_periodo", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
+  ]);
+  const franjas = (franjasRaw ?? []) as Franja[];
+  const clasesDictadas: ClaseDictada[] = ((clasesRaw ?? []) as (Omit<ClaseDictada, "profesorNombre"> & { profesor_id: string | null })[]).map((c) => ({
+    ...c,
+    profesorNombre: c.profesor_id ? nombresStaff.get(c.profesor_id) ?? null : null,
+  }));
 
   const { data: listaEspera } = await supabase
     .from("lista_espera")
@@ -151,6 +174,38 @@ export default async function AcademiaDetallePage({
             El ingreso de la academia sale de las facturas de Siigo del servicio de arriba. Los
             valores de referencia son solo para consulta, no se usan para calcular.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Rendimiento: el filtro de periodo va AQUÍ y no en la lista general de
+          academias, porque la academia ya es el filtro (se llegó haciéndole clic) y
+          porque mezclar las 4 en una tabla invita a comparar cifras que no son
+          comparables: un grupo de competencia con 3 niños al 94% está sano, uno de
+          recreativa con 3 se está muriendo. */}
+      <Card>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle>Rendimiento por franja</CardTitle>
+          <PeriodoToggle
+            periodo={periodo}
+            desde={sp.desde}
+            hasta={sp.hasta}
+            basePath={`/academias/${academiaId}`}
+          />
+        </CardHeader>
+        <CardContent>
+          <RendimientoFranjas franjas={franjas} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Clases del periodo ({clasesDictadas.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground mb-2 text-xs">
+            Haz clic en una clase para ver quién asistió.
+          </p>
+          <ClasesDictadas clases={clasesDictadas} />
         </CardContent>
       </Card>
 

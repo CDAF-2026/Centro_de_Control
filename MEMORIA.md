@@ -258,8 +258,29 @@ representa "mar+jue 16:30 con Jorge y sáb 12:00 con Graciano", que era imposibl
   horarios, agregar/quitar día, retirar) · `inscribir-form.tsx` (niño + nivel + N filas).
   La ficha del cliente también muestra los horarios en vez del `plan_frecuencia`.
 
+**Rendimiento** (migración 0057, RPCs `academia_rendimiento_franja` · `academia_clases_periodo` ·
+`academia_asistencia_clase`): tablero por franja + listado de clases del periodo desplegable a "quién
+asistió". Agregado en SQL a propósito: un semestre de una academia son ~200 clases × 8 niños = 1.600
+asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`** (regla 9): devuelven
+`profesor_id` y el nombre se resuelve con `mapaNombresStaff()`.
+- 💡 **La pregunta "qué días no tienen asistencia" son DOS fracasos distintos** que antes se veían
+  iguales, y solo se separan porque ahora se sabe a quién se esperaba: franja con inscritos y **cero
+  clases** = la clase no se dio (operativo) · franja con clases y poca gente = el grupo se vacía
+  (negocio). El tablero los etiqueta distinto.
+- Una clase se pega a la franja **más cercana** de su día con tolerancia de **±20 min** (una clase
+  registrada 16:05 no debe dejar la franja de 16:00 como "sin clases"; el "más cercana" evita que dos
+  franjas vecinas cuenten la misma clase dos veces). Las clases a una hora que nadie tiene inscrita
+  salen en una fila con la franja en `null` → "Otras horas".
+- **Dónde va el filtro** (decisión de UX): el **periodo** va DENTRO de cada academia, con el mismo
+  `PeriodoToggle` del dashboard/ingresos. NO se hizo un reporte general con selector de academia
+  porque (a) la academia ya es el filtro —se llega haciéndole clic, y son 4— y (b) mezclar las 4 en
+  una tabla invita a comparar cifras no comparables: un grupo de competencia con 3 niños al 94% está
+  sano, uno de recreativa con 3 se muere. La lista general solo lleva el **titular** por academia
+  (inscritos + "N franjas en riesgo") para saber a cuál entrar.
+
 **Falta**: importador del Excel, modal de `/clases` apuntando a las 4, cierre con pre-marcado,
-reportes (por día · por niño · ocupación), y quitar la columna "Facturado" inventada de la liquidación.
+reporte por niño, cruce asistencia vs facturas de Siigo, y quitar la columna "Facturado" inventada de
+la liquidación.
 
 El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
 academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:

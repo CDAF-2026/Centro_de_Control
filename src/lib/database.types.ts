@@ -1104,6 +1104,44 @@ export type Database = {
         Args: { p_solo_activos?: boolean; p_role?: AppRole | null };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
       };
+      /** Rendimiento por franja de una academia. La franja en null = clases dictadas
+       *  a una hora que nadie tiene inscrita. Migración 0057. */
+      academia_rendimiento_franja: {
+        Args: { p_academia: number; p_desde: string; p_hasta: string };
+        Returns: {
+          dia_semana: number | null;
+          hora_inicio: string | null;
+          hora_fin: string | null;
+          inscritos: number;
+          clases_cerradas: number;
+          clases_sin_cerrar: number;
+          presentes: number;
+          ausentes: number;
+          excusas: number;
+          reposiciones: number;
+        }[];
+      };
+      academia_clases_periodo: {
+        Args: { p_academia: number; p_desde: string; p_hasta: string };
+        Returns: {
+          clase_id: number;
+          fecha: string;
+          hora_inicio: string;
+          hora_fin: string | null;
+          estado: string;
+          profesor_id: string | null;
+          cancha: string | null;
+          presentes: number;
+          ausentes: number;
+          excusas: number;
+          reposiciones: number;
+          esperados: number;
+        }[];
+      };
+      academia_asistencia_clase: {
+        Args: { p_clase: number };
+        Returns: { miembro_id: number; nombre: string; estado: string; esperado: boolean }[];
+      };
       notas_listar: {
         Args: { p_filtro?: string; p_cliente?: number | null; p_limite?: number };
         Returns: {

@@ -208,6 +208,26 @@ export async function quitarHorario(horarioId: number, academiaId: number): Prom
   return { ok: "Horario quitado." };
 }
 
+export type AsistenteClase = {
+  miembro_id: number;
+  nombre: string;
+  estado: string;
+  /** false = vino a una clase que no era su día (reposición). */
+  esperado: boolean;
+};
+
+/**
+ * Quiénes quedaron registrados en una clase. Se pide al desplegar la clase y no
+ * junto con el listado: traer la asistencia de todo un semestre serían ~1.600
+ * filas y PostgREST corta en 1.000 sin avisar.
+ */
+export async function asistenciaDeClase(claseId: number): Promise<AsistenteClase[]> {
+  await requireRole(GESTION);
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("academia_asistencia_clase", { p_clase: claseId });
+  return (data ?? []) as AsistenteClase[];
+}
+
 /** Saca a un niño de la academia (se van sus horarios en cascada). */
 export async function quitarInscripcion(inscripcionId: number, academiaId: number): Promise<AcademiaFormState> {
   await requireRole(INSCRIBE);
