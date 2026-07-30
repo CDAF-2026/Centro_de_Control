@@ -249,9 +249,16 @@ export async function updateEmpleado(
   const d = parsed.data;
 
   // Correo (vía Admin API) — solo si se especificó uno (los profesores sin correo real quedan vacíos).
+  // `email_confirm: true` va explícito: sin él el correo nuevo puede quedar a la
+  // espera de una confirmación que hoy nadie recibe (los correos de Auth todavía
+  // no salen por Resend), y la persona no podría entrar con su correo nuevo.
+  // Es lo mismo que ya hace `createEmpleado` al abrir la cuenta.
   if (d.email) {
     const admin = createAdminClient();
-    const { error: eErr } = await admin.auth.admin.updateUserById(d.id, { email: d.email });
+    const { error: eErr } = await admin.auth.admin.updateUserById(d.id, {
+      email: d.email,
+      email_confirm: true,
+    });
     if (eErr) {
       return { error: /registered|exists/i.test(eErr.message) ? "Ese correo ya está en uso." : eErr.message };
     }
