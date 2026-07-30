@@ -292,9 +292,14 @@ asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`
   sano, uno de recreativa con 3 se muere. La lista general solo lleva el **titular** por academia
   (inscritos + "N franjas en riesgo") para saber a cuál entrar.
 
-**Falta**: importador del Excel, modal de `/clases` apuntando a las 4, cierre con pre-marcado,
-reporte por niño, cruce asistencia vs facturas de Siigo, y quitar la columna "Facturado" inventada de
-la liquidación.
+**Falta**: importador del Excel, modal de `/clases` apuntando a las 4 (profesor sugerido leyendo el
+comentario + quitar la lógica muerta de "candidatas", que ya nunca casa porque las 4 academias no
+tienen horario), cierre con pre-marcado, reporte por niño, y cruce asistencia vs facturas de Siigo.
+⚠️ El cruce con Siigo está **bloqueado por conciliación, no por código**: de 224 líneas de Academia
+Recreativa Tenis solo **36 tienen `cliente_id`** (95 son mostrador). Sin saber de quién es la factura
+no se puede decir "a Pepito no le cobraron". Y falta decidir cómo tratar a los hermanos: la factura va
+a la familia (`cliente`) y el alumno es un `miembro`, así que dos hermanos en la misma academia
+comparten una sola factura.
 
 El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
 academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
@@ -309,10 +314,13 @@ academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
   sí puede hacer tenis y pádel). El alumno es un **`cliente_miembros`**, no la ficha familiar.
 - **Nivel** = progresión de tenis (Bola Roja/Naranja/Verde/Amarilla) + Principiantes/Iniciados/
   Intermedio, en lista cerrada (si cada uno escribe libre, el reporte por nivel no sirve).
-- **`precio`/`matricula` dejan de ser cálculo** (la plata sale de Siigo). Se quita la columna
-  "Facturado" inventada de la liquidación para academia (era `precio ÷ (días×4) × alumnos`). Verificado:
-  las 3 reglas de academia son `fijo_por_clase` y NO usan el facturado → impacto $0. Control correcto
-  = cruzar **quién asistió** vs **a quién le facturó Siigo**, por personas, no por precio.
+- ✅ **`precio`/`matricula` YA NO son cálculo** (la plata sale de Siigo). `LineaLiq.valorFacturado` pasó
+  a `number | null` y en academia va **null** → la liquidación muestra "—", no "$ 0" (que se leería
+  como "no se le cobró"). Antes estimaba `precio ÷ (días×4) × alumnos`, un número inventado al lado de
+  la plata real. Impacto verificado: $0 — las 3 reglas de academia son `fijo_por_clase` y no miran el
+  facturado, y no hay ninguna clase de academia `realizada`. Efecto secundario BUENO: a quien le falte
+  regla de academia ahora le sale $0 (visible) en vez de un % sobre una cifra ficticia (invisible).
+  Control correcto = cruzar **quién asistió** vs **a quién le facturó Siigo**, por personas, no por precio.
 - **El club deja de hacer bloqueos largos**: una reserva de EasyCancha = una clase (instrucción de
   Laura al club, jul-2026). El usuario BLOQUEOS ACADEMIAS es EXCLUSIVO de academias.
 - **Formato del comentario**: "Academia Recreativa Esteban". ⚠️ Pero **no se depende de él**: en el

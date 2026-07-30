@@ -68,7 +68,11 @@ export default async function LiquidacionDetallePage({
                 </td>
                 <td className="px-3 py-2.5">{l.detalle}</td>
                 <td className="px-3 py-2.5">{l.tipoLabel}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{COP.format(l.valorFacturado)}</td>
+                {/* Academia llega en null: su ingreso sale de Siigo, no de un precio interno.
+                    Se muestra "—" y no $ 0, que se leería como "no se le cobró nada". */}
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
+                  {l.valorFacturado === null ? "—" : COP.format(l.valorFacturado)}
+                </td>
                 <td className="px-3 py-2.5 text-right font-medium tabular-nums">{COP.format(l.valorProfesor)}</td>
               </tr>
             ))}
@@ -121,7 +125,9 @@ export default async function LiquidacionDetallePage({
       <p className="text-muted-foreground text-xs">
         <strong>Valor cobrado al cliente</strong> = lo facturado por esa clase (o la base de Siigo en alto rendimiento).{" "}
         <strong>Valor a pagar al profesor</strong> = según sus reglas de compensación. Solo clases realizadas; el alto
-        rendimiento sale de la facturación de Siigo del periodo.
+        rendimiento sale de la facturación de Siigo del periodo. Las clases de <strong>academia</strong> aparecen con
+        &ldquo;—&rdquo; en lo cobrado: la academia se factura por mensualidad en Siigo, no por clase, así que no hay un
+        valor por clase que mostrar aquí.
       </p>
     </div>
   );

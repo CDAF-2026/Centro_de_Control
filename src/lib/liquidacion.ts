@@ -14,7 +14,9 @@ export type LineaLiq = {
   hora: string | null;
   tipoLabel: string; // Particular / Paquete / Academia / Evento — o el nombre de la regla
   detalle: string; // cliente, academia o evento
-  valorFacturado: number; // cobrado al cliente (o base de Siigo en alto rendimiento)
+  /** Cobrado al cliente. `null` en academia: esa plata sale de las facturas de Siigo,
+   *  no de un precio interno, así que aquí no hay nada honesto que poner. */
+  valorFacturado: number | null;
   valorProfesor: number; // a pagar al profesor
 };
 
@@ -226,10 +228,13 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   }
   const deportista = (c: { miembro_id: number | null; cliente_id: number | null }) =>
     (c.miembro_id != null ? miembroName.get(c.miembro_id) : null) ?? (c.cliente_id ? cliName.get(c.cliente_id) : null) ?? "—";
-  const acaInfo = new Map<number, { nombre: string; precio: number; dias: number[] }>();
+  // Solo el nombre: `precio` y `dias_semana` ya no se leen aquí. Se usaban para
+  // estimar un "facturado" por clase que no existe — la academia se cobra por
+  // mensualidad en Siigo.
+  const acaInfo = new Map<number, { nombre: string }>();
   if (acaIds.length) {
-    const { data } = await supabase.from("academias").select("id, nombre, precio, dias_semana").in("id", acaIds);
-    for (const a of data ?? []) acaInfo.set(a.id, { nombre: a.nombre, precio: a.precio, dias: a.dias_semana });
+    const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
+    for (const a of data ?? []) acaInfo.set(a.id, { nombre: a.nombre });
   }
 
   const porProf = new Map<string, LiqProfesor>();
@@ -263,13 +268,16 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const nPersonas = c.num_asistentes ?? Math.max(alumnos, 1);
 
     // Valor cobrado al cliente.
-    let valorFacturado = 0;
+    let valorFacturado: number | null = 0;
     let tipoLabel: string;
     let detalle: string;
     if (c.tipo === "academia") {
       const aca = c.academia_id != null ? acaInfo.get(c.academia_id) : undefined;
-      const diasN = aca && aca.dias.length > 0 ? aca.dias.length : 1;
-      valorFacturado = aca ? Math.round(alumnos * (aca.precio / (diasN * 4))) : 0;
+      // La academia NO tiene facturado por clase. Antes se estimaba con
+      // `precio ÷ (días×4) × alumnos`, un número inventado sentado al lado de la
+      // plata real de Siigo. El ingreso de academia sale de las facturas del
+      // servicio de Siigo al que apunta la academia, no de un precio interno.
+      valorFacturado = null;
       tipoLabel = "Academia";
       detalle = `${aca?.nombre ?? "Academia"} · ${alumnos} alum.`;
     } else if (c.paquete_cliente_id) {
@@ -297,7 +305,12 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
         reglas.find((r) => r.concepto === concepto && aplica(r)) ??
         reglas.find((r) => r.concepto === "clase" && aplica(r));
       const monthRank = rangoMes.get(c.id) ?? null;
-      valorProfesor = regla ? pagoReglaClase(regla, { valorFacturado, alumnos, nPersonas, monthRank }) : 0;
+      // Sin facturado (academia) un método de % paga 0. Es lo correcto y además
+      // VISIBLE: significa que a ese profe le falta su regla de academia, en vez
+      // de pagarle un porcentaje sobre una cifra inventada sin que nadie lo note.
+      valorProfesor = regla
+        ? pagoReglaClase(regla, { valorFacturado: valorFacturado ?? 0, alumnos, nPersonas, monthRank })
+        : 0;
       if (regla) {
         tipoLabel = regla.nombre; // etiqueta exacta ("Academia Recreativa Pádel", "Comisión 7 a.m."…)
         if (regla.metodo === "comision_umbral" && monthRank != null) {
@@ -309,11 +322,11 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     } else if (c.tipo === "academia") {
       valorProfesor = alumnos * (comp?.valor_alumno_academia ?? 0);
     } else {
-      valorProfesor = Math.round((valorFacturado * (comp ? Number(comp.pct_clase) : 0)) / 100);
+      valorProfesor = Math.round(((valorFacturado ?? 0) * (comp ? Number(comp.pct_clase) : 0)) / 100);
     }
 
     fila.clases += 1;
-    fila.facturado += valorFacturado;
+    fila.facturado += valorFacturado ?? 0; // academia no suma: no tiene facturado propio
     fila.variable += valorProfesor;
     fila.lineas.push({ claseId: c.id, fecha: c.fecha, hora: c.hora_inicio, tipoLabel, detalle, valorFacturado, valorProfesor });
   }
