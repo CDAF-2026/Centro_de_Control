@@ -11,7 +11,7 @@ import {
   type AcademiaOpcion,
 } from "./actions";
 import { Button } from "@/components/ui/button";
-import { aMinutos, franjasDeBloque, academiasEnBloque, type CalEvento } from "./types";
+import { aMinutos, franjasDeBloque, type CalEvento } from "./types";
 
 type Modo = "paquete" | "particular" | "academia";
 const SELECT = "border-input bg-background mt-1 h-9 w-full rounded-md border px-2 text-sm";
@@ -36,8 +36,6 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   const [precio, setPrecio] = useState("0");
   const [academiaId, setAcademiaId] = useState("");
   const [duracion, setDuracion] = useState(0); // 0 = el bloque entero como una clase
-  const [manual, setManual] = useState(false);
-  const [incluidas, setIncluidas] = useState<Set<number>>(new Set());
 
   const largoBloque = (() => {
     const i = aMinutos(ev.hora), f = aMinutos(ev.horaFin);
@@ -51,13 +49,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
     if (m === "academia") {
       if (aca) return;
       start(async () => {
-        const r = await prepararAcademia();
-        setAca(r);
-        const c = academiasEnBloque(r.academias, ev);
-        // Vienen marcadas solo las que además coinciden en cancha; las de otra
-        // cancha se muestran sin marcar para que la persona decida.
-        setIncluidas(new Set(c.filter((x) => x.mismaCancha).map((x) => x.academia.id)));
-        if (c.length === 0) setManual(true); // sin candidatas, directo a escoger a mano
+        setAca(await prepararAcademia());
       });
       return;
     }
@@ -75,7 +67,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
     });
   }
 
-  /** Al cambiar de academia (modo manual) se re-sugiere su duración. */
+  /** Al cambiar de academia se re-sugiere su duración de referencia. */
   function cambiarAcademia(id: string) {
     setAcademiaId(id);
     const a = aca?.academias.find((x) => String(x.id) === id) ?? null;
@@ -84,13 +76,11 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   }
 
   const franjas = franjasDeBloque(ev.hora, ev.horaFin, duracion);
-  const candidatas = aca ? academiasEnBloque(aca.academias, ev) : [];
-  const marcadas = candidatas.filter((c) => incluidas.has(c.academia.id));
-
-  // Lo que se va a crear: por horario de cada academia, o partiendo el bloque a mano.
-  const clasesAEnviar = manual
-    ? (academiaId ? franjas.map((f) => ({ academiaId: Number(academiaId), inicio: f.inicio, fin: f.fin })) : [])
-    : marcadas.map((c) => ({ academiaId: c.academia.id, inicio: c.inicio, fin: c.fin }));
+  // La academia se escoge SIEMPRE a mano: define a quién se le cobra, y adivinarla
+  // sube el margen de error (decisión de Laura, jul-2026).
+  const clasesAEnviar = academiaId
+    ? franjas.map((f) => ({ academiaId: Number(academiaId), inicio: f.inicio, fin: f.fin }))
+    : [];
 
   function confirmar() {
     setErr(null);
@@ -169,68 +159,8 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
             <p className="text-sm">
               No hay academias activas. Crea una en <a className="underline" href="/academias">Academias</a>.
             </p>
-          ) : !manual ? (
-            <>
-              <p className="text-muted-foreground text-xs">
-                Academias que caen en este bloque ({ev.hora}–{ev.horaFin}):
-              </p>
-              <ul className="space-y-1">
-                {candidatas.map((c) => (
-                  <li key={c.academia.id}>
-                    <label className="flex items-start gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={incluidas.has(c.academia.id)}
-                        onChange={(e) => {
-                          const s = new Set(incluidas);
-                          if (e.target.checked) s.add(c.academia.id);
-                          else s.delete(c.academia.id);
-                          setIncluidas(s);
-                        }}
-                      />
-                      <span>
-                        <span className="font-medium tabular-nums">{c.inicio}–{c.fin}</span> · {c.academia.nombre}
-                        {!c.mismaCancha && (
-                          <span className="text-muted-foreground">
-                            {" "}· está configurada en cancha {c.academia.cancha ?? "—"}
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-
-              <label className="block text-xs">
-                Profesor
-                <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)} className={SELECT}>
-                  <option value="">Cada academia con el suyo</option>
-                  {aca.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
-              </label>
-
-              <p className="text-muted-foreground text-xs">
-                {marcadas.length === 0
-                  ? "No hay ninguna marcada."
-                  : `Se ${marcadas.length === 1 ? "creará 1 clase" : `crearán ${marcadas.length} clases`}.`}{" "}
-                <button type="button" className="underline" onClick={() => setManual(true)}>
-                  Hacerlo a mano
-                </button>
-              </p>
-
-              <Button type="button" size="sm" onClick={confirmar} disabled={pending || marcadas.length === 0}>
-                {pending ? "Guardando…" : marcadas.length === 1 ? "Confirmar clase de academia" : `Confirmar ${marcadas.length} clases`}
-              </Button>
-            </>
           ) : (
             <>
-              {candidatas.length === 0 && (
-                <p className="text-muted-foreground text-xs">
-                  Ninguna academia activa coincide con el día, la hora y la cancha de este bloque. Escógela a mano:
-                </p>
-              )}
-
               <label className="block text-xs">
                 Academia
                 <select value={academiaId} onChange={(e) => cambiarAcademia(e.target.value)} className={SELECT}>
@@ -264,14 +194,6 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
               <p className="text-muted-foreground text-xs">
                 Se {franjas.length === 1 ? "creará 1 clase" : `crearán ${franjas.length} clases`}:{" "}
                 {franjas.map((f) => `${f.inicio}–${f.fin}`).join(" · ")}
-                {candidatas.length > 0 && (
-                  <>
-                    {" · "}
-                    <button type="button" className="underline" onClick={() => setManual(false)}>
-                      Volver a las sugeridas
-                    </button>
-                  </>
-                )}
               </p>
 
               <Button type="button" size="sm" onClick={confirmar} disabled={pending || !academiaId}>

@@ -25,8 +25,10 @@ export default async function CierrePage({
 
   const supabase = await createClient();
 
-  // Solo clases que ya ocurrieron (fecha ≤ hoy). Las futuras (p. ej. la programación
-  // de academia generada por adelantado) no se cierran hasta su día.
+  // Solo clases que YA EMPEZARON. La fecha se filtra en la consulta y la hora
+  // después, porque una clase de hoy a las 18:00 no se puede cerrar a las 10:00:
+  // sería marcar asistencia de algo que no ha pasado, y encima cuenta para la
+  // liquidación. El servidor lo vuelve a validar al guardar (cierre/actions.ts).
   const hoyD = new Date();
   const hoyIso = `${hoyD.getFullYear()}-${String(hoyD.getMonth() + 1).padStart(2, "0")}-${String(hoyD.getDate()).padStart(2, "0")}`;
 
@@ -40,7 +42,10 @@ export default async function CierrePage({
   else if (profesorFilter) q = q.eq("profesor_id", profesorFilter);
   if (clienteFilter) q = q.eq("cliente_id", clienteFilter);
   const { data: clases } = await q;
-  const lista = clases ?? [];
+  const ahoraMs = Date.now();
+  const lista = (clases ?? []).filter(
+    (c) => new Date(`${c.fecha}T${c.hora_inicio ?? "00:00"}:00`).getTime() <= ahoraMs,
+  );
 
   // Listas para los filtros (solo staff que ve varias clases).
   // Incluye inactivos: quien ya no está pudo dar las clases que se consultan.

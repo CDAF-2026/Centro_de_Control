@@ -1142,6 +1142,21 @@ export type Database = {
         Args: { p_clase: number };
         Returns: { miembro_id: number; nombre: string; estado: string; esperado: boolean }[];
       };
+      /** Una fila por inscrito: clases dictadas en SUS franjas vs a cuántas asistió. 0059. */
+      academia_rendimiento_nino: {
+        Args: { p_academia: number; p_desde: string; p_hasta: string };
+        Returns: {
+          miembro_id: number;
+          nombre: string;
+          nivel: string | null;
+          horarios: number;
+          esperadas: number;
+          presentes: number;
+          ausentes: number;
+          excusas: number;
+          reposiciones: number;
+        }[];
+      };
       notas_listar: {
         Args: { p_filtro?: string; p_cliente?: number | null; p_limite?: number };
         Returns: {

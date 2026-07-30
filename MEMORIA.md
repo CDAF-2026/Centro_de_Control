@@ -292,10 +292,25 @@ asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`
   sano, uno de recreativa con 3 se muere. La lista general solo lleva el **titular** por academia
   (inscritos + "N franjas en riesgo") para saber a cuál entrar.
 
-**Falta**: importador del Excel, reporte por niño, y cruce asistencia vs facturas de Siigo.
-✅ El **modal de `/clases` se deja como está**: al no tener horario las 4 academias, la lógica de
-"candidatas" nunca casa y cae al selector manual — que es justo lo que Laura quiere (escoger a mano
-la academia y el profesor baja el margen de error). No tocar salvo para limpiar el código muerto.
+**Cierre — dos puertas** (`cierre/actions.ts`, validadas en el SERVIDOR, no solo en la pantalla):
+- **Piso**: no se puede cerrar una clase ANTES de que empiece (`fecha + hora_inicio`; las clases sin
+  hora quedan disponibles todo su día). Sin esto se marcaba asistencia por la mañana de una clase de
+  la tarde — asistencia inventada que además cuenta para la liquidación. La cola de `/cierre` también
+  las esconde y la pantalla de detalle muestra un aviso en vez del formulario.
+- **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
+  (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
+
+**Falta**: importador del Excel y cruce asistencia vs facturas de Siigo.
+✅ **Modal de `/clases`**: la academia y el profesor se escogen SIEMPRE a mano — adivinarlos sube el
+margen de error (decisión de Laura). Ya se quitó la lógica muerta de "candidatas"
+(`academiasEnBloque`, `CandidataAcademia`, `numeroCancha` en clases/types.ts + la rama del checklist):
+nunca casaba, porque las 4 academias no tienen horario. `franjasDeBloque` SÍ se sigue usando, para
+partir un bloque largo en varias clases.
+✅ **Reporte por niño** (migración 0059, RPC `academia_rendimiento_nino`): por inscrito, cuántas clases
+de SUS franjas se dictaron y a cuántas asistió. ⚠️ "Esperadas" son las clases **realmente dictadas**
+(estado `realizada`) en sus franjas, NO las semanas del calendario: no se le reprocha a un niño faltar
+a una clase que nunca se dio — eso sale en el tablero por franja. El % **descuenta las excusas
+médicas**, que no se cobran ni son desenganche.
 ⚠️ El cruce con Siigo está **bloqueado por conciliación, no por código**: de 224 líneas de Academia
 Recreativa Tenis solo **36 tienen `cliente_id`** (95 son mostrador). Sin saber de quién es la factura
 no se puede decir "a Pepito no le cobraron". Y falta decidir cómo tratar a los hermanos: la factura va

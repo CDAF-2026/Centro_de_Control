@@ -143,6 +143,9 @@ export default async function CerrarClasePage({
       ? `Academia: ${academiaNombre ?? "—"}`
       : deportistas[0]?.nombre ?? "Sin deportista";
 
+  // Una clase no se cierra antes de empezar (las sin hora, desde el inicio de su día).
+  const noEmpezo = Date.now() < new Date(`${clase.fecha}T${clase.hora_inicio ?? "00:00"}:00`).getTime();
+
   return (
     <div className="max-w-md space-y-6">
       <div>
@@ -157,17 +160,28 @@ export default async function CerrarClasePage({
           {clase.deporte ? ` · ${clase.deporte}` : ""} · Profe: {profesorNombre ?? "—"}
         </p>
       </div>
-      <CierreForm
-        claseId={claseId}
-        estadoActual={clase.estado}
-        deportistas={deportistas}
-        otrosInscritos={otrosInscritos}
-        estadoPorCliente={estadoPorCliente}
-        esAcademia={clase.tipo === "academia"}
-        noRegistrados={clase.asistentes_no_registrados ?? ""}
-        numAsistentes={clase.num_asistentes ?? 1}
-        valorFacturado={valorFacturado}
-      />
+      {noEmpezo ? (
+        // Se puede llegar aquí por el enlace directo aunque la cola ya la esconda.
+        // El servidor lo valida igual al guardar; esto es para no mostrar un
+        // formulario que va a ser rechazado.
+        <p className="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-3 text-sm">
+          Esta clase todavía no ha empezado ({clase.fecha}
+          {clase.hora_inicio ? ` a las ${clase.hora_inicio.slice(0, 5)}` : ""}). Se puede cerrar
+          cuando haya iniciado — marcar asistencia antes sería registrar algo que no pasó.
+        </p>
+      ) : (
+        <CierreForm
+          claseId={claseId}
+          estadoActual={clase.estado}
+          deportistas={deportistas}
+          otrosInscritos={otrosInscritos}
+          estadoPorCliente={estadoPorCliente}
+          esAcademia={clase.tipo === "academia"}
+          noRegistrados={clase.asistentes_no_registrados ?? ""}
+          numAsistentes={clase.num_asistentes ?? 1}
+          valorFacturado={valorFacturado}
+        />
+      )}
     </div>
   );
 }

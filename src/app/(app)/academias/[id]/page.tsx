@@ -14,6 +14,7 @@ import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
 import { InscritoRow, type Inscrito } from "./inscrito-row";
 import { RendimientoFranjas, type Franja } from "./rendimiento-franjas";
+import { RendimientoNinos, type NinoRendimiento } from "./rendimiento-ninos";
 import { ClasesDictadas, type ClaseDictada } from "./clases-dictadas";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -113,11 +114,13 @@ export default async function AcademiaDetallePage({
     .sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
 
   // ───────── Rendimiento del periodo (agregado en SQL, ver migración 0057) ─────────
-  const [{ data: franjasRaw }, { data: clasesRaw }] = await Promise.all([
+  const [{ data: franjasRaw }, { data: clasesRaw }, { data: ninosRaw }] = await Promise.all([
     supabase.rpc("academia_rendimiento_franja", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
     supabase.rpc("academia_clases_periodo", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
+    supabase.rpc("academia_rendimiento_nino", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
   ]);
   const franjas = (franjasRaw ?? []) as Franja[];
+  const ninos = (ninosRaw ?? []) as NinoRendimiento[];
   const clasesDictadas: ClaseDictada[] = ((clasesRaw ?? []) as (Omit<ClaseDictada, "profesorNombre"> & { profesor_id: string | null })[]).map((c) => ({
     ...c,
     profesorNombre: c.profesor_id ? nombresStaff.get(c.profesor_id) ?? null : null,
@@ -194,6 +197,15 @@ export default async function AcademiaDetallePage({
         </CardHeader>
         <CardContent>
           <RendimientoFranjas franjas={franjas} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Rendimiento por niño</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RendimientoNinos ninos={ninos} />
         </CardContent>
       </Card>
 
