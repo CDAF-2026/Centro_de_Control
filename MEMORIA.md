@@ -233,8 +233,9 @@ eventos) · `/clientes` (paginado 30, autocomplete) · `/academias`
 · `/paquetes` · `/eventos` (P&G por evento + cierre + atar sus facturas; el dashboard solo ve la
 utilidad de los cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
-`/empleados` (compensación) · `/config` (catálogo de servicios) · `/reportes` · `/agente` (aún lee
-modelo viejo — pendiente repuntar a Siigo) · `/notas` bandeja de recados del staff (ver abajo).
+`/empleados` (compensación + **acceso**: rol, dar/quitar entrada, asignar contraseña) · `/config`
+(catálogo de servicios) · `/reportes` · `/agente` (aún lee modelo viejo — pendiente repuntar a Siigo)
+· `/notas` bandeja de recados del staff (ver abajo) · `/perfil` "Mi perfil", cualquier rol (ver abajo).
 
 ## Contexto de negocio (decisiones de Laura)
 - Conciliación manual = solo deudas + facturas con cliente identificado; el mostrador anónimo queda
@@ -360,8 +361,53 @@ academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
 - Las 11 academias actuales NO se migran (tenían 1 sola inscripción): se archivan y se arranca desde
   un Excel que llena el club (una fila por niño y por día).
 
+## 👤 Perfil y acceso a la plataforma (migración 0060, jul-2026)
+**Dos sitios distintos a propósito**: `/perfil` = "mis datos" (cualquier rol) · `/empleados/[id]` =
+"administrar al equipo" (solo SA). Mezclarlos habría hecho imposible darle perfil a la coordinadora
+administrativa sin darle también la creación de usuarios.
+- **`/perfil`**: nombre, teléfono, foto, correo y contraseña propios. Se entra por el avatar del
+  encabezado (antes no era clickeable). El rol se muestra pero NO se edita.
+- **Crear usuarios ya existía** en `/empleados/nuevo` (Admin API: correo + clave + rol + contrato).
+  Lo que faltaba era administrarlos después.
+- ⚠️ **`activo = false` NO bloqueaba el ingreso.** Solo escondía a la persona de los selectores; el
+  middleware únicamente preguntaba "¿tiene sesión?". Un empleado despedido seguía entrando con su
+  clave. Ahora `requireProfile` (que corre en toda pantalla vía `(app)/layout.tsx`) le cierra la
+  sesión y lo manda a `/login?bloqueado=1`, y `cambiarAccesoEmpleado` **toca dos sitios**:
+  `profiles.activo` (lo que consulta la app) **y** `ban_duration` en Auth (invalida el token de
+  refresco, para que la sesión ya abierta tampoco se renueve). Con solo lo primero seguiría navegando
+  hasta cerrar el navegador; con solo lo segundo la app no sabría por qué no entra.
+- **Trigger `profiles_blindar_rol`**: la política nueva `profiles_update_self` era imprescindible
+  (antes solo el SA escribía en `profiles`, así que un profesor no habría podido ni guardar su nombre)
+  pero abrirla sin candado dejaba que cualquiera se ascendiera a `superadmin` editando su perfil. El
+  trigger prohíbe cambiar `role`/`activo` salvo al SA. Va en trigger y no en la política porque
+  comparar contra el valor viejo obligaría a leer `profiles` dentro de su propia RLS (recursión).
+  `auth.uid() is null` (service_role) pasa: ese camino ya validó el rol en la server action.
+  Verificado con prueba revertida: bloquea ascenso, autobaja y autoreadmisión; deja pasar el nombre.
+- **Guardas de "no te dispares al pie"**: el SA no puede cambiarse el rol ni quitarse el acceso a sí
+  mismo (hoy es el único, se quedaría fuera para siempre).
+- **Foto**: `profiles.avatar_path` (la RUTA, no la URL) + bucket **`avatares` PÚBLICO**, único público
+  del proyecto. Es a propósito: el avatar se pinta en el encabezado de todas las pantallas y una URL
+  firmada habría que renovarla en cada carga. Escritura restringida a la carpeta propia
+  (`<uid>/…`). `next.config.ts` declara el dominio de Supabase para `next/image`. Ojo: al borrar una
+  foto el CDN puede seguir sirviéndola unos minutos (comprobado), pero da igual porque la app deja de
+  referenciarla y cada foto nueva estrena ruta con timestamp.
+- **El correo propio se cambia pidiendo la contraseña actual y aplica de una vez**, sin enlace de
+  confirmación al correo nuevo (lo estándar), porque los correos de Auth los manda Supabase y su
+  remitente por defecto tiene tope de ~2/hora. Cuando se apunte el SMTP de Supabase a Resend
+  (dominio ya verificado), el punto a cambiar es `cambiarMiCorreo` en `perfil/actions.ts`.
+- **Recuperar contraseña = el SA la asigna** desde la ficha del empleado. No hay "olvidé mi
+  contraseña" en el login por lo mismo del correo.
+- 💡 **Los profesores SÍ van a entrar** (decisión de Laura, jul-2026): son quienes cierran clases.
+  Hasta ahora ninguno había iniciado sesión nunca y los 9 tienen correo placeholder
+  (`vena.digital.2207+profe.…`), que es de Laura, no de ellos. Laura tiene los correos reales y los
+  carga por `/empleados/[id]/editar`; la ficha avisa cuando alguien no tiene correo propio, porque el
+  correo es lo que se escribe para entrar.
+
 ## Pendientes conocidos
 - Rotar tokens expuestos en chat: PAT de Supabase y access_key de Siigo (Laura debe regenerarlos).
+- **Apuntar el SMTP de Supabase a Resend** → habilita enlace de "olvidé mi contraseña" y confirmación
+  al cambiar de correo. Hoy ambos flujos van por el SA.
+- **Cargar los correos reales de los 9 profesores** y darles su contraseña (ver Perfil y acceso).
 - D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
 - Agente IA → leer ingresos de Siigo (aún consulta `pagos` viejo).
 - Retirar tablas en desuso cuando se confirme estabilidad.
