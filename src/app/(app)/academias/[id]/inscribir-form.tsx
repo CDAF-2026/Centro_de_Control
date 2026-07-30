@@ -7,10 +7,10 @@ import { MiembroAutocomplete } from "@/components/miembro-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HorarioFila, type Profesor } from "./horario-fila";
+import { HorarioFila, HorarioCabecera, type Profesor } from "./horario-fila";
 
 const initial: AcademiaFormState = {};
-const SELECT = "border-input bg-background h-9 rounded-md border px-3 text-sm";
+const SELECT = "border-input bg-background h-9 w-full rounded-md border px-3 text-sm";
 
 /**
  * Inscribe un niño con SUS horarios. Cada fila es una venida a la semana, con su
@@ -38,7 +38,7 @@ export function InscribirForm({
     <form action={action} className="space-y-4">
       <input type="hidden" name="academiaId" value={academiaId} />
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_10rem_5.5rem]">
         <div className="space-y-1.5">
           <Label>Niño</Label>
           <MiembroAutocomplete />
@@ -52,11 +52,11 @@ export function InscribirForm({
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="descuento">Desc. %</Label>
-          <Input id="descuento" name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
+          <Input id="descuento" name="descuento" type="number" min={0} max={100} defaultValue={0} />
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div>
           <Label>Días que asiste</Label>
           <p className="text-muted-foreground text-xs">
@@ -64,27 +64,32 @@ export function InscribirForm({
           </p>
         </div>
 
-        {filas.map((k, i) => (
-          <HorarioFila
-            key={k}
-            profesores={profesores}
-            dias={DIAS}
-            duraciones={DURACIONES}
-            onQuitar={filas.length > 1 ? () => setFilas((f) => f.filter((x) => x !== k)) : undefined}
-            autoFocus={i > 0}
-          />
-        ))}
+        <HorarioCabecera />
+        <div className="space-y-2">
+          {filas.map((k, i) => (
+            <HorarioFila
+              key={k}
+              profesores={profesores}
+              dias={DIAS}
+              duraciones={DURACIONES}
+              onQuitar={filas.length > 1 ? () => setFilas((f) => f.filter((x) => x !== k)) : undefined}
+              autoFocus={i > 0}
+            />
+          ))}
+        </div>
 
         <Button type="button" variant="outline" size="sm" onClick={agregar}>
           + Otro día
         </Button>
       </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Inscribiendo…" : "Inscribir"}
-      </Button>
-      {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-      {state.ok && <p className="text-primary text-sm">{state.ok}</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Inscribiendo…" : "Inscribir"}
+        </Button>
+        {state.error && <p className="text-destructive text-sm">{state.error}</p>}
+        {state.ok && <p className="text-primary text-sm">{state.ok}</p>}
+      </div>
     </form>
   );
 }

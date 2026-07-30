@@ -5,7 +5,7 @@ import { agregarHorario, quitarHorario, quitarInscripcion, type AcademiaFormStat
 import { DIAS, DURACIONES } from "@/lib/validations/academia";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HorarioFila, type Profesor } from "./horario-fila";
+import { HorarioFila, HorarioCabecera, type Profesor } from "./horario-fila";
 
 const initial: AcademiaFormState = {};
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -126,14 +126,17 @@ export function InscritoRow({
       </ul>
 
       {abierto && puedeEditar && (
-        <form action={action} className="mt-2 space-y-2">
+        <form action={action} className="mt-3 space-y-1.5">
           <input type="hidden" name="inscripcionId" value={inscrito.inscripcionId} />
           <input type="hidden" name="academiaId" value={academiaId} />
+          <HorarioCabecera />
           <HorarioFila profesores={profesores} dias={DIAS} duraciones={DURACIONES} />
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Agregando…" : "Agregar día"}
-          </Button>
-          {state.error && <p className="text-destructive text-xs">{state.error}</p>}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Agregando…" : "Agregar día"}
+            </Button>
+            {state.error && <p className="text-destructive text-xs">{state.error}</p>}
+          </div>
         </form>
       )}
 
