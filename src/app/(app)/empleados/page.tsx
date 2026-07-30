@@ -13,19 +13,22 @@ import { correoVisible } from "@/lib/empleado";
 export default async function EmpleadosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; inactivos?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("empleados"));
-  const { q = "" } = await searchParams;
+  const { q = "", inactivos } = await searchParams;
   const safe = q.replace(/[%,()*]/g, "").trim();
+  const verInactivos = inactivos === "1";
 
   const supabase = await createClient();
-  // Solo empleados activos: los inactivos (p.ej. duplicados unificados) no se listan.
+  // Por defecto solo los activos (los inactivos son duplicados unificados o
+  // gente que ya no trabaja aquí), pero se pueden mostrar: sin verlos no habría
+  // forma de devolverle el acceso a alguien que volvió.
   let query = supabase
     .from("profiles")
     .select("id, nombre, telefono, activo")
-    .eq("activo", true)
     .order("nombre", { nullsFirst: false });
+  if (!verInactivos) query = query.eq("activo", true);
   if (safe) query = query.or(`nombre.ilike.%${safe}%,documento.ilike.%${safe}%`);
   const { data: empleados } = await query;
 
@@ -47,9 +50,18 @@ export default async function EmpleadosPage({
         )}
       </div>
 
-      <form className="max-w-sm">
-        <Input name="q" defaultValue={q} placeholder="Buscar por nombre o documento…" />
-      </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <form className="max-w-sm flex-1">
+          <Input name="q" defaultValue={q} placeholder="Buscar por nombre o documento…" />
+          {verInactivos && <input type="hidden" name="inactivos" value="1" />}
+        </form>
+        <Link
+          href={`/empleados?${new URLSearchParams({ ...(q ? { q } : {}), ...(verInactivos ? {} : { inactivos: "1" }) })}`}
+          className="text-muted-foreground text-sm hover:underline"
+        >
+          {verInactivos ? "Ver solo activos" : "Mostrar también los inactivos"}
+        </Link>
+      </div>
 
       <div className="cdaf-table-wrap">
         <table className="cdaf-table">

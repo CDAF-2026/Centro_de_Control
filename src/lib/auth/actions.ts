@@ -17,9 +17,22 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     return { error: "Correo o contraseña incorrectos." };
+  }
+
+  // La clave era correcta, pero la cuenta puede estar dada de baja. Se corta
+  // aquí para dar un mensaje claro; si no, `requireProfile` lo devolvería al
+  // login sin explicar por qué y parecería un error del sistema.
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("activo")
+    .eq("id", data.user.id)
+    .single();
+  if (!perfil?.activo) {
+    await supabase.auth.signOut();
+    return { error: "Esta cuenta ya no tiene acceso. Habla con el administrador." };
   }
 
   redirect("/dashboard");

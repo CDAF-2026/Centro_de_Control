@@ -7,6 +7,8 @@ export type Profile = {
   role: AppRole;
   nombre: string | null;
   telefono: string | null;
+  avatar_path: string | null;
+  activo: boolean;
 };
 
 /** Usuario autenticado (o null). Valida el token contra Supabase. */
@@ -28,7 +30,7 @@ export async function getProfile(): Promise<Profile | null> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, nombre, telefono")
+    .select("id, role, nombre, telefono, avatar_path, activo")
     .eq("id", user.id)
     .single();
 
@@ -42,10 +44,23 @@ export async function requireUser() {
   return user;
 }
 
-/** Exige sesión + perfil; si no, redirige a /login. */
+/**
+ * Exige sesión + perfil; si no, redirige a /login.
+ *
+ * También es el portero de las cuentas dadas de baja: `activo = false` antes
+ * solo escondía a la persona de las listas desplegables, pero seguía entrando
+ * con su clave de siempre. Aquí se le cierra la sesión y se le devuelve al
+ * login. El chequeo va en esta función porque `(app)/layout.tsx` la llama en
+ * cada pantalla del sistema, así que cubre todo de una vez.
+ */
 export async function requireProfile(): Promise<Profile> {
   const profile = await getProfile();
   if (!profile) redirect("/login");
+  if (!profile.activo) {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    redirect("/login?bloqueado=1");
+  }
   return profile;
 }
 

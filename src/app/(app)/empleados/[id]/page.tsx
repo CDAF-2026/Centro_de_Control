@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CompensacionForm, type Comp } from "./compensacion-form";
 import { ReglasForm, type ReglaInicial } from "./reglas-form";
 import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
+import { AccesoForm } from "./acceso-form";
 import { correoVisible } from "@/lib/empleado";
 
 export default async function EmpleadoDetallePage({
@@ -133,6 +134,26 @@ export default async function EmpleadoDetallePage({
           </div>
         </CardContent>
       </Card>
+
+      {esSuperadmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Acceso a la plataforma</CardTitle>
+            <CardDescription>
+              Si esta persona entra al Centro de Control, con qué rol y con qué contraseña.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccesoForm
+              empleadoId={emp.id}
+              role={emp.role}
+              activo={emp.activo}
+              tieneCorreo={!!email}
+              esUnoMismo={profile.id === emp.id}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {esAdmin && (
         <Card>

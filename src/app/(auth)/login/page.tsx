@@ -3,8 +3,13 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bloqueado?: string }>;
+}) {
   if (await getUser()) redirect("/dashboard");
+  const { bloqueado } = await searchParams;
   const year = new Date().getFullYear();
 
   return (
@@ -30,6 +35,14 @@ export default async function LoginPage() {
             <h2 className="font-heading text-lg font-semibold tracking-tight">Ingresar</h2>
             <p className="text-muted-foreground text-sm">Accede con tu correo y contraseña.</p>
           </div>
+          {bloqueado && (
+            <p
+              role="alert"
+              className="border-destructive/20 bg-destructive/5 text-destructive mb-4 rounded-lg border px-3 py-2 text-sm"
+            >
+              Tu cuenta ya no tiene acceso al Centro de Control. Habla con el administrador.
+            </p>
+          )}
           <LoginForm />
         </div>
 

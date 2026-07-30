@@ -6,7 +6,14 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
-import { createEmpleadoSchema, updateEmpleadoSchema, valorClaseSchema, reglasSchema } from "@/lib/validations/empleado";
+import {
+  createEmpleadoSchema,
+  updateEmpleadoSchema,
+  valorClaseSchema,
+  reglasSchema,
+  STAFF_ROLES,
+} from "@/lib/validations/empleado";
+import { asignarPasswordSchema } from "@/lib/validations/perfil";
 import type { EmpleadoDocumentoTipo } from "@/lib/database.types";
 
 export type EmpleadoFormState = {
@@ -267,6 +274,127 @@ export async function updateEmpleado(
   revalidatePath("/empleados");
   revalidatePath(`/empleados/${d.id}`);
   redirect(`/empleados/${d.id}`);
+}
+
+// ─────────────────────── Acceso a la plataforma ───────────────────────
+
+/** Cambia el rol de otra persona (qué módulos ve). Solo superadministrador. */
+export async function cambiarRolEmpleado(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  const sa = await requireRole(["superadmin"]);
+  const id = String(formData.get("id") || "");
+  const role = String(formData.get("role") || "");
+
+  if (!id) return { error: "Falta el empleado." };
+  if (!(STAFF_ROLES as readonly string[]).includes(role)) return { error: "Rol inválido." };
+  // Sin esto, el único superadministrador podría degradarse solo y dejar al
+  // club sin nadie que pueda volver a repartir permisos.
+  if (id === sa.id) {
+    return { error: "No puedes cambiar tu propio rol. Debe hacerlo otro superadministrador." };
+  }
+
+  const supabase = await createClient();
+  const { data: antes } = await supabase.from("profiles").select("role").eq("id", id).single();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ role: role as (typeof STAFF_ROLES)[number] })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "empleado.rol.update",
+    entity: "profiles",
+    entityId: id,
+    before: { role: antes?.role ?? null },
+    after: { role },
+  });
+
+  revalidatePath("/empleados");
+  revalidatePath(`/empleados/${id}`);
+  return { ok: "Rol actualizado." };
+}
+
+/**
+ * Da o quita el acceso a la plataforma. Solo superadministrador.
+ *
+ * Se tocan DOS sitios a propósito:
+ *   · `profiles.activo` — lo que consulta la app (`requireProfile` lo usa para
+ *     cerrarle la sesión y devolverlo al login).
+ *   · el bloqueo en Auth (`ban_duration`) — invalida el token de refresco, así
+ *     que la sesión que ya tuviera abierta tampoco se renueva.
+ * Con solo lo primero, quien estuviera dentro seguiría navegando hasta cerrar
+ * el navegador; con solo lo segundo, la app no sabría por qué no puede entrar.
+ */
+export async function cambiarAccesoEmpleado(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  const sa = await requireRole(["superadmin"]);
+  const id = String(formData.get("id") || "");
+  const activo = String(formData.get("activo")) === "1";
+
+  if (!id) return { error: "Falta el empleado." };
+  if (id === sa.id && !activo) {
+    return { error: "No puedes quitarte el acceso a ti mismo." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").update({ activo }).eq("id", id);
+  if (error) return { error: error.message };
+
+  const admin = createAdminClient();
+  // 876000h ≈ 100 años: es la forma que tiene Supabase de decir "indefinido".
+  const { error: authErr } = await admin.auth.admin.updateUserById(id, {
+    ban_duration: activo ? "none" : "876000h",
+  });
+  if (authErr) {
+    // Se revierte para no dejar el perfil y la cuenta contándose cosas distintas.
+    await supabase.from("profiles").update({ activo: !activo }).eq("id", id);
+    return { error: `No se pudo cambiar el acceso: ${authErr.message}` };
+  }
+
+  await logAudit({
+    action: activo ? "empleado.acceso.dar" : "empleado.acceso.quitar",
+    entity: "profiles",
+    entityId: id,
+    after: { activo },
+  });
+
+  revalidatePath("/empleados");
+  revalidatePath(`/empleados/${id}`);
+  return { ok: activo ? "Acceso restablecido." : "Acceso retirado." };
+}
+
+/**
+ * Asigna una contraseña nueva a otra persona. Solo superadministrador.
+ * Es el camino de recuperación mientras no haya envío de correos configurado:
+ * el superadministrador la fija y se la entrega a la persona.
+ */
+export async function asignarPasswordEmpleado(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin"]);
+
+  const parsed = asignarPasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const i of parsed.error.issues) fieldErrors[String(i.path[0])] = i.message;
+    return { error: "Revisa los campos.", fieldErrors };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.id, {
+    password: parsed.data.password,
+  });
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "empleado.password.asignar", entity: "profiles", entityId: parsed.data.id });
+
+  revalidatePath(`/empleados/${parsed.data.id}`);
+  return { ok: "Contraseña asignada. Entrégasela a la persona." };
 }
 
 /** Sube un documento (contrato, etc.) del empleado. Solo superadmin / coord. administrativo. */

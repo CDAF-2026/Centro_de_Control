@@ -1,5 +1,6 @@
 import { requireProfile } from "@/lib/auth";
 import { contarNoLeidas } from "@/lib/notas";
+import { avatarUrl } from "@/lib/avatar";
 import { AppShell } from "@/components/app-shell/app-shell";
 
 export default async function AppLayout({
@@ -15,6 +16,7 @@ export default async function AppLayout({
       role={profile.role}
       nombre={profile.nombre ?? "Usuario"}
       perfilId={profile.id}
+      avatarUrl={avatarUrl(profile.avatar_path)}
       notasSinLeer={notasSinLeer}
     >
       {children}

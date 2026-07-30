@@ -8,6 +8,7 @@ import { Menu, LogOut, X } from "lucide-react";
 import { NAV_ITEMS } from "@/lib/nav";
 import { can } from "@/lib/auth/permissions";
 import { logout } from "@/lib/auth/actions";
+import { iniciales } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { NotasCampana } from "./notas-campana";
 import type { AppRole } from "@/lib/database.types";
@@ -20,22 +21,44 @@ const ROLE_LABEL: Record<AppRole, string> = {
   profesor: "Profesor",
 };
 
-function iniciales(nombre: string) {
-  const partes = nombre.trim().split(/\s+/).filter(Boolean);
-  const ini = (partes[0]?.[0] ?? "") + (partes[1]?.[0] ?? "");
-  return ini.toUpperCase() || "U";
+/** Foto de perfil, o las iniciales mientras no haya. */
+function Avatar({
+  url,
+  nombre,
+  className,
+}: {
+  url: string | null;
+  nombre: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full font-bold",
+        className,
+      )}
+    >
+      {url ? (
+        <Image src={url} alt="" fill sizes="40px" className="object-cover" />
+      ) : (
+        iniciales(nombre)
+      )}
+    </span>
+  );
 }
 
 export function AppShell({
   role,
   nombre,
   perfilId,
+  avatarUrl,
   notasSinLeer,
   children,
 }: {
   role: AppRole;
   nombre: string;
   perfilId: string;
+  avatarUrl: string | null;
   notasSinLeer: number;
   children: React.ReactNode;
 }) {
@@ -121,15 +144,21 @@ export function AppShell({
 
         {/* Identidad + salir */}
         <div className="border-sidebar-border border-t p-3">
-          <div className="mb-1 flex items-center gap-3 px-3 py-2">
-            <span className="bg-sidebar-primary text-sidebar-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-              {iniciales(nombre)}
-            </span>
+          <Link
+            href="/perfil"
+            onClick={() => setOpen(false)}
+            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-white/5"
+          >
+            <Avatar
+              url={avatarUrl}
+              nombre={nombre}
+              className="bg-sidebar-primary text-sidebar-primary-foreground size-8 text-xs"
+            />
             <span className="min-w-0 leading-tight">
               <span className="text-sidebar-foreground block truncate text-sm font-medium">{nombre}</span>
               <span className="text-sidebar-foreground/50 block truncate text-xs">{ROLE_LABEL[role]}</span>
             </span>
-          </div>
+          </Link>
           <form action={logout}>
             <button
               type="submit"
@@ -175,13 +204,22 @@ export function AppShell({
           </div>
           <div className="ml-auto flex items-center gap-3">
             <NotasCampana perfilId={perfilId} inicial={notasSinLeer} />
-            <span className="hidden text-right leading-tight sm:block">
-              <span className="text-foreground block text-sm font-medium">{nombre}</span>
-              <span className="text-muted-foreground block text-xs">{ROLE_LABEL[role]}</span>
-            </span>
-            <span className="bg-primary text-primary-foreground ring-primary/20 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-2">
-              {iniciales(nombre)}
-            </span>
+            <Link
+              href="/perfil"
+              aria-label="Mi perfil"
+              title="Mi perfil"
+              className="group flex items-center gap-3 rounded-lg transition-opacity hover:opacity-80"
+            >
+              <span className="hidden text-right leading-tight sm:block">
+                <span className="text-foreground block text-sm font-medium">{nombre}</span>
+                <span className="text-muted-foreground block text-xs">{ROLE_LABEL[role]}</span>
+              </span>
+              <Avatar
+                url={avatarUrl}
+                nombre={nombre}
+                className="bg-primary text-primary-foreground ring-primary/20 group-hover:ring-primary/50 size-9 text-xs ring-2 transition-[--tw-ring-color]"
+              />
+            </Link>
           </div>
         </header>
         <main className="flex-1 p-4 md:p-8">

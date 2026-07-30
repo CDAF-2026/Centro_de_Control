@@ -59,6 +59,7 @@ export type Database = {
           nombre: string | null;
           telefono: string | null;
           documento: string | null;
+          avatar_path: string | null;
           activo: boolean;
           created_at: string;
           updated_at: string;
@@ -69,6 +70,7 @@ export type Database = {
           nombre?: string | null;
           telefono?: string | null;
           documento?: string | null;
+          avatar_path?: string | null;
           activo?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -79,6 +81,7 @@ export type Database = {
           nombre?: string | null;
           telefono?: string | null;
           documento?: string | null;
+          avatar_path?: string | null;
           activo?: boolean;
           created_at?: string;
           updated_at?: string;
