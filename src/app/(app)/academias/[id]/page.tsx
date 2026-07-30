@@ -154,22 +154,6 @@ export default async function AcademiaDetallePage({
         </CardContent>
       </Card>
 
-      {/* La programación ya no nace aquí: las clases entran desde la reserva de
-          EasyCancha y se registran en el calendario (decidido con el club, jul-2026). */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Clases</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            Las clases de academia entran desde la reserva de EasyCancha. Ábrela en el{" "}
-            <Link href="/clases" className="underline">calendario de clases</Link> y regístrala con el
-            botón <strong>Academia</strong>; la asistencia se toma en{" "}
-            <Link href="/cierre" className="underline">cierre de clases</Link>.
-          </p>
-        </CardContent>
-      </Card>
-
       <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>Inscritos ({inscritos.length})</CardTitle>
