@@ -122,7 +122,7 @@ for nombre, _, ayuda in COLUMNAS:
 # ═══════════════════ Hoja 3 (creada antes para referenciarla): Listas ═══════════════════
 listas = wb.create_sheet("Listas")
 listas.sheet_state = "visible"  # visible a propósito: si el club necesita otra opción, se ve dónde pedirla
-listas["A1"] = "No modificar esta hoja. Es la fuente de las listas desplegables."
+listas["A1"] = "Opciones válidas de cada columna, para consulta. Si falta alguna, pídenosla."
 listas["A1"].font = Font(name=ARIAL, size=10, bold=True, color="B71C1C")
 
 BLOQUES = [
@@ -138,7 +138,16 @@ for col_idx, (titulo, valores) in enumerate(BLOQUES, start=1):
     for i, v in enumerate(valores, start=4):
         vc = listas.cell(row=i, column=col_idx, value=v)
         vc.font = Font(name=ARIAL, size=10)
-    rangos[titulo] = f"=Listas!${L}$4:${L}${3 + len(valores)}"
+    # Lista EN LÍNEA, no referencia a rango. Dos razones:
+    #   1. Google Sheets importa las listas en línea sin falla; las que apuntan a
+    #      otra hoja se le pierden a veces y los desplegables salen mudos.
+    #   2. El estándar OOXML pide formula1 SIN el "=" delante. Excel lo perdona,
+    #      Sheets no: con "=Listas!$A$4:$A$5" el desplegable no aparece.
+    # Tope de 255 caracteres; la lista más larga (profesores) va en ~96.
+    inline = ",".join(str(v) for v in valores)
+    assert len(inline) <= 250, f"lista {titulo} muy larga para ir en línea ({len(inline)})"
+    assert "," not in "".join(str(v) for v in valores), f"lista {titulo}: un valor trae coma"
+    rangos[titulo] = f'"{inline}"'
 
 # ═══════════════════ Hoja 2: Inscritos ═══════════════════
 ws = wb.create_sheet("Inscritos", 1)
@@ -163,14 +172,10 @@ for r, fila in enumerate(EJEMPLOS, start=2):
         c.fill = PatternFill("solid", fgColor=AMARILLO)
         c.border = borde
 
-# Formato de la columna Hora y filas en blanco listas para escribir
+# No se pinta estilo celda por celda en las filas vacías: crearía ~4.400 celdas con
+# formato y triplica el peso del archivo sin cambiar nada a la vista. La hora se
+# escribe como texto "16:30" y así la lee el importador.
 FILAS_LIBRES = 400
-for r in range(2, 2 + len(EJEMPLOS) + FILAS_LIBRES):
-    ws.cell(row=r, column=8).number_format = "HH:MM"
-    for c_idx in range(1, len(COLUMNAS) + 1):
-        cell = ws.cell(row=r, column=c_idx)
-        if cell.font is None or cell.font.name != ARIAL:
-            cell.font = Font(name=ARIAL, size=11)
 
 ULTIMA = 1 + len(EJEMPLOS) + FILAS_LIBRES
 
