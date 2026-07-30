@@ -64,6 +64,8 @@ export async function cerrarClase(
 
   // Asistencia por MIEMBRO (hermano). Los valores "deportista" son miembro_id.
   const deportistas = formData.getAll("deportista").map(Number).filter(Boolean);
+  /** Marcado como "no vino" en la lista de reposiciones: no se registra asistencia. */
+  const noVino = (mid: number) => String(formData.get(`asis_${mid}`) || "") === "no";
   const estadoAsis = (mid: number) => {
     const e = String(formData.get(`asis_${mid}`) || "presente");
     return (["presente", "ausente", "excusa_medica", "reposicion"].includes(e) ? e : "presente") as
@@ -77,6 +79,12 @@ export async function cerrarClase(
     : { data: [] as { id: number; cliente_id: number; nombres: string }[] };
   const cliDeMiembro = new Map((mrows ?? []).map((m) => [m.id, m.cliente_id]));
   for (const mid of deportistas) {
+    // "no" = aparecía en la lista de reposiciones y no vino: no se registra nada,
+    // y si había un registro previo se borra (alguien lo marcó y se corrigió).
+    if (noVino(mid)) {
+      await supabase.from("asistencias").delete().eq("clase_id", claseId).eq("miembro_id", mid);
+      continue;
+    }
     const est = estadoAsis(mid);
     const cliId = cliDeMiembro.get(mid) ?? clase.cliente_id;
     if (cliId == null) continue; // sin ficha no se puede registrar asistencia
@@ -116,7 +124,7 @@ export async function cerrarClase(
 
   // Notificación a la familia: clase confirmada + saldo del paquete (no bloquea el cierre).
   if (estado === "realizada") {
-    const presentes = deportistas.filter((mid) => estadoAsis(mid) === "presente");
+    const presentes = deportistas.filter((mid) => !noVino(mid) && estadoAsis(mid) === "presente");
     if (presentes.length) {
       const cliIds = [...new Set(presentes.map((mid) => cliDeMiembro.get(mid)).filter((x): x is number => x != null))];
       const { data: cls } = cliIds.length

@@ -292,9 +292,10 @@ asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`
   sano, uno de recreativa con 3 se muere. La lista general solo lleva el **titular** por academia
   (inscritos + "N franjas en riesgo") para saber a cuál entrar.
 
-**Falta**: importador del Excel, modal de `/clases` apuntando a las 4 (profesor sugerido leyendo el
-comentario + quitar la lógica muerta de "candidatas", que ya nunca casa porque las 4 academias no
-tienen horario), cierre con pre-marcado, reporte por niño, y cruce asistencia vs facturas de Siigo.
+**Falta**: importador del Excel, reporte por niño, y cruce asistencia vs facturas de Siigo.
+✅ El **modal de `/clases` se deja como está**: al no tener horario las 4 academias, la lógica de
+"candidatas" nunca casa y cae al selector manual — que es justo lo que Laura quiere (escoger a mano
+la academia y el profesor baja el margen de error). No tocar salvo para limpiar el código muerto.
 ⚠️ El cruce con Siigo está **bloqueado por conciliación, no por código**: de 224 líneas de Academia
 Recreativa Tenis solo **36 tienen `cliente_id`** (95 son mostrador). Sin saber de quién es la factura
 no se puede decir "a Pepito no le cobraron". Y falta decidir cómo tratar a los hermanos: la factura va
@@ -327,9 +328,15 @@ academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
   modal la academia se escoge SIEMPRE a mano (arranca vacía, sin pre-seleccionar) porque define a
   quién se le cobra; el **profesor** sí viene sugerido del comentario y se **confirma al cerrar la
   clase** (obligatorio: hoy una clase sin `profesor_id` desaparece de la liquidación en silencio).
-- **Cierre**: los inscritos esperados a esa hora llegan **pre-marcados** y visualmente distintos, los
-  demás inscritos abajo (reposiciones), y antes de cerrar un conteo explícito ("6 presentes de 8
-  inscritos") para que un olvido salte a la vista. Nada se guarda hasta confirmar.
+- ✅ **Cierre** (hecho): la lista trae SOLO a los inscritos que tienen esa franja en su horario
+  (día + hora ±20 min, misma tolerancia que el tablero). ⚠️ Antes filtraba por `inscripciones.dias`,
+  que quedó en desuso y hoy está siempre vacío, así que la condición `dias.length === 0` dejaba pasar
+  a TODOS los inscritos de la academia — Laura lo detectó viendo a una niña de lunes/miércoles en una
+  clase de jueves. Los demás inscritos van en una sección **plegada** ("¿vino alguien más?") con
+  default **"No vino"**, solo para registrar una reposición; en la acción, `"no"` no inserta y borra
+  el registro previo si lo hubiera (ojo: `estadoAsis` cae a "presente" ante un valor desconocido, por
+  eso hay un `noVino()` aparte que también excluye del correo de notificación). Y antes de guardar sale
+  el conteo en vivo: "vas a registrar N presentes de M que se esperaban".
 - ✅ **YA SE QUITÓ** de `/academias` la programación: `generarProgramacion`, `reprogramarClase`,
   `cancelarClase` + los componentes `programar-form.tsx` y `clase-academia-row.tsx`. La ficha no dice
   nada sobre clases (se probó una tarjeta explicativa y Laura la mandó quitar: la ficha es de
