@@ -17,6 +17,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | Build (verificar SIEMPRE antes de commit) | `npm run build` (si falla por Google Fonts, reintentar) |
 | **Migraciones** | `npm run db:apply` (Management API/HTTPS con PAT en .env). ⚠️ `db:push` NO sirve desde el agente (Postgres directo es IPv6-only) |
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
+| **Refrescar solo el catálogo de productos** | `npm run sync:productos` (`-- --dry` para simulacro). Úsalo cuando el club renombre un grupo en Siigo: el sync completo solo refresca este caché si encuentra facturas nuevas, y con el rezago de ~1 día puede pasar medio día sin hacerlo |
 | Backfill cédulas por nombre | `npm run match:siigo -- --apply` |
 | Sync clientes EasyCancha | `npm run sync:clientes` (nuevos entran ya con cédula/tipo/nacimiento) |
 | Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
@@ -115,6 +116,19 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
   torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los
   gastos a mano y no importar las ~600 compras.
+- ⚠️ **Renombrar un grupo de producto en Siigo rompe la categorización en silencio.** El sync casa las
+  líneas por el **nombre** del grupo (`servicios.siigo_grupo` ↔ `account_group`, con trim+lowercase).
+  Si allá lo renombran, esa plata entra con `servicio_id = null`: el total del club sigue cuadrando y
+  solo se desinfla la tajada de ese servicio, así que nadie se entera. Pasó el **30-jul-2026**: el club
+  estandarizó los cuatro grupos de academia (migración 0058) —
+  `Academia de Tenis ` → `Academia recreativa tenis` · `Alto rendimiento tenis` →
+  `Academia competencia tenis` · `Academia de Padel` → `Academia recreativa padel` ·
+  `Academia Alto Rendimiento Padel` → `Academia competencia padel`. `Alto rendimiento Joaquin` y
+  `Preparación física` NO cambiaron. Al arreglarlo se **actualizan las filas existentes**, nunca se
+  crean nuevas: sus ids los referencian `siigo_factura_lineas` (293 líneas de historia),
+  `academias.servicio_id` y `profesor_regla.servicio_id` (la comisión del 25% de Joaquín y Leo, que
+  habría empezado a liquidar $0). Aviso permanente en **`/config`**: lista los grupos de Siigo que
+  ningún servicio reclama, con su nº de productos.
 - **Dinero (Siigo)**: `siigo_facturas` (siigo_id único, total, saldo=deuda, cliente_id, evento_id,
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
