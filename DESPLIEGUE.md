@@ -88,9 +88,18 @@ En *Authentication → URL Configuration*:
 
 ## 6 · Pendientes atados al despliegue
 
+- [x] ~~Prueba de humo detrás del login~~ — hecha, todo OK (31-jul-2026).
+- [x] ~~Cargar los correos reales de los 9 profesores~~ — hecho (31-jul-2026).
+- [ ] **Resend con cuenta del CDAF.** En el primer despliegue se dejaron fuera
+      `RESEND_API_KEY` y `RESEND_FROM` a propósito: las de `.env` son de Vena Digital.
+      ⚠️ Mientras falten, **dos correos al cliente no salen y nadie se entera**: la
+      confirmación al cerrarle una clase y la bienvenida al asignarle un paquete. No
+      se rompe nada (ambos llamados hacen `console.error` y siguen), pero recepción no
+      debe prometer un correo que no va a llegar. Al abrir la cuenta: verificar el
+      dominio del club en Resend y agregar las dos variables en Vercel. Sin tocar código.
 - [ ] **Rotar el PAT de Supabase y el `access_key` de Siigo** (quedaron expuestos en
       chat). Al rotarlos hay que actualizar `.env` y los secretos de la Edge Function.
-- [ ] Cargar los correos reales de los 9 profesores y darles contraseña.
 - [ ] Crear el catálogo de paquetes: quedó vacío tras limpiar los datos de prueba, y
       sin él recepción no puede asignar paquetes.
 - [ ] Apuntar el SMTP de Supabase a Resend → habilita "olvidé mi contraseña".
+- [ ] Dominio propio y, con él, actualizar el `site_url` de Supabase (sección 3).

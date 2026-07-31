@@ -1,40 +1,22 @@
-import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { redirect } from "next/navigation";
+import { getProfile } from "@/lib/auth";
+import { rutaInicio } from "@/lib/auth/permissions";
 
-export default function Home() {
-  return (
-    <main className="bg-stadium relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-8 text-center">
-      {/* Destello de cancha */}
-      <div
-        aria-hidden
-        className="bg-primary/10 pointer-events-none absolute -top-1/3 left-1/2 size-[48rem] -translate-x-1/2 rounded-full blur-3xl"
-      />
-      <div className="relative flex flex-col items-center gap-6">
-        <div className="bg-primary/10 ring-primary/20 flex size-24 items-center justify-center rounded-3xl ring-1">
-          <Image src="/logo-cdaf.png" alt="CDAF" width={72} height={72} className="rounded-xl" priority />
-        </div>
-        <div className="space-y-2">
-          <p className="cdaf-eyebrow text-primary">Centro Deportivo Alejandro Falla</p>
-          <h1 className="cdaf-display text-white">Centro de Control</h1>
-          <p className="mx-auto max-w-md text-white/60">
-            Gestión y CRM del club: clientes, academias, paquetes, clases, cierres y
-            conciliación — todo en un solo lugar.
-          </p>
-        </div>
-        {/*
-          Sin enlace al sistema de diseño: esta es la portada pública del club y
-          no tiene por qué ofrecerle a un visitante una herramienta interna.
-          `/styleguide` sigue existiendo y se llega por URL directa (no lleva
-          datos reales, solo ejemplos inventados).
-        */}
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link href="/login" className={buttonVariants({ size: "lg" })}>
-            Ingresar <ArrowRight className="size-4" />
-          </Link>
-        </div>
-      </div>
-    </main>
-  );
+/**
+ * La raíz no pinta nada: manda a donde toca.
+ *
+ * Antes había una portada con el nombre del club y un botón "Ingresar". Era un
+ * clic de más para llegar al mismo formulario: esto es una herramienta interna,
+ * no un sitio de mercadeo — quien entra ya sabe a qué viene (decisión de Laura,
+ * 31-jul-2026, tras el primer despliegue). El logo y la marca ya están en la
+ * propia pantalla de login, así que no se pierde nada visualmente.
+ *
+ * Se resuelve el destino AQUÍ en vez de redirigir siempre a `/login` para que
+ * sea un solo salto: `/login` a su vez rebota a `rutaInicio()` a quien ya tiene
+ * sesión, así que un redirect fijo haría rebotar dos veces al caso más común
+ * (alguien del staff que guardó el dominio pelado en favoritos).
+ */
+export default async function Home() {
+  const sesion = await getProfile();
+  redirect(sesion?.activo ? rutaInicio(sesion.role) : "/login");
 }
