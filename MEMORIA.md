@@ -299,7 +299,7 @@ eventos) · `/clientes` (paginado 30, autocomplete) · `/academias`
 utilidad de los cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
 `/empleados` (compensación + **acceso**: rol, dar/quitar entrada, asignar contraseña) · `/config`
-(catálogo de servicios) · `/reportes` · `/agente` (aún lee modelo viejo — pendiente repuntar a Siigo)
+(catálogo de servicios, **solo lectura**) · `/agente` (aún lee modelo viejo — pendiente repuntar a Siigo)
 · `/notas` bandeja de recados del staff (ver abajo) · `/perfil` "Mi perfil", cualquier rol (ver abajo).
 
 ## 🔐 Permisos por rol (revisado con Laura el 31-jul-2026)
@@ -318,7 +318,8 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 | notas | E | E | E | E | E |
 | cierre de clases | E | — | E | — | E |
 | pagos (conciliación) | E | E | — | — | — |
-| liquidación · reportes · agente · config | E | — | — | — | — |
+| liquidación · agente | E | — | — | — | — |
+| config (catálogo de servicios) | **L** | — | — | — | — |
 
 - ⚠️ **El dashboard era la puerta de entrada de todos** (login → `/dashboard`, y `requireRole`
   rebotaba ahí al que no tenía permiso). Al dejarlo solo para SA hubo que darle a cada rol otra
@@ -365,6 +366,22 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 - ⚠️ `/config` dejaba entrar al coordinador administrativo por la puerta de atrás: el módulo es
   solo-SA pero `config/actions.ts` tenía `ADMIN = ["superadmin","coord_admin"]` escrito a mano.
 - `descuentos` es letra muerta (ningún archivo lo consulta); queda declarado por si se retoma.
+- 🗑️ **`/reportes` se eliminó** (31-jul-2026, decisión de Laura). Mostraba conteos de clases,
+  clientes activos/retirados, academias y paquetes, más el ingreso por servicio del año — y era
+  solo-SA, igual que el dashboard, que ya hace lo financiero mejor. Se borró la carpeta, la clave
+  `reportes_operativos` de la matriz y la entrada del menú. ⚠️ **`reportes_financieros` NO se
+  tocó**: sigue vivo y es el que gatea `/ingresos` y `/cartera`. No confundirlos.
+- ⚠️ **`/config` quedó en SOLO LECTURA** (31-jul-2026). Laura pidió quitarlo entero porque "esa
+  información se trae de Siigo". **No es así, y ahí está la trampa**: `servicios` es una tabla
+  LOCAL; Siigo ni sabe que existe. El sync compara el nombre del grupo de la factura
+  (`account_group`) como TEXTO contra `servicios.siigo_grupo`, y ese emparejamiento se mantiene
+  aquí. Borrar la pantalla habría dejado sin sitio dónde arreglarlo y —peor— sin el **aviso de
+  grupos huérfanos**, único detector de un fallo que ya ocurrió una vez (30-jul-2026, renombre de
+  los cuatro grupos de academia) y que es invisible: el total del club sigue cuadrando y solo se
+  desinfla la tajada de un servicio. Se resolvió dejando la pantalla sin crear/editar/borrar:
+  se eliminaron `config/actions.ts` y `servicio-form.tsx`, y la tarjeta ahora **muestra
+  `siigo_grupo`**, que antes no se veía y es justo el campo que se rompe. Corregir un mapeo va por
+  migración. Al medir: 0 grupos huérfanos hoy.
 
 ## Contexto de negocio (decisiones de Laura)
 - Conciliación manual = solo deudas + facturas con cliente identificado; el mostrador anónimo queda

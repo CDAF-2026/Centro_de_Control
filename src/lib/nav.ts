@@ -10,7 +10,6 @@ import {
   Trophy,
   Wallet,
   Calculator,
-  BarChart3,
   Bot,
   Settings,
   type LucideIcon,
@@ -37,7 +36,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Cierre de clases", href: "/cierre", icon: ClipboardCheck, module: "cierre_clase" },
   { label: "Pagos", href: "/pagos", icon: Wallet, module: "bolsa_pagos" },
   { label: "Liquidación", href: "/liquidacion", icon: Calculator, module: "liquidacion" },
-  { label: "Reportes", href: "/reportes", icon: BarChart3, module: "reportes_operativos" },
   { label: "Agente IA", href: "/agente", icon: Bot, module: "agente_ia" },
   { label: "Configuración", href: "/config", icon: Settings, module: "config" },
 ];

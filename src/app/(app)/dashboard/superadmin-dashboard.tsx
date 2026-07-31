@@ -76,7 +76,7 @@ export async function SuperadminDashboard({
   ] = await Promise.all([
     // `p_excluir_eventos: true` saca las facturas atadas a un evento de TODA la lectura de
     // ingresos: un torneo no aporta su bruto sino su utilidad (ver más abajo), y solo cuando
-    // está cerrado. Ojo: el default es false, así que /ingresos, /cartera, /reportes y la
+    // está cerrado. Ojo: el default es false, así que /ingresos, /cartera y la
     // liquidación siguen viendo el 100% y cuadrando con Siigo.
     supabase.rpc("siigo_recaudo", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
     supabase.rpc("siigo_recaudo", { p_desde: prevStartIso, p_hasta: prevEndIso, p_excluir_eventos: true }),

@@ -19,7 +19,6 @@ export type ModuleKey =
   | "descuentos"
   | "liquidacion"
   | "reportes_financieros"
-  | "reportes_operativos"
   | "agente_ia"
   | "config";
 
@@ -72,9 +71,14 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   descuentos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   liquidacion: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   reportes_financieros: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  reportes_operativos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   agente_ia: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  config: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  // ⚠️ `config` es L, no E, y es a propósito (31-jul-2026): el catálogo de
+  // servicios ya NO se edita desde la app. Cada servicio reclama un grupo de
+  // producto de Siigo, y a sus ids cuelgan `academias.servicio_id`,
+  // `eventos.servicio_id`, `profesor_regla.servicio_id` (comisiones del 25%) y el
+  // histórico de `siigo_factura_lineas`. La pantalla quedó como diagnóstico: ver
+  // el mapeo y el aviso de grupos huérfanos. Corregir un mapeo va por migración.
+  config: { superadmin: L, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
 };
 
 /** ¿El rol puede `read` (ver) o `edit` (editar) el módulo? */

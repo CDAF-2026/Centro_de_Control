@@ -1,7 +1,6 @@
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { ServicioForm } from "./servicio-form";
 import { ServicioCard } from "./servicio-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Settings, TriangleAlert } from "lucide-react";
@@ -64,9 +63,11 @@ export default async function ConfigPage() {
         <div>
           <h2 className="cdaf-title">Servicios / centros de costo</h2>
           <p className="text-muted-foreground text-sm">
-            Categorías de ingreso del centro. Se usan al registrar y conciliar pagos, y en reportes y dashboard.
-            Marca <strong>¿Genera saldo?</strong> en los servicios que se concilian contra lo esperado del cliente
-            (academias, paquetes, clases particulares); los demás son solo informativos.
+            Categorías de ingreso del centro: cada una reclama un grupo de producto de Siigo, y con
+            eso se reparte la plata en el dashboard. <strong>Es solo lectura</strong> — el catálogo no
+            se edita a mano porque a estos servicios cuelgan las academias, los eventos, las reglas de
+            pago de los entrenadores y el histórico de facturas. Si hay que corregir un mapeo, se hace
+            por migración.
           </p>
         </div>
 
@@ -76,14 +77,13 @@ export default async function ConfigPage() {
           ))}
           {(!servicios || servicios.length === 0) && (
             <div className="col-span-full">
-              <EmptyState icon={Settings} title="Sin servicios" description="Crea el primero más abajo." />
+              <EmptyState
+                icon={Settings}
+                title="Sin servicios"
+                description="No hay ningún servicio en el catálogo. Si esto no es lo esperado, avisa: sin servicios la plata de Siigo entra sin categoría."
+              />
             </div>
           )}
-        </div>
-
-        <div className="max-w-3xl border-t pt-4">
-          <h3 className="cdaf-title mb-3">Nuevo servicio</h3>
-          <ServicioForm />
         </div>
       </section>
     </div>
