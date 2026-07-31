@@ -28,26 +28,47 @@ const L: Permission = "read";
 const N: Permission = "none";
 
 /**
- * Matriz de permisos del PRD (Apéndice / hoja "Roles y permisos").
- * Filas = módulo · columnas = rol. E=edición, L=lectura, N=sin acceso.
+ * Matriz de permisos. Filas = módulo · columnas = rol.
+ * E=edición, L=lectura, N=sin acceso.
+ *
+ * Revisada con Laura el 31-jul-2026, ya con el equipo real cargado (antes venía
+ * del PRD y nadie salvo ella había entrado nunca). Dos cambios de fondo:
+ *
+ *  1. **El dashboard es solo del superadministrador.** Era la puerta de entrada
+ *     de todo el mundo, así que cada rol necesita otra pantalla de inicio: la da
+ *     `rutaInicio()` en `src/lib/nav.ts`. Ojo, de aquí cuelgan `/ingresos` y
+ *     `/cartera`, que no están en el menú y solo se alcanzan desde el dashboard.
+ *  2. **Cada rol ve solo lo suyo.** El coordinador administrativo perdió
+ *     liquidación, reportes e ingresos/cartera; el profesor quedó reducido a lo
+ *     que de verdad hace: notas y cerrar sus clases.
+ *
+ * Las tres lecturas (L) son deliberadas: recepción consulta torneos pero no los
+ * organiza, y el coordinador deportivo ve clientes y paquetes sin tocarlos
+ * (quién vende y quién cobra es del lado administrativo).
  */
 export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
-  dashboard: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: L },
+  dashboard: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   clientes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N },
+  // La plata del cliente (deuda y facturas de Siigo) dentro de su ficha.
   cliente_finanzas: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  empleados: { superadmin: E, coord_admin: L, coord_deportivo: N, recepcion: N, profesor: N },
-  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: L },
-  paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: L },
-  eventos: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: L, profesor: L },
-  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: L },
-  // Tablón interno de recados: todo el staff escribe y resuelve (es el relevo de turno).
+  // Ver y editar la compensación; crear cuentas y repartir roles sigue siendo
+  // solo del superadministrador (validado aparte en empleados/actions.ts).
+  empleados: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
+  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: N },
+  paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N },
+  eventos: { superadmin: E, coord_admin: N, coord_deportivo: E, recepcion: L, profesor: N },
+  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: N },
+  // Tablón interno de recados: todo el staff escribe y resuelve (es el relevo de
+  // turno) y, desde esta revisión, es también la pantalla de inicio de todos.
   notas: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E },
-  cierre_clase: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: N, profesor: E },
+  cierre_clase: { superadmin: E, coord_admin: N, coord_deportivo: E, recepcion: N, profesor: E },
   bolsa_pagos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  descuentos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  liquidacion: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  reportes_financieros: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  reportes_operativos: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N },
+  // ⚠️ `descuentos` no lo consulta ningún archivo: quedó del PRD y hoy es letra
+  // muerta. Se deja declarado para no romper el tipo si se retoma la idea.
+  descuentos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  liquidacion: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  reportes_financieros: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  reportes_operativos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   agente_ia: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
   config: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
 };
@@ -76,4 +97,18 @@ export function rolesForModule(
   action: "read" | "edit" = "read",
 ): AppRole[] {
   return ALL_ROLES.filter((r) => can(r, module, action));
+}
+
+/**
+ * Pantalla a la que cae cada rol: al iniciar sesión, al abrir `/login` con la
+ * sesión ya abierta, y cuando alguien intenta entrar a un módulo que no le toca.
+ *
+ * Antes estaba escrito `/dashboard` en esos tres sitios, pero desde la revisión
+ * del 31-jul-2026 el dashboard es solo del superadministrador: los demás habrían
+ * quedado rebotando contra una pantalla que no pueden ver. El resto aterriza en
+ * Notas (decisión de Laura) — es el relevo de turno y el único módulo que
+ * comparten los cuatro roles, así que lo primero que ven son sus pendientes.
+ */
+export function rutaInicio(role: AppRole): string {
+  return can(role, "dashboard") ? "/dashboard" : "/notas";
 }

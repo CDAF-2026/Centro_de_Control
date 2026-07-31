@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rutaInicio } from "@/lib/auth/permissions";
 import type { AppRole } from "@/lib/database.types";
 
 export type Profile = {
@@ -64,9 +65,15 @@ export async function requireProfile(): Promise<Profile> {
   return profile;
 }
 
-/** Exige uno de los roles indicados; si no, redirige al dashboard. */
+/**
+ * Exige uno de los roles indicados; si no, lo devuelve a su pantalla de inicio.
+ *
+ * Es `rutaInicio(role)` y no `/dashboard` fijo: el dashboard ya no lo ve todo el
+ * mundo, así que mandar ahí a un profesor lo dejaría rebotando entre dos
+ * pantallas prohibidas.
+ */
 export async function requireRole(roles: AppRole[]): Promise<Profile> {
   const profile = await requireProfile();
-  if (!roles.includes(profile.role)) redirect("/dashboard");
+  if (!roles.includes(profile.role)) redirect(rutaInicio(profile.role));
   return profile;
 }

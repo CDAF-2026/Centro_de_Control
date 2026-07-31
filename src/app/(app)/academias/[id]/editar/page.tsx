@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { EditarAcademiaForm } from "../editar-academia-form";
 
 export default async function EditarAcademiaPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo"]);
+  await requireRole(rolesForModule("academias", "edit"));
   const { id } = await params;
 
   const supabase = await createClient();

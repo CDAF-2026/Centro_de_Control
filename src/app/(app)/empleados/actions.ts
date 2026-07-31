@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
@@ -143,7 +144,7 @@ export async function guardarCompensacion(
   _prev: EmpleadoFormState,
   formData: FormData,
 ): Promise<EmpleadoFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("empleados", "edit"));
 
   const profesorId = String(formData.get("profesorId") || "");
   const tipo = String(formData.get("tipo") || "");
@@ -179,7 +180,7 @@ export async function guardarReglas(
   _prev: EmpleadoFormState,
   formData: FormData,
 ): Promise<EmpleadoFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("empleados", "edit"));
 
   const profesorId = String(formData.get("profesorId") || "");
   if (!profesorId) return { error: "Falta el profesor." };
@@ -409,7 +410,7 @@ export async function uploadEmpleadoDocumento(
   _prev: EmpleadoFormState,
   formData: FormData,
 ): Promise<EmpleadoFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("empleados", "edit"));
   const empleadoId = String(formData.get("empleadoId"));
   const tipoRaw = String(formData.get("tipo") || "contrato");
   const tipo = (["contrato", "hoja_vida", "otro"].includes(tipoRaw) ? tipoRaw : "otro") as EmpleadoDocumentoTipo;
@@ -439,7 +440,7 @@ export async function uploadEmpleadoDocumento(
 
 /** Elimina un documento del empleado (Storage + metadatos). */
 export async function deleteEmpleadoDocumento(formData: FormData): Promise<void> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("empleados", "edit"));
   const id = Number(formData.get("id"));
   const empleadoId = String(formData.get("empleadoId"));
   const path = String(formData.get("path"));

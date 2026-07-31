@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { profesoresActivos } from "@/lib/staff";
 import { EventoForm } from "./evento-form";
 
 export default async function NuevoEventoPage() {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("eventos", "edit"));
   const supabase = await createClient();
   const [serviciosRes, profesores] = await Promise.all([
     supabase.from("servicios").select("id, nombre").eq("activo", true).order("orden"),

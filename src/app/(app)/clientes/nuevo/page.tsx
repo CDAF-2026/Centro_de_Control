@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { ClienteForm } from "./cliente-form";
 
 export default async function NuevoClientePage() {
-  await requireRole(["superadmin", "coord_admin", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "edit"));
 
   return (
     <div className="max-w-xl space-y-6">

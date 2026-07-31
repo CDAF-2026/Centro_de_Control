@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { ImportForm } from "./import-form";
 
 const COLUMNAS =
   "nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, acudiente_nombre, acudiente_documento, acudiente_telefono, acudiente_parentesco";
 
 export default async function ImportarClientesPage() {
-  await requireRole(["superadmin", "coord_admin", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "edit"));
 
   return (
     <div className="max-w-2xl space-y-6">

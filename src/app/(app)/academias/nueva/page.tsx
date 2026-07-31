@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { AcademiaForm } from "./academia-form";
 
 export default async function NuevaAcademiaPage() {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo"]);
+  await requireRole(rolesForModule("academias", "edit"));
 
   // Solo los servicios de Siigo que son de academia (categoria_saldo = 'academia').
   const supabase = await createClient();

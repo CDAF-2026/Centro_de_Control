@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createCatalogoSchema, updateCatalogoSchema } from "@/lib/validations/paquete";
@@ -17,7 +18,7 @@ export async function createCatalogo(
   _prev: PaqueteFormState,
   formData: FormData,
 ): Promise<PaqueteFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("paquetes", "edit"));
   const parsed = createCatalogoSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -46,7 +47,7 @@ export async function updateCatalogo(
   _prev: PaqueteFormState,
   formData: FormData,
 ): Promise<PaqueteFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("paquetes", "edit"));
   const parsed = updateCatalogoSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -84,7 +85,7 @@ export async function deleteCatalogo(
   _prev: PaqueteFormState,
   formData: FormData,
 ): Promise<PaqueteFormState> {
-  await requireRole(["superadmin", "coord_admin"]);
+  await requireRole(rolesForModule("paquetes", "edit"));
   const id = Number(formData.get("id"));
   if (!id) return { error: "Paquete inválido." };
 

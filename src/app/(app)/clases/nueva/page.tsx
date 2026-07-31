@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { profesoresActivos } from "@/lib/staff";
 import { ClaseForm } from "./clase-form";
 
 export default async function NuevaClasePage() {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  await requireRole(rolesForModule("clases", "edit"));
   const supabase = await createClient();
   const [profesores, { data: pqRaw }] = await Promise.all([
     profesoresActivos(),

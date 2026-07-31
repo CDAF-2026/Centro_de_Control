@@ -3,11 +3,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import type { AppRole, Deporte } from "@/lib/database.types";
 
-const ADMIN: AppRole[] = ["superadmin", "coord_admin"];
+// Derivado de la matriz: desde jul-2026 los torneos los lleva el coordinador
+// DEPORTIVO, no el administrativo. Escrito a mano se habría quedado al revés.
+const ADMIN: AppRole[] = rolesForModule("eventos", "edit");
 const TIPOS = ["torneo", "clinica", "masterclass", "otro"];
 /** Un archivo "use server" solo puede exportar funciones async: esta lista queda interna. */
 const CATEGORIAS_GASTO = [

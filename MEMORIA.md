@@ -237,6 +237,43 @@ hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; p
 (catálogo de servicios) · `/reportes` · `/agente` (aún lee modelo viejo — pendiente repuntar a Siigo)
 · `/notas` bandeja de recados del staff (ver abajo) · `/perfil` "Mi perfil", cualquier rol (ver abajo).
 
+## 🔐 Permisos por rol (revisado con Laura el 31-jul-2026)
+Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **L**=solo ve · —=sin acceso.
+
+| Módulo | SA | Coord. admin | Coord. deportivo | Recepción | Profesor |
+|---|:--:|:--:|:--:|:--:|:--:|
+| dashboard (+ ingresos/cartera) | E | — | — | — | — |
+| clientes | E | E | **L** | E | — |
+| ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — |
+| empleados | E | E | — | — | — |
+| academias · clases | E | E | E | E | — |
+| paquetes | E | E | **L** | E | — |
+| eventos (torneos) | E | — | E | **L** | — |
+| notas | E | E | E | E | E |
+| cierre de clases | E | — | E | — | E |
+| pagos (conciliación) | E | E | — | — | — |
+| liquidación · reportes · agente · config | E | — | — | — | — |
+
+- ⚠️ **El dashboard era la puerta de entrada de todos** (login → `/dashboard`, y `requireRole`
+  rebotaba ahí al que no tenía permiso). Al dejarlo solo para SA hubo que darle a cada rol otra
+  pantalla de inicio: **`rutaInicio(role)`** en permissions.ts → SA a `/dashboard`, el resto a
+  **`/notas`** (decisión de Laura: es el relevo de turno y el único módulo común a los cuatro roles).
+  Se usa en tres sitios: el login, el redirect de `/login` con sesión abierta y el fallback de
+  `requireRole`. Dejar `/dashboard` fijo en cualquiera de los tres deja al usuario rebotando.
+- ⚠️ **`/dashboard` no validaba rol**, solo sesión: quitarlo del menú lo habría escondido sin
+  cerrarlo. Ya tiene `requireRole`. De su rama de "dashboard sencillo" (no-SA) quedó código
+  inalcanzable, conservado a propósito por si se le devuelve la pantalla a algún rol.
+- ⚠️ **`/ingresos` y `/cartera` no están en el menú**: solo se llega desde el dashboard. Así que
+  `reportes_financieros` es en la práctica SA-only aunque el permiso diga otra cosa.
+- 💡 **Los guardias escritos a mano son el riesgo real, no la matriz.** La matriz solo pinta el menú;
+  quien deja pasar o no es el `requireRole` de cada página y acción. Estaban desalineados: los
+  torneos los llevaba `["superadmin","coord_admin"]` a mano (y ahora son del coordinador
+  **deportivo**), y a recepción las acciones de paquetes la rechazaban aunque el módulo le apareciera.
+  Ahora casi todos derivan de **`rolesForModule(modulo, "edit"|"read")`**. Los que siguen literales
+  son los **solo-SA** deliberados, que no son de módulo: crear cuentas, cambiar rol, asignar
+  contraseña, reabrir un evento y cerrar una clase vencida.
+- `descuentos` es letra muerta (ningún archivo lo consulta); queda declarado por si se retoma.
+
 ## Contexto de negocio (decisiones de Laura)
 - Conciliación manual = solo deudas + facturas con cliente identificado; el mostrador anónimo queda
   cerrado como ingreso (pero siempre conciliable a mano). Conciliar una factura ata TODAS las del mismo

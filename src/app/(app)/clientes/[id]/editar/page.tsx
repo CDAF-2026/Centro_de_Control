@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { EditarClienteForm } from "../editar-form";
 
 export default async function EditarClientePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["superadmin", "coord_admin", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "edit"));
   const { id } = await params;
 
   const supabase = await createClient();

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
+import { getProfile } from "@/lib/auth";
+import { rutaInicio } from "@/lib/auth/permissions";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -8,7 +9,10 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ bloqueado?: string }>;
 }) {
-  if (await getUser()) redirect("/dashboard");
+  // Con sesión abierta no se muestra el login: se va a su pantalla de inicio,
+  // que depende del rol. Los dados de baja sí se quedan aquí, con el aviso.
+  const sesion = await getProfile();
+  if (sesion?.activo) redirect(rutaInicio(sesion.role));
   const { bloqueado } = await searchParams;
   const year = new Date().getFullYear();
 

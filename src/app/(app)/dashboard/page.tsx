@@ -9,8 +9,8 @@ import {
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
-import { requireProfile } from "@/lib/auth";
-import { can } from "@/lib/auth/permissions";
+import { requireRole } from "@/lib/auth";
+import { can, rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { listarStaff } from "@/lib/staff";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +62,9 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
 }) {
-  const profile = await requireProfile();
+  // Antes solo pedía sesión: quitar el dashboard del menú lo habría escondido
+  // sin cerrarlo, y cualquiera podía llegar escribiendo la dirección.
+  const profile = await requireRole(rolesForModule("dashboard"));
 
   if (profile.role === "superadmin") {
     const sp = await searchParams;
@@ -78,6 +80,11 @@ export default async function DashboardPage({
     );
   }
 
+  // ⚠️ De aquí para abajo está INALCANZABLE desde la revisión de permisos del
+  // 31-jul-2026: hoy `dashboard` es solo del superadministrador, y ese caso
+  // retorna arriba. Se conserva porque es el dashboard sencillo del resto del
+  // equipo y sirve tal cual el día que se le devuelva la pantalla a algún rol;
+  // borrarlo obligaría a rehacerlo.
   const supabase = await createClient();
   const hoy = new Date().toISOString().slice(0, 10);
   const esProfesor = profile.role === "profesor";

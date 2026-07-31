@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
@@ -12,7 +13,10 @@ import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
 import type { AppRole, Deporte, TipoDocumento } from "@/lib/database.types";
 import { clausulasBusqueda } from "./buscar";
 
-const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
+// Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
+// de un rol, estos guardias tienen que moverse con ellos. Si no, el módulo le
+// aparece en el menú y las acciones se lo rechazan (o al revés, que es peor).
+const WRITE_ROLES: AppRole[] = rolesForModule("clientes", "edit");
 
 /** Resuelve el miembro a usar: el indicado (si pertenece a la ficha) o el titular. */
 async function resolverMiembro(
@@ -531,7 +535,7 @@ export async function inscribirEnAcademia(
   _prev: ClienteFormState,
   formData: FormData,
 ): Promise<ClienteFormState> {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  await requireRole(rolesForModule("academias", "edit"));
   const clienteId = Number(formData.get("clienteId"));
   const academiaId = Number(formData.get("academiaId"));
   const plan = Number(formData.get("plan"));
@@ -569,7 +573,7 @@ export async function asignarPaquete(
   _prev: ClienteFormState,
   formData: FormData,
 ): Promise<ClienteFormState> {
-  await requireRole(["superadmin", "coord_admin", "recepcion"]);
+  await requireRole(rolesForModule("paquetes", "edit"));
   const clienteId = Number(formData.get("clienteId"));
   const catalogoId = Number(formData.get("catalogoId"));
   const descuento = Number(formData.get("descuento") || 0);
@@ -673,7 +677,7 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
 export async function miembrosDeCliente(
   clienteId: number,
 ): Promise<{ id: number; nombres: string; apellidos: string; es_titular: boolean }[]> {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "read"));
   if (!clienteId) return [];
   const supabase = await createClient();
   const { data } = await supabase
@@ -690,7 +694,7 @@ export async function miembrosDeCliente(
 export async function buscarMiembros(
   q: string,
 ): Promise<{ id: number; clienteId: number; nombres: string; apellidos: string; esTitular: boolean; ficha: string | null }[]> {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "read"));
   const safe = q.replace(/[%,()*]/g, "").trim();
   if (safe.length < 2) return [];
   const supabase = await createClient();
@@ -721,7 +725,7 @@ export async function buscarMiembros(
 export async function buscarClientes(
   q: string,
 ): Promise<{ id: number; nombres: string; apellidos: string; celular: string | null }[]> {
-  await requireRole(["superadmin", "coord_admin", "coord_deportivo", "recepcion"]);
+  await requireRole(rolesForModule("clientes", "read"));
   const safe = q.replace(/[%,()*]/g, "").trim();
   if (safe.length < 2) return [];
   const supabase = await createClient();

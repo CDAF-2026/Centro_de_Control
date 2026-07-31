@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rutaInicio } from "@/lib/auth/permissions";
 
 export type LoginState = { error?: string };
 
@@ -27,7 +28,7 @@ export async function login(
   // login sin explicar por qué y parecería un error del sistema.
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("activo")
+    .select("activo, role")
     .eq("id", data.user.id)
     .single();
   if (!perfil?.activo) {
@@ -35,7 +36,9 @@ export async function login(
     return { error: "Esta cuenta ya no tiene acceso. Habla con el administrador." };
   }
 
-  redirect("/dashboard");
+  // Cada rol tiene su pantalla de inicio: el dashboard es solo del
+  // superadministrador, así que mandar a todo el mundo ahí los rebotaría.
+  redirect(rutaInicio(perfil.role));
 }
 
 /** Cierra la sesión actual. */
