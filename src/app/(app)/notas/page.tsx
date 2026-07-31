@@ -126,7 +126,7 @@ export default async function NotasPage({
                 nota={n}
                 staff={staff}
                 // Resolver lo puede hacer quien la recibió, quien la escribió o un coordinador.
-                puedeResolver={n.puedeEditar}
+                puedeResolver={n.puedeResolver}
               />
             ))}
           </div>

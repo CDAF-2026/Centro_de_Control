@@ -148,6 +148,7 @@ function TablonDemo() {
     eventoId: null,
     nComentarios: 0,
     puedeEditar: true,
+    puedeResolver: true,
     puedeEliminar: true,
   } as const;
 

@@ -354,7 +354,7 @@ export default async function ClienteDetallePage({
                   key={n.id}
                   nota={n}
                   staff={staff}
-                  puedeResolver={n.puedeEditar}
+                  puedeResolver={n.puedeResolver}
                   vista="ficha"
                 />
               ))}

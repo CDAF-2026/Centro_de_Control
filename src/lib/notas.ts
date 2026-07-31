@@ -48,15 +48,23 @@ export type NotaVista = {
   clienteId: number | null;
   claseId: number | null;
   eventoId: number | null;
+  /** Cambiar el TEXTO de la nota: solo su autor (ver `notas_solo_autor_edita`). */
   puedeEditar: boolean;
+  /** Marcarla resuelta o reabrirla: autor, admins y a quien se le asignó. */
+  puedeResolver: boolean;
   puedeEliminar: boolean;
 };
 
 /**
- * Quién puede editar o borrar notas ajenas. NO es un permiso de módulo (los
+ * Quién puede RESOLVER o reabrir notas ajenas. NO es un permiso de módulo (los
  * cinco roles tienen `notas` en E, es el tablón común): es una regla de dentro
  * del módulo, y por eso va escrita aquí y no sale de la matriz. La autorización
  * de verdad la aplica RLS; esto solo evita pintar botones que serían rechazados.
+ *
+ * ⚠️ Ya NO decide quién edita el texto: eso es solo del autor. Antes `puedeEditar`
+ * era `autor || admin || soy destinatario`, y como una nota sin etiquetar se
+ * reparte a TODO el staff, en la práctica cualquiera de los 9 podía reescribir
+ * cualquier nota del tablón general — y esta constante quedaba casi inerte.
  */
 const ADMIN_NOTAS: AppRole[] = ["superadmin", "coord_admin"];
 
@@ -105,7 +113,8 @@ export async function listarNotas(opts: {
       clienteId: n.cliente_id,
       claseId: n.clase_id,
       eventoId: n.evento_id,
-      puedeEditar: esAutor || esAdmin || n.soy_destinatario,
+      puedeEditar: esAutor,
+      puedeResolver: esAutor || esAdmin || n.soy_destinatario,
       puedeEliminar: esAutor || opts.role === "superadmin",
     };
   });

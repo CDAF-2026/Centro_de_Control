@@ -100,6 +100,17 @@ export async function editarNota(_prev: NotaState, formData: FormData): Promise<
 
   const destinatarios = leerDestinatarios(formData, perfil.id);
   const supabase = await createClient();
+
+  // Solo el autor reescribe el texto de una nota. No basta con no pintar el
+  // botón: esto es una acción de servidor y se puede invocar con cualquier id.
+  // El candado de verdad es el trigger `notas_solo_autor_edita` (migración
+  // 0063); esto está aquí para dar un mensaje claro en vez de un error de la BD.
+  const { data: duena } = await supabase.from("notas").select("autor_id").eq("id", id).single();
+  if (!duena) return { error: "Nota inválida." };
+  if (duena.autor_id !== perfil.id) {
+    return { error: "Solo quien escribió la nota puede editarla. Puedes responderle en el hilo." };
+  }
+
   const { error } = await supabase
     .from("notas")
     .update({

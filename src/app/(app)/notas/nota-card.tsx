@@ -174,7 +174,7 @@ export function NotaCard({
                 <Check /> Resolver
               </AccionNota>
             )}
-            {resuelta && nota.puedeEditar && (
+            {resuelta && puedeResolver && (
               <AccionNota accion={reabrirNota} id={nota.id}>
                 <RotateCcw /> Reabrir
               </AccionNota>

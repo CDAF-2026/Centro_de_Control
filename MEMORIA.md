@@ -254,6 +254,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   ⚠️ La pestaña por defecto es **"Todas"**, no "Para mí" (`esFiltro()` en notas.ts, jul-2026): desde
   la revisión de permisos, `/notas` es la pantalla de inicio de todo el que no es superadministrador,
   y al entrar debe ver el tablón del turno completo, no solo lo que le tocó a él.
+  ⚠️ **EDITAR ≠ RESOLVER, y son dos banderas distintas** (migración 0063, 31-jul-2026). `puedeEditar`
+  era `autor || admin || soy destinatario` — igual que la política `notas_update`, o sea consistente,
+  pero cruzado con "sin etiquetar = se reparte a TODO el staff" el efecto real era que **cualquiera de
+  los 9 podía reescribir cualquier nota del tablón general**, y `ADMIN_NOTAS` quedaba inerte. Ahora
+  `puedeEditar = esAutor` y se agregó **`puedeResolver`** con la fórmula vieja. Ojo al tocar esto:
+  `nota-card` ya tenía prop `puedeResolver` pero las pantallas lo alimentaban con `puedeEditar`, así
+  que cambiar solo `puedeEditar` **habría dejado a los destinatarios sin poder resolver** lo que se
+  les asigna, que es para lo que existe el módulo. El candado real es el trigger
+  **`notas_solo_autor_edita`** (texto/prioridad/para_todos/`autor_id`), NO la política: resolver y
+  reabrir también son UPDATE sobre `notas`, y RLS decide por fila, no por columna. Mismo patrón que
+  `profiles_blindar_rol`. Verificado con prueba revertida simulando dos usuarios: el no-autor queda
+  bloqueado al editar, **sí puede resolver**, y el autor edita sin problema.
 - **Comentarios de nota** (`nota_comentarios`): hilo plegado dentro del post-it, la tarjeta solo
   muestra el contador (`notas_listar.n_comentarios`) y el hilo se pide al desplegar
   (`nota_comentarios_listar`). Se comenta por el RPC **`nota_comentar`** (SECURITY DEFINER, porque
@@ -340,9 +352,14 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
      matriculando niños después de dejarle academias en solo lectura: el módulo era L, pero
      `inscribirCliente` miraba una lista aparte que la incluía)
   3. **comparación suelta en la UI** — `["superadmin","coord_admin"].includes(profile.role)`
-  Barrido: `grep -rn "AppRole\[\] = \[" src/`, `grep -rn 'requireRole(\[' src/` y
+  Barrido: `grep -rnE "AppRole\[\] *=" src/`, `grep -rn 'requireRole(\[' src/` y
   `grep -rnE '\["superadmin"[^]]*\]\.includes' src/`. Solo deben quedar los solo-SA deliberados y
-  `ADMIN_NOTAS` (regla de DENTRO del módulo: quién edita notas ajenas, no un permiso de módulo).
+  `ADMIN_NOTAS` (regla de DENTRO del módulo: quién resuelve notas ajenas, no un permiso de módulo).
+  ⚠️ El primer grep decía `"AppRole\[\] = \["` y **no atrapaba nada real**: las 7 constantes de
+  este código son `const X: AppRole[] = rolesForModule(...)`, sin corchete después del `=`. O sea
+  que el barrido daba "limpio" sin haber mirado ninguna. Corregido a `AppRole\[\] *=` en la
+  auditoría del 31-jul-2026 (que, ya con el grep bueno, salió limpia: las 7 derivan del módulo
+  correcto, incluidas `config` y `eventos`).
 - ⚠️ **`inscribir a un niño ES editar la academia`**: no hay permiso separado. Si algún día se
   quiere "recepción inscribe pero no arma academias", hay que partir el permiso en dos.
 - ⚠️ `/config` dejaba entrar al coordinador administrativo por la puerta de atrás: el módulo es

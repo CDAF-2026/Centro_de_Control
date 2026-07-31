@@ -36,7 +36,7 @@ const N: Permission = "none";
  *
  *  1. **El dashboard es solo del superadministrador.** Era la puerta de entrada
  *     de todo el mundo, así que cada rol necesita otra pantalla de inicio: la da
- *     `rutaInicio()` en `src/lib/nav.ts`. Ojo, de aquí cuelgan `/ingresos` y
+ *     `rutaInicio()`, al final de este mismo archivo. Ojo, de aquí cuelgan `/ingresos` y
  *     `/cartera`, que no están en el menú y solo se alcanzan desde el dashboard.
  *  2. **Cada rol ve solo lo suyo.** El coordinador administrativo perdió
  *     liquidación, reportes e ingresos/cartera; el profesor quedó reducido a lo
