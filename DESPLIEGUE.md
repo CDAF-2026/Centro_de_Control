@@ -60,7 +60,13 @@ después, cuando convenza.
 > la plataforma y avisarle al staff, porque su dirección cambiaría.
 
 En Vercel: *Settings → Domains*, agregar `alejandrofallacd.com` **y**
-`www.alejandrofallacd.com` (Vercel redirige una a la otra automáticamente).
+`www.alejandrofallacd.com`.
+
+⚠️ **Vercel NO redirige una a la otra solo.** Verificado el 31-jul-2026: las dos
+servían la app por separado, cada una quedándose en su propio host. Como las cookies
+de sesión son por host exacto, quien entrara por `www` tendría una sesión distinta
+de quien entrara por la raíz — y al cambiar de dirección parecería que "lo sacó".
+Hay que ponerlo a mano: *Edit* en la fila de `www` → redirigir a `alejandrofallacd.com`.
 
 ⚠️ **Los valores DNS que hay que poner los da el panel de Vercel al agregar el
 dominio.** No copiarlos de memoria ni de un tutorial viejo: son por proyecto y Vercel
@@ -73,7 +79,30 @@ los ha cambiado con el tiempo. Hay dos caminos y el panel los muestra:
 Hoy el dominio no tiene `MX`, así que no hay correo que romper — pero si el club piensa
 usar `@alejandrofallacd.com`, conviene el primer camino.
 
-## 3 · Después del primer despliegue: URLs de Auth
+## 3 · URLs de Auth ✅ HECHO (31-jul-2026)
+
+Aplicado por Management API y verificado:
+
+```
+site_url       = https://alejandrofallacd.com
+uri_allow_list = https://alejandrofallacd.com/**,
+                 https://www.alejandrofallacd.com/**,
+                 https://*.vercel.app/**,
+                 http://localhost:3000/**
+```
+
+`localhost:3000` va a propósito: sin él, cualquier flujo con enlace dejaría de
+funcionar en desarrollo. Y `*.vercel.app` para que los despliegues de Preview sigan
+sirviendo.
+
+⚠️ Al tocar esta configuración por API, mandar **solo los campos que cambian**
+(PATCH parcial). Enviar el objeto completo pisaría `disable_signup`,
+`password_hibp_enabled` y demás. Se verificó que esos cinco siguen como estaban.
+
+<details>
+<summary>Contexto original (por qué había que hacerlo)</summary>
+
+## 3.b · Después del primer despliegue: URLs de Auth
 
 Hoy Supabase tiene `site_url = http://localhost:3000` y la lista de redirecciones
 vacía.
@@ -90,6 +119,8 @@ En *Authentication → URL Configuration*:
 - **Site URL** → la dirección real de producción
 - **Redirect URLs** → añadir esa misma y, si se quiere probar en Preview,
   `https://*.vercel.app`
+
+</details>
 
 ## 4 · Prueba de humo (en este orden)
 
@@ -126,4 +157,7 @@ En *Authentication → URL Configuration*:
 - [ ] Crear el catálogo de paquetes: quedó vacío tras limpiar los datos de prueba, y
       sin él recepción no puede asignar paquetes.
 - [ ] Apuntar el SMTP de Supabase a Resend → habilita "olvidé mi contraseña".
-- [ ] Dominio propio y, con él, actualizar el `site_url` de Supabase (sección 3).
+- [x] ~~Dominio propio + `site_url` de Supabase~~ — hecho: `alejandrofallacd.com` vivo con certificado, y Auth apuntando ahí (31-jul-2026).
+- [ ] En Vercel, hacer que `www` redirija a la raíz: hoy las dos sirven la app por
+      separado y las cookies de sesión son por host, así que quien entre por `www`
+      tiene una sesión distinta y parecerá que "lo sacó" al cambiar de dirección.
