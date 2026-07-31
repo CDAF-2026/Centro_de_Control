@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { rolesForModule } from "@/lib/auth/permissions";
+import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { CatalogoForm } from "./catalogo-form";
 import { CatalogoCard } from "./catalogo-card";
@@ -14,7 +14,7 @@ export default async function PaquetesPage() {
     .select("id, nombre, deporte, num_clases, precio, descuento_pct, activo")
     .order("num_clases");
 
-  const puedeConfig = ["superadmin", "coord_admin"].includes(profile.role);
+  const puedeConfig = can(profile.role, "paquetes", "edit");
 
   return (
     <div className="space-y-6">

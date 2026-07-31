@@ -3,12 +3,13 @@
 import Papa from "papaparse";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { esMenorDeEdad } from "@/lib/validations/cliente";
 import type { AppRole } from "@/lib/database.types";
 
-const WRITE_ROLES: AppRole[] = ["superadmin", "coord_admin", "recepcion"];
+const WRITE_ROLES: AppRole[] = rolesForModule("clientes", "edit");
 
 export type ImportState = {
   done?: boolean;

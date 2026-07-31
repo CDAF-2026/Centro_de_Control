@@ -2,11 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import type { AppRole } from "@/lib/database.types";
 
-const ADMIN: AppRole[] = ["superadmin", "coord_admin"];
+const ADMIN: AppRole[] = rolesForModule("bolsa_pagos", "edit");
 
 export type PagoState = { error?: string; ok?: string };
 

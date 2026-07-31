@@ -3,13 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createAcademiaSchema } from "@/lib/validations/academia";
 import type { AppRole } from "@/lib/database.types";
 
-const GESTION: AppRole[] = ["superadmin", "coord_admin", "coord_deportivo"];
-const INSCRIBE: AppRole[] = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"];
+// Una sola puerta, derivada de la matriz. Antes eran dos listas escritas a mano
+// (GESTION e INSCRIBE) y la de inscribir incluía a recepción: por eso recepción
+// seguía matriculando niños aunque el módulo le quedara en solo lectura.
+// Inscribir a alguien ES editar la academia, así que va con el mismo permiso.
+const EDITA: AppRole[] = rolesForModule("academias", "edit");
 
 export type AcademiaFormState = {
   error?: string;
@@ -21,7 +25,7 @@ export async function createAcademia(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
+  await requireRole(EDITA);
   const parsed = createAcademiaSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -119,7 +123,7 @@ export async function inscribirCliente(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(INSCRIBE);
+  await requireRole(EDITA);
   const academiaId = Number(formData.get("academiaId"));
   const nivel = String(formData.get("nivel") || "").trim() || null;
   const descuento = Number(formData.get("descuento") || 0);
@@ -174,7 +178,7 @@ export async function agregarHorario(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(INSCRIBE);
+  await requireRole(EDITA);
   const inscripcionId = Number(formData.get("inscripcionId"));
   const academiaId = Number(formData.get("academiaId"));
   const horarios = horariosDelForm(formData);
@@ -199,7 +203,7 @@ export async function agregarHorario(
 
 /** Quita un día del horario de un inscrito. */
 export async function quitarHorario(horarioId: number, academiaId: number): Promise<AcademiaFormState> {
-  await requireRole(INSCRIBE);
+  await requireRole(EDITA);
   const supabase = await createClient();
   const { error } = await supabase.from("inscripcion_horarios").delete().eq("id", horarioId);
   if (error) return { error: error.message };
@@ -222,7 +226,7 @@ export type AsistenteClase = {
  * filas y PostgREST corta en 1.000 sin avisar.
  */
 export async function asistenciaDeClase(claseId: number): Promise<AsistenteClase[]> {
-  await requireRole(GESTION);
+  await requireRole(EDITA);
   const supabase = await createClient();
   const { data } = await supabase.rpc("academia_asistencia_clase", { p_clase: claseId });
   return (data ?? []) as AsistenteClase[];
@@ -230,7 +234,7 @@ export async function asistenciaDeClase(claseId: number): Promise<AsistenteClase
 
 /** Saca a un niño de la academia (se van sus horarios en cascada). */
 export async function quitarInscripcion(inscripcionId: number, academiaId: number): Promise<AcademiaFormState> {
-  await requireRole(INSCRIBE);
+  await requireRole(EDITA);
   const supabase = await createClient();
   const { error } = await supabase.from("inscripciones").delete().eq("id", inscripcionId);
   if (error) return { error: error.message };
@@ -243,7 +247,7 @@ export async function addListaEspera(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(INSCRIBE);
+  await requireRole(EDITA);
   const academiaId = Number(formData.get("academiaId")) || null;
   const nombre = String(formData.get("nombre") || "").trim();
   if (!nombre) return { error: "Nombre requerido." };
@@ -268,7 +272,7 @@ export async function updateAcademia(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
+  await requireRole(EDITA);
   const id = Number(formData.get("id"));
   if (!id) return { error: "Academia inválida." };
   const parsed = createAcademiaSchema.safeParse(Object.fromEntries(formData));
@@ -302,7 +306,7 @@ export async function updateAcademia(
 /** Elimina una academia. Conserva el historial: las clases NO programadas (realizadas/
  *  canceladas) se desligan (quedan para liquidación). Las futuras e inscripciones se borran. */
 export async function eliminarAcademia(academiaId: number): Promise<AcademiaFormState> {
-  await requireRole(GESTION);
+  await requireRole(EDITA);
   if (!academiaId) return { error: "Academia inválida." };
   const supabase = await createClient();
 

@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import type { AppRole, ServicioCategoriaSaldo } from "@/lib/database.types";
 
-const ADMIN: AppRole[] = ["superadmin", "coord_admin"];
+// `config` es solo del superadministrador: escrito a mano dejaba entrar al
+// coordinador administrativo aunque la pantalla no le apareciera.
+const ADMIN: AppRole[] = rolesForModule("config", "edit");
 
 export type ServicioState = { error?: string; ok?: string };
 

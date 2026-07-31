@@ -133,7 +133,8 @@ export default async function AcademiaDetallePage({
     .order("created_at");
 
   const puedeGestionar = can(profile.role, "academias", "edit");
-  const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
+  // Inscribir es editar la academia: mismo permiso que gestionarla.
+  const puedeInscribir = puedeGestionar;
 
   return (
     <div className="max-w-3xl space-y-6">

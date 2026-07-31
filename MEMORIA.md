@@ -201,6 +201,9 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   resuelve nombres. Aviso en vivo por **Realtime** sobre `nota_destinatarios` filtrado por perfil.
   **"Para mí" = pendientes + cualquier nota sin abrir** (aunque esté resuelta), y la campanita usa
   `sin_leer`: si no, un comentario en una nota resuelta encendía el contador y la pestaña salía vacía.
+  ⚠️ La pestaña por defecto es **"Todas"**, no "Para mí" (`esFiltro()` en notas.ts, jul-2026): desde
+  la revisión de permisos, `/notas` es la pantalla de inicio de todo el que no es superadministrador,
+  y al entrar debe ver el tablón del turno completo, no solo lo que le tocó a él.
 - **Comentarios de nota** (`nota_comentarios`): hilo plegado dentro del post-it, la tarjeta solo
   muestra el contador (`notas_listar.n_comentarios`) y el hilo se pide al desplegar
   (`nota_comentarios_listar`). Se comenta por el RPC **`nota_comentar`** (SECURITY DEFINER, porque
@@ -280,6 +283,20 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
   Ahora casi todos derivan de **`rolesForModule(modulo, "edit"|"read")`**. Los que siguen literales
   son los **solo-SA** deliberados, que no son de módulo: crear cuentas, cambiar rol, asignar
   contraseña, reabrir un evento y cerrar una clase vencida.
+- ⚠️ **Los guardias se escriben de TRES formas y hay que barrer las tres.** Buscar solo
+  `requireRole([…])` deja fuera las otras dos, y por ahí se colaron dos veces:
+  1. lista literal — `requireRole(["superadmin", …])`
+  2. **constante con nombre** — `const INSCRIBE: AppRole[] = [...]` (así seguía recepción
+     matriculando niños después de dejarle academias en solo lectura: el módulo era L, pero
+     `inscribirCliente` miraba una lista aparte que la incluía)
+  3. **comparación suelta en la UI** — `["superadmin","coord_admin"].includes(profile.role)`
+  Barrido: `grep -rn "AppRole\[\] = \[" src/`, `grep -rn 'requireRole(\[' src/` y
+  `grep -rnE '\["superadmin"[^]]*\]\.includes' src/`. Solo deben quedar los solo-SA deliberados y
+  `ADMIN_NOTAS` (regla de DENTRO del módulo: quién edita notas ajenas, no un permiso de módulo).
+- ⚠️ **`inscribir a un niño ES editar la academia`**: no hay permiso separado. Si algún día se
+  quiere "recepción inscribe pero no arma academias", hay que partir el permiso en dos.
+- ⚠️ `/config` dejaba entrar al coordinador administrativo por la puerta de atrás: el módulo es
+  solo-SA pero `config/actions.ts` tenía `ADMIN = ["superadmin","coord_admin"]` escrito a mano.
 - `descuentos` es letra muerta (ningún archivo lo consulta); queda declarado por si se retoma.
 
 ## Contexto de negocio (decisiones de Laura)

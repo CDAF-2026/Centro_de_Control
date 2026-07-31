@@ -15,7 +15,10 @@ export const NOTA_FILTROS: { value: NotaFiltro; label: string }[] = [
 ];
 
 export function esFiltro(v: string | undefined): NotaFiltro {
-  return v === "mias" || v === "todas" || v === "resueltas" ? v : "mias";
+  // Por defecto "Todas": Notas es la pantalla de inicio de todo el que no es
+  // superadministrador, y lo primero que debe ver es el tablón del turno
+  // completo, no solo lo que le tocó a él.
+  return v === "mias" || v === "todas" || v === "resueltas" ? v : "todas";
 }
 
 export type NotaEtiquetado = { id: string; nombre: string | null; leida: boolean };
@@ -49,6 +52,12 @@ export type NotaVista = {
   puedeEliminar: boolean;
 };
 
+/**
+ * Quién puede editar o borrar notas ajenas. NO es un permiso de módulo (los
+ * cinco roles tienen `notas` en E, es el tablón común): es una regla de dentro
+ * del módulo, y por eso va escrita aquí y no sale de la matriz. La autorización
+ * de verdad la aplica RLS; esto solo evita pintar botones que serían rechazados.
+ */
 const ADMIN_NOTAS: AppRole[] = ["superadmin", "coord_admin"];
 
 /**

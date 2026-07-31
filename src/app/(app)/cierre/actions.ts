@@ -35,9 +35,15 @@ export async function cerrarClase(
     .single();
   if (!clase) return { error: "Clase no encontrada." };
 
-  const esAdmin = ["superadmin", "coord_admin", "coord_deportivo"].includes(profile.role);
+  // Quién llega hasta aquí ya lo filtró `requireRole` de arriba. Lo que queda por
+  // decidir es de QUIÉN puede cerrar clases: el profesor solo las suyas; los
+  // coordinadores, las de cualquiera. Antes esto era una lista de roles escrita a
+  // mano que además incluía al coord. administrativo, que ya ni siquiera tiene el
+  // módulo — se leía como si él pudiera, y no.
   const esDueno = clase.profesor_id === profile.id;
-  if (!esAdmin && !esDueno) return { error: "No autorizado para cerrar esta clase." };
+  if (profile.role === "profesor" && !esDueno) {
+    return { error: "Solo puedes cerrar las clases que dictaste tú." };
+  }
 
   // Piso: una clase no se puede cerrar ANTES de que empiece. Sin esto se podía
   // marcar asistencia por la mañana de una clase de la tarde, o de toda la

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { rolesForModule } from "@/lib/auth/permissions";
+import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL } from "@/lib/roles";
 import {
@@ -53,7 +53,7 @@ export default async function EmpleadoDetallePage({
   );
 
   const esSuperadmin = profile.role === "superadmin";
-  const esAdmin = esSuperadmin || profile.role === "coord_admin";
+  const esAdmin = can(profile.role, "empleados", "edit");
 
   let comp: Comp | null = null;
   let reglas: ReglaInicial[] = [];
