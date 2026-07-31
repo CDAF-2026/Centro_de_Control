@@ -1,19 +1,21 @@
 /** Consultas a EasyCancha para el dashboard (reservas de clases). */
+import { createClient } from "@/lib/supabase/server";
+import { profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
+import { mapaNombresStaff } from "@/lib/staff";
 
 type RankProfesor = { nombre: string; clases: number };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-/** Extrae el nombre del profesor del nombre de la cancha de EasyCancha
- *  (p. ej. "Entrenador Willinton - Cancha 3" → "Willinton"). */
-function profesorDeCancha(courtName: string | null | undefined): string | null {
-  if (!courtName) return null;
-  if (!/(profesor|entrenador|profe)/i.test(courtName)) return null;
-  const sinCancha = courtName.replace(/[\s\-–—]*cancha\s*\d+.*$/i, "").replace(/[\s\-–—]+$/, "").trim();
-  const limpio = sinCancha.replace(/^(entrenador|profesor|profe)\s+/i, "").replace(/\s+/g, " ").trim();
-  return limpio || null;
-}
+// ⚠️ Este archivo tenía su PROPIA copia de `profesorDeCancha`, parecida pero no
+// igual a la de `easycancha/client.ts`: quitaba el prefijo con
+// /^(entrenador|profesor)\s+/, que no casa cuando el nombre de la cancha empieza
+// por otra cosa. Con los datos reales de jun–jul 2026 eso partía a Willington en
+// dos entradas del ranking: "Willinton" (98 reservas) y "/ Profesor Willinton"
+// (1). Ahora se usa la función compartida + `claveProfesor()`, que normaliza sin
+// tildes ni prefijos, y el nombre que se muestra sale del alias → perfil, así que
+// el ranking dice "Willington" y no lo que escribieron en EasyCancha.
 
 /**
  * Clases agendadas por profesor en la semana actual (lunes a domingo), según
@@ -42,17 +44,35 @@ export async function clasesSemanaPorProfesor(): Promise<{ desde: string; hasta:
     const j = await r.json();
     if (!Array.isArray(j?.bookings)) return { desde, hasta, ranking: [] };
 
-    const conteo = new Map<string, RankProfesor>();
+    // Se agrupa por la clave normalizada, no por el texto: así "Profesor
+    // Willinton", "Entrenador  Willinton" y "/ Profesor Willinton" cuentan como
+    // una sola persona. `crudo` es solo el respaldo por si falta el alias.
+    const conteo = new Map<string, { crudo: string; clases: number }>();
     for (const b of j.bookings) {
       if (b.status === "CANCELLED") continue;
-      const nombre = profesorDeCancha(b.courtName);
-      if (!nombre) continue;
-      const key = nombre.toLowerCase();
-      const cur = conteo.get(key) ?? { nombre, clases: 0 };
+      const crudo = profesorDeCancha(b.courtName);
+      const clave = claveProfesor(crudo);
+      if (!clave || !crudo) continue;
+      const cur = conteo.get(clave) ?? { crudo, clases: 0 };
       cur.clases++;
-      conteo.set(key, cur);
+      conteo.set(clave, cur);
     }
-    return { desde, hasta, ranking: [...conteo.values()].sort((a, b) => b.clases - a.clases) };
+
+    // Nombre que se muestra: el del perfil (limpio), vía alias. Si algún día
+    // aparece una cancha sin alias, cae al texto de EasyCancha en vez de perderse.
+    const supabase = await createClient();
+    const { data: alias } = await supabase
+      .from("easycancha_profesor_alias")
+      .select("clave, profesor_id");
+    const nombres = await mapaNombresStaff();
+    const canon = new Map(
+      (alias ?? []).map((a) => [a.clave, nombres.get(a.profesor_id) ?? null] as const),
+    );
+
+    const ranking: RankProfesor[] = [...conteo.entries()]
+      .map(([clave, v]) => ({ nombre: canon.get(clave) ?? v.crudo, clases: v.clases }))
+      .sort((a, b) => b.clases - a.clases);
+    return { desde, hasta, ranking };
   } catch {
     return { desde, hasta, ranking: [] };
   }

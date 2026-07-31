@@ -9,6 +9,7 @@ import { Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { correoVisible } from "@/lib/empleado";
+import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function EmpleadosPage({
   searchParams,
@@ -26,7 +27,7 @@ export default async function EmpleadosPage({
   // forma de devolverle el acceso a alguien que volvió.
   let query = supabase
     .from("profiles")
-    .select("id, nombre, telefono, activo")
+    .select("id, nombre, role, activo")
     .order("nombre", { nullsFirst: false });
   if (!verInactivos) query = query.eq("activo", true);
   if (safe) query = query.or(`nombre.ilike.%${safe}%,documento.ilike.%${safe}%`);
@@ -68,7 +69,7 @@ export default async function EmpleadosPage({
           <thead>
             <tr>
               <th className="px-4 py-2 font-semibold">Nombre</th>
-              <th className="px-4 py-2 font-semibold">Teléfono</th>
+              <th className="px-4 py-2 font-semibold">Rol</th>
               <th className="px-4 py-2 font-semibold">Correo</th>
               <th className="px-4 py-2 font-semibold">Estado</th>
             </tr>
@@ -83,7 +84,9 @@ export default async function EmpleadosPage({
                       {e.nombre ?? "—"}
                     </Link>
                   </td>
-                  <td className="px-4 py-2">{e.telefono ?? "—"}</td>
+                  <td className="px-4 py-2">
+                    <Badge variant="secondary">{ROLE_LABEL[e.role]}</Badge>
+                  </td>
                   <td className="px-4 py-2 break-all">{correo || <span className="text-muted-foreground">Sin correo</span>}</td>
                   <td className="px-4 py-2">
                     {e.activo ? (

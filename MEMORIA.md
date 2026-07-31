@@ -185,11 +185,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     Willinton" por "Profesor Willington", la clave pasa a `willington`, ningún alias casa y el
     calendario deja de atribuir esas reservas — **en silencio**, igual que el renombre de grupos de
     producto en Siigo (ver arriba).
-  - ⚠️ **Solo existe 1 fila de alias** (`willinton`). Para los otros 7 profesores `resolverProfesor`
-    cae al `else` y muestra el texto crudo de EasyCancha, no el nombre limpio de `profiles`. Si se
-    quiere ver el nombre propio en todo el calendario hay que crearles su alias.
-  - El ranking del dashboard (`src/lib/easycancha.ts::clasesSemanaPorProfesor`) NO pasa por alias ni
-    por `profiles`: cuenta directo sobre el texto del courtName. Renombrar aquí no lo cambia.
+  - ✅ **Los 8 alias están completos** (jul-2026). No hay respaldo por nombre: si falta el alias, se
+    muestra el texto crudo de EasyCancha. Las claves REALES medidas sobre jun–jul 2026 (2.554
+    reservas) son: `leo ruiz` · `cristian castro` · `esteban graciano` · `joaquin` · `willinton` ·
+    `jorge` · `sebastian nino` · `dairon guarin`. Cobertura verificada: **1.188 / 1.188 (100%)**.
+    Ojo, la clave sale del texto de EasyCancha y no siempre es el nombre completo (`joaquin` →
+    Joaquín Della Mea, `jorge` → Jorge Pérez): **al entrar un profesor nuevo hay que crearle su fila**,
+    porque nada lo hace automáticamente y el fallo es silencioso.
+  - ✅ **Las variantes de un mismo profesor ya se unifican solas**: "Profesor Willinton",
+    "Entrenador  Willinton" y "/ Profesor Willinton" dan las tres `willinton`, porque `claveProfesor()`
+    quita prefijos, tildes y signos. Sus 99 reservas nunca se estuvieron perdiendo.
+  - ⚠️ El ranking del dashboard (`src/lib/easycancha.ts`) tenía su **PROPIA copia** de
+    `profesorDeCancha`, parecida pero no igual: quitaba el prefijo con `/^(entrenador|profesor)\s+/`,
+    que no casa si el nombre empieza por otra cosa — partía a Willington en "Willinton" (98) y
+    "/ Profesor Willinton" (1). Ya usa la función compartida + `claveProfesor()` y resuelve el nombre
+    por alias. **Moraleja: una segunda copia de la normalización es una bomba de tiempo.**
 - **Bloqueos de academia (EasyCancha)**: el club se auto-reserva las canchas de academia con el usuario
   **"BLOQUEOS ACADEMIAS"** (correo `agentecdaf@gmail.com`, userId 1759452). El correo es el criterio
   confiable → `esBloqueoAcademia()` en easycancha/client.ts (jun–jul 2026: las 529 reservas con ese correo
