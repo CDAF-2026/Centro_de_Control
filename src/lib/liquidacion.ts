@@ -132,7 +132,10 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   const supabase = await createClient();
 
   const [{ data: profesores }, { data: comps }, { data: reglasRaw }, { data: clasesRaw }] = await Promise.all([
-    supabase.from("profiles").select("id, nombre").eq("role", "profesor").order("nombre"),
+    // Se traen TODOS y se filtra abajo por "tiene con qué pagársele", no por rol.
+    // Ver `esDocente`. (Esta lectura directa de `profiles` es una de las
+    // excepciones legítimas a la regla 9: /liquidacion es solo del SA.)
+    supabase.from("profiles").select("id, nombre, role").order("nombre"),
     supabase.from("profesor_compensacion").select("*"),
     supabase
       .from("profesor_regla")
@@ -155,6 +158,24 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     reglasByProf.set(r.profesor_id, arr);
   }
   const clases = clasesRaw ?? [];
+
+  /**
+   * Quién entra en la liquidación. El ROL dice qué ve la persona en la app; las
+   * REGLAS dicen cómo se le paga — son dos preguntas distintas y antes se
+   * resolvían con la misma respuesta (`role = 'profesor'`).
+   *
+   * Se rompía con Willington: es coordinador deportivo Y dicta las clases de las
+   * 7 a.m., con salario fijo + comisión configurados. Al pasarlo a coordinador
+   * desapareció de la liquidación y sus dos reglas quedaban sin calcularse nunca,
+   * en silencio.
+   *
+   * La condición es aditiva a propósito: sigue entrando todo el que tenga rol
+   * `profesor` aunque no tenga reglas, para que a quien le falte configurarlas le
+   * salga $0 VISIBLE en vez de desaparecer del listado.
+   */
+  const esDocente = (p: { id: string; role: string }) =>
+    p.role === "profesor" || reglasByProf.has(p.id) || compById.has(p.id);
+  const docentes = (profesores ?? []).filter(esDocente);
 
   // Ranking mensual de clases para reglas de tope (comision_umbral): cuenta TODAS las
   // clases realizadas del profesor desde el 1° del mes hasta `hasta` (acumulado del mes,
@@ -238,7 +259,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   }
 
   const porProf = new Map<string, LiqProfesor>();
-  for (const p of profesores ?? []) {
+  for (const p of docentes) {
     const comp = compById.get(p.id);
     const tieneReglas = (reglasByProf.get(p.id)?.length ?? 0) > 0;
     porProf.set(p.id, {

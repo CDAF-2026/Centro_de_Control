@@ -155,7 +155,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   mano en la BD, no en migración). No cambia el pago —ya era $0 por no casar ninguna regla— pero la
   liquidación ahora dice POR QUÉ: antes "$0 porque va en su salario" y "$0 porque falta configurar la
   regla" se veían idénticos, así que un olvido era invisible. Regla general: **todo el que dé academia
-  necesita regla de academia, aunque sea en $0.** **TODOS los entrenadores activos están migrados** al modelo de
+  necesita regla de academia, aunque sea en $0.**
+  ⚠️ **El ROL dice qué ve; las REGLAS dicen cómo se le paga.** Eran la misma respuesta (`role =
+  'profesor'`) y se rompió con **Willington**: es **coordinador deportivo** y además dicta las clases
+  de 7 a.m., con salario fijo $4M + comisión 50% ya configurados. Al pasarlo a coordinador (jul-2026)
+  desapareció de la liquidación —sus dos reglas no se calculaban, en silencio— y de los selectores de
+  profesor, así que sus clases ni siquiera se le podían asignar. Arreglado en dos sitios:
+  · `liquidacion.ts` → `esDocente()`: entra quien tenga rol profesor **O** reglas activas **O**
+    compensación vieja. Es **aditivo a propósito**: quien tenga rol profesor sin reglas sigue saliendo
+    (en $0 visible) en vez de desaparecer.
+  · pickers → RPC **`staff_docentes(p_solo_activos)`** (migración 0061), que usan `profesoresActivos`
+    y `profesoresParaFiltrar`. Va como función NUEVA y no como parámetro de `staff_directorio` para no
+    hacer DROP+CREATE de una firma que ya usan cinco pantallas. SECURITY DEFINER porque
+    `profesor_regla` guarda sueldos y recepción no puede leerla: la función la consulta por dentro y
+    devuelve solo id/nombre/rol/estado. Verificado desde una sesión de recepción — ve **0 reglas** y
+    **8 docentes**. **TODOS los entrenadores activos están migrados** al modelo de
   reglas (Leo, Joaquín, Dairon, Cristian, Willington, Esteban, Sebastián, Jorge); nadie usa ya el modelo
   viejo, pero `profesor_compensacion`/`profesor_valor_clase` quedan como respaldo/tumba. **Pickers de
   profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
@@ -164,6 +178,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil)
   para unificar duplicados (Willington estaba 2 veces: "Profesor" y "Entrenador"). Materializar reserva =
   se elige el perfil a mano (solo activos).
+  - ✅ **Renombrar en `profiles.nombre` NO rompe el enganche** (verificado jul-2026, cuando Laura
+    limpió los nombres del staff): la clave sale del **texto de EasyCancha**, se resuelve a un
+    `profesor_id` (uuid) y `profiles.nombre` solo se usa al final para PINTAR. El enganche es por id.
+  - ⚠️ **Lo que sí lo rompe es que renombren la cancha en EasyCancha.** Si allá cambian "Profesor
+    Willinton" por "Profesor Willington", la clave pasa a `willington`, ningún alias casa y el
+    calendario deja de atribuir esas reservas — **en silencio**, igual que el renombre de grupos de
+    producto en Siigo (ver arriba).
+  - ⚠️ **Solo existe 1 fila de alias** (`willinton`). Para los otros 7 profesores `resolverProfesor`
+    cae al `else` y muestra el texto crudo de EasyCancha, no el nombre limpio de `profiles`. Si se
+    quiere ver el nombre propio en todo el calendario hay que crearles su alias.
+  - El ranking del dashboard (`src/lib/easycancha.ts::clasesSemanaPorProfesor`) NO pasa por alias ni
+    por `profiles`: cuenta directo sobre el texto del courtName. Renombrar aquí no lo cambia.
 - **Bloqueos de academia (EasyCancha)**: el club se auto-reserva las canchas de academia con el usuario
   **"BLOQUEOS ACADEMIAS"** (correo `agentecdaf@gmail.com`, userId 1759452). El correo es el criterio
   confiable → `esBloqueoAcademia()` en easycancha/client.ts (jun–jul 2026: las 529 reservas con ese correo

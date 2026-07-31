@@ -24,9 +24,22 @@ export async function listarStaff(opts?: {
   return data ?? [];
 }
 
+/**
+ * Quién puede dictar clases. Va por el RPC `staff_docentes` (migración 0061) y
+ * NO por el rol: el rol dice qué ve la persona en la app, las reglas de
+ * `profesor_regla` dicen cómo se le paga, y son dos cosas distintas. Willington
+ * es coordinador deportivo y da las clases de las 7 a.m.; filtrando por rol
+ * desaparecía de los selectores y sus clases no se le podían asignar.
+ */
+async function listarDocentes(soloActivos = true): Promise<StaffMiembro[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("staff_docentes", { p_solo_activos: soloActivos });
+  return data ?? [];
+}
+
 /** Profesores que se pueden asignar hoy (selectores de clases, eventos, academias). */
 export async function profesoresActivos(): Promise<{ id: string; nombre: string | null }[]> {
-  const staff = await listarStaff({ role: "profesor" });
+  const staff = await listarDocentes();
   return staff.map((p) => ({ id: p.id, nombre: p.nombre }));
 }
 
@@ -37,7 +50,7 @@ export async function profesoresActivos(): Promise<{ id: string; nombre: string 
 export async function profesoresParaFiltrar(): Promise<
   { id: string; nombre: string | null; activo: boolean }[]
 > {
-  const staff = await listarStaff({ soloActivos: false, role: "profesor" });
+  const staff = await listarDocentes(false);
   return staff.map((p) => ({ id: p.id, nombre: p.nombre, activo: p.activo }));
 }
 

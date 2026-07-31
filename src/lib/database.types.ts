@@ -1107,6 +1107,12 @@ export type Database = {
         Args: { p_solo_activos?: boolean; p_role?: AppRole | null };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
       };
+      /** Quién puede dictar clases: rol profesor O con compensación configurada
+       *  (Willington es coord. deportivo y da las clases de 7 a.m.). Migración 0061. */
+      staff_docentes: {
+        Args: { p_solo_activos?: boolean };
+        Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
+      };
       /** Rendimiento por franja de una academia. La franja en null = clases dictadas
        *  a una hora que nadie tiene inscrita. Migración 0057. */
       academia_rendimiento_franja: {
