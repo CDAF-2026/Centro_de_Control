@@ -23,15 +23,15 @@ export default function Home() {
             conciliación — todo en un solo lugar.
           </p>
         </div>
+        {/*
+          Sin enlace al sistema de diseño: esta es la portada pública del club y
+          no tiene por qué ofrecerle a un visitante una herramienta interna.
+          `/styleguide` sigue existiendo y se llega por URL directa (no lleva
+          datos reales, solo ejemplos inventados).
+        */}
         <div className="flex flex-wrap items-center justify-center gap-3">
           <Link href="/login" className={buttonVariants({ size: "lg" })}>
             Ingresar <ArrowRight className="size-4" />
-          </Link>
-          <Link
-            href="/styleguide"
-            className="text-sm text-white/60 underline-offset-4 transition-colors hover:text-white hover:underline"
-          >
-            Ver sistema de diseño
           </Link>
         </div>
       </div>
