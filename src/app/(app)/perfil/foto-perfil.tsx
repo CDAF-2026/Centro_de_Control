@@ -6,6 +6,7 @@ import { subirFotoPerfil, quitarFotoPerfil, type PerfilState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { iniciales } from "@/lib/avatar";
+import { FOTO_MAX_MB } from "@/lib/validations/perfil";
 
 export function FotoPerfil({ nombre, url }: { nombre: string; url: string | null }) {
   const [state, action, pending] = useActionState<PerfilState, FormData>(subirFotoPerfil, {});
@@ -36,7 +37,9 @@ export function FotoPerfil({ nombre, url }: { nombre: string; url: string | null
             setPreview(f ? URL.createObjectURL(f) : null);
           }}
         />
-        <p className="text-muted-foreground text-xs">JPG, PNG o WEBP · máximo 2 MB.</p>
+        <p className="text-muted-foreground text-xs">
+          JPG, PNG o WEBP · máximo {FOTO_MAX_MB} MB.
+        </p>
 
         {state.error && <p className="text-destructive text-sm">{state.error}</p>}
         {state.ok && <p className="text-muted-foreground text-sm">{state.ok}</p>}

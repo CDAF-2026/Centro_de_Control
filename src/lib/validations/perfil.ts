@@ -28,5 +28,10 @@ export const asignarPasswordSchema = z.object({
   password: z.string().min(8, "Mínimo 8 caracteres"),
 });
 
-export const FOTO_MAX_BYTES = 2 * 1024 * 1024;
+export const FOTO_MAX_MB = 5;
+export const FOTO_MAX_BYTES = FOTO_MAX_MB * 1024 * 1024;
 export const FOTO_TIPOS = ["image/jpeg", "image/png", "image/webp"];
+
+// Ojo: este tope solo vale si `serverActions.bodySizeLimit` de next.config.ts lo
+// permite. Next corta las Server Actions en 1 MB por defecto y el archivo ni
+// llega hasta aquí, así que subir este número sin subir aquel no hace nada.

@@ -49,6 +49,15 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 6. **Git**: trabajar en `main`, commit al terminar cada bloque verificado + push. Mensajes en español
    con firma `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
 7. Next 16 tiene breaking changes: ante dudas de API, leer `node_modules/next/dist/docs/`.
+   ⚠️ **Subir archivos: el tope real lo pone Next, no nuestro código.** Todo lo que se sube en esta
+   app (foto de perfil, contratos, documentos de cliente, soportes de gasto, Excel de importación)
+   viaja por una **Server Action**, y Next las corta en **1 MB por defecto** — el archivo se rechaza
+   antes de llegar a validarse, así que los `if (size > 10MB)` del código eran decorativos. Está
+   subido a **12 MB** en `experimental.serverActions.bodySizeLimit` (next.config.ts) para que quepan
+   de verdad los 10 MB que prometen los documentos. **Al subir el tope de algo, hay que revisar los
+   dos sitios.** Se confirma que quedó activo porque `next dev` imprime "Experiments · serverActions".
+   Los buckets de Storage no estorban: ninguno tiene `file_size_limit` propio (usan el global del
+   proyecto).
 8. `tsconfig` excluye `supabase/functions/` (código Deno; no lo toca el typecheck de Next).
 9. **Nunca leer `public.profiles` directo para listar compañeros**: `profiles_select` (0001) solo deja
    ver el propio perfil salvo a SA/CA, así que a recepción/coord. deportivo/profesor los selectores

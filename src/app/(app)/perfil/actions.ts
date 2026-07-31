@@ -11,6 +11,7 @@ import {
   cambiarCorreoSchema,
   cambiarPasswordSchema,
   FOTO_MAX_BYTES,
+  FOTO_MAX_MB,
   FOTO_TIPOS,
 } from "@/lib/validations/perfil";
 
@@ -80,7 +81,7 @@ export async function subirFotoPerfil(
     return { error: "La foto debe ser JPG, PNG o WEBP." };
   }
   if (archivo.size > FOTO_MAX_BYTES) {
-    return { error: "La foto supera 2 MB." };
+    return { error: `La foto supera ${FOTO_MAX_MB} MB.` };
   }
 
   const supabase = await createClient();
