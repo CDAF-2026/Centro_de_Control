@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
+import { instanteClase } from "@/lib/fecha";
 import { can, rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { listarStaff } from "@/lib/staff";
@@ -118,7 +119,7 @@ export default async function DashboardPage({
   const { data: pend } = await pendQ;
   const now = Date.now();
   const vencidas = (pend ?? []).filter(
-    (c) => now > new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime() + 24 * 3600 * 1000,
+    (c) => now > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000,
   ).length;
 
   let totalMes = 0;

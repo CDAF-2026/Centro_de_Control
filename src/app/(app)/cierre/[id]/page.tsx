@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { instanteClase } from "@/lib/fecha";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
@@ -144,7 +145,7 @@ export default async function CerrarClasePage({
       : deportistas[0]?.nombre ?? "Sin deportista";
 
   // Una clase no se cierra antes de empezar (las sin hora, desde el inicio de su día).
-  const noEmpezo = Date.now() < new Date(`${clase.fecha}T${clase.hora_inicio ?? "00:00"}:00`).getTime();
+  const noEmpezo = Date.now() < instanteClase(clase.fecha, clase.hora_inicio);
 
   return (
     <div className="max-w-md space-y-6">

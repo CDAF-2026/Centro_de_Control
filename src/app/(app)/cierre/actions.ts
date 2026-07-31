@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
+import { instanteClase } from "@/lib/fecha";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/resend";
 import { claseConfirmadaEmail } from "@/lib/email/clase-confirmada";
@@ -50,14 +51,13 @@ export async function cerrarClase(
   // programación futura de una academia — asistencia inventada, y encima cuenta
   // para la liquidación. Se toma la hora de inicio: una vez arrancó, registrarla
   // es legítimo. Las clases sin hora quedan disponibles todo su día.
-  const inicio = new Date(`${clase.fecha}T${clase.hora_inicio ?? "00:00"}:00`);
-  if (Date.now() < inicio.getTime()) {
+  const inicio = instanteClase(clase.fecha, clase.hora_inicio);
+  if (Date.now() < inicio) {
     return { error: "Esta clase todavía no ha empezado. Se puede cerrar cuando haya iniciado." };
   }
 
   // Techo: pasado el plazo de 24h, solo el superadministrador puede registrar.
-  const dt = new Date(`${clase.fecha}T${clase.hora_inicio ?? "23:59"}:00`);
-  const venció = Date.now() > dt.getTime() + 24 * 3600 * 1000;
+  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
   if (venció && profile.role !== "superadmin") {
     return {
       error: "Pasaron más de 24 h. Solo el superadministrador puede registrarla (solicítaselo).",

@@ -10,6 +10,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { instanteClase } from "@/lib/fecha";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -315,7 +316,7 @@ export async function SuperadminDashboard({
   const nowMs = now.getTime();
   let totalVencidas = 0;
   for (const c of pendRes.data ?? []) {
-    const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime();
+    const dt = instanteClase(c.fecha, c.hora_inicio, "23:59:00");
     if (nowMs > dt + 24 * 3600 * 1000) totalVencidas++;
   }
 

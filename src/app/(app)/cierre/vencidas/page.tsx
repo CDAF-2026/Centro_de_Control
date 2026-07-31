@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { instanteClase } from "@/lib/fecha";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +28,7 @@ export default async function ClasesVencidasPage() {
 
   const nowMs = now.getTime();
   const vencidas = (clases ?? []).filter((c) => {
-    const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`);
-    return nowMs > dt.getTime() + 24 * 3600 * 1000;
+    return nowMs > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
   });
 
   const profIds = [...new Set(vencidas.map((c) => c.profesor_id).filter((x): x is string => !!x))];
@@ -51,8 +51,7 @@ export default async function ClasesVencidasPage() {
   }
 
   const haceTexto = (c: { fecha: string; hora_inicio: string | null }) => {
-    const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`);
-    const ms = nowMs - (dt.getTime() + 24 * 3600 * 1000);
+    const ms = nowMs - (instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000);
     const dias = Math.floor(ms / 86400000);
     return dias >= 1 ? `vencida hace ${dias} día${dias === 1 ? "" : "s"}` : `vencida hace ${Math.floor(ms / 3600000)} h`;
   };

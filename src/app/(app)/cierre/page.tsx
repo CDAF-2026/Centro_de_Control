@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff, profesoresParaFiltrar } from "@/lib/staff";
+import { instanteClase } from "@/lib/fecha";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
@@ -44,7 +45,7 @@ export default async function CierrePage({
   const { data: clases } = await q;
   const ahoraMs = Date.now();
   const lista = (clases ?? []).filter(
-    (c) => new Date(`${c.fecha}T${c.hora_inicio ?? "00:00"}:00`).getTime() <= ahoraMs,
+    (c) => instanteClase(c.fecha, c.hora_inicio) <= ahoraMs,
   );
 
   // Listas para los filtros (solo staff que ve varias clases).
@@ -126,8 +127,7 @@ export default async function CierrePage({
 
       <div className="space-y-2">
         {lista.map((c) => {
-          const dt = new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`);
-          const vencida = now > dt.getTime() + 24 * 3600 * 1000;
+          const vencida = now > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
           const quien =
             c.tipo === "academia"
               ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`

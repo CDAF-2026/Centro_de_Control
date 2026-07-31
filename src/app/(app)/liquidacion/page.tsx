@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { instanteClase } from "@/lib/fecha";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
@@ -40,7 +41,7 @@ export default async function LiquidacionPage({
   const ahoraMs = hoy.getTime();
   const porCerrar = (pendientes ?? []).length;
   const vencidas = (pendientes ?? []).filter(
-    (c) => ahoraMs > new Date(`${c.fecha}T${c.hora_inicio ?? "23:59"}:00`).getTime() + 24 * 3600 * 1000,
+    (c) => ahoraMs > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000,
   ).length;
   const conMovim = filas.filter((f) => f.clases > 0 || f.total > 0);
   const facturadoGeneral = filas.reduce((s, f) => s + f.facturado, 0);
