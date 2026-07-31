@@ -184,9 +184,14 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
   (07:00 y 13:00, lun–sáb) = 2 reglas.
 - **EasyCancha ↔ profesor**: el courtName ("Profesor Willinton - Cancha 3") da el profe del calendario
-  vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil)
-  para unificar duplicados (Willington estaba 2 veces: "Profesor" y "Entrenador"). Materializar reserva =
-  se elige el perfil a mano (solo activos).
+  vía `claveProfesor()` (normaliza sin prefijo/acentos) + tabla `easycancha_profesor_alias` (clave→perfil).
+  Materializar reserva = se elige el perfil a mano (solo activos).
+  - 💡 **Eran DOS duplicados distintos, no uno.** (a) En EasyCancha el mismo profesor aparece con
+    varios prefijos ("Profesor Willinton" / "Entrenador  Willinton" / "/ Profesor Willinton") — eso
+    sigue vivo y es lo que resuelve `claveProfesor()`. (b) En `profiles` había además una ficha
+    duplicada "Entrenador  Willinton", nacida de esa misma importación; **se borró el 31-jul-2026**
+    tras verificar 0 referencias en las 20 columnas que apuntan a un perfil. Hoy hay un solo
+    Willington (coord. deportivo, activo).
   - ✅ **Renombrar en `profiles.nombre` NO rompe el enganche** (verificado jul-2026, cuando Laura
     limpió los nombres del staff): la clave sale del **texto de EasyCancha**, se resuelve a un
     `profesor_id` (uuid) y `profiles.nombre` solo se usa al final para PINTAR. El enganche es por id.
