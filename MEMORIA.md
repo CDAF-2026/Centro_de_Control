@@ -246,9 +246,10 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 | clientes | E | E | **L** | E | — |
 | ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — |
 | empleados | E | E | — | — | — |
-| academias · clases | E | E | E | E | — |
+| academias | E | E | E | **L** | — |
+| clases (calendario) | E | E | E | E | **L** |
 | paquetes | E | E | **L** | E | — |
-| eventos (torneos) | E | — | E | **L** | — |
+| eventos (torneos) | E | E | E | **L** | — |
 | notas | E | E | E | E | E |
 | cierre de clases | E | — | E | — | E |
 | pagos (conciliación) | E | E | — | — | — |
@@ -265,6 +266,13 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
   inalcanzable, conservado a propósito por si se le devuelve la pantalla a algún rol.
 - ⚠️ **`/ingresos` y `/cartera` no están en el menú**: solo se llega desde el dashboard. Así que
   `reportes_financieros` es en la práctica SA-only aunque el permiso diga otra cosa.
+- 💡 **El profesor VE el calendario pero no lo toca** (`clases` = L): abre el detalle de una reserva
+  sin los controles de registrar. El gateo real es el prop `canAssign` de `CalendarGrid`/`DayView`,
+  que decide si se pinta `MaterializarReserva`. Cerrar sus clases lo sigue haciendo en `/cierre`,
+  que es otro módulo (`cierre_clase` = E).
+- ⚠️ **`cerrarClase` tampoco validaba rol**, solo sesión — la pantalla `/cierre` sí, la acción no.
+  Cualquiera con sesión podía cerrar una clase, y cerrar marca asistencia, que es lo que después se
+  liquida. Mismo patrón que el dashboard: **el guardia de la página no protege la server action**.
 - 💡 **Los guardias escritos a mano son el riesgo real, no la matriz.** La matriz solo pinta el menú;
   quien deja pasar o no es el `requireRole` de cada página y acción. Estaban desalineados: los
   torneos los llevaba `["superadmin","coord_admin"]` a mano (y ahora son del coordinador

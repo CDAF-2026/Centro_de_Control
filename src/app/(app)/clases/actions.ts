@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { profesoresActivos } from "@/lib/staff";
 import { createClaseSchema } from "@/lib/validations/clase";
 import type { AppRole } from "@/lib/database.types";
 
-const WRITE: AppRole[] = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"];
+// Derivado de la matriz: el profesor VE el calendario (permiso de lectura) pero
+// no puede crear ni materializar clases desde él.
+const WRITE: AppRole[] = rolesForModule("clases", "edit");
 
 export type ClaseFormState = {
   error?: string;

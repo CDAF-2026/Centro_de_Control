@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireProfile, requireRole } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
+import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
 import { logAudit } from "@/lib/audit";
@@ -13,11 +14,14 @@ export type CierreState = { error?: string; ok?: string };
 
 const ESTADOS = ["realizada", "cancelada", "no_show"] as const;
 
+// ⚠️ Antes pedía solo sesión (`requireProfile`): la pantalla /cierre sí validaba
+// el rol, pero la acción no, así que cualquiera con sesión podía cerrar una
+// clase — y cerrarla marca asistencia, que es lo que después se liquida.
 export async function cerrarClase(
   _prev: CierreState,
   formData: FormData,
 ): Promise<CierreState> {
-  const profile = await requireProfile();
+  const profile = await requireRole(rolesForModule("cierre_clase", "edit"));
   const claseId = Number(formData.get("claseId"));
   const estadoRaw = String(formData.get("estado"));
   if (!(ESTADOS as readonly string[]).includes(estadoRaw)) return { error: "Estado inválido." };

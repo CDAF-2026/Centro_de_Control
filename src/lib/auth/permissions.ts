@@ -42,9 +42,10 @@ const N: Permission = "none";
  *     liquidación, reportes e ingresos/cartera; el profesor quedó reducido a lo
  *     que de verdad hace: notas y cerrar sus clases.
  *
- * Las tres lecturas (L) son deliberadas: recepción consulta torneos pero no los
- * organiza, y el coordinador deportivo ve clientes y paquetes sin tocarlos
- * (quién vende y quién cobra es del lado administrativo).
+ * Las lecturas (L) son deliberadas: recepción consulta torneos y academias pero
+ * no los arma, el coordinador deportivo ve clientes y paquetes sin tocarlos
+ * (quién vende y quién cobra es del lado administrativo), y el profesor ve el
+ * calendario para saber qué le toca, sin poder moverlo.
  */
 export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   dashboard: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
@@ -54,10 +55,13 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   // Ver y editar la compensación; crear cuentas y repartir roles sigue siendo
   // solo del superadministrador (validado aparte en empleados/actions.ts).
   empleados: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: N },
+  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N },
   paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N },
-  eventos: { superadmin: E, coord_admin: N, coord_deportivo: E, recepcion: L, profesor: N },
-  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: N },
+  // Los torneos los montan tanto el coordinador administrativo como el deportivo.
+  eventos: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N },
+  // El profesor VE el calendario pero no lo toca: no crea clases ni las cierra
+  // desde ahí. Cerrar las suyas lo hace en su módulo (`cierre_clase`).
+  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: L },
   // Tablón interno de recados: todo el staff escribe y resuelve (es el relevo de
   // turno) y, desde esta revisión, es también la pantalla de inicio de todos.
   notas: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E },
