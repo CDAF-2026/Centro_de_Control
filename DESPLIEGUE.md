@@ -49,6 +49,30 @@ sirve de nada y amplía la superficie expuesta:
 Con la dirección `.vercel.app` ya se puede probar todo. El dominio real se apunta
 después, cuando convenza.
 
+## 2.b · Dominio
+
+**`alejandrofallacd.com`** (el dominio pelado, sin subdominio) — decisión de Laura,
+31-jul-2026. La plataforma responde ahí directamente.
+
+> Se le planteó ponerla en un subdominio (`app.` / `centrodecontrol.`) para dejar la
+> raíz libre por si el club quiere después una web pública de cara a clientes, y
+> escogió la raíz. Queda anotado por si algún día aparece esa web: habría que mudar
+> la plataforma y avisarle al staff, porque su dirección cambiaría.
+
+En Vercel: *Settings → Domains*, agregar `alejandrofallacd.com` **y**
+`www.alejandrofallacd.com` (Vercel redirige una a la otra automáticamente).
+
+⚠️ **Los valores DNS que hay que poner los da el panel de Vercel al agregar el
+dominio.** No copiarlos de memoria ni de un tutorial viejo: son por proyecto y Vercel
+los ha cambiado con el tiempo. Hay dos caminos y el panel los muestra:
+- **Registros en el registrador** (recomendado si el club va a tener correo en ese
+  dominio): un `A` en la raíz y un `CNAME` en `www`, con los valores que indique Vercel.
+- **Nameservers de Vercel**: más simple, pero entonces TODO el DNS del dominio vive en
+  Vercel, incluidos los `MX` del correo.
+
+Hoy el dominio no tiene `MX`, así que no hay correo que romper — pero si el club piensa
+usar `@alejandrofallacd.com`, conviene el primer camino.
+
 ## 3 · Después del primer despliegue: URLs de Auth
 
 Hoy Supabase tiene `site_url = http://localhost:3000` y la lista de redirecciones
