@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { List } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +45,7 @@ export function ChartDonut({
   const top = segmentos.slice(0, 5);
   const resto = segmentos.slice(5);
   const otros = resto.reduce((s, x) => s + x.total, 0);
-  const piezas = otros > 0 ? [...top, { nombre: "Otros", total: otros, color: "#c8ccc4" }] : top;
+  const piezas = otros > 0 ? [...top, { nombre: "Otros", total: otros, color: COLOR_SERVICIO_DEFAULT }] : top;
   const pctFmt = (v: number) => {
     const p = (v / total) * 100;
     return p > 0 && p < 1 ? "<1%" : `${Math.round(p)}%`;

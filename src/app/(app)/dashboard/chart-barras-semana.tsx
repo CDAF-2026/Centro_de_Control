@@ -61,15 +61,28 @@ export function ChartBarrasSemana({ dias }: { dias: Dia[] }) {
                   ? `${d.fecha} · en curso · Siigo registra la facturación al día siguiente`
                   : `${d.fecha} · ${COP.format(d.monto)} · toca para ver el detalle`
               }
-              className="group flex h-full flex-1 cursor-pointer flex-col items-center justify-end gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="group flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-end gap-2 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-              {pendiente ? (
-                <span className="text-[10px] font-semibold text-[#46530a]">en curso</span>
-              ) : (
-                <span className="text-foreground/80 text-[11px] font-medium tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
-                  {COP.format(d.monto)}
-                </span>
-              )}
+              {/*
+                El rótulo va en ABSOLUTO dentro de una franja de alto fijo. Si participa del
+                ancho, rompe la gráfica en el celular: un ítem flex no se encoge por debajo de
+                su contenido, así que "$ 2.785.200" —invisible hasta el hover, pero presente en
+                el layout— le exigía ~50 px a cada una de las 7 columnas = 420 px mínimos,
+                cuando ni el iPhone más grande da más de 390 dentro de la tarjeta. Como la
+                `Card` es `overflow-hidden`, el sobrante no hacía scroll: se RECORTABA, y los
+                últimos días desaparecían. En absoluto la columna solo mide por "Lun" (~19 px).
+              */}
+              <span className="relative h-4 w-full shrink-0">
+                {pendiente ? (
+                  <span className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold whitespace-nowrap text-[#46530a]">
+                    en curso
+                  </span>
+                ) : (
+                  <span className="text-foreground/80 absolute inset-x-0 top-0 text-center text-[11px] font-medium whitespace-nowrap tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
+                    {COP.format(d.monto)}
+                  </span>
+                )}
+              </span>
               <div className="bg-muted flex w-full max-w-9 flex-1 items-end overflow-hidden rounded-lg">
                 {pendiente ? (
                   <div className="border-primary/60 bg-primary/10 m-0.5 flex-1 self-stretch rounded-md border border-dashed" />

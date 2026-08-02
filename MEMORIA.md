@@ -142,6 +142,24 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
   (clave, color, categoria_saldo, siigo_grupo ↔ account_group de Siigo).
+- 🎨 **`servicios.color` NO se elige a ojo** (migración 0064, 2-ago-2026). El club reportó que "los
+  azules y grises no se diferencian"; la causa real era que **CINCO grupos compartían el mismo hex**
+  (`#3e6280` = Clases de tenis + Clases de pádel + Clase particular; `#37474f` = las dos Academias
+  Recreativas; `#8aa0a8` = los tres Alquileres; `#b591e0` = Patrocinio + Torneo + Patrocinio torneo;
+  `#5c6bc0` = Comp. Tenis + Alto rendimiento Joaquín), o sea ΔE **0,0**: indistinguibles, no
+  parecidos. Encima los azules tenían croma < 0,07 — por debajo de ~0,10 un tono se lee como gris.
+  Los nuevos salieron del **validador de la skill `dataviz`** (`scripts/validate_palette.js`, ΔE en
+  OKLab con daltonismo protan/deutan simulado), no del gusto: mis primeros intentos "sobrios" a mano
+  fallaron todos, porque mantenía la misma luminosidad en los 7 tonos — **la separación necesita
+  mover tono Y claridad a la vez.**
+  ⚠️ **Hay un techo duro: ~9 colores.** Se midió por fuerza bruta sobre todo el espectro — pasados
+  9, no existe ningún color que se despegue de los anteriores. Con 22 servicios eso obliga a dos
+  niveles: los **7 que pelean el top-5 de la dona** (medido mes a mes: Patrocinio, Acad. Rec. Tenis,
+  Clases tenis, Clases pádel, Cafetería, Alquiler pádel, Vacacionales) pasan *todos contra todos*
+  (peor par ΔE 9,2 daltonismo / 17,7 visión normal); el resto vive dentro de **"Otros"** y solo sale
+  en listados donde cada fila lleva nombre y cifra, así que ahí el color refuerza pero no carga solo
+  la identidad. Al crear un servicio nuevo **no inventar un hex**: correr el validador contra la
+  lista. Va por migración porque `/config` es solo lectura.
 - **Nómina**: modelo de **reglas por entrenador** `profesor_regla` (nombre + concepto
   {clase_particular|paquete|academia|siigo|**clase**(comodín)|**salario**} + metodo {pct_facturado|
   fijo_por_clase|escalonado_asistentes|por_alumno|pct_siigo_servicio|**salario_fijo**|**comision_umbral**} +

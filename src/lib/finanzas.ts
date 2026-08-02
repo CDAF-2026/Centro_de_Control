@@ -91,5 +91,10 @@ export function clasificarServicioPago(servicio: string): "academia" | "paquete"
   return "otro";
 }
 
-/** Color por defecto para un servicio sin color asignado en el catálogo. */
-export const COLOR_SERVICIO_DEFAULT = "#c8ccc4";
+/**
+ * Color por defecto para un servicio sin color asignado en el catálogo, y color del
+ * cubo "Otros" de la dona. Es un gris neutro A PROPÓSITO: no compite con los colores
+ * de identidad y se lee como "esto no es una categoría, es el resto".
+ * Verificado que se despega de los 7 de la dona (peor par ΔE 15,5 con visión normal).
+ */
+export const COLOR_SERVICIO_DEFAULT = "#b9bdb6";
