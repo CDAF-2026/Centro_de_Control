@@ -30,7 +30,7 @@ export type Deporte = "tenis" | "padel";
 export type AcademiaCategoria = "recreativa" | "competencia";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
-export type PaqueteEstado = "activo" | "agotado" | "vencido";
+export type PaqueteEstado = "activo" | "agotado" | "vencido" | "anulado";
 export type ServicioCategoriaSaldo = "academia" | "paquete" | "particular";
 export type PagoEstado = "sin_asignar" | "asignado";
 export type CompensacionTipo = "por_clase" | "fijo_comision" | "fisico";
@@ -563,6 +563,8 @@ export type Database = {
           estado: PaqueteEstado;
           inicia_el: string;
           vence_el: string | null;
+          anulado_el: string | null;
+          anulado_por: string | null;
           created_at: string;
         };
         Insert: {
@@ -576,6 +578,8 @@ export type Database = {
           estado?: PaqueteEstado;
           inicia_el?: string;
           vence_el?: string | null;
+          anulado_el?: string | null;
+          anulado_por?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["paquetes_cliente"]["Insert"]>;

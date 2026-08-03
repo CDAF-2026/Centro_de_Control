@@ -126,7 +126,7 @@ export async function cerrarClase(
   if (estado === "realizada" && clase.paquete_cliente_id) {
     const { data: pq } = await supabase
       .from("paquetes_cliente")
-      .select("num_clases, clases_consumidas")
+      .select("num_clases, clases_consumidas, estado")
       .eq("id", clase.paquete_cliente_id)
       .single();
     if (pq) {
@@ -135,7 +135,8 @@ export async function cerrarClase(
         .from("paquetes_cliente")
         .update({
           clases_consumidas: consumidas,
-          estado: consumidas >= pq.num_clases ? "agotado" : "activo",
+          // Un paquete anulado no revive por cerrarle una clase vieja.
+          estado: pq.estado === "anulado" ? "anulado" : consumidas >= pq.num_clases ? "agotado" : "activo",
         })
         .eq("id", clase.paquete_cliente_id);
       paqueteInfo = { restante: pq.num_clases - consumidas, total: pq.num_clases };
@@ -206,14 +207,18 @@ export async function reabrirCierre(claseId: number): Promise<CierreState> {
   if (clase.estado === "realizada" && clase.paquete_cliente_id) {
     const { data: pq } = await supabase
       .from("paquetes_cliente")
-      .select("num_clases, clases_consumidas")
+      .select("num_clases, clases_consumidas, estado")
       .eq("id", clase.paquete_cliente_id)
       .single();
     if (pq) {
       const consumidas = Math.max(0, pq.clases_consumidas - 1);
       await supabase
         .from("paquetes_cliente")
-        .update({ clases_consumidas: consumidas, estado: consumidas >= pq.num_clases ? "agotado" : "activo" })
+        .update({
+          clases_consumidas: consumidas,
+          // Un paquete anulado no revive por reabrirle una clase.
+          estado: pq.estado === "anulado" ? "anulado" : consumidas >= pq.num_clases ? "agotado" : "activo",
+        })
         .eq("id", clase.paquete_cliente_id);
     }
   }

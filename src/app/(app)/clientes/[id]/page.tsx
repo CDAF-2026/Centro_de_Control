@@ -114,7 +114,7 @@ export default async function ClienteDetallePage({
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")
-    .select("id, catalogo_id, miembro_id, num_clases, clases_consumidas, estado, descuento_pct, vence_el")
+    .select("id, catalogo_id, miembro_id, num_clases, clases_consumidas, estado, descuento_pct, inicia_el, vence_el")
     .eq("cliente_id", Number(id))
     .order("created_at", { ascending: false });
   const catIds = (pqCli ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null);
@@ -129,6 +129,7 @@ export default async function ClienteDetallePage({
     estado: p.estado,
     descuento_pct: p.descuento_pct,
     nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete",
+    inicia: p.inicia_el,
     vence: p.vence_el,
     miembro: conMiembro(p.miembro_id),
   }));
@@ -330,6 +331,7 @@ export default async function ClienteDetallePage({
             catalogo={catalogoActivo ?? []}
             miembros={miembros}
             puedeEditar={puedeEditar}
+            esSuperadmin={profile.role === "superadmin"}
           />
         </CardContent>
       </Card>

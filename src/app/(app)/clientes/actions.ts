@@ -436,6 +436,97 @@ export async function quitarHermano(formData: FormData): Promise<void> {
   revalidatePath(`/clientes/${clienteId}`);
 }
 
+/**
+ * Corrige la vigencia y el descuento de un paquete YA asignado. Solo SA:
+ * asignar es del día a día (recepción), corregir lo asignado no.
+ * A propósito NO toca las clases del paquete ni las consumidas: ese contador lo
+ * lleva el cierre de clases y a mano dejaría de cuadrar con la asistencia real.
+ */
+export async function editarPaqueteCliente(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  await requireRole(["superadmin"]);
+  const paqueteId = Number(formData.get("paqueteId"));
+  const clienteId = Number(formData.get("clienteId"));
+  const inicia = String(formData.get("inicia_el") ?? "").trim();
+  const vence = String(formData.get("vence_el") ?? "").trim() || null;
+  const descuento = Number(formData.get("descuento") ?? 0);
+  if (!paqueteId || !clienteId) return { error: "Paquete inválido." };
+  if (!inicia) return { error: "La fecha de inicio es obligatoria.", fieldErrors: { inicia_el: "Requerido" } };
+  if (vence && vence < inicia) {
+    return { error: "El paquete no puede vencer antes de empezar.", fieldErrors: { vence_el: "Anterior al inicio" } };
+  }
+  if (!Number.isFinite(descuento) || descuento < 0 || descuento > 100) {
+    return { error: "El descuento va de 0 a 100.", fieldErrors: { descuento: "Fuera de rango" } };
+  }
+
+  const supabase = await createClient();
+  const { data: pq } = await supabase
+    .from("paquetes_cliente")
+    .select("estado")
+    .eq("id", paqueteId)
+    .eq("cliente_id", clienteId)
+    .maybeSingle();
+  if (!pq) return { error: "Ese paquete no es de este cliente." };
+  if (pq.estado === "anulado") return { error: "Ese paquete está anulado." };
+
+  const { error } = await supabase
+    .from("paquetes_cliente")
+    .update({ inicia_el: inicia, vence_el: vence, descuento_pct: descuento })
+    .eq("id", paqueteId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "paquete.editar",
+    entity: "paquetes_cliente",
+    entityId: String(paqueteId),
+    after: { inicia_el: inicia, vence_el: vence, descuento_pct: descuento },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: "Paquete actualizado." };
+}
+
+/**
+ * Anula un paquete asignado por error. No se borra la fila: puede tener clases
+ * enganchadas y su historia importa. Al quedar en `anulado` desaparece solo de
+ * todo lo que ofrece saldo, porque esas consultas piden `estado = 'activo'`.
+ */
+export async function anularPaqueteCliente(
+  _prev: ClienteFormState,
+  formData: FormData,
+): Promise<ClienteFormState> {
+  const sa = await requireRole(["superadmin"]);
+  const paqueteId = Number(formData.get("paqueteId"));
+  const clienteId = Number(formData.get("clienteId"));
+  if (!paqueteId || !clienteId) return { error: "Paquete inválido." };
+
+  const supabase = await createClient();
+  const { data: pq } = await supabase
+    .from("paquetes_cliente")
+    .select("estado, clases_consumidas")
+    .eq("id", paqueteId)
+    .eq("cliente_id", clienteId)
+    .maybeSingle();
+  if (!pq) return { error: "Ese paquete no es de este cliente." };
+  if (pq.estado === "anulado") return { error: "Ese paquete ya está anulado." };
+
+  const { error } = await supabase
+    .from("paquetes_cliente")
+    .update({ estado: "anulado", anulado_el: new Date().toISOString(), anulado_por: sa.id })
+    .eq("id", paqueteId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "paquete.anular",
+    entity: "paquetes_cliente",
+    entityId: String(paqueteId),
+    after: { estado: "anulado", clases_consumidas: pq.clases_consumidas },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: "Paquete anulado." };
+}
+
 /** Activa/retira un cliente (auditado). */
 export async function toggleEstado(
   _prev: ClienteFormState,
