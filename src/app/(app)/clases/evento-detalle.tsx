@@ -3,6 +3,7 @@
 import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { MaterializarReserva } from "./asignar-paquete";
+import { ValorClaseForm } from "./valor-clase-form";
 import type { CalEvento } from "./types";
 
 const TONE: Record<string, "success" | "warning" | "destructive"> = {
@@ -30,6 +31,15 @@ export function EventoDetalle({ ev, canAssign = false }: { ev: CalEvento; canAss
           <span className="text-muted-foreground">Estado</span>
           <Badge variant={TONE[ev.estadoTone] ?? "outline"}>{ev.estadoLabel}</Badge>
         </p>
+        {/* Solo en clases particulares: corregir lo que se cobró (ver editarValorClase). */}
+        {canAssign && ev.particular && !ev.cancelada && (
+          <ValorClaseForm
+            claseId={ev.particular.claseId}
+            valor={ev.particular.valor}
+            editable={ev.particular.editable}
+            aviso={ev.particular.aviso}
+          />
+        )}
       </div>
       {canAssign && ev.ec && !ev.cancelada && <MaterializarReserva ev={ev} />}
     </>

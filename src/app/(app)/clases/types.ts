@@ -18,6 +18,20 @@ export type CalEvento = {
   estadoLabel: string;
   estadoTone: "ok" | "warn" | "bad";
   detalles: [string, string][];
+  /**
+   * Solo en clases PARTICULARES ya registradas (individual sin paquete): permite
+   * corregir el valor cobrado desde el modal. Las de paquete sacan su valor del
+   * paquete y la academia no tiene valor por clase, así que no lo llevan.
+   */
+  particular?: {
+    claseId: number;
+    /** Lo que hoy se cobra: el corregido si existe, si no el original. */
+    valor: number;
+    /** Si este usuario puede corregirla AHORA (24 h desde el inicio; el SA siempre). */
+    editable: boolean;
+    /** Por qué está bloqueada, o la advertencia a mostrar. null = sin nota. */
+    aviso: string | null;
+  };
   /** Datos de la reserva EasyCancha (solo eventos no materializados) para registrarla. */
   ec?: {
     bookingId: string;

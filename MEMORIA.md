@@ -465,6 +465,25 @@ asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`
 - **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
   (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
 
+💰 **Corregir el valor de una clase particular** (ago-2026, `editarValorClase` en clases/actions.ts +
+`valor-clase-form.tsx`). Se edita desde el **modal de `/clases`**, NO desde `/cierre`: recepción es
+quien teclea el precio al registrar la clase y **no tiene acceso a `/cierre`** (`cierre_clase` = N),
+así que ponerlo allá habría dejado a quien comete el error sin forma de arreglarlo.
+- Escribe **`clases.valor_facturado`**, que ya existía (migración 0015) como **override** y que
+  **nadie escribía nunca**: `/cierre` y `liquidacion.ts` ya leen `valor_facturado ?? precio`, así que
+  no hubo que tocarlos. `precio` se conserva con lo tecleado al crear → queda el rastro de la
+  corrección (y el `audit_log` guarda before/after).
+- **Solo particulares** (`tipo = individual` y sin `paquete_cliente_id`): las de paquete derivan su
+  valor del paquete y la academia no tiene valor por clase (ver `LineaLiq.valorFacturado = null`).
+- **Mismo techo de 24 h que el cierre**, con el mismo helper `instanteClase()`, a propósito: una sola
+  regla que recordar ("24 h desde que empezó") en vez de dos parecidas. ⚠️ La primera versión ató el
+  permiso al estado `programada`, y **medido sobre las 13 particulares reales eso no servía**: se
+  registran y cierran en **10–60 segundos** (13 de 13 ya cerradas), o sea que recepción nunca habría
+  alcanzado a corregir nada y todo habría caído en el SA.
+- ⚠️ **No hay tabla de liquidación** (se calcula al vuelo), así que NO se puede saber por código si
+  una quincena ya se pagó. El plazo de 24 h es el sustituto de ese candado: si algún día se persiste
+  la liquidación, el guardia correcto pasa a ser "¿el periodo ya se liquidó?".
+
 **Falta**: importador del Excel y cruce asistencia vs facturas de Siigo.
 ✅ **Modal de `/clases`**: la academia y el profesor se escogen SIEMPRE a mano — adivinarlos sube el
 margen de error (decisión de Laura). Ya se quitó la lógica muerta de "candidatas"

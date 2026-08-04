@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
+import { instanteClase } from "@/lib/fecha";
 import { profesoresActivos } from "@/lib/staff";
 import { createClaseSchema } from "@/lib/validations/clase";
 import type { AppRole } from "@/lib/database.types";
@@ -226,6 +227,64 @@ export async function materializarReserva(input: {
 }
 
 type CierreLikeState = { error?: string; ok?: string };
+
+/**
+ * Corrige el valor cobrado de una clase PARTICULAR (individual sin paquete).
+ *
+ * Escribe `valor_facturado`, que es un override: el cierre y la liquidación ya leen
+ * `valor_facturado ?? precio`, así que no hay que tocarlos. Se conserva `precio` con
+ * lo que se tecleó al registrarla, para que quede el rastro de qué se corrigió.
+ *
+ * Dos guardias, validados AQUÍ y no solo en la pantalla (el guardia de la página no
+ * protege la server action):
+ *  · Solo particulares: las de paquete derivan su valor del paquete y la academia no
+ *    tiene valor por clase; dejar editarlas produciría cifras que nadie sabría explicar.
+ *  · Pasadas 24 h del inicio de la clase, solo el SA. Se usa el MISMO plazo y el mismo
+ *    helper que el techo de `/cierre` a propósito: así el equipo tiene una sola regla que
+ *    recordar ("24 h desde que empezó") en vez de dos parecidas. Medido en agosto-2026,
+ *    una clase particular se registra y se cierra en segundos, así que atar el permiso al
+ *    estado `programada` habría dejado a recepción sin ventana real para corregir.
+ */
+export async function editarValorClase(_prev: CierreLikeState, formData: FormData): Promise<CierreLikeState> {
+  const profile = await requireRole(WRITE);
+  const claseId = Number(formData.get("claseId"));
+  const crudo = String(formData.get("valor") ?? "").replace(/[^\d]/g, "");
+  if (!claseId) return { error: "Clase inválida." };
+  if (!crudo) return { error: "Escribe el valor cobrado." };
+  const valor = Number(crudo);
+  if (!Number.isFinite(valor) || valor < 0) return { error: "El valor debe ser un número positivo." };
+  if (valor > 100_000_000) return { error: "Ese valor es demasiado alto; revísalo." };
+
+  const supabase = await createClient();
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, tipo, estado, fecha, hora_inicio, paquete_cliente_id, precio, valor_facturado")
+    .eq("id", claseId)
+    .maybeSingle();
+  if (!clase) return { error: "No se encontró la clase." };
+  if (clase.tipo !== "individual" || clase.paquete_cliente_id) {
+    return { error: "Solo se puede corregir el valor de una clase particular." };
+  }
+  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+  if (venció && profile.role !== "superadmin") {
+    return { error: "Pasaron más de 24 h desde la clase y su valor ya cuenta para la liquidación. Pídele el ajuste al superadministrador." };
+  }
+
+  const { error } = await supabase.from("clases").update({ valor_facturado: valor }).eq("id", claseId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "clase.editar_valor",
+    entity: "clases",
+    entityId: String(claseId),
+    before: { valor_facturado: clase.valor_facturado, precio: clase.precio },
+    after: { valor_facturado: valor, estado: clase.estado },
+  });
+  revalidatePath("/clases");
+  revalidatePath("/cierre");
+  revalidatePath("/liquidacion");
+  return { ok: "Valor actualizado." };
+}
 
 // ─────────────────────────────────────────────────────────────
 // Registrar un bloqueo de academia de EasyCancha como clase(s)

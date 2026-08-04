@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
+import { instanteClase } from "@/lib/fecha";
 import { buttonVariants } from "@/components/ui/button";
 import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
@@ -81,7 +82,7 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id, easycancha_booking_id")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
@@ -128,6 +129,13 @@ export default async function ClasesPage({
     return (clave ? aliasCanon.get(clave) : null) ?? raw;
   };
 
+  // Corregir el valor de una particular usa el MISMO techo de 24 h que cerrar la clase,
+  // con el mismo helper, para no tener dos cálculos de "fecha+hora" que se desincronicen.
+  const esSA = profile.role === "superadmin";
+  const ahora = Date.now();
+  const vencida = (fecha: string, horaInicio: string | null) =>
+    ahora > instanteClase(fecha, horaInicio, "23:59:00") + 24 * 3600 * 1000;
+
   const internas: CalEvento[] = lista.map((c) => {
     const hora = c.hora_inicio?.slice(0, 5) ?? "";
     const horaFin = c.hora_fin?.slice(0, 5) ?? "";
@@ -161,6 +169,24 @@ export default async function ClasesPage({
         ["Profesor", profesor ?? "—"],
         ["Cancha", c.cancha ?? "—"],
       ],
+      // Solo la particular (individual sin paquete) lleva valor corregible en el modal.
+      // El plazo es el MISMO techo de 24 h que rige el cierre (ver editarValorClase).
+      ...(c.tipo === "individual" && !c.paquete_cliente_id
+        ? {
+            particular: {
+              claseId: c.id,
+              valor: c.valor_facturado ?? c.precio ?? 0,
+              editable: esSA || !vencida(c.fecha, c.hora_inicio),
+              aviso: vencida(c.fecha, c.hora_inicio)
+                ? esSA
+                  ? "Pasaron más de 24 h: su valor ya cuenta para la liquidación."
+                  : "Pasaron más de 24 h. Para corregirlo, pídeselo al superadministrador."
+                : c.estado !== "programada"
+                  ? "Ya cerrada: su valor cuenta para la liquidación del profesor."
+                  : null,
+            },
+          }
+        : {}),
     };
   });
 
