@@ -13,7 +13,16 @@ const TONE: Record<string, "success" | "warning" | "destructive"> = {
 };
 
 /** Cuerpo del modal de detalle de un evento (clase interna o reserva EasyCancha). */
-export function EventoDetalle({ ev, canAssign = false }: { ev: CalEvento; canAssign?: boolean }) {
+export function EventoDetalle({
+  ev,
+  canAssign = false,
+  onCerrar,
+}: {
+  ev: CalEvento;
+  canAssign?: boolean;
+  /** Cierra el modal (lo usa la edición de valor tras confirmar el guardado). */
+  onCerrar?: () => void;
+}) {
   return (
     <>
       <DialogHeader>
@@ -38,6 +47,7 @@ export function EventoDetalle({ ev, canAssign = false }: { ev: CalEvento; canAss
             valor={ev.particular.valor}
             editable={ev.particular.editable}
             aviso={ev.particular.aviso}
+            onGuardado={onCerrar}
           />
         )}
       </div>

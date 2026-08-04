@@ -126,7 +126,9 @@ export function DayView({ eventos, esHoy, canAssign = false }: { eventos: CalEve
       </div>
 
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent>{sel && <EventoDetalle ev={sel} canAssign={canAssign} />}</DialogContent>
+        <DialogContent>
+          {sel && <EventoDetalle ev={sel} canAssign={canAssign} onCerrar={() => setSel(null)} />}
+        </DialogContent>
       </Dialog>
     </>
   );

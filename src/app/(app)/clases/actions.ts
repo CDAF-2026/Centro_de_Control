@@ -245,7 +245,9 @@ type CierreLikeState = { error?: string; ok?: string };
  *    una clase particular se registra y se cierra en segundos, así que atar el permiso al
  *    estado `programada` habría dejado a recepción sin ventana real para corregir.
  */
-export async function editarValorClase(_prev: CierreLikeState, formData: FormData): Promise<CierreLikeState> {
+export type ValorClaseState = { error?: string; ok?: string; valor?: number };
+
+export async function editarValorClase(_prev: ValorClaseState, formData: FormData): Promise<ValorClaseState> {
   const profile = await requireRole(WRITE);
   const claseId = Number(formData.get("claseId"));
   const crudo = String(formData.get("valor") ?? "").replace(/[^\d]/g, "");
@@ -283,7 +285,9 @@ export async function editarValorClase(_prev: CierreLikeState, formData: FormDat
   revalidatePath("/clases");
   revalidatePath("/cierre");
   revalidatePath("/liquidacion");
-  return { ok: "Valor actualizado." };
+  // Se devuelve el valor guardado para que el modal confirme con la cifra real del
+  // servidor: su copia del evento es de cuando se abrió y no se refresca sola.
+  return { ok: "Precio cambiado con éxito.", valor };
 }
 
 // ─────────────────────────────────────────────────────────────
