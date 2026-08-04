@@ -1233,7 +1233,7 @@ export type Database = {
        * `p_solo_servicio` en false trae todo lo facturado en la ventana (consumo de asistentes).
        */
       evento_facturas_candidatas: {
-        Args: { p_evento: number; p_solo_servicio?: boolean };
+        Args: { p_evento: number; p_solo_servicio?: boolean; p_dias_antes?: number; p_dias_despues?: number };
         Returns: {
           id: number;
           numero: string | null;

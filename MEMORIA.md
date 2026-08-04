@@ -119,8 +119,8 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   atarlo**, así que el P&G salía sin ingresos (solo costos = pérdida) y el dashboard seguía contando el
   bruto. Fondo del asunto: *¿de quién es esta plata?* (`cliente_id`, conciliación) y *¿de cuál torneo
   es?* (`evento_id`) son preguntas distintas y el único botón para la segunda vivía dentro de la
-  pantalla de la primera. Solución: **`evento_facturas_candidatas(p_evento)`** (mismo servicio, ±15
-  días, `evento_id is null`, **sin filtrar por estado_conciliacion**; trae `n_candidatas`/
+  pantalla de la primera. Solución: **`evento_facturas_candidatas(p_evento)`** (mismo servicio,
+  ventana **−5/+10 días**, `evento_id is null`, **sin filtrar por estado_conciliacion**; trae `n_candidatas`/
   `monto_candidatas` por window function para que el aviso sea exacto pese al `limit 200`) + selector
   en la ficha del evento (`facturas-evento.tsx`) con acciones `atarFacturas`/`soltarFactura`. **Atar no
   concilia**: `estado_conciliacion` y `cliente_id` se dejan intactos (una mostrador sigue anónima).
@@ -143,6 +143,17 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   ⚠️ Un **centro de costos de Siigo no sirve para esto**: se marca en la factura completa, así que a
   la canasta mixta le pondría "Torneos" con banano incluido — es MÁS GRUESO que el grupo de producto,
   que ya distingue línea por línea. Descartado por segunda vez.
+- ⏱️ **Ventana de captura: −5/+10 días** (migración 0067; el rango vive en `VENTANA_CANDIDATAS` de
+  **`src/lib/eventos.ts`** y se le PASA al RPC, para que la etiqueta de pantalla y el filtro no puedan
+  desincronizarse). Era ±15 y **solapaba torneos**: las facturas llegan en ráfagas cortas (jun 2–8 ·
+  jun 26–27 · jul 8–10 · jul 17–20), así que medio mes desde un torneo alcanza al anterior — al evento
+  del 7-8 de agosto le proponía una factura del 23-jul, de la ráfaga del 20-jul. Asimétrico a
+  propósito: se inscriben pegado a la fecha, pero las cuentas de última hora se facturan DESPUÉS.
+  Efecto medido: modo ampliado de 200 (tope) a 71 facturas. `-10/+10` se descartó porque en ampliado
+  vuelve a 200. ⚠️ Hoy no hay NI UNA factura de "Patrocinio torneo" (las 42 son "Torneo"), por eso
+  estrechar el lado de "antes" no se lleva pagos anticipados de patrocinadores; si algún día entran,
+  revisar. ⚠️ Queda un hueco conocido: una factura FUERA de la ventana no se puede atar desde ningún
+  sitio (falta un buscador por número en la ficha).
   ⚠️ **Decidido NO usar el centro de costos de Siigo**: en las facturas de venta está apagado
   (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
   torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los

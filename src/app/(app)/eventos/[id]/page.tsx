@@ -8,6 +8,7 @@ import { profesoresActivos } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FacturaLink, type FacturaDetalleData } from "@/components/factura-detalle";
+import { VENTANA_CANDIDATAS, correDias } from "@/lib/eventos";
 import { cn } from "@/lib/utils";
 import { ParticipanteForm } from "./participante-form";
 import { ProfesorForm } from "./profesor-form";
@@ -117,7 +118,12 @@ export default async function EventoDetallePage({
       .order("fecha"),
     // Candidatas: mismo servicio y ±15 días, sin filtrar por estado_conciliacion — las
     // `auto` y `mostrador` nunca pasan por /pagos, así que este es su único sitio.
-    supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId, p_solo_servicio: !verTodas }),
+    supabase.rpc("evento_facturas_candidatas", {
+      p_evento: eventoId,
+      p_solo_servicio: !verTodas,
+      p_dias_antes: VENTANA_CANDIDATAS.antes,
+      p_dias_despues: VENTANA_CANDIDATAS.despues,
+    }),
   ]);
 
   const parts = partsRes.data ?? [];
@@ -168,19 +174,21 @@ export default async function EventoDetallePage({
   // cobro del evento). En modo ampliado la lista trae cientos de facturas ajenas y ese
   // conteo convertiría el aviso en una falsa alarma.
   const estrictasRes = verTodas
-    ? await supabase.rpc("evento_facturas_candidatas", { p_evento: eventoId, p_solo_servicio: true })
+    ? await supabase.rpc("evento_facturas_candidatas", {
+        p_evento: eventoId,
+        p_solo_servicio: true,
+        p_dias_antes: VENTANA_CANDIDATAS.antes,
+        p_dias_despues: VENTANA_CANDIDATAS.despues,
+      })
     : candidatasRes;
   // Los totales vienen repetidos en cada fila (window sobre el conjunto completo), así
   // el aviso es exacto aunque la lista venga recortada por el limit del RPC.
   const nCandidatas = Number(estrictasRes.data?.[0]?.n_candidatas ?? 0);
   const montoCandidatas = Number(estrictasRes.data?.[0]?.monto_candidatas ?? 0);
-  const corre = (iso: string, dias: number) => {
-    const d = new Date(`${iso}T00:00:00`);
-    d.setDate(d.getDate() + dias);
-    return d.toISOString().slice(0, 10);
-  };
+  // La etiqueta sale de las MISMAS constantes que se le pasan al RPC (src/lib/eventos.ts):
+  // con el rango escrito en dos sitios, cambiar uno dejaba el texto mintiendo.
   const diaMes = (iso: string) => `${Number(iso.slice(8, 10))} ${MESES[Number(iso.slice(5, 7)) - 1].slice(0, 3)}`;
-  const ventana = `${diaMes(corre(evento.fecha_inicio, -15))} → ${diaMes(corre(evento.fecha_fin ?? evento.fecha_inicio, 15))}`;
+  const ventana = `${diaMes(correDias(evento.fecha_inicio, -VENTANA_CANDIDATAS.antes))} → ${diaMes(correDias(evento.fecha_fin ?? evento.fecha_inicio, VENTANA_CANDIDATAS.despues))}`;
 
   // ── Detalle de cada factura para el modal (el mismo de la ficha del cliente) ──
   const idsFactura = [...new Set([...atadas.map((f) => f.id), ...candidatas.map((c) => c.id)])];
