@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
+import { nombresDeportistas } from "@/lib/deportistas";
 import { instanteClase } from "@/lib/fecha";
 import { buttonVariants } from "@/components/ui/button";
 import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia } from "@/lib/easycancha/client";
@@ -82,7 +83,7 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, miembro_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
@@ -93,7 +94,6 @@ export default async function ClasesPage({
   const materializedIds = new Set(lista.map((c) => c.easycancha_booking_id).filter((x): x is string => !!x));
 
   const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
-  const cliIds = [...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
   const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
 
   const profName = new Map<string, string>();
@@ -101,11 +101,12 @@ export default async function ClasesPage({
     const nombres = await mapaNombresStaff();
     for (const id of profIds) profName.set(id, nombres.get(id) ?? "—");
   }
-  const cliName = new Map<number, string>();
-  if (cliIds.length) {
-    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
-    for (const c of data ?? []) cliName.set(c.id, `${c.nombres} ${c.apellidos}`);
-  }
+  // Deportista desde `cliente_miembros` (ver src/lib/deportistas.ts): el
+  // profesor ve este calendario y no puede leer `clientes`.
+  const deportista = await nombresDeportistas(
+    supabase,
+    lista.filter((c) => c.tipo !== "academia"),
+  );
   const acaName = new Map<number, string>();
   if (acaIds.length) {
     const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
@@ -144,7 +145,7 @@ export default async function ClasesPage({
     const titulo =
       c.tipo === "academia"
         ? (c.academia_id ? acaName.get(c.academia_id) ?? "Academia" : "Academia")
-        : (c.cliente_id ? cliName.get(c.cliente_id) ?? "Sin deportista" : "Sin deportista");
+        : deportista(c) ?? "Sin deportista";
     return {
       id: `int-${c.id}`,
       dia: Number(c.fecha.slice(8, 10)),

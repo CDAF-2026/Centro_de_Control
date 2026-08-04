@@ -147,17 +147,12 @@ export async function createCliente(
     .single();
   if (error || !cli) return { error: error?.message ?? "No se pudo guardar el cliente." };
 
-  // El titular también es un miembro de la ficha (así la operación va por miembro).
-  await supabase.from("cliente_miembros").insert({
-    cliente_id: cli.id,
-    nombres: d.nombres,
-    apellidos: d.apellidos,
-    fecha_nacimiento: d.fechaNacimiento || null,
-    documento: d.documento || null,
-    tipo_documento: tipoDocumento,
-    deportes: leerDeportes(formData),
-    es_titular: true,
-  });
+  // La fila de titular en `cliente_miembros` (de la que cuelga toda la
+  // operación) ya no se crea aquí: la pone el trigger `clientes_crear_titular`
+  // (migración 0066). Se movió a la base porque este no era el único sitio que
+  // creaba fichas y bastaba con que uno lo olvidara — que fue lo que pasó con
+  // el botón de sincronizar EasyCancha: 48 fichas sin titular, y la falla solo
+  // se veía semanas después, al cerrar la clase ("Sin deportista").
 
   await logAudit({
     action: "cliente.create",

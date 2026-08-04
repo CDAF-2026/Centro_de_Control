@@ -97,31 +97,15 @@ async function main() {
   let insertados = 0;
   for (let i = 0; i < nuevos.length; i += 500) {
     const chunk = nuevos.slice(i, i + 500);
-    const { data: creados, error } = await s
-      .from("clientes")
-      .insert(chunk)
-      .select("id, nombres, apellidos, fecha_nacimiento, documento, tipo_documento, deportes");
+    const { data: creados, error } = await s.from("clientes").insert(chunk).select("id");
     if (error || !creados) {
       console.error("  insert:", error?.message ?? "sin respuesta");
       continue;
     }
     insertados += creados.length;
-
-    // Cada ficha necesita su fila de titular: la operación (asistencia, paquetes,
-    // inscripciones) cuelga del miembro, no de la ficha.
-    const { error: errTit } = await s.from("cliente_miembros").insert(
-      creados.map((c) => ({
-        cliente_id: c.id,
-        nombres: c.nombres,
-        apellidos: c.apellidos,
-        fecha_nacimiento: c.fecha_nacimiento,
-        documento: c.documento,
-        tipo_documento: c.tipo_documento,
-        deportes: c.deportes,
-        es_titular: true,
-      })),
-    );
-    if (errTit) console.error("  titular:", errTit.message);
+    // La fila de titular de cada ficha la crea el trigger `clientes_crear_titular`
+    // (migración 0066), no este script: era una de las cinco puertas por donde
+    // se creaban fichas y solo tres la creaban.
   }
 
   const total = (await s.from("clientes").select("*", { count: "exact", head: true })).count;

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreStaff } from "@/lib/staff";
 import { instanteClase } from "@/lib/fecha";
 import { logAudit } from "@/lib/audit";
@@ -148,8 +149,17 @@ export async function cerrarClase(
     const presentes = deportistas.filter((mid) => !noVino(mid) && estadoAsis(mid) === "presente");
     if (presentes.length) {
       const cliIds = [...new Set(presentes.map((mid) => cliDeMiembro.get(mid)).filter((x): x is number => x != null))];
+      // ⚠️ El correo de la familia solo está en `clientes`, y el PROFESOR no
+      // puede leer esa tabla (política `clientes_select`, que lo excluye a
+      // propósito). Con la sesión del profesor esta consulta devolvía cero
+      // filas sin error, así que cada vez que cerraba él —y es quien más
+      // cierra— la familia se quedaba sin su correo de confirmación, en
+      // silencio. Se lee con service_role SOLO para esto: quién puede cerrar
+      // esta clase ya quedó validado arriba, y de aquí no sale nada a la
+      // pantalla, solo el envío.
+      const lector = createAdminClient();
       const { data: cls } = cliIds.length
-        ? await supabase.from("clientes").select("id, nombres, email").in("id", cliIds)
+        ? await lector.from("clientes").select("id, nombres, email").in("id", cliIds)
         : { data: [] as { id: number; nombres: string; email: string | null }[] };
       const cli = new Map((cls ?? []).map((c) => [c.id, c]));
       const nombreDe = new Map((mrows ?? []).map((m) => [m.id, m.nombres]));

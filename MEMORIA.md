@@ -74,6 +74,28 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   `fecha_nacimiento`; documento/tipo/nacimiento vienen de EasyCancha `userFoidNumber`/`userFoidType`/
   `userBirthDate`, cruce por correo, ver `documentoDeBooking()` en easycancha/client.ts), `acudientes`,
   `cliente_documentos` (Storage). Ficha: situación financiera = `siigo_resumen_cliente(id)`.
+- 👤 **El nombre del deportista NUNCA se lee de `clientes`** (ago-2026, `src/lib/deportistas.ts`).
+  El **profesor** no tiene el módulo de clientes y `clientes_select` lo excluye, así que esa consulta
+  con su sesión devuelve **0 filas sin error** (medido: ve 0 de 320 en `clientes` y 276 en
+  `cliente_miembros`) → el calendario y la cola de `/cierre` le salían con "—" en TODAS las clases
+  particulares. Se lee de `cliente_miembros`, que sí lo incluye desde 0033 justo porque el roster de
+  cierre depende de ella. De paso queda bien el caso de hermanos: con `miembro_id` se muestra quien
+  tomó la clase, no el titular de la ficha. Mismo patrón que `staff.ts` con `profiles` (regla 9).
+  ⚠️ Lo mismo mordía el **correo de confirmación** del cierre: el correo solo vive en `clientes`, así
+  que al cerrar un profesor la familia no recibía nada, en silencio. Esa lectura puntual va con
+  `createAdminClient()` (el permiso ya se validó arriba y no sale a pantalla).
+- 🔒 **Toda ficha nace con su fila de titular** — lo hace el trigger `clientes_crear_titular`
+  (migración 0066), NO el código. La operación (asistencia, paquetes, inscripciones) cuelga del
+  MIEMBRO, así que una ficha sin titular sale como **"Sin deportista"** al cerrar la clase. Ya se
+  arregló "en el código" una vez (0040, tres fugas) y la fuga volvió a abrirse por una **cuarta
+  puerta**: `sincronizarClientesEC` (el botón de sincronizar EasyCancha DENTRO de la app) inserta en
+  lote y nunca creó el miembro → 48 de 320 fichas rotas, que cuadran exactas con sus tres corridas
+  del audit_log (27+10+11). Hay **cinco sitios** que crean fichas (formulario, las dos sincros de
+  EasyCancha, importador de CSV y `import-easycancha.mjs`) y basta que uno lo olvide; y el fallo es
+  invisible hasta semanas después, porque la ficha se ve perfecta en `/clientes`. Por eso la
+  invariante la hace cumplir la base. 0066 trae también el trigger de UPDATE que mantiene el espejo
+  al día (la ficha manda), que es lo que 0040 tuvo que corregir a mano tras los backfills.
+  **Al crear una ficha desde código nuevo: no insertar el titular, ya está.**
 - **Operación**: `academias`, `inscripciones` (dias[]), `clases` (tipo academia|individual,
   valor_facturado), `asistencias` (estado: presente/ausente/excusa_medica/reposicion),
   `paquetes_catalogo`, `paquetes_cliente` (inicia_el/vence_el), `eventos` + `evento_participantes`

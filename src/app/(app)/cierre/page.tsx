@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff, profesoresParaFiltrar } from "@/lib/staff";
+import { nombresDeportistas } from "@/lib/deportistas";
 import { instanteClase } from "@/lib/fecha";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -35,7 +36,7 @@ export default async function CierrePage({
 
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, tipo, deporte, profesor_id, cliente_id, academia_id")
+    .select("id, fecha, hora_inicio, tipo, deporte, profesor_id, cliente_id, miembro_id, academia_id")
     .eq("estado", "programada")
     .lte("fecha", hoyIso)
     .order("fecha");
@@ -59,7 +60,6 @@ export default async function CierrePage({
 
   // Nombres de profesor / deportista (individual) / academia
   const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
-  const cliIds = [...new Set(lista.filter((c) => c.tipo === "individual").map((c) => c.cliente_id).filter((x): x is number => x != null))];
   const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
 
   const profName = new Map<string, string>((profesores).map((p) => [p.id, p.nombre ?? "—"]));
@@ -70,11 +70,12 @@ export default async function CierrePage({
       for (const id of faltan) profName.set(id, nombres.get(id) ?? "—");
     }
   }
-  const cliName = new Map<number, string>();
-  if (cliIds.length) {
-    const { data } = await supabase.from("clientes").select("id, nombres, apellidos").in("id", cliIds);
-    for (const c of data ?? []) cliName.set(c.id, `${c.nombres} ${c.apellidos}`);
-  }
+  // El deportista sale de `cliente_miembros`, NO de `clientes`: al profesor la
+  // segunda le devuelve cero filas por RLS y todas sus clases salían con "—".
+  const deportista = await nombresDeportistas(
+    supabase,
+    lista.filter((c) => c.tipo !== "academia"),
+  );
   const acaName = new Map<number, string>();
   if (acaIds.length) {
     const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
@@ -131,7 +132,7 @@ export default async function CierrePage({
           const quien =
             c.tipo === "academia"
               ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
-              : c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Sin deportista";
+              : deportista(c) ?? "Sin deportista";
           const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin profesor";
           return (
             <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
