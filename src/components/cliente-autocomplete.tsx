@@ -1,13 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect, useTransition } from "react";
+import { useState, useRef, useEffect, useCallback, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { buscarClientes } from "@/app/(app)/clientes/actions";
 import { Input } from "@/components/ui/input";
 
 type Sug = { id: number; nombres: string; apellidos: string; celular: string | null };
 
 /** Buscador con autocompletar para elegir un cliente dentro de un formulario.
- *  Pone el id elegido en un input oculto (name) para que se envíe con el form. */
+ *  Pone el id elegido en un input oculto (name) para que se envíe con el form.
+ *
+ *  ⚠️ La lista se pinta en un PORTAL sobre `document.body`, no como hija del input.
+ *  El `Card` del sistema de diseño trae `overflow-hidden` (card.tsx), así que un
+ *  desplegable en `absolute` queda RECORTADO al borde de la tarjeta: en los formularios
+ *  que van al final de una Card —inscribir participante, conciliar, cierre— se veía
+ *  media fila y no se podía elegir a nadie. Con el portal el componente ya no depende
+ *  de que su contenedor no recorte, que es lo que hacía que el arreglo se tuviera que
+ *  repetir en cada pantalla. */
 export function ClienteAutocomplete({
   name = "clienteId",
   initialId,
@@ -25,8 +34,10 @@ export function ClienteAutocomplete({
   );
   const [sugs, setSugs] = useState<Sug[]>([]);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const [, start] = useTransition();
   const boxRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     if (sel || q.trim().length < 2) {
@@ -42,13 +53,57 @@ export function ClienteAutocomplete({
     return () => clearTimeout(t);
   }, [q, sel]);
 
+  /** Ancla la lista al input. Va en `fixed`, así que se recalcula al hacer scroll. */
+  const medir = useCallback(() => {
+    const r = boxRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setPos({
+      top: r.bottom + 4,
+      left: r.left,
+      width: r.width,
+      // Si no cabe abajo, la lista se desplaza por dentro en vez de salirse de la pantalla.
+      maxHeight: Math.max(160, window.innerHeight - r.bottom - 16),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    medir();
+    // `true` = fase de captura: también atrapa el scroll de contenedores internos.
+    window.addEventListener("scroll", medir, true);
+    window.addEventListener("resize", medir);
+    return () => {
+      window.removeEventListener("scroll", medir, true);
+      window.removeEventListener("resize", medir);
+    };
+  }, [open, medir]);
+
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      // La lista vive fuera de boxRef (portal): sin excluirla, el mousedown la cerraría
+      // ANTES de que el clic llegara al botón y no se podría seleccionar nada.
+      if (boxRef.current?.contains(t) || listRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+    };
   }, []);
+
+  const elegir = (s: Sug) => {
+    setSel({ id: s.id, label: `${s.apellidos}, ${s.nombres}` });
+    setOpen(false);
+    onSelect?.(s.id);
+  };
+
+  const visible = open && !sel && sugs.length > 0 && pos !== null;
 
   return (
     <div ref={boxRef} className="relative min-w-56">
@@ -69,22 +124,28 @@ export function ClienteAutocomplete({
           autoComplete="off"
         />
       )}
-      {open && !sel && sugs.length > 0 && (
-        <ul className="bg-popover absolute z-20 mt-1 w-full overflow-hidden rounded-md border shadow-md">
-          {sugs.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => { setSel({ id: s.id, label: `${s.apellidos}, ${s.nombres}` }); setOpen(false); onSelect?.(s.id); }}
-                className="hover:bg-muted flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm"
-              >
-                <span className="truncate">{s.apellidos}, {s.nombres}</span>
-                {s.celular && <span className="text-muted-foreground shrink-0 text-xs">{s.celular}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {visible &&
+        createPortal(
+          <ul
+            ref={listRef}
+            style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+            className="bg-popover z-50 overflow-y-auto rounded-md border shadow-md"
+          >
+            {sugs.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => elegir(s)}
+                  className="hover:bg-muted flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm"
+                >
+                  <span className="truncate">{s.apellidos}, {s.nombres}</span>
+                  {s.celular && <span className="text-muted-foreground shrink-0 text-xs">{s.celular}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }
