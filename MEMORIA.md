@@ -389,6 +389,13 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
   · ⚠️ **`ALL_ROLES` en permissions.ts es el segundo sitio obligatorio.** `rolesForModule` solo recorre
     esa lista, y de ella salen casi todos los `requireRole`: un rol que esté en la matriz pero no en
     `ALL_ROLES` queda MUDO, con permisos que nunca se aplican.
+  · ⚠️ **Había una TERCERA lista: `STAFF_ROLES` en `validations/empleado.ts`** — la que valida en el
+    servidor al crear empleado (`z.enum`) y al cambiar de rol (`actions.ts:299`). Escrita a mano, no
+    se enteró del rol nuevo, y el fallo salía **solo al guardar**: el selector sí ofrecía "Gestión de
+    Eventos" (viene de `ROLE_LABEL`) pero el servidor respondía *"Rol inválido"* al cambiarlo y
+    *"revisa los campos"* al crear. **Ya deriva de `ALL_ROLES`**, así que quedan dos sitios y el
+    compilador amarra los dos (`AppRole` el tipo, `ALL_ROLES` la enumeración). Moraleja repetida: el
+    selector viene de un lado y la validación de otro — probar SIEMPRE guardando, no solo abriendo.
   · **Atar facturas a un evento va por RPC, no por UPDATE** (`evento_atar_facturas` /
     `evento_soltar_factura`, SECURITY DEFINER). Atar solo cambia `evento_id`, pero una política de
     UPDATE **no puede limitar columnas**: darle write a `siigo_facturas` sería darle la tabla del

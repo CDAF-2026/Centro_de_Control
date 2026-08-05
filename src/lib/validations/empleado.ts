@@ -1,12 +1,18 @@
 import { z } from "zod";
+import { ALL_ROLES } from "@/lib/auth/permissions";
+import type { AppRole } from "@/lib/database.types";
 
-export const STAFF_ROLES = [
-  "superadmin",
-  "coord_admin",
-  "coord_deportivo",
-  "recepcion",
-  "profesor",
-] as const;
+/**
+ * Roles asignables a un empleado. Sale de `ALL_ROLES` a propósito: era una lista
+ * escrita a mano y quedó desfasada al crear `gestion_eventos` — el selector ya lo
+ * ofrecía (viene de ROLE_LABEL) pero el servidor lo rechazaba con "Rol inválido"
+ * al cambiarlo y con "revisa los campos" al crear.
+ *
+ * ⚠️ Era la TERCERA lista de roles del código (con `AppRole` y `ALL_ROLES`). Ahora
+ * quedan dos y el compilador amarra ambas: `AppRole` define el tipo y `ALL_ROLES`
+ * la enumeración. Al agregar un rol se tocan esos dos sitios y nada más.
+ */
+export const STAFF_ROLES = ALL_ROLES as unknown as readonly [AppRole, ...AppRole[]];
 
 export const createEmpleadoSchema = z
   .object({
