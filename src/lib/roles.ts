@@ -6,6 +6,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   coord_deportivo: "Coord. Deportivo",
   recepcion: "Recepción",
   profesor: "Profesor",
+  gestion_eventos: "Gestión de Eventos",
 };
 
 export const ROLE_OPTIONS: { value: AppRole; label: string }[] = (

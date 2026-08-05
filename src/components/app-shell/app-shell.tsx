@@ -11,15 +11,10 @@ import { logout } from "@/lib/auth/actions";
 import { iniciales } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { NotasCampana } from "./notas-campana";
+// Era una copia idéntica de la de `lib/roles.ts`. Con dos listas, un rol nuevo salía
+// bien en la ficha del empleado y como `undefined` en el encabezado.
+import { ROLE_LABEL } from "@/lib/roles";
 import type { AppRole } from "@/lib/database.types";
-
-const ROLE_LABEL: Record<AppRole, string> = {
-  superadmin: "Superadministrador",
-  coord_admin: "Coord. Administrativo",
-  coord_deportivo: "Coord. Deportivo",
-  recepcion: "Recepción",
-  profesor: "Profesor",
-};
 
 /** Foto de perfil, o las iniciales mientras no haya. */
 function Avatar({

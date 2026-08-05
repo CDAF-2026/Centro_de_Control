@@ -360,22 +360,55 @@ hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; p
 ## 🔐 Permisos por rol (revisado con Laura el 31-jul-2026)
 Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **L**=solo ve · —=sin acceso.
 
-| Módulo | SA | Coord. admin | Coord. deportivo | Recepción | Profesor |
-|---|:--:|:--:|:--:|:--:|:--:|
-| dashboard (+ ingresos/cartera) | E | — | — | — | — |
-| clientes | E | E | **L** | E | — |
-| ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — |
-| empleados | E | E | — | — | — |
-| academias | E | E | E | **L** | — |
-| clases (calendario) | E | E | E | E | **L** |
-| paquetes | E | E | **L** | E | — |
-| eventos (torneos) | E | E | E | **L** | — |
-| notas | E | E | E | E | E |
-| cierre de clases | E | — | E | — | E |
-| pagos (conciliación) | E | E | — | — | — |
-| liquidación · agente | E | — | — | — | — |
-| config (catálogo de servicios) | **L** | — | — | — | — |
+| Módulo | SA | Coord. admin | Coord. deportivo | Recepción | Profesor | Gestión Eventos |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| dashboard (+ ingresos/cartera) | E | — | — | — | — | — |
+| clientes | E | E | **L** | E | — | — |
+| ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — | — |
+| empleados | E | E | — | — | — | — |
+| academias | E | E | E | **L** | — | — |
+| clases (calendario) | E | E | E | E | **L** | — |
+| paquetes | E | E | **L** | E | — | — |
+| eventos (torneos) | E | E | E | **L** | — | **E** |
+| notas | E | E | E | E | E | E |
+| cierre de clases | E | — | E | — | E | — |
+| pagos (conciliación) | E | E | — | — | — | — |
+| liquidación · agente | E | — | — | — | — | — |
+| config (catálogo de servicios) | **L** | — | — | — | — | — |
 
+- 🆕 **`gestion_eventos` — "Gestión de Eventos"** (migraciones 0068–0069, 5-ago-2026). Rol para la
+  persona que maneja los torneos y nada más: eventos en control TOTAL + notas. Nace porque Laura pidió
+  darle eventos a una sola persona y los permisos aquí son por ROL (`requireRole` mira `profiles.role`
+  y las políticas `private.user_role()`), así que no había forma de abrirle un módulo a un usuario
+  suelto; se descartó inventar excepciones por usuario porque habría que hacerlas visibles también
+  desde Postgres. **No se le dio a ningún profesor existente**: se creó para una cuenta nueva (a Leo
+  Ruíz se le probó y se revirtió — sigue `profesor`, porque el rol nuevo NO trae clases ni cierre y él
+  dicta).
+  · El valor del enum va SOLO en 0068: Postgres no deja **usar** un valor de enum en la misma
+    transacción en que se agrega ("unsafe use of new value of enum type").
+  · ⚠️ **`ALL_ROLES` en permissions.ts es el segundo sitio obligatorio.** `rolesForModule` solo recorre
+    esa lista, y de ella salen casi todos los `requireRole`: un rol que esté en la matriz pero no en
+    `ALL_ROLES` queda MUDO, con permisos que nunca se aplican.
+  · **Atar facturas a un evento va por RPC, no por UPDATE** (`evento_atar_facturas` /
+    `evento_soltar_factura`, SECURITY DEFINER). Atar solo cambia `evento_id`, pero una política de
+    UPDATE **no puede limitar columnas**: darle write a `siigo_facturas` sería darle la tabla del
+    dinero entera. La función valida el rol por dentro y toca esa única columna.
+  · Sí necesita **lectura de `clientes`** (inscribir un participante pasa por el autocompletar, y
+    `buscarClientes` exigía el módulo de clientes; su guard ahora incluye a quien edita eventos).
+    El módulo `/clientes` le sigue oculto.
+  · Verificado con prueba revertida simulando su sesión: crea eventos, gastos y participantes y ata
+    facturas por el RPC; queda BLOQUEADO al editar la factura directo, al editar un cliente y al crear
+    una clase, y solo ve su propio perfil (academias, clases y `profesor_regla` le dan 0 filas).
+- ⚠️ **Un rol distinto de `profesor` NO saca a nadie de la liquidación ni de los selectores**
+  (verificado con Leo, ago-2026): `staff_docentes` y `esDocente()` entran por **reglas de pago
+  activas**, no por el rol. Es el arreglo que se hizo por Willington y sigue funcionando. Ojo al
+  medirlo: `staff_docentes` tiene `auth.uid() is not null`, así que llamada desde service_role
+  devuelve **0 filas** y parece que el docente desapareció — hay que simular sesión.
+- ⚠️ **La matriz daba eventos al coord. deportivo desde el 31-jul, pero la BASE no** (arreglado en
+  0069). Las políticas de escritura de `eventos`, `evento_participantes`, `evento_profesores` y
+  `evento_gastos` seguían en solo SA/CA, así que Willington veía los botones de editar y **todo
+  guardado le fallaba contra RLS**. Recordatorio: cambiar `PERMISSIONS` no cambia las políticas —
+  son dos capas y hay que tocar las dos.
 - ⚠️ **El dashboard era la puerta de entrada de todos** (login → `/dashboard`, y `requireRole`
   rebotaba ahí al que no tenía permiso). Al dejarlo solo para SA hubo que darle a cada rol otra
   pantalla de inicio: **`rutaInicio(role)`** en permissions.ts → SA a `/dashboard`, el resto a

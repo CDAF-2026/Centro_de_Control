@@ -267,17 +267,17 @@ export async function atarFacturas(_prev: EventoState, formData: FormData): Prom
   const cerrado = await evitarSiCerrado(supabase, eventoId);
   if (cerrado) return { error: cerrado };
 
-  // `is("evento_id", null)`: si otro evento ya se llevó alguna de estas facturas no se
-  // la quitamos por debajo — solo se ata lo que está libre.
-  const { data, error } = await supabase
-    .from("siigo_facturas")
-    .update({ evento_id: eventoId })
-    .in("id", ids)
-    .is("evento_id", null)
-    .select("id");
+  // Va por RPC y no por update directo: quien gestiona eventos no tiene escritura sobre
+  // `siigo_facturas` (es la tabla del dinero) y una política de UPDATE no se puede limitar
+  // a la columna `evento_id`. La función es el permiso estrecho — y adentro solo ata las
+  // que están libres, así que si otro evento ya se llevó una, no se la quita.
+  const { data: atadas, error } = await supabase.rpc("evento_atar_facturas", {
+    p_evento: eventoId,
+    p_facturas: ids,
+  });
   if (error) return { error: error.message };
 
-  const n = data?.length ?? 0;
+  const n = Number(atadas ?? 0);
   await logAudit({
     action: "evento.atar_facturas",
     entity: "eventos",
@@ -302,7 +302,8 @@ export async function soltarFactura(_prev: EventoState, formData: FormData): Pro
   const cerrado = await evitarSiCerrado(supabase, eventoId);
   if (cerrado) return { error: cerrado };
 
-  const { error } = await supabase.from("siigo_facturas").update({ evento_id: null }).eq("id", id);
+  // Mismo motivo que atarFacturas: el permiso estrecho vive en la función, no en la tabla.
+  const { error } = await supabase.rpc("evento_soltar_factura", { p_factura: id });
   if (error) return { error: error.message };
 
   await logAudit({ action: "evento.soltar_factura", entity: "siigo_facturas", entityId: String(id) });

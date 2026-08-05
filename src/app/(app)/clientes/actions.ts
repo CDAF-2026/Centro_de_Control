@@ -811,7 +811,12 @@ export async function buscarMiembros(
 export async function buscarClientes(
   q: string,
 ): Promise<{ id: number; nombres: string; apellidos: string; celular: string | null }[]> {
-  await requireRole(rolesForModule("clientes", "read"));
+  // Además de quien tiene el módulo de clientes, entra quien edita eventos: inscribir a
+  // un participante ya registrado pasa por este buscador, y `gestion_eventos` no tiene
+  // /clientes. Devuelve solo nombre y celular, y como mucho 8 filas.
+  await requireRole([
+    ...new Set([...rolesForModule("clientes", "read"), ...rolesForModule("eventos", "edit")]),
+  ]);
   const safe = q.replace(/[%,()*]/g, "").trim();
   if (safe.length < 2) return [];
   const supabase = await createClient();

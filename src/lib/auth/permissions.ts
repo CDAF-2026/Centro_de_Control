@@ -47,38 +47,38 @@ const N: Permission = "none";
  * calendario para saber qué le toca, sin poder moverlo.
  */
 export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
-  dashboard: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  clientes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N },
+  dashboard: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  clientes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N, gestion_eventos: N },
   // La plata del cliente (deuda y facturas de Siigo) dentro de su ficha.
-  cliente_finanzas: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
+  cliente_finanzas: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   // Ver y editar la compensación; crear cuentas y repartir roles sigue siendo
   // solo del superadministrador (validado aparte en empleados/actions.ts).
-  empleados: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
-  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N },
-  paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N },
+  empleados: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  academias: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N, gestion_eventos: N },
+  paquetes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N, gestion_eventos: N },
   // Los torneos los montan tanto el coordinador administrativo como el deportivo.
-  eventos: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N },
+  eventos: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: L, profesor: N, gestion_eventos: E },
   // El profesor VE el calendario pero no lo toca: no crea clases ni las cierra
   // desde ahí. Cerrar las suyas lo hace en su módulo (`cierre_clase`).
-  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: L },
+  clases: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: L, gestion_eventos: N },
   // Tablón interno de recados: todo el staff escribe y resuelve (es el relevo de
   // turno) y, desde esta revisión, es también la pantalla de inicio de todos.
-  notas: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E },
-  cierre_clase: { superadmin: E, coord_admin: N, coord_deportivo: E, recepcion: N, profesor: E },
-  bolsa_pagos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N },
+  notas: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E, gestion_eventos: E },
+  cierre_clase: { superadmin: E, coord_admin: N, coord_deportivo: E, recepcion: N, profesor: E, gestion_eventos: N },
+  bolsa_pagos: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   // ⚠️ `descuentos` no lo consulta ningún archivo: quedó del PRD y hoy es letra
   // muerta. Se deja declarado para no romper el tipo si se retoma la idea.
-  descuentos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  liquidacion: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  reportes_financieros: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
-  agente_ia: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  descuentos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  liquidacion: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  reportes_financieros: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  agente_ia: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   // ⚠️ `config` es L, no E, y es a propósito (31-jul-2026): el catálogo de
   // servicios ya NO se edita desde la app. Cada servicio reclama un grupo de
   // producto de Siigo, y a sus ids cuelgan `academias.servicio_id`,
   // `eventos.servicio_id`, `profesor_regla.servicio_id` (comisiones del 25%) y el
   // histórico de `siigo_factura_lineas`. La pantalla quedó como diagnóstico: ver
   // el mapeo y el aviso de grupos huérfanos. Corregir un mapeo va por migración.
-  config: { superadmin: L, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N },
+  config: { superadmin: L, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
 };
 
 /** ¿El rol puede `read` (ver) o `edit` (editar) el módulo? */
@@ -91,12 +91,16 @@ export function can(
   return action === "edit" ? p === "edit" : p === "edit" || p === "read";
 }
 
+// ⚠️ Un rol que falte aquí queda MUDO aunque la matriz le dé permisos: `rolesForModule`
+// solo recorre esta lista, y de ella salen casi todos los `requireRole` de páginas y
+// acciones. Al agregar un rol hay que tocar los dos sitios.
 export const ALL_ROLES: AppRole[] = [
   "superadmin",
   "coord_admin",
   "coord_deportivo",
   "recepcion",
   "profesor",
+  "gestion_eventos",
 ];
 
 /** Roles con al menos `read` (o `edit`) sobre un módulo. Útil para guards de ruta. */

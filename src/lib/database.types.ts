@@ -15,7 +15,9 @@ export type AppRole =
   | "coord_admin"
   | "coord_deportivo"
   | "recepcion"
-  | "profesor";
+  | "profesor"
+  /** Maneja los torneos y nada más: eventos (control total) + notas. Migración 0068. */
+  | "gestion_eventos";
 
 export type ClienteEstado = "activo" | "retirado";
 
@@ -1251,6 +1253,20 @@ export type Database = {
           n_candidatas: number;
           monto_candidatas: number;
         }[];
+      };
+      /**
+       * Ata facturas a un evento abierto y devuelve cuántas quedaron atadas.
+       * SECURITY DEFINER a propósito: quien gestiona eventos NO tiene escritura sobre
+       * `siigo_facturas` (una política de UPDATE no puede limitarse a una columna).
+       */
+      evento_atar_facturas: {
+        Args: { p_evento: number; p_facturas: number[] };
+        Returns: number;
+      };
+      /** Quita la factura de su evento. Falla si el evento ya está cerrado. */
+      evento_soltar_factura: {
+        Args: { p_factura: number };
+        Returns: number;
       };
       /** Utilidad congelada de los eventos CERRADOS imputados al periodo (lo que suma el dashboard). */
       eventos_resultado_periodo: {
