@@ -152,8 +152,12 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   Efecto medido: modo ampliado de 200 (tope) a 71 facturas. `-10/+10` se descartó porque en ampliado
   vuelve a 200. ⚠️ Hoy no hay NI UNA factura de "Patrocinio torneo" (las 42 son "Torneo"), por eso
   estrechar el lado de "antes" no se lleva pagos anticipados de patrocinadores; si algún día entran,
-  revisar. ⚠️ Queda un hueco conocido: una factura FUERA de la ventana no se puede atar desde ningún
-  sitio (falta un buscador por número en la ficha).
+  revisar. 💡 **El club dice que los pagos entran EL DÍA del torneo** (Laura, 5-ago-2026): por eso el
+  lado de "antes" sobra con 5 días y el margen que de verdad importa es el de DESPUÉS.
+  ⚠️ Queda un hueco conocido: una factura FUERA de la ventana no se puede atar desde ningún
+  sitio (falta un buscador por número en la ficha). **Decisión aplazada a propósito**: se mide con el
+  torneo del 7-8 de agosto de 2026 y se decide la semana del 10-ago con el comportamiento real, en vez
+  de construirlo a ciegas.
   ⚠️ **Decidido NO usar el centro de costos de Siigo**: en las facturas de venta está apagado
   (`cost_center:false` en los 3 tipos FV) y aun prendido diría "es de torneos" pero no **de cuál**
   torneo. `evento_id` sí lo distingue. En compras (FC) sí está activo, pero se decidió capturar los
@@ -620,6 +624,11 @@ administrativa sin darle también la creación de usuarios.
   correo es lo que se escribe para entrar.
 
 ## Pendientes conocidos
+- 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya
+  corrido.** Se aplazó a propósito para medir el comportamiento real en vez de construir a ciegas.
+  Dos preguntas: (a) ¿la ventana −5/+10 capturó todas las facturas del torneo?, (b) ¿hace falta el
+  buscador por número de factura para atar las que caigan fuera? El club dice que los pagos entran el
+  día del torneo, así que lo esperable es que sí alcance.
 - Rotar tokens expuestos en chat: PAT de Supabase y access_key de Siigo (Laura debe regenerarlos).
 - **Apuntar el SMTP de Supabase a Resend** → habilita enlace de "olvidé mi contraseña" y confirmación
   al cambiar de correo. Hoy ambos flujos van por el SA.
