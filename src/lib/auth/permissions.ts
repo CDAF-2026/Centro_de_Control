@@ -48,7 +48,10 @@ const N: Permission = "none";
  */
 export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   dashboard: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
-  clientes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N, gestion_eventos: N },
+  // `gestion_eventos` entra en E, no en L: al inscribir a un torneo hay que poder
+  // crear al que todavía no está en el club. Su plata NO la ve — eso lo tapa
+  // `cliente_finanzas`, que sigue en N.
+  clientes: { superadmin: E, coord_admin: E, coord_deportivo: L, recepcion: E, profesor: N, gestion_eventos: E },
   // La plata del cliente (deuda y facturas de Siigo) dentro de su ficha.
   cliente_finanzas: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   // Ver y editar la compensación; crear cuentas y repartir roles sigue siendo

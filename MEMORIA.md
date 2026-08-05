@@ -363,7 +363,7 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 | Módulo | SA | Coord. admin | Coord. deportivo | Recepción | Profesor | Gestión Eventos |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | dashboard (+ ingresos/cartera) | E | — | — | — | — | — |
-| clientes | E | E | **L** | E | — | — |
+| clientes | E | E | **L** | E | — | **E** |
 | ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — | — |
 | empleados | E | E | — | — | — | — |
 | academias | E | E | E | **L** | — | — |
@@ -393,12 +393,29 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
     `evento_soltar_factura`, SECURITY DEFINER). Atar solo cambia `evento_id`, pero una política de
     UPDATE **no puede limitar columnas**: darle write a `siigo_facturas` sería darle la tabla del
     dinero entera. La función valida el rol por dentro y toca esa única columna.
-  · Sí necesita **lectura de `clientes`** (inscribir un participante pasa por el autocompletar, y
-    `buscarClientes` exigía el módulo de clientes; su guard ahora incluye a quien edita eventos).
-    El módulo `/clientes` le sigue oculto.
-  · Verificado con prueba revertida simulando su sesión: crea eventos, gastos y participantes y ata
-    facturas por el RPC; queda BLOQUEADO al editar la factura directo, al editar un cliente y al crear
-    una clase, y solo ve su propio perfil (academias, clases y `profesor_regla` le dan 0 filas).
+  · **También administra clientes** (`clientes` = E, migración 0070): al inscribir hay que mirar si la
+    persona ya está y, si no, crearla — con solo lectura el flujo se rompía ahí y el participante nuevo
+    solo podía entrar como "externo", que no engancha con la ficha ni con las facturas. Tiene lo mismo
+    que recepción sobre `clientes`, `cliente_miembros`, `acudientes`, `cliente_documentos` y el bucket
+    `cliente-docs`. **NO ve su plata**: ese bloque lo tapa `cliente_finanzas` (sigue en N), igual que
+    con el coordinador deportivo. `buscarClientes` además acepta a quien edita eventos.
+  · Verificado con prueba revertida simulando su sesión: crea y edita clientes (con su hermano y su
+    acudiente), crea eventos, gastos y participantes y ata facturas por el RPC; queda BLOQUEADO al
+    editar la factura directo, al crear academias y al crear clases; ve 0 filas en `clases`,
+    `academias`, `paquetes_cliente` y `profesor_regla`, y solo su propio perfil.
+- ⚠️ **`alter policy ... using (...)` NO toca el `with check`** (mordió en 0070, arreglado en 0071).
+  Una política de UPDATE tiene dos mitades —`using` = qué filas puedo tocar · `with check` = cómo puede
+  quedar la fila— y `alter policy` reemplaza SOLO la que se le nombra, conservando la otra. Al agregar
+  el rol nuevo a `clientes_update` y `acudientes_update` solo con `using`, el rol podía abrir la ficha
+  y el guardado rebotaba con *"new row violates row-level security policy"*. **No falla al aplicar la
+  migración** y un vistazo a `pg_policies` con `coalesce(qual, with_check)` lo esconde: hay que mirar
+  las DOS columnas. Las de `for all` (eventos, evento_gastos, cliente_miembros) salieron bien porque
+  ahí se escribieron las dos mitades.
+- ⚠️ **No verificar RLS dentro de un bloque `DO`.** plpgsql cachea el plan y la política se evalúa con
+  un rol viejo: dio "BLOQUEADO" en inserts que por fuera SÍ pasaban, y habría hecho pasar por buenos
+  unos permisos falsos. Verificar con **sentencias directas**, cada una en su transacción con
+  `set local role authenticated` + `request.jwt.claims`, y revertir. Tampoco sirve cambiar el rol
+  del perfil DENTRO de la misma transacción de la prueba: `private.user_role()` no ve ese cambio.
 - ⚠️ **Un rol distinto de `profesor` NO saca a nadie de la liquidación ni de los selectores**
   (verificado con Leo, ago-2026): `staff_docentes` y `esDocente()` entran por **reglas de pago
   activas**, no por el rol. Es el arreglo que se hizo por Willington y sigue funcionando. Ojo al
