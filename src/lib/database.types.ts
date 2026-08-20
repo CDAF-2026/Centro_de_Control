@@ -673,6 +673,8 @@ export type Database = {
           color: string | null;
           categoria_saldo: ServicioCategoriaSaldo | null;
           siigo_grupo: string | null;
+          /** Códigos de producto de Siigo que este servicio reclama por encima del grupo (migración 0072). */
+          siigo_codigos: string[] | null;
           activo: boolean;
           orden: number;
           created_at: string;
@@ -684,6 +686,7 @@ export type Database = {
           color?: string | null;
           categoria_saldo?: ServicioCategoriaSaldo | null;
           siigo_grupo?: string | null;
+          siigo_codigos?: string[] | null;
           activo?: boolean;
           orden?: number;
           created_at?: string;

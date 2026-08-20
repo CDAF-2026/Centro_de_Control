@@ -100,10 +100,18 @@ async function main() {
   await auth();
 
   // 1) Mapa grupo de Siigo → servicio.
-  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo");
+  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo, siigo_codigos");
   const servicioByGrupo = new Map();
-  for (const sv of servicios ?? []) if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
+  const servicioByCodigo = new Map();
+  for (const sv of servicios ?? []) {
+    if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
+    for (const c of sv.siigo_codigos ?? []) servicioByCodigo.set(String(c).trim().toUpperCase(), sv.id);
+  }
   const servicioDeGrupo = (g) => (g ? servicioByGrupo.get(String(g).trim().toLowerCase()) ?? null : null);
+  // El CÓDIGO le gana al GRUPO: matrícula y mensualidad comparten grupo en Siigo, así que
+  // el grupo solo no alcanza para separarlas (migración 0072). Es la excepción, no la regla.
+  const servicioDeProducto = (codigo, grupo) =>
+    (codigo ? servicioByCodigo.get(String(codigo).trim().toUpperCase()) ?? null : null) ?? servicioDeGrupo(grupo);
 
   // 2) Catálogo de productos (code → servicio) + refresco de caché.
   console.log("• Productos…");
@@ -113,7 +121,7 @@ async function main() {
     const results = r.results ?? [];
     for (const p of results) {
       const grupo = p.account_group?.name ?? null;
-      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeGrupo(grupo) });
+      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeProducto(p.code, grupo) });
     }
     if (results.length < 100) break;
   }

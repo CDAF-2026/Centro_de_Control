@@ -10,7 +10,7 @@ export default async function ConfigPage() {
   const supabase = await createClient();
   const { data: servicios } = await supabase
     .from("servicios")
-    .select("id, clave, nombre, color, categoria_saldo, siigo_grupo, activo, orden, created_at")
+    .select("id, clave, nombre, color, categoria_saldo, siigo_grupo, siigo_codigos, activo, orden, created_at")
     .order("orden");
 
   // Aviso: grupos de producto de Siigo que ningún servicio reclama.
@@ -27,6 +27,23 @@ export default async function ConfigPage() {
   const gruposHuerfanos = [...new Set((sinServicio ?? []).map((p) => p.account_group as string))]
     .map((g) => ({ grupo: g, productos: (sinServicio ?? []).filter((p) => p.account_group === g).length }))
     .sort((a, b) => b.productos - a.productos);
+
+  // Aviso 2: matrículas que ningún servicio reclama POR CÓDIGO.
+  //
+  // Este fallo es más callado que el de los grupos huérfanos: una matrícula nueva sí tiene
+  // grupo (el de su academia), así que entraría categorizada como "Academia …" y el aviso de
+  // arriba nunca la vería. El club simplemente dejaría de ver esa plata en "Matrícula" sin
+  // que nada avise. Se detecta por el nombre del producto, que es lo único que las delata.
+  const { data: prodsMatricula } = await supabase
+    .from("siigo_productos")
+    .select("codigo, nombre, account_group")
+    .or("nombre.ilike.%matricula%,nombre.ilike.%matrícula%");
+  const codigosReclamados = new Set(
+    (servicios ?? []).flatMap((sv) => (sv.siigo_codigos ?? []).map((c) => c.trim().toUpperCase())),
+  );
+  const matriculasHuerfanas = (prodsMatricula ?? []).filter(
+    (p) => !codigosReclamados.has(String(p.codigo).trim().toUpperCase()),
+  );
 
   return (
     <div className="space-y-6">
@@ -55,6 +72,31 @@ export default async function ConfigPage() {
             club pero no aparece en ningún servicio. Crea el servicio que falta, o corrige el campo
             &ldquo;Grupo de Siigo&rdquo; del servicio que ya existe para que coincida con el nombre de
             arriba.
+          </p>
+        </div>
+      )}
+
+      {matriculasHuerfanas.length > 0 && (
+        <div className="border-warning/40 bg-warning/10 rounded-lg border p-4">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <TriangleAlert className="size-4 shrink-0" />
+            {matriculasHuerfanas.length === 1
+              ? "Hay un producto de matrícula que ningún servicio reclama"
+              : `Hay ${matriculasHuerfanas.length} productos de matrícula que ningún servicio reclama`}
+          </p>
+          <ul className="mt-2 space-y-1 text-sm">
+            {matriculasHuerfanas.map((p) => (
+              <li key={p.codigo}>
+                <code>{p.codigo}</code> <strong>{p.nombre}</strong>{" "}
+                <span className="text-muted-foreground">· grupo: {p.account_group ?? "—"}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground mt-2 text-xs">
+            Esa plata está entrando como ingreso de la academia, no como matrícula, y el aviso de
+            arriba no la ve porque sí tiene grupo. Para separarla hay que agregar su código a
+            &ldquo;Productos propios&rdquo; del servicio de matrícula que corresponda (va por
+            migración).
           </p>
         </div>
       )}

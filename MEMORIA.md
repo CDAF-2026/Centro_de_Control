@@ -179,6 +179,34 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
   (clave, color, categoria_saldo, siigo_grupo ↔ account_group de Siigo).
+- 🎓 **Matrículas separadas de las clases de academia** (migración 0072, ago-2026). El club pidió
+  leer aparte cuánto entra por MATRÍCULA. **Siigo NO lo trae separado**: verificado contra su API,
+  la matrícula (`AF209`) y la mensualidad (`AF297`) comparten `account_group` (id 2008), `type`
+  (Service) y `tax_classification` — ningún campo las distingue. Lo único que las separa es el
+  **código de producto**, y es señal confiable en ambos sentidos (medido sobre todo el histórico):
+  ninguna matrícula usa otro código (**0 fugas**) y `AF209`/`AF184` nunca se usan para otra cosa
+  (sus 128 líneas dicen MATRÍCULA).
+  · Por eso `servicios` aprendió a reclamar **`siigo_codigos text[]`**: el CÓDIGO le gana al GRUPO.
+    Es la excepción, no la regla — el resto sigue casando por grupo. Va en el sync **en los dos
+    sitios** (`servicioDeProducto()` en CLI y Edge Function).
+  · **Las matrículas de competencia se cobran con los códigos de recreativa** (confirmado con el
+    club): no existe producto de matrícula para competencia. Por eso las categorías son por
+    DEPORTE — "Matrícula Tenis" / "Matrícula Pádel" — y cada una cubre recreativa + competencia.
+    **No renombrarlas a "Matrícula Recreativa …"**, sería falso.
+  · **No rompe pagos**: las únicas reglas `pct_siigo_servicio` (25% de Joaquín y Leo) apuntan a
+    *Competencia Pádel*, que no tiene matrículas. Verificado antes de aplicar.
+  · 💡 **La dona no necesitó un color nuevo del top-5, y eso fue suerte medida, no diseño.** Se midió
+    que **NO existe un 8º color** que se despegue de los 7 que pelean el top-5 (el mejor posible da
+    ΔE 14,3 en visión normal, bajo el piso de 15). Pero separadas por deporte y por mes la matrícula
+    queda en **puesto 7–9 (tenis) y 13–15 (pádel)**: nunca entra al top-5, así que cae en la tajada
+    gris "Otros" y su color solo se ve en el listado, donde cada fila lleva nombre y cifra. ⚠️ La
+    matrícula es **semestral**: si un arranque de semestre la sube al top-5, la leyenda igual la
+    nombra, pero su color puede parecerse a un vecino. Colores del validador: `#463dc3` (tenis, el
+    mejor separado porque es la grande) y `#1ebdca` (pádel) — ΔE 29,6 entre sí, 8,8 contra el top-5.
+  · ⚠️ **Aviso nuevo en `/config`**: productos con "matrícula" en el nombre que ningún servicio
+    reclame por código. Este fallo es **más callado** que el de los grupos huérfanos: una matrícula
+    nueva SÍ tiene grupo (el de su academia), así que entraría como "Academia …" y el aviso viejo
+    nunca la vería.
 - 🎨 **`servicios.color` NO se elige a ojo** (migración 0064, 2-ago-2026). El club reportó que "los
   azules y grises no se diferencian"; la causa real era que **CINCO grupos compartían el mismo hex**
   (`#3e6280` = Clases de tenis + Clases de pádel + Clase particular; `#37474f` = las dos Academias

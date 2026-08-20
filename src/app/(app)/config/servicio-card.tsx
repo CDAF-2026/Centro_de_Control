@@ -14,7 +14,8 @@ import { Badge } from "@/components/ui/badge";
  * Esta pantalla queda como diagnóstico: ver qué servicio reclama cada grupo de
  * Siigo, y el aviso de los que no reclama nadie. Por eso ahora SÍ se muestra
  * `siigo_grupo`, que antes no se veía y es justo el campo que se rompe cuando el
- * club renombra un grupo allá.
+ * club renombra un grupo allá. También `siigo_codigos`: los productos puntuales
+ * que el servicio reclama POR ENCIMA de su grupo (migración 0072, matrículas).
  *
  * Si hay que corregir un mapeo, va por migración.
  */
@@ -53,6 +54,14 @@ export function ServicioCard({ servicio }: { servicio: Servicio }) {
             )}
           </dd>
         </div>
+        {servicio.siigo_codigos && servicio.siigo_codigos.length > 0 && (
+          <div className="flex gap-1.5">
+            <dt className="shrink-0">Productos propios:</dt>
+            <dd className="text-foreground break-all">
+              <code>{servicio.siigo_codigos.join(", ")}</code>
+            </dd>
+          </div>
+        )}
       </dl>
 
       {!servicio.activo && (

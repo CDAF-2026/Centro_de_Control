@@ -171,10 +171,18 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
   }
 
   // 2) Grupo de Siigo → servicio del catálogo.
-  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo");
+  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo, siigo_codigos");
   const servicioByGrupo = new Map<string, number>();
-  for (const sv of servicios ?? []) if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
+  const servicioByCodigo = new Map<string, number>();
+  for (const sv of servicios ?? []) {
+    if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
+    for (const c of (sv.siigo_codigos ?? []) as string[]) servicioByCodigo.set(String(c).trim().toUpperCase(), sv.id);
+  }
   const servicioDeGrupo = (g: string | null) => (g ? servicioByGrupo.get(g.trim().toLowerCase()) ?? null : null);
+  // El CÓDIGO le gana al GRUPO: matrícula y mensualidad comparten grupo en Siigo, así que
+  // el grupo solo no alcanza para separarlas (migración 0072). Es la excepción, no la regla.
+  const servicioDeProducto = (codigo: string | null, grupo: string | null) =>
+    (codigo ? servicioByCodigo.get(String(codigo).trim().toUpperCase()) ?? null : null) ?? servicioDeGrupo(grupo);
 
   // 3) Productos (code → servicio) + refresco de caché.
   const prodByCode = new Map<string, { nombre: string; account_group: string | null; servicio_id: number | null }>();
@@ -183,7 +191,7 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     const results = r.results ?? [];
     for (const p of results) {
       const grupo = p.account_group?.name ?? null;
-      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeGrupo(grupo) });
+      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeProducto(p.code, grupo) });
     }
     if (results.length < 100) break;
   }
