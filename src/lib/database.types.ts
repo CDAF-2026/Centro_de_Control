@@ -38,6 +38,8 @@ export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 export type Deporte = "tenis" | "padel";
 /** Las academias son 4 fijas: categoría × deporte. No es un enum de Postgres, es un CHECK. */
 export type AcademiaCategoria = "recreativa" | "competencia";
+/** Niveles nuevos de academia (ago-2026). Reemplazan a los de bola y a principiantes/iniciados. */
+export type AcademiaNivel = "iniciacion" | "intermedio" | "avanzado";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido" | "anulado";
@@ -466,6 +468,68 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["academias"]["Insert"]>;
         Relationships: [];
       };
+      academia_grupo: {
+        Row: {
+          id: number;
+          academia_id: number;
+          /** Editable por el club: Disney en recreativa, tenistas en competencia. */
+          nombre: string;
+          nivel: AcademiaNivel;
+          edad_min: number;
+          edad_max: number;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          academia_id: number;
+          nombre: string;
+          nivel: AcademiaNivel;
+          edad_min: number;
+          edad_max: number;
+          activo?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["academia_grupo"]["Insert"]>;
+        Relationships: [];
+      };
+      grupo_franja: {
+        Row: {
+          id: number;
+          grupo_id: number;
+          dia_semana: number;
+          hora_inicio: string;
+          hora_fin: string;
+          profesor_id: string | null;
+          cancha: string | null;
+          /** null = el tope del nivel (Iniciación 6 · Intermedio 5 · Avanzado 4). NO bloquea: avisa. */
+          cupo: number | null;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          grupo_id: number;
+          dia_semana: number;
+          hora_inicio: string;
+          hora_fin: string;
+          profesor_id?: string | null;
+          cancha?: string | null;
+          cupo?: number | null;
+          activo?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["grupo_franja"]["Insert"]>;
+        Relationships: [];
+      };
+      inscripcion_franja: {
+        Row: { id: number; inscripcion_id: number; franja_id: number; created_at: string };
+        Insert: { id?: number; inscripcion_id: number; franja_id: number; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["inscripcion_franja"]["Insert"]>;
+        Relationships: [];
+      };
       inscripcion_horarios: {
         Row: {
           id: number;
@@ -496,7 +560,9 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id: number | null;
-          /** Nivel del NIÑO (Bola Roja/Naranja/Verde/Amarilla…). Antes vivía en la academia. */
+          /** Grupo al que pertenece. Nullable mientras convive con el modelo viejo. */
+          grupo_id: number | null;
+          /** EN DESUSO: el nivel pasa al grupo. Se va en la limpieza final. */
           nivel: string | null;
           /** EN DESUSO: la frecuencia se cuenta con los horarios. */
           plan_frecuencia: number | null;
@@ -512,6 +578,7 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id?: number | null;
+          grupo_id?: number | null;
           nivel?: string | null;
           plan_frecuencia?: number | null;
           descuento_pct?: number;

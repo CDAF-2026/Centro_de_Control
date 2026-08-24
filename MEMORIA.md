@@ -29,6 +29,14 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 ## Reglas duras
 1. **Migraciones**: escribir SQL en `supabase/migrations/` + actualizar `src/lib/database.types.ts` A MANO
    (es manual, no generado) + `npm run db:apply` + verificar por API. Nunca asumir aplicada sin verificar.
+   ⚠️ **La versión sale del NOMBRE del archivo, y si se repite la migración NO CORRE — en silencio.**
+   `db-apply` compara el prefijo contra `supabase_migrations.schema_migrations`, así que un archivo
+   nuevo con una versión ya usada se da por aplicado y dice "✅ No hay migraciones pendientes" sin
+   ejecutar nada. Pasó el 24-ago-2026: un `20260609120060_academia_grupos.sql` chocó con
+   `20260609120060_perfil_y_acceso.sql` y las tablas nunca se crearon; el mensaje de éxito no lo
+   delató. **Antes de nombrar una migración: `ls supabase/migrations/ | tail -3`** y usar una versión
+   posterior a la última. Y siempre verificar por API que el objeto exista (`to_regclass`), no confiar
+   en el "ok" del script.
 2. **PostgREST corta a 1000 filas**: NUNCA traer facturas/filas masivas y agregarlas en JS. Toda
    suma/agrupación va en **RPCs SQL** (ya existen: `siigo_recaudo`, `siigo_ingreso_diario`,
    `siigo_top_clientes`, `siigo_ingreso_servicio`, `siigo_cartera`, `siigo_resumen_cliente`).
