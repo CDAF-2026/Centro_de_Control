@@ -314,11 +314,11 @@ export default async function ClienteDetallePage({
         </Card>
       )}
 
-      {cliente.es_menor && (
+      {(cliente.es_menor || miembros.length > 1) && (
         <Card>
           <CardHeader>
-            <CardTitle>Hermanos</CardTitle>
-            <CardDescription>Miembros de esta ficha familiar. La situación financiera es única para toda la familia.</CardDescription>
+            <CardTitle>Miembros de la familia</CardTitle>
+            <CardDescription>Personas de esta ficha familiar (titular e hijos/hermanos). La situación financiera es única para toda la familia.</CardDescription>
           </CardHeader>
           <CardContent>
             <Hermanos clienteId={cliente.id} miembros={miembros} puedeEditar={puedeEditar} />
