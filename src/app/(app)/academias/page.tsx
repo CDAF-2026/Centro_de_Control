@@ -1,113 +1,126 @@
 import Link from "next/link";
+import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { rangoPeriodo } from "@/lib/periodo";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { tonoOcupacion } from "./ocupacion";
+
+const PUNTO: Record<string, string> = {
+  ok: "bg-lime",
+  casi: "bg-warning",
+  sobre: "bg-destructive",
+  vacio: "bg-muted-foreground/40",
+};
 
 export default async function AcademiasPage() {
   const profile = await requireRole(rolesForModule("academias"));
   const supabase = await createClient();
-  const { data: academias } = await supabase
-    .from("academias")
-    .select("id, codigo, nombre, deporte, categoria, activa")
-    .order("codigo");
 
-  const lista = academias ?? [];
-  // Mes en curso: el detalle por periodo vive dentro de cada academia; aquí solo
-  // hace falta el titular que dice a cuál entrar.
-  const { curStartIso, curEndIso } = rangoPeriodo("mes", new Date());
+  // Una sola llamada para TODOS los grupos: el resumen se agrega en SQL para no
+  // pedir las franjas academia por academia (regla de las 1.000 filas + N+1).
+  const [{ data: academias }, { data: grupos }] = await Promise.all([
+    supabase.from("academias").select("id, codigo, nombre, deporte, categoria, activa").order("codigo"),
+    supabase.rpc("academia_grupos_resumen", { p_academia: null }),
+  ]);
 
-  // Un resumen por academia: cuántos niños y cuántas franjas están en problemas.
-  // El detalle (y el filtro de periodo) vive adentro; esto es solo el panorama.
-  const resumen = new Map<number, { inscritos: number; enRiesgo: number }>();
-  await Promise.all(
-    lista.map(async (a) => {
-      const [{ count }, { data: franjas }] = await Promise.all([
-        supabase
-          .from("inscripciones")
-          .select("*", { count: "exact", head: true })
-          .eq("academia_id", a.id)
-          .eq("activa", true),
-        supabase.rpc("academia_rendimiento_franja", {
-          p_academia: a.id,
-          p_desde: curStartIso,
-          p_hasta: curEndIso,
-        }),
-      ]);
-      // En riesgo = franja con niños inscritos que o no tuvo clases, o tuvo menos
-      // de la mitad de asistencia.
-      const enRiesgo = (franjas ?? []).filter((f) => {
-        if (f.dia_semana === null || f.inscritos === 0) return false;
-        if (f.clases_cerradas === 0) return f.clases_sin_cerrar === 0;
-        return f.presentes / (f.clases_cerradas * f.inscritos) < 0.5;
-      }).length;
-      resumen.set(a.id, { inscritos: count ?? 0, enRiesgo });
-    }),
-  );
+  const porAcademia = new Map<number, NonNullable<typeof grupos>>();
+  for (const g of grupos ?? []) {
+    const lista = porAcademia.get(g.academia_id) ?? [];
+    lista.push(g);
+    porAcademia.set(g.academia_id, lista);
+  }
 
   const puedeEditar = can(profile.role, "academias", "edit");
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="cdaf-headline">Academias</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="cdaf-headline">Academias</h1>
+          <p className="text-muted-foreground mt-1.5 text-sm">
+            Cuatro academias. Dentro de cada una, los grupos por nivel y edad.
+          </p>
+        </div>
         {puedeEditar && (
-          <Link href="/academias/nueva" className={buttonVariants()}>
-            + Nueva academia
-          </Link>
+          <Link href="/academias/nueva" className={buttonVariants()}>+ Nueva academia</Link>
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {lista.map((a) => {
-          const r = resumen.get(a.id);
+      <div className="grid gap-4 lg:grid-cols-2">
+        {(academias ?? []).map((a) => {
+          const gs = porAcademia.get(a.id) ?? [];
+          const ninos = gs.reduce((n, g) => n + g.ninos, 0);
+          const cupo = gs.reduce((n, g) => n + g.cupo_total, 0);
+          const ocupados = gs.reduce((n, g) => n + g.ocupados, 0);
+          const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
+          const libres = Math.max(0, cupo - ocupados);
+
           return (
             <Link
               key={a.id}
               href={`/academias/${a.id}`}
-              className="hover:border-lime block rounded-lg border p-4 transition-all hover:-translate-y-1"
+              className="hover:border-lime ring-foreground/[0.06] bg-card block rounded-xl p-5 shadow-sm ring-1 transition-all hover:-translate-y-0.5"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-mono text-xs">{a.codigo}</span>
-                <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>
-                  {a.deporte}
-                </Badge>
-              </div>
-              <p className="mt-2 font-semibold">{a.nombre}</p>
-              <p className="text-muted-foreground text-sm capitalize">{a.categoria ?? "—"}</p>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
-                <span className="tabular-nums">
-                  <strong>{r?.inscritos ?? 0}</strong>{" "}
-                  <span className="text-muted-foreground">
-                    {(r?.inscritos ?? 0) === 1 ? "inscrito" : "inscritos"}
-                  </span>
-                </span>
-                {r && r.enRiesgo > 0 && (
-                  <Badge variant="destructive">
-                    {r.enRiesgo} {r.enRiesgo === 1 ? "franja en riesgo" : "franjas en riesgo"}
-                  </Badge>
-                )}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="cdaf-title text-[17px]">{a.nombre}</p>
+                  <p className="text-muted-foreground mt-0.5 font-mono text-xs">{a.codigo}</p>
+                </div>
+                <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
               </div>
 
-              {!a.activa && <Badge variant="outline" className="mt-2">Inactiva</Badge>}
+              <div className="mt-4 flex gap-7 text-sm">
+                <div>
+                  <p className="cdaf-eyebrow text-muted-foreground text-[11px]">Grupos</p>
+                  <p className="font-heading mt-0.5 text-[22px] font-bold tabular-nums">{gs.length}</p>
+                </div>
+                <div>
+                  <p className="cdaf-eyebrow text-muted-foreground text-[11px]">Niños</p>
+                  <p className="font-heading mt-0.5 text-[22px] font-bold tabular-nums">{ninos}</p>
+                </div>
+                <div>
+                  <p className="cdaf-eyebrow text-muted-foreground text-[11px]">Cupos libres</p>
+                  <p className={`font-heading mt-0.5 text-[22px] font-bold tabular-nums ${libres > 0 ? "text-[#5b6300]" : "text-muted-foreground"}`}>
+                    {libres}
+                  </p>
+                </div>
+              </div>
+
+              {gs.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {gs.map((g) => {
+                    const { tono } = tonoOcupacion(g.ocupados, g.cupo_total);
+                    return (
+                      <span
+                        key={g.grupo_id}
+                        className="border-border bg-card inline-flex h-[22px] items-center gap-1.5 rounded-4xl border px-2.5 text-[11.5px]"
+                      >
+                        <span className={`size-1.5 rounded-full ${PUNTO[tono]}`} />
+                        {g.nombre} · <span className="tabular-nums">{g.ninos}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="bg-muted text-muted-foreground mt-4 rounded-lg px-3 py-2 text-xs">
+                  Todavía sin grupos.
+                </p>
+              )}
+
+              {sobre > 0 && (
+                <p className="bg-warning/10 mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[#6d4700]">
+                  <TriangleAlert className="size-3.5 shrink-0" />
+                  {sobre === 1 ? "1 franja sobre el cupo" : `${sobre} franjas sobre el cupo`}
+                </p>
+              )}
+
+              {!a.activa && <Badge variant="outline" className="mt-3">Inactiva</Badge>}
             </Link>
           );
         })}
-        {lista.length === 0 && (
-          <p className="text-muted-foreground col-span-full py-6 text-center">
-            Aún no hay academias.
-          </p>
-        )}
       </div>
-
-      <p className="text-muted-foreground text-xs">
-        &ldquo;Franja en riesgo&rdquo; = un día y hora con niños inscritos que este mes no tuvo clases,
-        o tuvo menos de la mitad de asistencia. Entra a la academia para ver el detalle y cambiar el
-        periodo.
-      </p>
     </div>
   );
 }

@@ -1222,6 +1222,54 @@ export type Database = {
       };
       /** Rendimiento por franja de una academia. La franja en null = clases dictadas
        *  a una hora que nadie tiene inscrita. Migración 0057. */
+      /** Una fila por grupo: franjas, inscritos, cupo y cuántas franjas van sobre el tope. */
+      academia_grupos_resumen: {
+        Args: { p_academia?: number | null };
+        Returns: {
+          grupo_id: number;
+          academia_id: number;
+          nombre: string;
+          nivel: AcademiaNivel;
+          edad_min: number;
+          edad_max: number;
+          activo: boolean;
+          franjas: number;
+          ninos: number;
+          cupo_total: number;
+          ocupados: number;
+          franjas_sobre_cupo: number;
+          dias: number[];
+        }[];
+      };
+      grupo_franjas: {
+        Args: { p_grupo: number };
+        Returns: {
+          franja_id: number;
+          dia_semana: number;
+          hora_inicio: string;
+          hora_fin: string;
+          profesor_id: string | null;
+          cancha: string | null;
+          cupo: number;
+          inscritos: number;
+        }[];
+      };
+      grupo_inscritos: {
+        Args: { p_grupo: number; p_desde?: string | null; p_hasta?: string | null };
+        Returns: {
+          inscripcion_id: number;
+          miembro_id: number;
+          cliente_id: number;
+          nombre: string;
+          edad: number;
+          fuera_de_rango: boolean;
+          franjas: number[];
+          horas: string[];
+          esperadas: number;
+          presentes: number;
+          excusas: number;
+        }[];
+      };
       academia_rendimiento_franja: {
         Args: { p_academia: number; p_desde: string; p_hasta: string };
         Returns: {

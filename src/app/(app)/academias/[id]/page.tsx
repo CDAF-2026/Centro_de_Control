@@ -1,151 +1,61 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { mapaNombresStaff, profesoresActivos } from "@/lib/staff";
-import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
-import { PeriodoToggle } from "../../dashboard/periodo-toggle";
-import { InscribirForm } from "./inscribir-form";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
-import { InscritoRow, type Inscrito } from "./inscrito-row";
-import { RendimientoFranjas, type Franja } from "./rendimiento-franjas";
-import { RendimientoNinos, type NinoRendimiento } from "./rendimiento-ninos";
-import { ClasesDictadas, type ClaseDictada } from "./clases-dictadas";
+import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL } from "../ocupacion";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-export default async function AcademiaDetallePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
-}) {
+export default async function AcademiaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
   const academiaId = Number(id);
-  const sp = await searchParams;
-  // Mismo filtro de periodo que el dashboard y los ingresos: sin él, "clases
-  // dictadas" se acumula desde el principio de los tiempos y los % no dicen nada.
-  const periodo = parsePeriodo(sp.periodo);
-  const { curStartIso, curEndIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
   const supabase = await createClient();
 
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  // Servicio de Siigo con el que se factura: es el puente con la plata.
-  const { data: servicio } = a.servicio_id
-    ? await supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
-    : { data: null };
-
-  const { data: inscripciones } = await supabase
-    .from("inscripciones")
-    .select("id, cliente_id, miembro_id, nivel, descuento_pct")
-    .eq("academia_id", academiaId);
-  // El inscrito es el MIEMBRO (hermano); si faltara, se cae al nombre de la ficha.
-  const miembroIds = (inscripciones ?? []).map((i) => i.miembro_id).filter((x): x is number => x != null);
-  const clienteIds = (inscripciones ?? []).map((i) => i.cliente_id);
-  const [{ data: inscritosMiembros }, { data: inscritosClientes }] = await Promise.all([
-    miembroIds.length ? supabase.from("cliente_miembros").select("id, nombres, apellidos").in("id", miembroIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
-    clienteIds.length ? supabase.from("clientes").select("id, nombres, apellidos").in("id", clienteIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
+  const [{ data: servicio }, { data: grupos }, { data: listaEspera }] = await Promise.all([
+    a.servicio_id
+      ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.rpc("academia_grupos_resumen", { p_academia: academiaId }),
+    supabase
+      .from("lista_espera")
+      .select("id, nombre, contacto, nivel, edad, disponibilidad")
+      .eq("academia_id", academiaId)
+      .order("created_at"),
   ]);
-  const nombreMiembro = new Map((inscritosMiembros ?? []).map((m) => [m.id, `${m.apellidos}, ${m.nombres}`]));
-  const nombreCliente = new Map((inscritosClientes ?? []).map((c) => [c.id, `${c.apellidos}, ${c.nombres}`]));
-  const nombreInscrito = (i: { miembro_id: number | null; cliente_id: number }) =>
-    (i.miembro_id != null ? nombreMiembro.get(i.miembro_id) : null) ?? nombreCliente.get(i.cliente_id) ?? `Cliente #${i.cliente_id}`;
 
-  // Sobre-asistencia: presentes del mes en esta academia, por miembro.
-  const ymMes = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
-  const { data: clasesMes } = await supabase
-    .from("clases")
-    .select("id")
-    .eq("academia_id", academiaId)
-    .gte("fecha", `${ymMes}-01`)
-    .lte("fecha", `${ymMes}-31`);
-  const presentesMes = new Map<number, number>();
-  const idsMes = (clasesMes ?? []).map((c) => c.id);
-  if (idsMes.length) {
-    const { data: asisMes } = await supabase.from("asistencias").select("miembro_id, presente, estado").in("clase_id", idsMes);
-    for (const a of asisMes ?? []) {
-      const ok = a.estado ? a.estado === "presente" : a.presente;
-      if (ok && a.miembro_id != null) presentesMes.set(a.miembro_id, (presentesMes.get(a.miembro_id) ?? 0) + 1);
-    }
-  }
-
-  // Horarios de cada inscrito + el nombre del profesor de cada uno.
-  const insIds = (inscripciones ?? []).map((i) => i.id);
-  const { data: horarios } = insIds.length
-    ? await supabase
-        .from("inscripcion_horarios")
-        .select("id, inscripcion_id, dia_semana, hora_inicio, hora_fin, profesor_id, cancha")
-        .in("inscripcion_id", insIds)
-        .order("dia_semana")
-        .order("hora_inicio")
-    : { data: [] };
-  // Sin condicionar: lo necesitan los horarios Y las clases dictadas del rendimiento.
-  const nombresStaff = await mapaNombresStaff();
-
-  const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre }));
-
-  const inscritos: Inscrito[] = (inscripciones ?? [])
-    .map((i) => ({
-      inscripcionId: i.id,
-      nombre: nombreInscrito(i),
-      nivel: i.nivel,
-      descuento: Number(i.descuento_pct),
-      presentesMes: i.miembro_id != null ? presentesMes.get(i.miembro_id) ?? 0 : 0,
-      horarios: (horarios ?? [])
-        .filter((h) => h.inscripcion_id === i.id)
-        .map((h) => ({
-          id: h.id,
-          dia_semana: h.dia_semana,
-          hora_inicio: h.hora_inicio,
-          hora_fin: h.hora_fin,
-          profesorNombre: h.profesor_id ? nombresStaff.get(h.profesor_id) ?? null : null,
-          cancha: h.cancha,
-        })),
-    }))
-    .sort((x, y) => x.nombre.localeCompare(y.nombre, "es"));
-
-  // ───────── Rendimiento del periodo (agregado en SQL, ver migración 0057) ─────────
-  const [{ data: franjasRaw }, { data: clasesRaw }, { data: ninosRaw }] = await Promise.all([
-    supabase.rpc("academia_rendimiento_franja", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("academia_clases_periodo", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
-    supabase.rpc("academia_rendimiento_nino", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
-  ]);
-  const franjas = (franjasRaw ?? []) as Franja[];
-  const ninos = (ninosRaw ?? []) as NinoRendimiento[];
-  const clasesDictadas: ClaseDictada[] = ((clasesRaw ?? []) as (Omit<ClaseDictada, "profesorNombre"> & { profesor_id: string | null })[]).map((c) => ({
-    ...c,
-    profesorNombre: c.profesor_id ? nombresStaff.get(c.profesor_id) ?? null : null,
-  }));
-
-  const { data: listaEspera } = await supabase
-    .from("lista_espera")
-    .select("id, nombre, contacto, nivel, edad, disponibilidad")
-    .eq("academia_id", academiaId)
-    .order("created_at");
+  const gs = grupos ?? [];
+  const ninos = gs.reduce((n, g) => n + g.ninos, 0);
+  const cupo = gs.reduce((n, g) => n + g.cupo_total, 0);
+  const ocupados = gs.reduce((n, g) => n + g.ocupados, 0);
+  const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
+  const libres = Math.max(0, cupo - ocupados);
 
   const puedeGestionar = can(profile.role, "academias", "edit");
-  // Inscribir es editar la academia: mismo permiso que gestionarla.
-  const puedeInscribir = puedeGestionar;
+  const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <Link href="/academias" className="text-muted-foreground text-sm hover:underline">
-          ← Academias
-        </Link>
-        <div className="mt-1 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <Link href="/academias" className="text-muted-foreground text-sm hover:underline">← Academias</Link>
+        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+          <div>
             <h1 className="cdaf-headline">{a.nombre}</h1>
-            <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant={a.deporte === "tenis" ? "secondary" : "outline"}>{a.deporte}</Badge>
+              {a.categoria && <Badge variant="secondary" className="capitalize">{a.categoria}</Badge>}
+              <span className="text-muted-foreground font-mono text-xs">{a.codigo}</span>
+            </div>
           </div>
           {puedeGestionar && (
             <div className="flex items-center gap-2">
@@ -156,18 +66,96 @@ export default async function AcademiaDetallePage({
             </div>
           )}
         </div>
-        <p className="text-muted-foreground font-mono text-xs">{a.codigo}</p>
       </div>
 
+      {/* Marcador: la pregunta del club es "¿dónde hay campo?" */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi label="Grupos" valor={gs.length} />
+        <Kpi label="Niños inscritos" valor={ninos} />
+        <Kpi label="Cupos libres" valor={libres} tono={libres > 0 ? "ok" : undefined} />
+        <Kpi label="Franjas sobre cupo" valor={sobre} tono={sobre > 0 ? "mal" : undefined} />
+      </div>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="cdaf-title text-base">Grupos</h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Un grupo es un nivel y un rango de edad. Cada uno tiene sus propias franjas.
+            </p>
+          </div>
+          {puedeGestionar && (
+            <Link href={`/academias/${a.id}/grupos/nuevo`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              + Nuevo grupo
+            </Link>
+          )}
+        </div>
+
+        {gs.length === 0 ? (
+          <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
+            Esta academia todavía no tiene grupos.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {gs.map((g) => (
+              <Link
+                key={g.grupo_id}
+                href={`/academias/${a.id}/grupos/${g.grupo_id}`}
+                className="hover:border-lime ring-foreground/[0.06] bg-card flex flex-col gap-3.5 rounded-xl p-4.5 shadow-sm ring-1 transition-all hover:-translate-y-0.5"
+              >
+                <div className="flex items-start justify-between gap-2.5">
+                  <div>
+                    <p className="cdaf-title text-lg">{g.nombre}</p>
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {NIVEL_LABEL[g.nivel] ?? g.nivel} · {g.edad_min}–{g.edad_max} años
+                    </p>
+                  </div>
+                  <ChipOcupacion ocupados={g.ocupados} cupo={g.cupo_total} />
+                </div>
+
+                <p className="flex items-baseline gap-1.5">
+                  <span className="font-heading text-[28px] font-bold tabular-nums">{g.ninos}</span>
+                  <span className="text-muted-foreground text-xs">
+                    niños · {g.franjas} {g.franjas === 1 ? "franja" : "franjas"}
+                  </span>
+                </p>
+
+                <div>
+                  <div className="text-muted-foreground mb-1.5 flex justify-between text-[11px]">
+                    <span>Ocupación</span>
+                    <span className="tabular-nums">
+                      {g.ocupados} de {g.cupo_total}
+                    </span>
+                  </div>
+                  <BarraOcupacion ocupados={g.ocupados} cupo={g.cupo_total} />
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {g.dias.map((d) => (
+                    <span key={d} className="border-border bg-card text-muted-foreground inline-flex h-5 items-center rounded-4xl border px-2 text-[11px]">
+                      {DIA_CORTO[d]}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {sobre > 0 && (
+          <p className="border-warning/35 bg-warning/10 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-[#6d4700]">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+            <span>
+              {sobre === 1 ? "Una franja está" : `${sobre} franjas están`} por encima del cupo. Se puede
+              inscribir igual — esto es un aviso, no un bloqueo.
+            </span>
+          </p>
+        )}
+      </section>
+
       <Card>
-        <CardHeader>
-          <CardTitle>Información</CardTitle>
-        </CardHeader>
-        {/* La academia es un SERVICIO: no tiene un horario ni un profesor, porque cada
-            inscrito tiene los suyos. Lo que describe es el servicio y su tamaño. */}
+        <CardHeader><CardTitle>Información</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <Dato label="Categoría" valor={a.categoria === "competencia" ? "Competencia" : a.categoria === "recreativa" ? "Recreativa" : null} />
-          <Dato label="Inscritos" valor={`${inscripciones?.length ?? 0} ${(inscripciones?.length ?? 0) === 1 ? "niño" : "niños"}`} />
           <Dato label="Servicio en Siigo" valor={servicio?.nombre ?? null} />
           <Dato label="Grupo de producto" valor={servicio?.siigo_grupo ?? null} />
           <Dato label="Precio de referencia" valor={COP.format(a.precio)} />
@@ -175,85 +163,14 @@ export default async function AcademiaDetallePage({
         </CardContent>
         <CardContent className="pt-0">
           <p className="text-muted-foreground text-xs">
-            El ingreso de la academia sale de las facturas de Siigo del servicio de arriba. Los
-            valores de referencia son solo para consulta, no se usan para calcular.
+            El ingreso sale de las facturas de Siigo del servicio de arriba. Los valores de referencia
+            son solo para consulta, no se usan para calcular.
           </p>
         </CardContent>
       </Card>
 
-      {/* Rendimiento: el filtro de periodo va AQUÍ y no en la lista general de
-          academias, porque la academia ya es el filtro (se llegó haciéndole clic) y
-          porque mezclar las 4 en una tabla invita a comparar cifras que no son
-          comparables: un grupo de competencia con 3 niños al 94% está sano, uno de
-          recreativa con 3 se está muriendo. */}
       <Card>
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Rendimiento por franja</CardTitle>
-          <PeriodoToggle
-            periodo={periodo}
-            desde={sp.desde}
-            hasta={sp.hasta}
-            basePath={`/academias/${academiaId}`}
-          />
-        </CardHeader>
-        <CardContent>
-          <RendimientoFranjas franjas={franjas} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Rendimiento por niño</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RendimientoNinos ninos={ninos} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Clases del periodo ({clasesDictadas.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-2 text-xs">
-            Haz clic en una clase para ver quién asistió.
-          </p>
-          <ClasesDictadas clases={clasesDictadas} />
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-visible">
-        <CardHeader>
-          <CardTitle>Inscritos ({inscritos.length})</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {inscritos.length > 0 ? (
-            <ul className="divide-y">
-              {inscritos.map((i) => (
-                <InscritoRow
-                  key={i.inscripcionId}
-                  academiaId={academiaId}
-                  inscrito={i}
-                  profesores={profesores}
-                  puedeEditar={puedeInscribir}
-                />
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground text-sm">Sin inscritos.</p>
-          )}
-          {puedeInscribir && (
-            <div className="border-t pt-4">
-              <InscribirForm academiaId={academiaId} profesores={profesores} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de espera ({listaEspera?.length ?? 0})</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Lista de espera ({listaEspera?.length ?? 0})</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {(listaEspera ?? []).length > 0 ? (
             <ul className="divide-y text-sm">
@@ -261,9 +178,7 @@ export default async function AcademiaDetallePage({
                 <li key={l.id} className="py-2">
                   <span className="font-medium">{l.nombre}</span>{" "}
                   <span className="text-muted-foreground">
-                    {[l.nivel, l.edad ? `${l.edad} años` : null, l.disponibilidad, l.contacto]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {[l.nivel, l.edad ? `${l.edad} años` : null, l.disponibilidad, l.contacto].filter(Boolean).join(" · ")}
                   </span>
                 </li>
               ))}
@@ -278,6 +193,16 @@ export default async function AcademiaDetallePage({
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Kpi({ label, valor, tono }: { label: string; valor: number; tono?: "ok" | "mal" }) {
+  const color = tono === "ok" ? "text-[#5b6300]" : tono === "mal" ? "text-destructive" : "";
+  return (
+    <div className="ring-foreground/[0.06] bg-card rounded-xl px-4.5 py-4 shadow-sm ring-1">
+      <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{label}</p>
+      <p className={`font-heading mt-1 text-[26px] font-bold tabular-nums ${color}`}>{valor}</p>
     </div>
   );
 }
