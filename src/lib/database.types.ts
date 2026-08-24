@@ -1254,19 +1254,20 @@ export type Database = {
           inscritos: number;
         }[];
       };
-      grupo_inscritos: {
+      /** Una fila por (franja, niño) con su asistencia EN ESA franja. franja_id null = sin franja. */
+      grupo_inscritos_por_franja: {
         Args: { p_grupo: number; p_desde?: string | null; p_hasta?: string | null };
         Returns: {
+          franja_id: number | null;
           inscripcion_id: number;
           miembro_id: number;
           cliente_id: number;
           nombre: string;
           edad: number;
           fuera_de_rango: boolean;
-          franjas: number[];
-          horas: string[];
           esperadas: number;
           presentes: number;
+          ausentes: number;
           excusas: number;
         }[];
       };
