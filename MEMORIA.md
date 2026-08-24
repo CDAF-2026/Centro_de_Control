@@ -390,7 +390,8 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 
 | Módulo | SA | Coord. admin | Coord. deportivo | Recepción | Profesor | Gestión Eventos |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| dashboard (+ ingresos/cartera) | E | — | — | — | — | — |
+| dashboard (+ ingresos) | E | — | — | — | — | — |
+| **cartera por cobrar** | E | **L** | — | — | — | — |
 | clientes | E | E | **L** | E | — | **E** |
 | ↳ plata del cliente (`cliente_finanzas`) | E | E | — | — | — | — |
 | empleados | E | E | — | — | — | — |
@@ -470,8 +471,17 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 - ⚠️ **`/dashboard` no validaba rol**, solo sesión: quitarlo del menú lo habría escondido sin
   cerrarlo. Ya tiene `requireRole`. De su rama de "dashboard sencillo" (no-SA) quedó código
   inalcanzable, conservado a propósito por si se le devuelve la pantalla a algún rol.
-- ⚠️ **`/ingresos` y `/cartera` no están en el menú**: solo se llega desde el dashboard. Así que
-  `reportes_financieros` es en la práctica SA-only aunque el permiso diga otra cosa.
+- ⚠️ **`/ingresos` no está en el menú**: solo se llega desde el dashboard, así que
+  `reportes_financieros` es en la práctica SA-only.
+- 💰 **`/cartera` se separó de `reportes_financieros`** (24-ago-2026, permiso propio `cartera` +
+  entrada de menú). Las dos pantallas vivían bajo el mismo permiso pero dicen cosas distintas:
+  `/ingresos` dice **cuánto entró** (la facturación del club) y `/cartera` solo **quién debe**. Laura
+  pidió que el coordinador administrativo pudiera cobrar sin ver lo primero, y con el permiso
+  compartido era imposible dar una sin la otra. No le abre un dato nuevo: en la Bolsa de pagos ya ve
+  total y saldo factura por factura. Se descartó *crear un módulo aparte* (habría duplicado una
+  consulta que ya pagina y filtra — el problema de las segundas copias que ya mordió dos veces) y
+  también *recortar el dashboard* por rol (cada widget futuro necesitaría una decisión de "¿esto lo
+  puede ver Juan?", y basta olvidar un condicional para filtrar la cifra que se protege).
 - 💡 **El profesor VE el calendario pero no lo toca** (`clases` = L): abre el detalle de una reserva
   sin los controles de registrar. El gateo real es el prop `canAssign` de `CalendarGrid`/`DayView`,
   que decide si se pinta `MaterializarReserva`. Cerrar sus clases lo sigue haciendo en `/cierre`,
@@ -522,6 +532,23 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
   se eliminaron `config/actions.ts` y `servicio-form.tsx`, y la tarjeta ahora **muestra
   `siigo_grupo`**, que antes no se veía y es justo el campo que se rompe. Corregir un mapeo va por
   migración. Al medir: 0 grupos huérfanos hoy.
+
+### 💰 Antigüedad de la cartera (24-ago-2026)
+`/cartera` agrupa lo pendiente en **0–30 / 31–60 / +60 días**, con tarjetas que filtran el listado.
+- ⚠️ **Se cuenta desde la FECHA DE LA FACTURA, no desde el vencimiento.** Verificado contra la API de
+  Siigo: una factura trae `id, document, prefix, number, name, date, customer, seller, total,
+  balance, observations, items, payments, stamp, mail, metadata, public_url` — **no hay `due_date`
+  ni plazo de pago**, así que no es un dato que estemos dejando de sincronizar: no existe. Como el
+  club factura casi todo en el momento, emisión ≈ vencimiento; por eso la columna se llama
+  **"Espera"** y el pie aclara el criterio, en vez de decir "vencida" y afirmar lo que no sabemos.
+- El agregado va en el RPC **`siigo_cartera_antiguedad(p_servicio)`** y no en JS (regla 2): hoy son
+  58 facturas pendientes, pero PostgREST corta en 1.000 y el total se habría desinflado en silencio
+  al crecer. El total que pintaba la pantalla tenía exactamente ese defecto.
+- El RPC devuelve además los **límites de fecha** (`desde`/`hasta`) que usó cada tramo, y la pantalla
+  filtra el listado con ESOS valores. Es a propósito: si la pantalla recalculara los bordes con el
+  reloj de Node y el RPC usara `current_date` del servidor, la cifra de la tarjeta y las filas de
+  abajo podrían desfasarse un día por zona horaria. "Hoy" también se deriva del RPC (borde de 0–30
+  más 30 días) por lo mismo.
 
 ## Contexto de negocio (decisiones de Laura)
 - Conciliación manual = solo deudas + facturas con cliente identificado; el mostrador anónimo queda

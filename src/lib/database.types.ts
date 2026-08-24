@@ -1142,6 +1142,13 @@ export type Database = {
       };
       /** Quién puede dictar clases: rol profesor O con compensación configurada
        *  (Willington es coord. deportivo y da las clases de 7 a.m.). Migración 0061. */
+      /** Cartera pendiente por tramos de antigüedad. `desde`/`hasta` son los
+       *  límites de fecha que usó cada tramo, para que el listado filtre con los
+       *  mismos valores y no se desfase un día. Migración cartera_antiguedad. */
+      siigo_cartera_antiguedad: {
+        Args: { p_servicio?: number | null };
+        Returns: { tramo: string; n: number; total: number; desde: string | null; hasta: string | null }[];
+      };
       staff_docentes: {
         Args: { p_solo_activos?: boolean };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];

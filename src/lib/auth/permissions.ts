@@ -19,6 +19,7 @@ export type ModuleKey =
   | "descuentos"
   | "liquidacion"
   | "reportes_financieros"
+  | "cartera"
   | "agente_ia"
   | "config";
 
@@ -74,6 +75,14 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   descuentos: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   liquidacion: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   reportes_financieros: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
+  // Cartera por cobrar, SEPARADA de `reportes_financieros` (24-ago-2026). Las dos
+  // pantallas vivían bajo el mismo permiso, pero muestran cosas distintas:
+  // `/ingresos` dice cuánto entró —la facturación del club— y `/cartera` solo
+  // dice quién debe. El coordinador administrativo necesita cobrar sin ver lo
+  // primero, y con un permiso compartido era imposible darle una sin la otra.
+  // No expone dato nuevo para él: en la Bolsa de pagos ya ve total y saldo
+  // factura por factura, que es su trabajo de conciliación.
+  cartera: { superadmin: E, coord_admin: L, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   agente_ia: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N },
   // ⚠️ `config` es L, no E, y es a propósito (31-jul-2026): el catálogo de
   // servicios ya NO se edita desde la app. Cada servicio reclama un grupo de
