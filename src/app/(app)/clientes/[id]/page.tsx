@@ -293,7 +293,10 @@ export default async function ClienteDetallePage({
                   ]
                     .filter(Boolean)
                     .join(" · ")
-                : null
+                : // Sin tercero indicado: se factura al titular mismo (su documento).
+                  [`${cliente.nombres} ${cliente.apellidos}`.trim(), cliente.documento && `NIT ${cliente.documento}`, "titular"]
+                    .filter(Boolean)
+                    .join(" · ") || null
             }
           />
           <Dato label="Correo de facturación" valor={cliente.factura_email} />
