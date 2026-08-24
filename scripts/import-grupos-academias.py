@@ -109,6 +109,7 @@ print(f"Archivo: {os.path.basename(XLSX)}")
 print(f"Filas con datos: {len(filas)}\n")
 
 problemas = defaultdict(list)
+avisos = defaultdict(set)
 
 # ── 1. Documentos compartidos por niños DISTINTOS: se saltan enteros ──
 por_doc = defaultdict(set)
@@ -142,9 +143,32 @@ def buscar_profe(nombre):
     if len(cand) == 1: return cand[0][1], None
     if len(cand) > 1: return None, "ambiguo: " + ", ".join(kk for kk, _ in cand)
     return None, "sin coincidencia"
-miembros = {}
-for m in get("cliente_miembros?select=id,documento,nombres,apellidos&activo=eq.true&documento=not.is.null"):
-    if m["documento"]: miembros[m["documento"].strip()] = m["id"]
+# Índice de niños por DOCUMENTO y por NOMBRE. Hacen falta los dos:
+#  · el Excel pega el tipo al número ("CE1209531") y la plataforma los guarda
+#    aparte (tipo CE + documento 1209531) → se compara solo por los dígitos;
+#  · hay niños sin documento que viven en la ficha de un padre (Krystal García,
+#    en la de Walter García) → a esos solo se llega por nombre.
+def solo_digitos(x): return re.sub(r"\D", "", txt(x))
+def clave_nombre(n, a):
+    c = unicodedata.normalize("NFD", f"{txt(n)} {txt(a)}")
+    c = "".join(ch for ch in c if unicodedata.category(ch) != "Mn").lower()
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\s]", " ", c)).strip()
+
+mie_doc, mie_nom = {}, defaultdict(list)
+for m in get("cliente_miembros?select=id,documento,nombres,apellidos&activo=eq.true"):
+    d = solo_digitos(m["documento"])
+    if d: mie_doc[d] = m["id"]
+    mie_nom[clave_nombre(m["nombres"], m["apellidos"])].append(m["id"])
+
+def buscar_miembro(f):
+    """Devuelve (id, cómo_se_encontró). Por documento primero; por nombre solo si
+    es inequívoco, para no colgarle las clases de un niño a otro."""
+    d = solo_digitos(f["doc"])
+    if d and d in mie_doc: return mie_doc[d], "documento"
+    cand = mie_nom.get(clave_nombre(f["nom"], f["ape"]), [])
+    if len(cand) == 1: return cand[0], "nombre"
+    if len(cand) > 1: return None, f"nombre ambiguo ({len(cand)} personas se llaman igual)"
+    return None, "no está"
 
 def grupo_de(dep, aca, niv, edad):
     for d, a, nom, n, lo, hi in GRUPOS:
@@ -164,10 +188,13 @@ for f in filas:
         problemas["Nivel no reconocido"].append(quien); continue
     if f["dia"] is None or not f["hora"]:
         problemas["Día u hora ilegibles"].append(quien); continue
-    mid = miembros.get(f["doc"])
+    mid, como = buscar_miembro(f)
     if not mid:
-        problemas["El niño no existe en la plataforma (córrelo antes con import-ninos-academias.py)"].append(
-            f"{quien} doc {f['doc']}"); continue
+        problemas["El niño no está en la plataforma (córrelo antes con import-ninos-academias.py)"].append(
+            f"{quien} doc {f['doc']} — {como}"); continue
+    if como == "nombre":
+        avisos["Cruzados por NOMBRE, no por documento (revisar que sea la persona)"].add(
+            f"{f['nom']} {f['ape']} (doc del Excel: {f['doc'] or 'vacío'})")
     g = grupo_de(f["dep"], f["aca"], f["niv"], f["edad"])
     if not g:
         problemas["Ningún grupo cubre su edad+nivel (revisar con el club)"].append(
@@ -205,6 +232,10 @@ if sobre:
     DIAS = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"]
     for k, v in sorted(sobre, key=lambda x: -len(x[1]["ninos"])):
         print(f"     {k[1]:10s} {DIAS[k[2]]} {k[3]} → {len(v['ninos'])} niños (tope {CUPO[v['niv']]})")
+
+for t, xs in avisos.items():
+    print(f"\n⚠️  {t} ({len(xs)}):")
+    for x in sorted(xs): print(f"     · {x}")
 
 if problemas:
     print(f"\n{'='*70}\nSE SALTAN / REVISAR\n{'='*70}")
