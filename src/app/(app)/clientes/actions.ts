@@ -10,7 +10,7 @@ import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
 import { getBookings, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
-import type { AppRole, Deporte, TipoDocumento } from "@/lib/database.types";
+import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo } from "@/lib/database.types";
 import { clausulasBusqueda } from "./buscar";
 
 // Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
@@ -46,6 +46,8 @@ async function sincronizarTitular(
     fecha_nacimiento: string | null;
     documento: string | null;
     tipo_documento: TipoDocumento | null;
+    eps: string | null;
+    rh: Rh | null;
     deportes: Deporte[];
   },
 ): Promise<void> {
@@ -75,7 +77,24 @@ function leerDeportes(formData: FormData): Deporte[] {
 function leerTipoDocumento(formData: FormData, documento?: string | null): TipoDocumento | null {
   if (!documento) return null;
   const v = String(formData.get("tipoDocumento") ?? "").trim().toUpperCase();
-  return (["CC", "TI", "CE", "PP", "NIT"] as const).find((t) => t === v) ?? null;
+  return (["CC", "TI", "CE", "PP", "NIT", "PPT", "RC"] as const).find((t) => t === v) ?? null;
+}
+
+/** RH del formulario, validado contra la lista cerrada (el CHECK lo rechazaría igual). */
+function leerRh(formData: FormData): Rh | null {
+  const v = String(formData.get("rh") ?? "").trim().toUpperCase();
+  return (["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"] as const).find((x) => x === v) ?? null;
+}
+
+/** Tipo de facturación (natural|juridica) del formulario. */
+function leerFacturaTipo(formData: FormData): FacturaTipo | null {
+  const v = String(formData.get("facturaTipo") ?? "").trim().toLowerCase();
+  return v === "natural" || v === "juridica" ? v : null;
+}
+
+/** Campo de texto opcional: vacío → null. */
+function texto(formData: FormData, name: string): string | null {
+  return String(formData.get(name) ?? "").trim() || null;
 }
 
 export type ClienteFormState = {
@@ -99,6 +118,8 @@ export async function createCliente(
   const d = parsed.data;
   const menor = esMenorDeEdad(d.fechaNacimiento);
   const tipoDocumento = leerTipoDocumento(formData, d.documento);
+  const eps = texto(formData, "eps");
+  const rh = leerRh(formData);
 
   // Regla dura: un menor exige acudiente.
   if (menor && !d.acudienteNombre) {
@@ -133,6 +154,8 @@ export async function createCliente(
       apellidos: d.apellidos,
       documento: d.documento || null,
       tipo_documento: tipoDocumento,
+      eps,
+      rh,
       fecha_nacimiento: d.fechaNacimiento || null,
       es_menor: menor,
       celular: d.celular || null,
@@ -291,6 +314,8 @@ export async function updateCliente(
     apellidos: d.apellidos,
     documento: d.documento || null,
     tipo_documento: leerTipoDocumento(formData, d.documento),
+    eps: texto(formData, "eps"),
+    rh: leerRh(formData),
     fecha_nacimiento: d.fechaNacimiento || null,
     deportes: leerDeportes(formData),
   };
@@ -307,6 +332,8 @@ export async function updateCliente(
       emergencia_parentesco: d.emergenciaParentesco || null,
       factura_a_nombre: facturaANombre,
       factura_a_nit: facturaANit,
+      factura_tipo: leerFacturaTipo(formData),
+      factura_email: texto(formData, "facturaEmail"),
       acudiente_id: acudienteId,
     })
     .eq("id", id);
@@ -349,6 +376,9 @@ export async function agregarHermano(
     apellidos,
     fecha_nacimiento: fechaNacimiento,
     documento,
+    tipo_documento: leerTipoDocumento(formData, documento),
+    eps: texto(formData, "eps"),
+    rh: leerRh(formData),
     deportes: leerDeportes(formData),
     es_titular: false,
   });
@@ -394,6 +424,9 @@ export async function editarHermano(
       apellidos,
       fecha_nacimiento: fechaNacimiento,
       documento,
+      tipo_documento: leerTipoDocumento(formData, documento),
+      eps: texto(formData, "eps"),
+      rh: leerRh(formData),
       deportes: leerDeportes(formData),
     })
     .eq("id", miembroId);

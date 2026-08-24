@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateCliente, type ClienteFormState } from "../actions";
 import { DocumentoField } from "../documento-field";
+import { RH_VALORES } from "../documento";
 import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,11 +21,15 @@ export type ClienteEditable = {
   fecha_nacimiento: string | null;
   celular: string | null;
   email: string | null;
+  eps: string | null;
+  rh: string | null;
   emergencia_nombre: string | null;
   emergencia_celular: string | null;
   emergencia_parentesco: string | null;
   factura_a_nombre: string | null;
   factura_a_nit: string | null;
+  factura_tipo: string | null;
+  factura_email: string | null;
   deportes: string[];
 };
 
@@ -135,6 +140,23 @@ export function EditarClienteForm({
         <Field label="Celular" name="celular" error={fe.celular} defaultValue={cliente.celular ?? ""} />
         <Field label="Correo" name="email" type="email" error={fe.email} defaultValue={cliente.email ?? ""} />
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="EPS" name="eps" error={fe.eps} defaultValue={cliente.eps ?? ""} />
+        <div className="space-y-1.5">
+          <Label htmlFor="rh">RH (grupo sanguíneo)</Label>
+          <select
+            id="rh"
+            name="rh"
+            defaultValue={cliente.rh ?? ""}
+            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+          >
+            <option value="">—</option>
+            {RH_VALORES.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Contacto de emergencia</legend>
@@ -183,6 +205,22 @@ export function EditarClienteForm({
           value={fact.nit}
           onChange={(v) => setFact((s) => ({ ...s, nit: v }))}
         />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="facturaTipo">Tipo</Label>
+            <select
+              id="facturaTipo"
+              name="facturaTipo"
+              defaultValue={cliente.factura_tipo ?? ""}
+              className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+            >
+              <option value="">—</option>
+              <option value="natural">Persona natural</option>
+              <option value="juridica">Persona jurídica</option>
+            </select>
+          </div>
+          <Field label="Correo de facturación" name="facturaEmail" type="email" error={fe.facturaEmail} defaultValue={cliente.factura_email ?? ""} />
+        </div>
       </fieldset>
 
       <fieldset className="space-y-2 rounded-lg border p-4">

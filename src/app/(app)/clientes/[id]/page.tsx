@@ -33,7 +33,7 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, tipo_documento, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, deportes, estado, acudiente_id",
+      "id, nombres, apellidos, documento, tipo_documento, eps, rh, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, factura_tipo, factura_email, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
@@ -51,7 +51,7 @@ export default async function ClienteDetallePage({
 
   const { data: miembrosRaw } = await supabase
     .from("cliente_miembros")
-    .select("id, nombres, apellidos, fecha_nacimiento, documento, deportes, es_titular")
+    .select("id, nombres, apellidos, fecha_nacimiento, documento, tipo_documento, eps, rh, deportes, es_titular")
     .eq("cliente_id", Number(id))
     .eq("activo", true)
     .order("es_titular", { ascending: false })
@@ -271,6 +271,8 @@ export default async function ClienteDetallePage({
           <Dato label="Fecha de nacimiento" valor={cliente.fecha_nacimiento} />
           <Dato label="Celular" valor={cliente.celular} />
           <Dato label="Correo" valor={cliente.email} />
+          <Dato label="EPS" valor={cliente.eps} />
+          <Dato label="RH" valor={cliente.rh} />
           <Dato label="Deportes" valor={(cliente.deportes ?? []).map((d) => (d === "tenis" ? "Tenis" : "Pádel")).join(" · ") || null} />
           <Dato
             label="Contacto de emergencia"
@@ -284,12 +286,17 @@ export default async function ClienteDetallePage({
             label="Se factura a nombre de"
             valor={
               cliente.factura_a_nombre || cliente.factura_a_nit
-                ? [cliente.factura_a_nombre, cliente.factura_a_nit && `NIT ${cliente.factura_a_nit}`]
+                ? [
+                    cliente.factura_a_nombre,
+                    cliente.factura_a_nit && `NIT ${cliente.factura_a_nit}`,
+                    cliente.factura_tipo && (cliente.factura_tipo === "juridica" ? "P. jurídica" : "P. natural"),
+                  ]
                     .filter(Boolean)
                     .join(" · ")
                 : null
             }
           />
+          <Dato label="Correo de facturación" valor={cliente.factura_email} />
         </CardContent>
       </Card>
 

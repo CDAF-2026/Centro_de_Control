@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createCliente, type ClienteFormState } from "../actions";
 import { DocumentoField } from "../documento-field";
+import { RH_VALORES } from "../documento";
 import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,23 @@ export function ClienteForm() {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Celular" name="celular" error={fe.celular} />
         <Field label="Correo" name="email" type="email" error={fe.email} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="EPS" name="eps" error={fe.eps} />
+        <div className="space-y-1.5">
+          <Label htmlFor="rh">RH (grupo sanguíneo)</Label>
+          <select
+            id="rh"
+            name="rh"
+            defaultValue=""
+            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+          >
+            <option value="">—</option>
+            {RH_VALORES.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        </div>
       </div>
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Contacto de emergencia</legend>

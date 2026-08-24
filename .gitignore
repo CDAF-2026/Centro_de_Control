@@ -44,3 +44,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# ── Bases de datos con datos personales (NO versionar) ──
+BBD*.xlsx

@@ -21,8 +21,16 @@ export type AppRole =
 
 export type ClienteEstado = "activo" | "retirado";
 
-/** Tipo del documento de identidad. Desde EasyCancha: NI→CC, PP→PP. */
-export type TipoDocumento = "CC" | "TI" | "CE" | "PP" | "NIT";
+/** Tipo del documento de identidad. Desde EasyCancha: NI→CC, PP→PP.
+ *  RC = registro civil (< 7 años) · TI = tarjeta de identidad (7–17) ·
+ *  CC = cédula (18+) · CE/PP/PPT = extranjeros · NIT = jurídica. */
+export type TipoDocumento = "CC" | "TI" | "CE" | "PP" | "NIT" | "PPT" | "RC";
+
+/** Grupo sanguíneo (ABO × Rh). Lista cerrada. */
+export type Rh = "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-";
+
+/** Tipo de quien recibe la factura. */
+export type FacturaTipo = "natural" | "juridica";
 
 export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
 export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
@@ -236,6 +244,8 @@ export type Database = {
           fecha_nacimiento: string | null;
           documento: string | null;
           tipo_documento: TipoDocumento | null;
+          eps: string | null;
+          rh: Rh | null;
           deportes: Deporte[];
           es_titular: boolean;
           activo: boolean;
@@ -249,6 +259,8 @@ export type Database = {
           fecha_nacimiento?: string | null;
           documento?: string | null;
           tipo_documento?: TipoDocumento | null;
+          eps?: string | null;
+          rh?: Rh | null;
           deportes?: Deporte[];
           es_titular?: boolean;
           activo?: boolean;
@@ -264,6 +276,8 @@ export type Database = {
           apellidos: string;
           documento: string | null;
           tipo_documento: TipoDocumento | null;
+          eps: string | null;
+          rh: Rh | null;
           fecha_nacimiento: string | null;
           es_menor: boolean;
           celular: string | null;
@@ -273,6 +287,8 @@ export type Database = {
           emergencia_parentesco: string | null;
           factura_a_nombre: string | null;
           factura_a_nit: string | null;
+          factura_tipo: FacturaTipo | null;
+          factura_email: string | null;
           acudiente_id: number | null;
           deportes: Deporte[];
           estado: ClienteEstado;
@@ -285,6 +301,8 @@ export type Database = {
           apellidos: string;
           documento?: string | null;
           tipo_documento?: TipoDocumento | null;
+          eps?: string | null;
+          rh?: Rh | null;
           fecha_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;
@@ -294,6 +312,8 @@ export type Database = {
           emergencia_parentesco?: string | null;
           factura_a_nombre?: string | null;
           factura_a_nit?: string | null;
+          factura_tipo?: FacturaTipo | null;
+          factura_email?: string | null;
           acudiente_id?: number | null;
           deportes?: Deporte[];
           estado?: ClienteEstado;
@@ -306,6 +326,8 @@ export type Database = {
           apellidos?: string;
           documento?: string | null;
           tipo_documento?: TipoDocumento | null;
+          eps?: string | null;
+          rh?: Rh | null;
           fecha_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;
@@ -315,6 +337,8 @@ export type Database = {
           emergencia_parentesco?: string | null;
           factura_a_nombre?: string | null;
           factura_a_nit?: string | null;
+          factura_tipo?: FacturaTipo | null;
+          factura_email?: string | null;
           acudiente_id?: number | null;
           deportes?: Deporte[];
           estado?: ClienteEstado;

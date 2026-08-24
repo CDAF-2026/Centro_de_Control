@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { agregarHermano, editarHermano, quitarHermano, type ClienteFormState } from "../actions";
+import { DocumentoField } from "../documento-field";
+import { RH_VALORES } from "../documento";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +18,9 @@ export type Miembro = {
   apellidos: string;
   fecha_nacimiento: string | null;
   documento: string | null;
+  tipo_documento: string | null;
+  eps: string | null;
+  rh: string | null;
   deportes: string[];
   es_titular: boolean;
 };
@@ -75,9 +80,26 @@ function FormHermano({
             defaultValue={miembro?.fecha_nacimiento ?? ""}
           />
         </div>
+        <DocumentoField tipo={miembro?.tipo_documento ?? ""} numero={miembro?.documento ?? ""} error={fe.documento} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor={`${uid}-doc`}>Documento</Label>
-          <Input id={`${uid}-doc`} name="documento" defaultValue={miembro?.documento ?? ""} />
+          <Label htmlFor={`${uid}-eps`}>EPS</Label>
+          <Input id={`${uid}-eps`} name="eps" defaultValue={miembro?.eps ?? ""} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${uid}-rh`}>RH</Label>
+          <select
+            id={`${uid}-rh`}
+            name="rh"
+            defaultValue={miembro?.rh ?? ""}
+            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+          >
+            <option value="">—</option>
+            {RH_VALORES.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
         </div>
       </div>
       <div className="flex flex-wrap gap-4 text-sm">
