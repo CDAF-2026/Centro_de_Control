@@ -594,6 +594,36 @@ representa "mar+jue 16:30 con Jorge y sáb 12:00 con Graciano", que era imposibl
   horarios, agregar/quitar día, retirar) · `inscribir-form.tsx` (niño + nivel + N filas).
   La ficha del cliente también muestra los horarios en vez del `plan_frecuencia`.
 
+**Grupos visibles** (migración `20260824180000`, ago-2026) — **revierte** el "no existe entidad
+grupo" de julio: el club volvió con una definición que sí se puede modelar.
+`academia_grupo` (academia + **nombre editable** + nivel + rango de edad) → `grupo_franja`
+(día, hora, profesor, cancha, cupo) → `inscripcion_franja` (a qué franjas va cada niño).
+Niveles nuevos: enum **`academia_nivel`** = iniciacion|intermedio|avanzado.
+- ⚠️ **Los rangos de edad los pone el club por grupo y PUEDEN SOLAPARSE.** No hay bandas
+  globales, y no es pereza: medido sobre los 107 niños reales, cualquier banda parte entre 16 y
+  33 de las 60 franjas que el club ya dicta (Jorge tiene mar 15:30 con niños de 9, 9 y 10).
+- ⚠️ **El cupo (Iniciación 6 · Intermedio 5 · Avanzado 4) NO bloquea, avisa** (decisión de Laura).
+  `grupo_franja.cupo` null = el del nivel; se llena solo para excepciones. `cupo_nivel(nivel)`.
+- Sí bloquean por trigger: iniciación en academia de **competencia**, nombre de grupo repetido
+  en la misma academia, rango de edad al revés y franja duplicada.
+- **Cargado el 24-ago-2026**: 9 grupos (Disney en recreativa, tenistas en competencia), 64
+  franjas, 100 niños, vía `scripts/import-grupos-academias.py` (simulacro por defecto,
+  `--apply` para escribir, idempotente). **No se pisa con `import-ninos-academias.py`**, que
+  carga las PERSONAS desde el archivo ancho; este solo arma la matrícula encima y salta al
+  niño que no exista en vez de inventarlo.
+- ⚠️ El importador cruza al niño **por los dígitos del documento** (el Excel pega el tipo:
+  "CE1209531"; la plataforma guarda tipo y número aparte) y, si falla, **por nombre solo si es
+  inequívoco** (hay niños sin documento que viven en la ficha de un padre). Los cruzados por
+  nombre se reportan aparte. Los profesores casan exacto y luego por prefijo, también solo si
+  es inequívoco: el staff se renombró a nombres completos ("Jorge Pérez") y el Excel trae los
+  cortos ("Jorge") — sin eso, 73 filas daban falso "profesor no encontrado".
+- 📌 **Pendientes con el club** (nombres en `docs/academias-tenis-datos-a-revisar.md`): 3
+  documentos compartidos por 2 niños distintos (6 niños sin cargar), Sara Salazar que no
+  existe, 3 niños que ningún grupo cubre, y 2 tipos de documento extranjero.
+- **Falta**: interfaz de grupos, reapuntar cierre y reportes a `grupo_franja`, limpieza de lo
+  viejo (`inscripcion_horarios`, niveles de bola, columnas muertas) y **academias de pádel**,
+  que Laura dejó explícitamente para después.
+
 **Rendimiento** (migración 0057, RPCs `academia_rendimiento_franja` · `academia_clases_periodo` ·
 `academia_asistencia_clase`): tablero por franja + listado de clases del periodo desplegable a "quién
 asistió". Agregado en SQL a propósito: un semestre de una academia son ~200 clases × 8 niños = 1.600
