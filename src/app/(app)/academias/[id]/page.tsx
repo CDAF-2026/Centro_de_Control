@@ -4,38 +4,30 @@ import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { mapaNombresStaff } from "@/lib/staff";
-import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
-import { PeriodoToggle } from "../../dashboard/periodo-toggle";
+import { rangoPeriodo } from "@/lib/periodo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
 import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL, riesgoFranja } from "../ocupacion";
-import { TableroPeriodo, type FilaTablero } from "./tablero-periodo";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-export default async function AcademiaDetallePage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
-}) {
+export default async function AcademiaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
   const academiaId = Number(id);
-  const sp = await searchParams;
-  const periodo = parsePeriodo(sp.periodo);
-  const { curStartIso, curEndIso, todayIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
+  // Sin selector de periodo: esta pantalla solo dice a cuál grupo entrar. El
+  // detalle con su periodo vive DENTRO del grupo, que es donde son 7 franjas y
+  // no 48 (decisión de Laura, ago-2026).
+  const { curStartIso, curEndIso, todayIso } = rangoPeriodo("mes", new Date());
   const supabase = await createClient();
 
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const [{ data: servicio }, { data: grupos }, { data: ocupacion }, { data: listaEspera }, nombres] = await Promise.all([
+  const [{ data: servicio }, { data: grupos }, { data: ocupacion }, { data: listaEspera }] = await Promise.all([
     a.servicio_id
       ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -50,7 +42,6 @@ export default async function AcademiaDetallePage({
       .select("id, nombre, contacto, nivel, edad, disponibilidad")
       .eq("academia_id", academiaId)
       .order("created_at"),
-    mapaNombresStaff(),
   ]);
 
   const gs = grupos ?? [];
@@ -60,17 +51,9 @@ export default async function AcademiaDetallePage({
   const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
   const libres = Math.max(0, cupo - ocupados);
 
-  // El tablero mide lo que YA OCURRIÓ en el periodo; las tarjetas de arriba
-  // miden el cupo. Son dos preguntas distintas: "¿dónde hay campo?" y "¿cómo
-  // se está comportando cada franja?".
-  const filas: FilaTablero[] = (ocupacion ?? []).map((o) => ({
-    grupoId: o.grupo_id,
-    grupoNombre: o.grupo_nombre,
-    franjaId: o.franja_id,
-    dia: o.dia_semana,
-    horaInicio: o.hora_inicio,
-    horaFin: o.hora_fin,
-    profesor: o.profesor_id ? nombres.get(o.profesor_id) ?? null : null,
+  // Del mes en curso solo se conserva el marcador: cuántas franjas piden que
+  // alguien entre a mirarlas. El porqué se ve adentro del grupo.
+  const filas = (ocupacion ?? []).map((o) => ({
     inscritos: o.inscritos,
     clases: o.clases,
     clasesSinCerrar: o.clases_sin_cerrar,
@@ -78,10 +61,8 @@ export default async function AcademiaDetallePage({
     desdeEfectivo: o.desde_efectivo,
     presentes: o.presentes,
     ausentes: o.ausentes,
-    excusas: o.excusas,
+    dia: o.dia_semana,
   }));
-  // Con cero clases registradas en el periodo, todas las franjas dirían lo mismo
-  // ("no se dictó") y el marcador sería ruido: el aviso correcto lo da el tablero.
   const hayClases = filas.some((f) => f.clases + f.clasesSinCerrar + f.clasesPorVenir > 0);
   const enRiesgo = hayClases ? filas.filter((f) => riesgoFranja(f, curStartIso, curEndIso, todayIso)).length : 0;
 
@@ -195,24 +176,6 @@ export default async function AcademiaDetallePage({
             </span>
           </p>
         )}
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="cdaf-title text-base">Cómo va el periodo</h2>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              Clases dictadas y asistencia de cada franja. Arriba se ve el cupo; aquí, lo que pasó.
-            </p>
-          </div>
-          <PeriodoToggle
-            periodo={periodo}
-            desde={sp.desde}
-            hasta={sp.hasta}
-            basePath={`/academias/${a.id}`}
-          />
-        </div>
-        <TableroPeriodo academiaId={a.id} filas={filas} desde={curStartIso} hasta={curEndIso} hoy={todayIso} />
       </section>
 
       <Card>

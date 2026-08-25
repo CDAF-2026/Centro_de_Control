@@ -80,28 +80,16 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(texto(html)).toContain("Academias");
   });
 
-  it("la ficha de una academia, con su tablero del periodo", async () => {
+  it("la ficha de una academia", async () => {
     const { academiaId } = await unaAcademiaConGrupo();
     const { default: Page } = await import("../src/app/(app)/academias/[id]/page");
-    const html = await render(Page, { params: P({ id: academiaId }), searchParams: P({}) });
+    const html = await render(Page, { params: P({ id: academiaId }) });
     const t = texto(html);
-    // El bloque que reventaba. Si vuelve a caer, esto falla antes de desplegar.
-    expect(t).toContain("Cómo va el periodo");
+    expect(t).toContain("Grupos");
+    // El marcador que sí se quedó en esta pantalla: dice a cuál grupo entrar.
     expect(t).toContain("Franjas por revisar");
-  });
-
-  it("la ficha de la academia en los cuatro periodos", async () => {
-    const { academiaId } = await unaAcademiaConGrupo();
-    const { default: Page } = await import("../src/app/(app)/academias/[id]/page");
-    for (const periodo of ["semana", "mes", "3m"]) {
-      const html = await render(Page, { params: P({ id: academiaId }), searchParams: P({ periodo }) });
-      expect(texto(html)).toContain("Cómo va el periodo");
-    }
-    const custom = await render(Page, {
-      params: P({ id: academiaId }),
-      searchParams: P({ periodo: "custom", desde: "2026-06-01", hasta: "2026-06-30" }),
-    });
-    expect(texto(custom)).toContain("Cómo va el periodo");
+    // El detalle por franja se mudó ADENTRO del grupo (ago-2026): aquí no va.
+    expect(t).not.toContain("Cómo va el periodo");
   });
 
   it("la ficha de un grupo, con sus franjas desplegables", async () => {
@@ -109,6 +97,20 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const { default: Page } = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/page");
     const html = await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({}) });
     expect(texto(html)).toContain("Franjas");
+  });
+
+  it("la ficha del grupo en los cuatro periodos", async () => {
+    const { academiaId, grupoId } = await unaAcademiaConGrupo();
+    const { default: Page } = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/page");
+    for (const periodo of ["semana", "mes", "3m"]) {
+      const html = await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({ periodo }) });
+      expect(texto(html)).toContain("Franjas");
+    }
+    const custom = await render(Page, {
+      params: P({ id: academiaId, grupoId }),
+      searchParams: P({ periodo: "custom", desde: "2026-06-01", hasta: "2026-06-30" }),
+    });
+    expect(texto(custom)).toContain("Franjas");
   });
 
   it("crear grupo, editar grupo y administrar franjas", async () => {
