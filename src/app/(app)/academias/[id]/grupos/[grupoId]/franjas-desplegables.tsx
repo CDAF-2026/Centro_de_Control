@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ChevronDown, CircleAlert, Clock, TriangleAlert } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { quitarInscripcion } from "../../../actions";
-import { BarraOcupacion, DIA_CORTO, hhmm, pctAsistencia, tonoOcupacion, type Riesgo } from "../../../ocupacion";
+import { BarraOcupacion, DIA_CORTO, hhmm, tonoOcupacion } from "../../../ocupacion";
 
 export type FranjaFila = {
   id: number;
@@ -15,13 +15,6 @@ export type FranjaFila = {
   cancha: string | null;
   cupo: number;
   inscritos: number;
-  /** Lo que pasó en el periodo escogido arriba. */
-  clases: number;
-  clasesPorVenir: number;
-  clasesSinCerrar: number;
-  presentes: number;
-  ausentes: number;
-  riesgo: Riesgo;
 };
 
 export type NinoEnFranja = {
@@ -51,28 +44,6 @@ function Asistencia({ n }: { n: NinoEnFranja }) {
         {pct}% · {n.presentes} de {base}
       </span>
     </span>
-  );
-}
-
-/**
- * El aviso de la franja. Las tres señales NO son igual de graves y por eso no se
- * pintan igual: que la clase no exista es un fallo operativo (rojo), que el
- * grupo se vacíe es un problema de negocio (ámbar) y que falte cerrarla es
- * trámite (gris). Antes las tres salían en el mismo ámbar con un "⚠" delante.
- */
-const AVISO = {
-  no_dictada: { Icono: CircleAlert, cls: "border-destructive/25 bg-destructive/5 text-destructive" },
-  se_vacia: { Icono: TriangleAlert, cls: "border-warning/35 bg-warning/10 text-[#8a5600]" },
-  sin_cerrar: { Icono: Clock, cls: "bg-muted/60 text-muted-foreground" },
-} as const;
-
-function AvisoFranja({ r }: { r: NonNullable<Riesgo> }) {
-  const { Icono, cls } = AVISO[r.tipo];
-  return (
-    <p className={`flex items-center gap-2 border-t px-4 py-2 pl-12 text-xs ${cls}`}>
-      <Icono className="size-3.5 shrink-0" />
-      <span>{r.texto}</span>
-    </p>
   );
 }
 
@@ -192,24 +163,6 @@ export function FranjasDesplegables({
                 {f.profesor ?? "sin profesor"}
                 {f.cancha ? ` · cancha ${f.cancha}` : ""}
               </span>
-              <span className="text-muted-foreground hidden w-40 shrink-0 text-xs tabular-nums sm:block">
-                {f.clases === 0 ? (
-                  f.clasesSinCerrar > 0 ? (
-                    `${f.clasesSinCerrar} ${f.clasesSinCerrar === 1 ? "clase sin cerrar" : "clases sin cerrar"}`
-                  ) : f.clasesPorVenir > 0 ? (
-                    `${f.clasesPorVenir} ${f.clasesPorVenir === 1 ? "clase programada" : "clases programadas"}`
-                  ) : (
-                    "sin clases en el periodo"
-                  )
-                ) : (
-                  <>
-                    {f.clases} {f.clases === 1 ? "clase" : "clases"}
-                    {pctAsistencia(f.presentes, f.ausentes) != null && (
-                      <> · {pctAsistencia(f.presentes, f.ausentes)}% asistencia</>
-                    )}
-                  </>
-                )}
-              </span>
               <span className="flex w-48 shrink-0 items-center gap-3">
                 <BarraOcupacion ocupados={f.inscritos} cupo={f.cupo} />
                 <span className={`shrink-0 text-xs tabular-nums ${tono === "sobre" ? "text-destructive font-medium" : "text-muted-foreground"}`}>
@@ -217,8 +170,6 @@ export function FranjasDesplegables({
                 </span>
               </span>
             </button>
-
-            {f.riesgo && <AvisoFranja r={f.riesgo} />}
 
             {abierta && (
               <div className="border-t">

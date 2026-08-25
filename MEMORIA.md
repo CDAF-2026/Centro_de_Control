@@ -670,56 +670,39 @@ Niveles nuevos: enum **`academia_nivel`** = iniciacion|intermedio|avanzado.
 - **Falta**: **academias de pádel**, que Laura dejó explícitamente para después, y el cruce
   asistencia vs facturas de Siigo (bloqueado por conciliación, ver más abajo).
 
-**Rendimiento — tablero por franja del periodo** (migración 0075, RPC
-`academia_ocupacion_franja(p_academia, p_desde, p_hasta)`). Reemplaza al de 0057, que cruzaba las
-clases contra el horario del NIÑO; ahora la clase sabe de qué grupo es (`clases.grupo_id`) y el cruce
-es exacto. Vive en la ficha de la academia, con el mismo `PeriodoToggle` del dashboard, y alimenta
-también el chip "N franjas por revisar" del listado (mes en curso) y el encabezado de cada franja en
-la ficha del grupo. Agregado en SQL (regla 2). No toca `profiles` (regla 9).
-- **Tres señales, no una.** De peor a menos grave: (a) la clase **no se registró** (operativo),
-  (b) el grupo **se vacía** (<60% de asistencia, negocio), (c) la clase pasó y **nadie la cerró**
-  (trámite). Antes las tres se veían iguales.
-- ⚠️ **`clases_por_venir`**: una clase `programada` de HOY EN ADELANTE no es ni dictada ni vencida.
-  Sin esa tercera cuenta, registrar la clase de esta tarde igual dejaba a la academia diciendo "no se
-  registró ninguna clase en el periodo".
-- ⚠️ **`desde_efectivo` = la primera clase de academia que registró ESA academia**, y desde ahí se
-  cuenta lo que "tocaba". Sin esto el tablero nace gritando: medido el 25-ago-2026, reprochaba
-  **16 + 48 franjas** por clases anteriores a que el club empezara a usar el flujo. Con el arranque
-  efectivo baja a **5 y 0**, que sí son accionables (el lunes registraron la de Federer pero no las
-  de Djokovic ni Nadal, y la de Federer quedó sin cerrar). Un tablero que marca todo en rojo el
-  primer día es la mejor forma de que nadie lo vuelva a mirar.
-- ⚠️ **HOY tampoco se reprocha**: la clase de esta tarde todavía se puede registrar; una ausencia
-  solo es ausencia a partir de mañana. El `hoy` se pasa desde `rangoPeriodo().todayIso` para no
-  meter un segundo reloj.
-- `ocurrenciasDeDia()` (cuántas veces cae ese día de la semana en el rango) está **verificada por
-  fuerza bruta**: 6.090/6.090 casos contra el conteo día por día.
-- ⚠️ En la rama de "Otras horas" el conteo de clases va con **`count(distinct clase_id)`**: ahí se
-  une con `asistencias` en la misma consulta, así que una clase aparece una vez POR ASISTENTE.
-  Medido al probarlo: una clase con 2 presentes se contaba como 2 clases.
+**Rendimiento por franja: APARCADO** (25-ago-2026). Existe el RPC
+`academia_ocupacion_franja(p_academia, p_desde, p_hasta)` (migración 0075) y está verificado, pero
+**ninguna pantalla lo llama**. Se probaron dos sitios y los dos se quitaron: la tabla en la ficha de
+la academia (48 filas casi todas en cero, ilegible) y los avisos en el acordeón del grupo.
+- 🎯 **La regla que zanjó el asunto: un aviso donde no está la acción es solo carga.** Desde la ficha
+  del grupo no se puede cerrar una clase ni registrar un bloqueo. De las tres señales, dos no
+  deciden nada ahí — *falta cerrar* se arregla en **`/cierre`** (que ya lista las pendientes y marca
+  las de +24 h con badge rojo) y *no se dictó* en **`/clases`**. La tercera —*el grupo se está
+  vaciando*— sí sería gestión de academias, pero necesita historia de asistencia que aún no existe.
+  O sea que la pantalla mostraba **solo las dos que no le tocaban**.
+- ✅ **Lo que SÍ se quedó: la asistencia POR NIÑO dentro de la franja.** Ahí decide algo —¿le cambio
+  el día?, ¿lo retiro?— y está al lado de esos botones. Por eso el `PeriodoToggle` del grupo sigue
+  vivo: alimenta ese dato, no un tablero.
+- La ficha del grupo y la de la academia quedan de **matrícula**: quién está inscrito, en qué franja,
+  dónde hay cupo. Marcadores de la academia = Grupos · Niños · Cupos libres · Franjas sobre cupo.
+- 📅 **Cuándo retomarlo — las DOS condiciones, no una**: que haya 6 semanas de clases registradas Y
+  que **el coordinador pregunte** por la tendencia de una franja. Si la pregunta sale de él, la
+  pantalla se gana su sitio; si sale de nosotros, es una pantalla que nadie abre. El diseño ya está
+  hecho: tres bocetos y el porqué largo en **`design/README.md`** (la buena es la Opción C).
+- ⚠️ **El cuello de botella no era la pantalla: en agosto se registraron 2 clases de academia de las
+  ~250 que tocaban.** Cualquier tablero montado hoy muestra rayas. Lo que rinde es quitarle fricción
+  a registrar el bloqueo como clase (registro en lote desde el calendario), no pulir el informe.
+- Detalles del RPC que hay que conservar si se retoma (todos costaron medirlos): la clase se pega a
+  la franja **más cercana** de su día con tolerancia de **±20 min**; `desde_efectivo` = la primera
+  clase que registró ESA academia, y desde ahí se cuenta lo que "tocaba" (sin eso reprochaba 16+48
+  franjas por clases anteriores a que el club empezara a usar el flujo); **HOY no se reprocha**;
+  `clases_por_venir` separa la programada-a-futuro de la vencida; y en "Otras horas" el conteo va con
+  `count(distinct clase_id)`, porque ahí se une con `asistencias` y una clase aparece una vez POR
+  ASISTENTE. `ocurrenciasDeDia()` estaba verificada por fuerza bruta (6.090/6.090) y se borró con el
+  resto del helper — queda en el historial de git.
 - ⚠️ Agregar una columna de salida a un RPC obliga a **DROP + CREATE**: `create or replace` lo
   rechaza con "cannot change return type of existing function".
-- 🚫 **Se decidió NO hacer gráficas de rendimiento en la ficha del grupo** (Laura, 25-ago-2026;
-  los tres bocetos y el porqué largo están en **`design/README.md`**). Se dibujaron con `/design`
-  —lista con semáforo, rejilla de la semana, fichas con curva— y se descartaron las tres:
-  (a) la ficha del grupo **ya muestra** por franja "N clases · X% asistencia" + ocupación + aviso, y
-  por niño su barra individual, así que lo demás era peso visual; (b) el cuello de botella no es la
-  pantalla sino que **en agosto se registraron 2 clases de las ~250 que tocaban** — cualquiera de los
-  tres montado hoy muestra rayas; (c) la ficha del grupo tiene un trabajo **diario** y analizar
-  rendimiento es **mensual**, y mezclarlos es el mismo error que se acababa de corregir quitando la
-  tabla de 48 filas. **Volver a esto solo cuando haya 6 semanas de clases registradas Y el
-  coordinador pregunte por la tendencia** — si la pregunta sale de él, la pantalla se gana su sitio.
-  Lo único que sí se hizo: **ordenar las franjas por lo que pide atención** (`pesoRiesgo()`), con el
-  aviso pintado según la gravedad (rojo = no se dictó · ámbar = se vacía · gris = falta cerrar).
-  ⚠️ Los `texto` de `riesgoFranja` son **frases completas**: se probaron envueltos en "Esta franja …"
-  y salía *"Esta franja solo el 41% de asistencia"*.
-- 💡 **La pregunta "qué días no tienen asistencia" son DOS fracasos distintos** que antes se veían
-  iguales, y solo se separan porque ahora se sabe a quién se esperaba: franja con inscritos y **cero
-  clases** = la clase no se dio (operativo) · franja con clases y poca gente = el grupo se vacía
-  (negocio). El tablero los etiqueta distinto.
-- Una clase se pega a la franja **más cercana** de su día con tolerancia de **±20 min** (una clase
-  registrada 16:05 no debe dejar la franja de 16:00 como "sin clases"; el "más cercana" evita que dos
-  franjas vecinas cuenten la misma clase dos veces). Las clases a una hora que nadie tiene inscrita
-  salen en una fila con la franja en `null` → "Otras horas".
+
 - **Dónde va el filtro** (decisión de UX): el **periodo** va DENTRO de cada academia, con el mismo
   `PeriodoToggle` del dashboard/ingresos. NO se hizo un reporte general con selector de academia
   porque (a) la academia ya es el filtro —se llega haciéndole clic, y son 4— y (b) mezclar las 4 en

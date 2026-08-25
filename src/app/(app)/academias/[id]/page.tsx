@@ -4,13 +4,12 @@ import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { rangoPeriodo } from "@/lib/periodo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
-import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL, riesgoFranja } from "../ocupacion";
+import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL } from "../ocupacion";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -18,25 +17,16 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
   const academiaId = Number(id);
-  // Sin selector de periodo: esta pantalla solo dice a cuál grupo entrar. El
-  // detalle con su periodo vive DENTRO del grupo, que es donde son 7 franjas y
-  // no 48 (decisión de Laura, ago-2026).
-  const { curStartIso, curEndIso, todayIso } = rangoPeriodo("mes", new Date());
   const supabase = await createClient();
 
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const [{ data: servicio }, { data: grupos }, { data: ocupacion }, { data: listaEspera }] = await Promise.all([
+  const [{ data: servicio }, { data: grupos }, { data: listaEspera }] = await Promise.all([
     a.servicio_id
       ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.rpc("academia_grupos_resumen", { p_academia: academiaId }),
-    supabase.rpc("academia_ocupacion_franja", {
-      p_academia: academiaId,
-      p_desde: curStartIso,
-      p_hasta: curEndIso,
-    }),
     supabase
       .from("lista_espera")
       .select("id, nombre, contacto, nivel, edad, disponibilidad")
@@ -50,21 +40,6 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   const ocupados = gs.reduce((n, g) => n + g.ocupados, 0);
   const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
   const libres = Math.max(0, cupo - ocupados);
-
-  // Del mes en curso solo se conserva el marcador: cuántas franjas piden que
-  // alguien entre a mirarlas. El porqué se ve adentro del grupo.
-  const filas = (ocupacion ?? []).map((o) => ({
-    inscritos: o.inscritos,
-    clases: o.clases,
-    clasesSinCerrar: o.clases_sin_cerrar,
-    clasesPorVenir: o.clases_por_venir,
-    desdeEfectivo: o.desde_efectivo,
-    presentes: o.presentes,
-    ausentes: o.ausentes,
-    dia: o.dia_semana,
-  }));
-  const hayClases = filas.some((f) => f.clases + f.clasesSinCerrar + f.clasesPorVenir > 0);
-  const enRiesgo = hayClases ? filas.filter((f) => riesgoFranja(f, curStartIso, curEndIso, todayIso)).length : 0;
 
   const puedeGestionar = can(profile.role, "academias", "edit");
   const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
@@ -98,7 +73,7 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         <Kpi label="Grupos" valor={gs.length} />
         <Kpi label="Niños inscritos" valor={ninos} />
         <Kpi label="Cupos libres" valor={libres} tono={libres > 0 ? "ok" : undefined} />
-        <Kpi label="Franjas por revisar" valor={enRiesgo} tono={enRiesgo > 0 ? "mal" : undefined} />
+        <Kpi label="Franjas sobre cupo" valor={sobre} tono={sobre > 0 ? "mal" : undefined} />
       </div>
 
       <section className="space-y-3">

@@ -9,7 +9,7 @@ import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
 import { PeriodoToggle } from "../../../../dashboard/periodo-toggle";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { DIA_CORTO, NIVEL_LABEL, pesoRiesgo, riesgoFranja } from "../../../ocupacion";
+import { DIA_CORTO, NIVEL_LABEL } from "../../../ocupacion";
 import { FranjasDesplegables, type FranjaFila, type NinoEnFranja } from "./franjas-desplegables";
 
 export default async function GrupoPage({
@@ -25,7 +25,7 @@ export default async function GrupoPage({
   const gid = Number(grupoId);
   const sp = await searchParams;
   const periodo = parsePeriodo(sp.periodo);
-  const { curStartIso, curEndIso, todayIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
+  const { curStartIso, curEndIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
 
   const supabase = await createClient();
   const { data: g } = await supabase
@@ -35,13 +35,12 @@ export default async function GrupoPage({
     .maybeSingle();
   if (!g || g.academia_id !== academiaId) notFound();
 
-  const [{ data: aca }, { data: franjas }, { data: inscritos }, { data: periodoFranjas }, nombres] = await Promise.all([
+  const [{ data: aca }, { data: franjas }, { data: inscritos }, nombres] = await Promise.all([
     supabase.from("academias").select("nombre").eq("id", academiaId).single(),
     supabase.rpc("grupo_franjas", { p_grupo: gid }),
+    // El periodo sigue haciendo falta: alimenta la asistencia DE CADA NIÑO, que
+    // es la que decide algo aquí (¿le cambio el día?, ¿lo retiro?).
     supabase.rpc("grupo_inscritos_por_franja", { p_grupo: gid, p_desde: curStartIso, p_hasta: curEndIso }),
-    // Lo que YA pasó en el periodo, por franja. El cupo y los inscritos siguen
-    // saliendo de `grupo_franjas`: cada número tiene una sola fuente.
-    supabase.rpc("academia_ocupacion_franja", { p_academia: academiaId, p_desde: curStartIso, p_hasta: curEndIso }),
     mapaNombresStaff(),
   ]);
 
@@ -60,54 +59,16 @@ export default async function GrupoPage({
   }));
   // Un niño con dos franjas viene dos veces en las filas: la cuenta es de PERSONAS.
   const totalNinos = new Set(filas.map((n) => n.miembroId)).size;
-  const periodoPorFranja = new Map(
-    (periodoFranjas ?? []).filter((p) => p.franja_id != null).map((p) => [p.franja_id!, p]),
-  );
-  const franjasUI: FranjaFila[] = fr.map((f) => {
-    const p = periodoPorFranja.get(f.franja_id);
-    return {
-      id: f.franja_id,
-      dia: f.dia_semana,
-      horaInicio: f.hora_inicio,
-      horaFin: f.hora_fin,
-      profesor: f.profesor_id ? nombres.get(f.profesor_id) ?? null : null,
-      cancha: f.cancha,
-      cupo: f.cupo,
-      inscritos: f.inscritos,
-      clases: p?.clases ?? 0,
-      clasesPorVenir: p?.clases_por_venir ?? 0,
-      clasesSinCerrar: p?.clases_sin_cerrar ?? 0,
-      desdeEfectivo: p?.desde_efectivo ?? null,
-      presentes: p?.presentes ?? 0,
-      ausentes: p?.ausentes ?? 0,
-      riesgo: p
-        ? riesgoFranja(
-            {
-              inscritos: p.inscritos,
-              clases: p.clases,
-              clasesSinCerrar: p.clases_sin_cerrar,
-              clasesPorVenir: p.clases_por_venir,
-              desdeEfectivo: p.desde_efectivo,
-              presentes: p.presentes,
-              ausentes: p.ausentes,
-              dia: p.dia_semana,
-            },
-            curStartIso,
-            curEndIso,
-            todayIso,
-          )
-        : null,
-    };
-  });
-  // Primero lo que hay que revisar; dentro de cada grupo, el orden natural de la
-  // semana. Así la ficha se puede dejar de leer cuando se acaban los avisos.
-  franjasUI.sort(
-    (a, b) =>
-      pesoRiesgo(a.riesgo) - pesoRiesgo(b.riesgo) ||
-      a.dia - b.dia ||
-      a.horaInicio.localeCompare(b.horaInicio),
-  );
-  const porRevisar = franjasUI.filter((f) => f.riesgo).length;
+  const franjasUI: FranjaFila[] = fr.map((f) => ({
+    id: f.franja_id,
+    dia: f.dia_semana,
+    horaInicio: f.hora_inicio,
+    horaFin: f.hora_fin,
+    profesor: f.profesor_id ? nombres.get(f.profesor_id) ?? null : null,
+    cancha: f.cancha,
+    cupo: f.cupo,
+    inscritos: f.inscritos,
+  }));
 
   const tope = fr[0]?.cupo ?? 0;
   const sobre = fr.filter((f) => f.inscritos > f.cupo);
@@ -172,14 +133,6 @@ export default async function GrupoPage({
             <h2 className="cdaf-title text-base">Franjas · {totalNinos} {totalNinos === 1 ? "inscrito" : "inscritos"}</h2>
             <p className="text-muted-foreground mt-0.5 text-xs">
               Cada franja es una clase. Ábrela para ver quiénes vienen ese día.
-              {porRevisar > 0 && (
-                <>
-                  {" "}
-                  <span className="font-medium text-[#8a5600]">
-                    {porRevisar === 1 ? "Una pide revisión y va" : `${porRevisar} piden revisión y van`} de primeras.
-                  </span>
-                </>
-              )}
             </p>
           </div>
           {puedeGestionar && (

@@ -86,17 +86,24 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const html = await render(Page, { params: P({ id: academiaId }) });
     const t = texto(html);
     expect(t).toContain("Grupos");
-    // El marcador que sí se quedó en esta pantalla: dice a cuál grupo entrar.
-    expect(t).toContain("Franjas por revisar");
-    // El detalle por franja se mudó ADENTRO del grupo (ago-2026): aquí no va.
+    // Esta pantalla es de MATRÍCULA: grupos, niños y cupo. Lo de si la clase se
+    // dictó o se cerró vive en /clases y /cierre, que es donde hay botón para
+    // arreglarlo (decisión de Laura, ago-2026).
+    expect(t).toContain("Cupos libres");
+    expect(t).toContain("Franjas sobre cupo");
     expect(t).not.toContain("Cómo va el periodo");
+    expect(t).not.toContain("por revisar");
   });
 
   it("la ficha de un grupo, con sus franjas desplegables", async () => {
     const { academiaId, grupoId } = await unaAcademiaConGrupo();
     const { default: Page } = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/page");
-    const html = await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({}) });
-    expect(texto(html)).toContain("Franjas");
+    const t = texto(await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({}) }));
+    expect(t).toContain("Franjas");
+    // La asistencia se queda, pero POR NIÑO: es la que decide si se le cambia el
+    // día o se le retira, y está al lado de esos botones.
+    expect(t).not.toContain("sin clases en el periodo");
+    expect(t).not.toContain("no se registró");
   });
 
   it("la ficha del grupo en los cuatro periodos", async () => {
