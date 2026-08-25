@@ -72,6 +72,11 @@ export function TableroPeriodo({
   hasta: string;
   hoy: string;
 }) {
+  // Si NO se registró ni una clase en todo el periodo, marcar 60 franjas como
+  // "no se dictó" es cierto pero apunta al sitio equivocado: el problema no está
+  // en 60 franjas, está en que nadie registró los bloqueos como clases.
+  const totalClases = filas.reduce((n, f) => n + f.clases + f.clasesSinCerrar + f.clasesPorVenir, 0);
+
   const riesgoDe = (f: FilaTablero): Riesgo => (totalClases === 0 ? null : riesgoFranja(f, desde, hasta, hoy));
   const conRiesgo = filas.map((f) => riesgoDe(f)).filter(Boolean);
 
@@ -90,11 +95,6 @@ export function TableroPeriodo({
   const visibles = orden.filter(
     (f) => f.inscritos > 0 || f.clases > 0 || f.clasesSinCerrar > 0 || f.clasesPorVenir > 0,
   );
-
-  // Si NO se registró ni una clase en todo el periodo, marcar 60 franjas como
-  // "no se dictó" es cierto pero apunta al sitio equivocado: el problema no está
-  // en 60 franjas, está en que nadie registró los bloqueos como clases.
-  const totalClases = filas.reduce((n, f) => n + f.clases + f.clasesSinCerrar + f.clasesPorVenir, 0);
 
   if (visibles.length === 0) {
     return (
