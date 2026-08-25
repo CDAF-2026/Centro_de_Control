@@ -122,18 +122,22 @@ export default async function DashboardPage({
     (c) => now > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000,
   ).length;
 
+  // El dinero sale de Siigo (regla 3). Antes se sumaba `pagos`, el modelo viejo
+  // de cobros internos, que quedó en CERO filas al pasar a Siigo — así que este
+  // marcador llevaba tiempo mostrando $0 sin que nadie lo notara.
   let totalMes = 0;
   if (esFinanzas) {
     const d = new Date();
     const d1 = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
     const d2 = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-    const { data: pagos } = await supabase
-      .from("pagos")
-      .select("monto")
-      .eq("estado", "asignado")
-      .gte("fecha", d1)
-      .lte("fecha", d2);
-    totalMes = (pagos ?? []).reduce((s, p) => s + p.monto, 0);
+    // `p_excluir_eventos: true` igual que el dashboard del superadministrador,
+    // para que un torneo aporte su utilidad neta y no su bruto (regla 2).
+    const { data: recaudo } = await supabase.rpc("siigo_recaudo", {
+      p_desde: d1,
+      p_hasta: d2,
+      p_excluir_eventos: true,
+    });
+    totalMes = recaudo?.[0]?.cobrado ?? 0;
   }
 
   return (
@@ -166,7 +170,7 @@ export default async function DashboardPage({
             <Kpi label="Profesores" value={nProfes ?? 0} icon={GraduationCap} />
             <Kpi label="Academias activas" value={nAcademias ?? 0} icon={Building2} />
             {esFinanzas ? (
-              <Kpi label="Conciliado este mes" value={COP.format(totalMes)} icon={Wallet} accent />
+              <Kpi label="Cobrado este mes" value={COP.format(totalMes)} icon={Wallet} accent />
             ) : (
               <Kpi label="Próximas clases" value={proximas?.length ?? 0} icon={CalendarClock} />
             )}

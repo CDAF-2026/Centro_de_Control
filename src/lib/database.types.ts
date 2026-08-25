@@ -736,74 +736,6 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["servicios"]["Insert"]>;
         Relationships: [];
       };
-      pagos: {
-        Row: {
-          id: number;
-          origen: string;
-          external_id: string | null;
-          monto: number;
-          fecha: string;
-          servicio_id: number;
-          concepto: string | null;
-          estado: PagoEstado;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          origen?: string;
-          external_id?: string | null;
-          monto: number;
-          fecha?: string;
-          servicio_id: number;
-          concepto?: string | null;
-          estado?: PagoEstado;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["pagos"]["Insert"]>;
-        Relationships: [];
-      };
-      asignaciones_pago: {
-        Row: {
-          id: number;
-          pago_id: number;
-          cliente_id: number;
-          servicio: string;
-          servicio_id: number | null;
-          periodos: string[];
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          pago_id: number;
-          cliente_id: number;
-          servicio: string;
-          servicio_id?: number | null;
-          periodos?: string[];
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["asignaciones_pago"]["Insert"]>;
-        Relationships: [];
-      };
-      abonos: {
-        Row: {
-          id: number;
-          cliente_id: number;
-          servicio_id: number;
-          monto: number;
-          nota: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          cliente_id: number;
-          servicio_id: number;
-          monto: number;
-          nota?: string | null;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["abonos"]["Insert"]>;
-        Relationships: [];
-      };
       eventos: {
         Row: {
           id: number;
@@ -862,7 +794,6 @@ export type Database = {
           telefono_externo: string | null;
           email_externo: string | null;
           monto: number;
-          pago_id: number | null;
           estado: string;
           created_at: string;
         };
@@ -875,7 +806,6 @@ export type Database = {
           telefono_externo?: string | null;
           email_externo?: string | null;
           monto?: number;
-          pago_id?: number | null;
           estado?: string;
           created_at?: string;
         };

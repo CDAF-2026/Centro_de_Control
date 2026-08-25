@@ -30,21 +30,20 @@ async function reunirMetricas(
     if (c.deporte) clasesPorDeporte[c.deporte] = (clasesPorDeporte[c.deporte] ?? 0) + 1;
   }
 
+  // El dinero sale de Siigo (regla 3), agregado en SQL (regla 2). Antes se leía
+  // `pagos`, el modelo viejo de cobros internos: quedó en CERO filas al pasar a
+  // Siigo, así que el agente venía respondiendo con cifras vacías.
   const { data: servicios } = await supabase.from("servicios").select("id, nombre");
   const nombreDe = new Map((servicios ?? []).map((s) => [s.id, s.nombre]));
-  const { data: pagos } = await supabase
-    .from("pagos")
-    .select("monto, servicio_id")
-    .eq("estado", "asignado")
-    .gte("fecha", d1)
-    .lte("fecha", d2);
-  const conciliadoPorServicio: Record<string, number> = {};
-  let totalConciliadoMes = 0;
-  for (const p of pagos ?? []) {
-    const nombre = nombreDe.get(p.servicio_id) ?? "—";
-    conciliadoPorServicio[nombre] = (conciliadoPorServicio[nombre] ?? 0) + p.monto;
-    totalConciliadoMes += p.monto;
+  const [{ data: porServicio }, { data: recaudo }] = await Promise.all([
+    supabase.rpc("siigo_ingreso_servicio", { p_desde: d1, p_hasta: d2 }),
+    supabase.rpc("siigo_recaudo", { p_desde: d1, p_hasta: d2 }),
+  ]);
+  const ingresoPorServicio: Record<string, number> = {};
+  for (const r of porServicio ?? []) {
+    ingresoPorServicio[nombreDe.get(r.servicio_id) ?? "Sin categorizar"] = r.monto;
   }
+  const { facturado = 0, cobrado = 0, pendiente = 0 } = recaudo?.[0] ?? {};
 
   return {
     mes_actual: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
@@ -55,8 +54,10 @@ async function reunirMetricas(
     academias_activas: academias ?? 0,
     clases_por_estado: clasesPorEstado,
     clases_por_deporte: clasesPorDeporte,
-    conciliado_mes_por_servicio: conciliadoPorServicio,
-    total_conciliado_mes: totalConciliadoMes,
+    facturado_mes_por_servicio: ingresoPorServicio,
+    total_facturado_mes: facturado,
+    total_cobrado_mes: cobrado,
+    pendiente_de_cobro_mes: pendiente,
   };
 }
 

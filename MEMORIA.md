@@ -386,8 +386,24 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   y navegador: el español mete un espacio fino (U+202F) antes de "p. m." en Node pero no siempre en
   el navegador, React lo lee como texto distinto y **descarta la hidratación del árbol entero**
   (la pantalla deja de pintar). El helper arma el texto a mano desde `formatToParts`.
-- **Tablas en desuso** (persisten, no borrar aún): `pagos`, `asignaciones_pago`, `abonos`,
-  `profesor_valor_clase`.
+- 🗑️ **`pagos`, `asignaciones_pago` y `abonos` SE BORRARON** (migración 0077, 25-ago-2026). Eran el
+  modelo viejo de cobros internos, muerto desde que Siigo manda para el dinero; medido antes de
+  borrar: **0 filas las tres**, así que no había historia que perder.
+  ⚠️ **Estar vacías no bastaba** — tenían dos amarras vivas que hubo que soltar primero, y por eso
+  el orden importa: (a) `evento_participantes.pago_id`, una FK a `pagos` que ningún archivo leía;
+  (b) **dos pantallas seguían consultándolas**, el *dashboard sencillo* y **`/agente`**, y como la
+  tabla estaba vacía **sumaban $0 sin fallar**: el marcador decía "Conciliado este mes: $0" y el
+  agente respondía con cifras en blanco. Ese es el fallo callado que justifica borrar en vez de
+  dejar tablas muertas "por si acaso": nadie lo notó en meses.
+  Las dos ya salen de los RPCs de Siigo — el marcador de `siigo_recaudo` (con
+  `p_excluir_eventos: true`, igual que el dashboard del SA) y el agente de `siigo_recaudo` +
+  `siigo_ingreso_servicio`. Verificado: el marcador pasa de $0 a **$159.342.003** en agosto, y el
+  agente de `{}` a las cifras por servicio. Sus claves del JSON cambiaron de
+  `conciliado_mes_por_servicio`/`total_conciliado_mes` a `facturado_mes_por_servicio`,
+  `total_facturado_mes`, `total_cobrado_mes` y `pendiente_de_cobro_mes`.
+- **Tablas en desuso** (persisten, no borrar aún): `profesor_valor_clase` y
+  `profesor_compensacion` — son el respaldo del modelo viejo de pagos a profesores y **sí tienen
+  filas** (1 y 5).
 
 ## Sincronización Siigo (automática)
 Edge Function **`siigo-sync`** (fuente: `supabase/functions/siigo-sync/index.ts`, misma lógica que el
@@ -852,5 +868,5 @@ administrativa sin darle también la creación de usuarios.
   al cambiar de correo. Hoy ambos flujos van por el SA.
 - **Cargar los correos reales de los 9 profesores** y darles su contraseña (ver Perfil y acceso).
 - D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
-- Agente IA → leer ingresos de Siigo (aún consulta `pagos` viejo).
-- Retirar tablas en desuso cuando se confirme estabilidad.
+- Retirar `profesor_valor_clase` / `profesor_compensacion` cuando se confirme que nadie vuelve al
+  modelo viejo de pagos a profesores (hoy TODOS los entrenadores están migrados a reglas).
