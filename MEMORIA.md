@@ -15,6 +15,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 |---|---|
 | Dev server | `nohup npm run dev > /tmp/cdaf-dev.log 2>&1 & disown` (localhost:3000; log en /tmp/cdaf-dev.log) |
 | Build (verificar SIEMPRE antes de commit) | `npm run build` (si falla por Google Fonts, reintentar) |
+| **Pruebas (verificar SIEMPRE antes de commit)** | `npm test` — incluye `tests/academias-render.test.tsx`, que RENDERIZA las páginas de verdad. ⚠️ **El build NO sustituye a esto**: ver abajo |
 | **Migraciones** | `npm run db:apply` (Management API/HTTPS con PAT en .env). ⚠️ `db:push` NO sirve desde el agente (Postgres directo es IPv6-only) |
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
 | **Refrescar solo el catálogo de productos** | `npm run sync:productos` (`-- --dry` para simulacro). Úsalo cuando el club renombre un grupo en Siigo: el sync completo solo refresca este caché si encuentra facturas nuevas, y con el rezago de ~1 día puede pasar medio día sin hacerlo |
@@ -23,6 +24,20 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
 | Redeploy Edge Function siigo-sync | `node --env-file=.env scripts/deploy-siigo-fn.mjs`; re-agendar cron: `scripts/schedule-siigo-cron.mjs` |
 | Verificar esquema/datos | script one-off con Management API (`POST /v1/projects/$REF/database/query`, token de .env) o service-role |
+
+> ⚠️ **`npm run build` en verde NO significa que la página abra.** El 25-ago-2026 `/academias/[id]`
+> cayó en producción con "This page couldn't load": una función leía una `const` declarada veinte
+> líneas más abajo → `ReferenceError: Cannot access 'X' before initialization` en CADA render.
+> No lo vio NADIE: `tsc` no lo ve porque la lectura ocurre dentro de una función; `next build` no lo
+> ve porque las páginas son dinámicas y no se renderizan al compilar; y pedir la URL con `curl` solo
+> llega al **307 hacia /login**, así que el componente ni se ejecuta — un 500 y un redirect se ven
+> igual desde fuera. Por eso existe **`tests/academias-render.test.tsx`**: monta las páginas con
+> `renderToStaticMarkup`, saltándose el guardia de sesión (`vi.mock` de `@/lib/auth`) y usando
+> service_role. Verificado que caza la regresión: con el bug puesto, 2 pruebas fallan con ese mismo
+> ReferenceError. **Al tocar una pantalla, agregarle su render aquí.**
+> ⚠️ Efecto secundario al leer ese HTML: `staff_directorio` exige `auth.uid()`, así que con
+> service_role los nombres del staff salen vacíos y todo aparece como "sin profesor". Es del arnés,
+> no de la app (verificado simulando sesión: devuelve los 17).
 
 > **Turbopack "stale"**: si el dev tira `require is not defined` en un chunk de `node_modules_*.js` con el badge **(stale)**, es caché corrupta de Turbopack, NO código (verificar: `grep -rn "require(" src/` vacío + `npm run build` pasa). Fix: `pkill -f "next dev"` + `rm -rf .next` + relanzar dev.
 

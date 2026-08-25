@@ -32,7 +32,8 @@ export function GrupoForm({
   academiaId: number;
   categoria: string | null;
   inicial?: GrupoInicial;
-  /** Nombres ya tomados en esta academia: no se sugieren de nuevo. */
+  /** Nombres ya usados en esta academia: solo sirven para no sugerirlos otra
+   *  vez. La unicidad la hace cumplir el índice único de la base, no esto. */
   usados: string[];
 }) {
   const [state, action, pending] = useActionState<AcademiaFormState, FormData>(guardarGrupo, {});

@@ -35,7 +35,7 @@ export default async function EditarGrupoPage({
         academiaId={academiaId}
         categoria={a.categoria}
         inicial={{ id: g.id, nombre: g.nombre, nivel: g.nivel, edadMin: g.edad_min, edadMax: g.edad_max }}
-        usados={(grupos ?? []).map((x) => x.nombre).filter((n) => n !== g.nombre)}
+        usados={(grupos ?? []).map((x) => x.nombre)}
       />
     </div>
   );
