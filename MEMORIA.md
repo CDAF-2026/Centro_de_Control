@@ -857,6 +857,106 @@ administrativa sin darle también la creación de usuarios.
   carga por `/empleados/[id]/editar`; la ficha avisa cuando alguien no tiene correo propio, porque el
   correo es lo que se escribe para entrar.
 
+## ⏱️ Turnos del personal (en construcción · bloque 1 hecho el 26-ago-2026)
+Registro de entrada y salida por horas para quien se paga así: **Camila Arboleda** (cafetería, figura
+como recepción), **Juan Fernando Gaviria** (coord. admin), **Santiago Montoya** (recepción) y
+**Carlos** (vigilante, cuenta pendiente de crear). **Los profesores NO marcan** (decisión de Laura).
+
+**Reglas del cálculo** (acordadas con Laura el 25-ago-2026, verificadas contra la norma vigente):
+- Semana **lunes a domingo**; máximo **42 h** (Ley 2101 de 2021, desde el 15-jul-2026). Jornada de
+  **7 h trabajadas + 1 de almuerzo**, que NO es tiempo trabajado y se marca aparte.
+- **Diurna 6:00–18:59 · nocturna 19:00–5:59** (Ley 2466 de 2025 corrió la noche de las 9 a las 7 p.m.).
+  ⚠️ Arranca a las **6**, no a las 7 que dictó Laura: el club abre a las 7, pero la ley dice 6 y el día
+  que alguien abra a las 6:30 esa media hora tiene que salir bien.
+- Una hora es **extra** si pasa de 7 h en el día, de 42 en la semana, **o** cae fuera de la ventana de
+  operación (después de las 9 p.m. o antes de las 6 a.m.).
+  💡 La regla de las 9 p.m. la pidió Laura y **casi nunca cambia nada**: con jornada de 7 h, el turno
+  de la tarde (1–9 p.m.) llega a las 9 p.m. con sus 7 horas justas, así que las dos reglas dicen lo
+  mismo. Solo agrega plata cuando alguien entra tarde por un evento y se queda pasadas las 9 habiendo
+  trabajado menos de 7 h. Se propuso quitarla y Laura dijo que no; **queda**.
+  ⚠️ La objeción que se le hizo (que arruinaría a un vigilante nocturno) **no aplica**: Carlos no es
+  nocturno, entra a las 9 a.m. y cierra el club a las 9 p.m. El día que entre alguien con turno de
+  noche de verdad, la hora de corte es un parámetro en un solo sitio del SQL.
+- **Domingos y los 18 festivos** llevan recargo dominical (90% desde jul-2026) y los recargos se
+  acumulan si además es de noche.
+- ⚠️ **Carlos hace 12 h diarias** = 11 trabajadas = 4 extras al día. Seis días son ~66 h contra un tope
+  de 42, y 24 h extra semanales contra un tope legal de 12. **El reporte lo va a marcar en rojo todas
+  las semanas y está bien que lo haga.** Falta confirmar si entra por empresa de vigilancia (entonces
+  los recargos no los debe el club) o como empleado directo.
+
+**Cómo se marca**: dos puertas, **una sola implementación** (`private.turno_marcar`) — el celular de
+cada quien (`turno_marcar`) y el PC de recepción (`quiosco_marcar`, con PIN de 4 dígitos). Foto de la
+cara al entrar **y** al salir; sin foto no se marca. Cuatro marcaciones al día: entrada, salida a
+almorzar, regreso y salida.
+- 🔒 **La hora la pone el servidor, SIEMPRE.** Las tablas no tienen permiso de escritura para nadie;
+  se escribe solo por funciones SECURITY DEFINER que estampan `now()`. Si la hora viniera del
+  formulario, bastaría con atrasarle el reloj al celular. Todo se guarda en **minutos redondos**, que
+  normaliza un trigger (no un CHECK: `date_trunc` sobre timestamptz es STABLE y Postgres no lo acepta
+  en un CHECK).
+- ⚠️ **Cerrar el turno con el almuerzo abierto está BLOQUEADO a propósito.** Las dos salidas posibles
+  están mal: contar la pausa en cero le paga el almuerzo, y estirarla hasta el final del turno le quita
+  horas trabajadas. Mejor exigir el dato con la persona ahí parada.
+- ⚠️ **`quiosco_marcar` devuelve un ESTADO, no lanza excepción con el PIN malo**, y no es capricho: una
+  excepción revierte la transacción y con ella el `update` que suma el intento fallido, así que el
+  bloqueo a los 5 intentos nunca se activaría.
+- Un turno **abierto aporta CERO horas**: no se inventa la hora de salida. Sale en rojo y lo corrige el
+  superadministrador (`turno_ajustar`, `turno_crear_manual`, `turno_eliminar`, `turno_pausa_fijar`),
+  siempre con motivo obligatorio y rastro en `audit_log`.
+
+**El cálculo va minuto a minuto** (`turnos_horas`, migración 0081) y devuelve **minutos por persona y
+por DÍA**, con 8 baldes. Se hace así porque las fórmulas de "restar horas" obligan a resolver a mano el
+turno que cruza las 7 p.m., el que cruza la medianoche del domingo al lunes y —el peor— el instante
+exacto en que se cumplen las 42 h a mitad de hora. El volumen es ridículo: una quincena de 4 personas
+son ~20.000 minutos. Va por día y no por semana para que el reporte sume cualquier periodo sin
+recalcular. ⚠️ El contador de 42 h se cuenta desde el **lunes de cada semana tocada**, aunque `p_desde`
+caiga a mitad de semana; sin eso, pedir "del 12 al 20" reiniciaría el contador y las extras saldrían
+de menos. La función es **SECURITY INVOKER a propósito**: así la RLS filtra sola (cada quien lo suyo,
+el SA todo) y no hay un guardia a mano que se desactualice.
+
+**Dos roles nuevos** (migración 0078): **`seguridad`** (Carlos) y **`quiosco`** (NO es una persona: es
+el PC de recepción, con la sesión abierta todo el día en la pantalla de marcar).
+- ⚠️ Son los primeros roles **sin ningún módulo**, y eso rompía `rutaInicio()`, que mandaba a todo el
+  que no es SA a `/notas` — habrían quedado rebotando sin poder entrar a ninguna parte. Ahora
+  `seguridad` cae en `/turnos` y `quiosco` en `/quiosco`.
+- **Quién marca lo dice `profiles.marca_turno`, persona por persona**, no el rol: los cuatro son de
+  roles distintos y marcar turno es una condición del contrato, no un módulo. Lo blinda el trigger
+  `profiles_blindar_rol` (junto con `role` y `activo`): si cualquiera pudiera apagárselo desde "Mi
+  perfil", desaparecería de la nómina por horas sin que nadie lo note.
+
+⚠️⚠️ **HALLAZGO GRANDE — en Supabase "no dar grants" NO cierra nada** (migración 0082). El proyecto
+trae `alter default privileges … grant all on tables to anon, authenticated`, así que **toda tabla
+nueva del esquema público nace con SELECT/INSERT/UPDATE/DELETE para `anon` y para `authenticated`**.
+Medido: las cuatro tablas de este módulo tenían los siete privilegios para los dos roles. En la
+práctica nadie escribía, porque la RLS sin políticas de escritura ya niega, pero dejaba la tabla de
+NÓMINA defendida por una sola capa (un `disable row level security` de más la abría), y a `turno_pin`
+"protegida" solo porque **RLS sin políticas devuelve CERO FILAS, no un error** — una política de
+lectura puesta por descuido habría publicado los hash de los PIN, que con 4 dígitos se revientan en
+milisegundos. **Al crear una tabla sensible: `revoke all … from anon, authenticated` explícito y
+devolver solo lo que hace falta.**
+
+**Fotos**: bucket privado **`turnos`** (a diferencia de `avatares`, que es público). La foto de una
+cara es dato sensible (Ley 1581) → enlaces firmados y **borrado automático al mes** (Laura). Se borra
+la foto; **el registro del turno se conserva siempre**, porque es la prueba de nómina. Hay que hacerles
+firmar autorización de tratamiento de datos: eso es del club, no del software.
+
+**Festivos** (migración 0079): tabla `festivo` con fechas ESCRITAS hasta 2032, generadas por
+`scripts/festivos-colombia.mjs`. ⚠️ **No siempre son 18**: en 2030 hay 17, porque el 29 de junio cae
+sábado y San Pedro se corre al lunes 1 de julio, que es justo el Sagrado Corazón — ese choque tumbó la
+primera versión de la migración. ⚠️ Cuando se acaben (2032) el cálculo **no falla**: deja de reconocer
+festivos y esas horas se pagan como día normal, en silencio.
+
+**Pruebas**: `tests/turnos-horas.test.ts` (16, la matemática, incluido el ejemplo exacto que dictó
+Laura: llega el domingo con 38 h y hace 7 → 4 dominicales + 3 dominicales extra) y
+`tests/turnos-marcar.test.ts` (18, las dos puertas, las correcciones y quién ve qué).
+⚠️ **En las pruebas de rechazo hay que usar SAVEPOINT**: en Postgres un error deja la transacción
+abortada y toda sentencia siguiente responde "current transaction is aborted" — sin savepoint, la
+primera prueba de rechazo tumbaba en cascada a las diez siguientes y los mensajes de fallo no tenían
+nada que ver con lo que se estaba probando.
+
+**Falta** (bloques 2 a 4): pantalla `/turnos` con la cámara, reporte del superadministrador,
+pantalla del quiósco, interruptor y PIN en la ficha del empleado, entradas del menú, y la tarea
+automática que borra las fotos al mes.
+
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya
   corrido.** Se aplazó a propósito para medir el comportamiento real en vez de construir a ciegas.

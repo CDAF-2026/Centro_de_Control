@@ -7,6 +7,10 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   recepcion: "Recepción",
   profesor: "Profesor",
   gestion_eventos: "Gestión de Eventos",
+  seguridad: "Seguridad",
+  // No es una persona: es el PC de recepción, con la sesión abierta todo el día
+  // en la pantalla de marcar turno.
+  quiosco: "Quiósco (PC de recepción)",
 };
 
 export const ROLE_OPTIONS: { value: AppRole; label: string }[] = (

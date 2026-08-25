@@ -17,7 +17,11 @@ export type AppRole =
   | "recepcion"
   | "profesor"
   /** Maneja los torneos y nada más: eventos (control total) + notas. Migración 0068. */
-  | "gestion_eventos";
+  | "gestion_eventos"
+  /** El vigilante: abre y cierra el club. NO ve ningún módulo, solo marca su turno. Migración 0078. */
+  | "seguridad"
+  /** NO es una persona: es el PC de recepción. Solo pinta la pantalla de marcar turno. Migración 0078. */
+  | "quiosco";
 
 export type ClienteEstado = "activo" | "retirado";
 
@@ -61,6 +65,60 @@ export type ReglaMetodo =
 /** Un escalón del método `escalonado_asistentes`: desde `min` asistentes, se cobra `valor`. */
 export type ReglaEscalon = { min: number; valor: number };
 
+/** De dónde salió el turno. `ajuste` = lo creó o corrigió el superadministrador. */
+export type TurnoOrigen = "app" | "quiosco" | "ajuste";
+
+/** Las cuatro marcaciones del día. */
+export type TurnoAccion = "entrada" | "salida" | "pausa_inicio" | "pausa_fin";
+
+/**
+ * Minutos trabajados de una persona en UN día, ya clasificados según la
+ * normativa laboral colombiana (migración 0081).
+ *
+ * Van en MINUTOS, no en horas: son exactos y la pantalla los formatea. Y van por
+ * día —no por semana— para que el reporte pueda sumar cualquier periodo sin
+ * recalcular; cada minuto ya se clasificó teniendo en cuenta la semana completa
+ * a la que pertenece, que es lo que decide el tope de las 42 h.
+ */
+export type TurnoHoras = {
+  perfil_id: string;
+  dia: string;
+  /** Lunes de la semana a la que pertenece el día. */
+  semana: string;
+  diurnas: number;
+  /** 7 p.m. a 6 a.m., recargo del 35%. */
+  nocturnas: number;
+  /** Recargo del 25%. */
+  extra_diurnas: number;
+  /** Recargo del 75%. */
+  extra_nocturnas: number;
+  /** Domingo o festivo, recargo del 90%. Los recargos se acumulan si además es de noche. */
+  dom_diurnas: number;
+  dom_nocturnas: number;
+  dom_extra_diurnas: number;
+  dom_extra_nocturnas: number;
+  total: number;
+};
+
+/** Un turno con sus minutos ya descontado el almuerzo. */
+export type TurnoListado = {
+  id: number;
+  perfil_id: string;
+  dia: string;
+  inicio_el: string;
+  fin_el: string | null;
+  /** null = turno todavía abierto. */
+  minutos: number | null;
+  minutos_pausa: number;
+  n_pausas: number;
+  pausa_abierta: boolean;
+  foto_inicio_path: string | null;
+  foto_fin_path: string | null;
+  origen: TurnoOrigen;
+  ajustado_por: string | null;
+  ajuste_motivo: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -73,6 +131,8 @@ export type Database = {
           documento: string | null;
           avatar_path: string | null;
           activo: boolean;
+          /** Registra entrada y salida por horas. Solo lo mueve el superadministrador. */
+          marca_turno: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -84,6 +144,7 @@ export type Database = {
           documento?: string | null;
           avatar_path?: string | null;
           activo?: boolean;
+          marca_turno?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -95,6 +156,7 @@ export type Database = {
           documento?: string | null;
           avatar_path?: string | null;
           activo?: boolean;
+          marca_turno?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1081,9 +1143,127 @@ export type Database = {
         };
         Relationships: [];
       };
+      /**
+       * Turno de un empleado (migración 0080).
+       *
+       * ⚠️ Solo se puede LEER desde el cliente. Insert y Update están declarados
+       * porque el tipo lo exige, pero la tabla no tiene permiso de escritura
+       * para nadie: se escribe únicamente por las funciones `turno_marcar`,
+       * `quiosco_marcar` y las correcciones del superadministrador, que son las
+       * que estampan la hora del servidor.
+       */
+      turno: {
+        Row: {
+          id: number;
+          perfil_id: string;
+          inicio_el: string;
+          /** null = turno abierto. Aporta CERO horas al reporte: no se inventa la salida. */
+          fin_el: string | null;
+          foto_inicio_path: string | null;
+          foto_fin_path: string | null;
+          origen: TurnoOrigen;
+          ajustado_por: string | null;
+          ajuste_motivo: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      /** Almuerzo o descanso: NO es tiempo trabajado y se descuenta del turno. */
+      turno_pausa: {
+        Row: {
+          id: number;
+          turno_id: number;
+          inicio_el: string;
+          fin_el: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      /** Festivos de Colombia; se pagan como dominicales. Solo lectura (van por migración). */
+      festivo: {
+        Row: { fecha: string; nombre: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      // `turno_pin` existe en la base pero NO se declara aquí a propósito: no
+      // tiene permiso de lectura para nadie, ni para el superadministrador.
+      // Declararla invitaría a consultarla y siempre devolvería un error.
     };
     Views: Record<string, never>;
     Functions: {
+      /** Marca desde el celular, con la sesión propia. Devuelve el id del turno. */
+      turno_marcar: {
+        Args: { p_accion: TurnoAccion; p_foto_path?: string | null };
+        Returns: number;
+      };
+      /**
+       * Marca desde el PC de recepción por cuenta de otro, validando su PIN.
+       * ⚠️ Devuelve un ESTADO en vez de reventar cuando el PIN está mal: una
+       * excepción revertiría la transacción y con ella el contador de intentos
+       * fallidos, así que el bloqueo nunca llegaría a activarse.
+       */
+      quiosco_marcar: {
+        Args: {
+          p_perfil: string;
+          p_pin: string;
+          p_accion: TurnoAccion;
+          p_foto_path?: string | null;
+        };
+        Returns: { ok: boolean; mensaje: string | null; turno_id: number | null }[];
+      };
+      /** Lista para la pantalla del quiósco: quién marca turno y cómo va. */
+      quiosco_estado: {
+        Args: Record<string, never>;
+        Returns: {
+          perfil_id: string;
+          nombre: string;
+          turno_id: number | null;
+          inicio_el: string | null;
+          pausa_abierta: boolean;
+          tiene_pin: boolean;
+        }[];
+      };
+      /** Minutos por persona y día, ya clasificados según la normativa. */
+      turnos_horas: {
+        Args: { p_desde: string; p_hasta: string; p_perfil?: string | null };
+        Returns: TurnoHoras[];
+      };
+      /** Detalle turno por turno. `minutos` null = todavía abierto. */
+      turnos_listar: {
+        Args: { p_desde: string; p_hasta: string; p_perfil?: string | null };
+        Returns: TurnoListado[];
+      };
+      // Correcciones — todas solo del superadministrador y con rastro en audit_log.
+      turno_ajustar: {
+        Args: { p_turno: number; p_inicio: string; p_fin: string | null; p_motivo: string };
+        Returns: void;
+      };
+      turno_crear_manual: {
+        Args: { p_perfil: string; p_inicio: string; p_fin: string; p_motivo: string };
+        Returns: number;
+      };
+      turno_eliminar: {
+        Args: { p_turno: number; p_motivo: string };
+        Returns: void;
+      };
+      turno_pausa_fijar: {
+        Args: { p_turno: number; p_inicio: string; p_fin: string; p_motivo: string };
+        Returns: number;
+      };
+      turno_pausa_eliminar: {
+        Args: { p_pausa: number; p_motivo: string };
+        Returns: void;
+      };
+      turno_pin_asignar: {
+        Args: { p_perfil: string; p_pin: string };
+        Returns: void;
+      };
       staff_directorio: {
         Args: { p_solo_activos?: boolean; p_role?: AppRole | null };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
@@ -1381,6 +1561,10 @@ export type EventoGasto = Database["public"]["Tables"]["evento_gastos"]["Row"];
 export type EventoPyg = Database["public"]["Functions"]["eventos_pyg"]["Returns"][number];
 export type SiigoFactura = Database["public"]["Tables"]["siigo_facturas"]["Row"];
 export type SiigoFacturaLinea = Database["public"]["Tables"]["siigo_factura_lineas"]["Row"];
+export type Turno = Database["public"]["Tables"]["turno"]["Row"];
+export type TurnoPausa = Database["public"]["Tables"]["turno_pausa"]["Row"];
+export type Festivo = Database["public"]["Tables"]["festivo"]["Row"];
+export type QuioscoEstado = Database["public"]["Functions"]["quiosco_estado"]["Returns"][number];
 export type Nota = Database["public"]["Tables"]["notas"]["Row"];
 export type NotaDestinatario = Database["public"]["Tables"]["nota_destinatarios"]["Row"];
 export type NotaComentario = Database["public"]["Tables"]["nota_comentarios"]["Row"];
