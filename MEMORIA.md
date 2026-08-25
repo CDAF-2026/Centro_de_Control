@@ -650,14 +650,39 @@ Niveles nuevos: enum **`academia_nivel`** = iniciacion|intermedio|avanzado.
   `mesesCorridos` de finanzas.ts, `inscribirEnAcademia` de clientes/actions.ts, los `NIVELES` de bola
   y **`scripts/seed-demo.mjs`** (borraba TODOS los datos de dominio con `delete().gte("id",0)` y ya
   escribía a columnas inexistentes: con 100 niños reales cargados era una bomba, no un seeder).
+- ✅ **Retirar a un niño y cambiarle los días**: en la ficha del grupo, cada inscrito tiene
+  **Días** (reabre el formulario de inscripción con `?miembro=`, que es idempotente) y **Retirar**.
 - **Falta**: **academias de pádel**, que Laura dejó explícitamente para después, y el cruce
   asistencia vs facturas de Siigo (bloqueado por conciliación, ver más abajo).
 
-**Rendimiento** (migración 0057, RPCs `academia_rendimiento_franja` · `academia_clases_periodo` ·
-`academia_asistencia_clase`): tablero por franja + listado de clases del periodo desplegable a "quién
-asistió". Agregado en SQL a propósito: un semestre de una academia son ~200 clases × 8 niños = 1.600
-asistencias y PostgREST corta en 1.000 (regla 2). Los RPCs **no tocan `profiles`** (regla 9): devuelven
-`profesor_id` y el nombre se resuelve con `mapaNombresStaff()`.
+**Rendimiento — tablero por franja del periodo** (migración 0075, RPC
+`academia_ocupacion_franja(p_academia, p_desde, p_hasta)`). Reemplaza al de 0057, que cruzaba las
+clases contra el horario del NIÑO; ahora la clase sabe de qué grupo es (`clases.grupo_id`) y el cruce
+es exacto. Vive en la ficha de la academia, con el mismo `PeriodoToggle` del dashboard, y alimenta
+también el chip "N franjas por revisar" del listado (mes en curso) y el encabezado de cada franja en
+la ficha del grupo. Agregado en SQL (regla 2). No toca `profiles` (regla 9).
+- **Tres señales, no una.** De peor a menos grave: (a) la clase **no se registró** (operativo),
+  (b) el grupo **se vacía** (<60% de asistencia, negocio), (c) la clase pasó y **nadie la cerró**
+  (trámite). Antes las tres se veían iguales.
+- ⚠️ **`clases_por_venir`**: una clase `programada` de HOY EN ADELANTE no es ni dictada ni vencida.
+  Sin esa tercera cuenta, registrar la clase de esta tarde igual dejaba a la academia diciendo "no se
+  registró ninguna clase en el periodo".
+- ⚠️ **`desde_efectivo` = la primera clase de academia que registró ESA academia**, y desde ahí se
+  cuenta lo que "tocaba". Sin esto el tablero nace gritando: medido el 25-ago-2026, reprochaba
+  **16 + 48 franjas** por clases anteriores a que el club empezara a usar el flujo. Con el arranque
+  efectivo baja a **5 y 0**, que sí son accionables (el lunes registraron la de Federer pero no las
+  de Djokovic ni Nadal, y la de Federer quedó sin cerrar). Un tablero que marca todo en rojo el
+  primer día es la mejor forma de que nadie lo vuelva a mirar.
+- ⚠️ **HOY tampoco se reprocha**: la clase de esta tarde todavía se puede registrar; una ausencia
+  solo es ausencia a partir de mañana. El `hoy` se pasa desde `rangoPeriodo().todayIso` para no
+  meter un segundo reloj.
+- `ocurrenciasDeDia()` (cuántas veces cae ese día de la semana en el rango) está **verificada por
+  fuerza bruta**: 6.090/6.090 casos contra el conteo día por día.
+- ⚠️ En la rama de "Otras horas" el conteo de clases va con **`count(distinct clase_id)`**: ahí se
+  une con `asistencias` en la misma consulta, así que una clase aparece una vez POR ASISTENTE.
+  Medido al probarlo: una clase con 2 presentes se contaba como 2 clases.
+- ⚠️ Agregar una columna de salida a un RPC obliga a **DROP + CREATE**: `create or replace` lo
+  rechaza con "cannot change return type of existing function".
 - 💡 **La pregunta "qué días no tienen asistencia" son DOS fracasos distintos** que antes se veían
   iguales, y solo se separan porque ahora se sabe a quién se esperaba: franja con inscritos y **cero
   clases** = la clase no se dio (operativo) · franja con clases y poca gente = el grupo se vacía

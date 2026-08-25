@@ -4,34 +4,53 @@ import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { mapaNombresStaff } from "@/lib/staff";
+import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
+import { PeriodoToggle } from "../../dashboard/periodo-toggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
-import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL } from "../ocupacion";
+import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL, riesgoFranja } from "../ocupacion";
+import { TableroPeriodo, type FilaTablero } from "./tablero-periodo";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-export default async function AcademiaDetallePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AcademiaDetallePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
+}) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
   const academiaId = Number(id);
+  const sp = await searchParams;
+  const periodo = parsePeriodo(sp.periodo);
+  const { curStartIso, curEndIso, todayIso } = rangoPeriodo(periodo, new Date(), sp.desde, sp.hasta);
   const supabase = await createClient();
 
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const [{ data: servicio }, { data: grupos }, { data: listaEspera }] = await Promise.all([
+  const [{ data: servicio }, { data: grupos }, { data: ocupacion }, { data: listaEspera }, nombres] = await Promise.all([
     a.servicio_id
       ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.rpc("academia_grupos_resumen", { p_academia: academiaId }),
+    supabase.rpc("academia_ocupacion_franja", {
+      p_academia: academiaId,
+      p_desde: curStartIso,
+      p_hasta: curEndIso,
+    }),
     supabase
       .from("lista_espera")
       .select("id, nombre, contacto, nivel, edad, disponibilidad")
       .eq("academia_id", academiaId)
       .order("created_at"),
+    mapaNombresStaff(),
   ]);
 
   const gs = grupos ?? [];
@@ -40,6 +59,31 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   const ocupados = gs.reduce((n, g) => n + g.ocupados, 0);
   const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
   const libres = Math.max(0, cupo - ocupados);
+
+  // El tablero mide lo que YA OCURRIÓ en el periodo; las tarjetas de arriba
+  // miden el cupo. Son dos preguntas distintas: "¿dónde hay campo?" y "¿cómo
+  // se está comportando cada franja?".
+  const filas: FilaTablero[] = (ocupacion ?? []).map((o) => ({
+    grupoId: o.grupo_id,
+    grupoNombre: o.grupo_nombre,
+    franjaId: o.franja_id,
+    dia: o.dia_semana,
+    horaInicio: o.hora_inicio,
+    horaFin: o.hora_fin,
+    profesor: o.profesor_id ? nombres.get(o.profesor_id) ?? null : null,
+    inscritos: o.inscritos,
+    clases: o.clases,
+    clasesSinCerrar: o.clases_sin_cerrar,
+    clasesPorVenir: o.clases_por_venir,
+    desdeEfectivo: o.desde_efectivo,
+    presentes: o.presentes,
+    ausentes: o.ausentes,
+    excusas: o.excusas,
+  }));
+  // Con cero clases registradas en el periodo, todas las franjas dirían lo mismo
+  // ("no se dictó") y el marcador sería ruido: el aviso correcto lo da el tablero.
+  const hayClases = filas.some((f) => f.clases + f.clasesSinCerrar + f.clasesPorVenir > 0);
+  const enRiesgo = hayClases ? filas.filter((f) => riesgoFranja(f, curStartIso, curEndIso, todayIso)).length : 0;
 
   const puedeGestionar = can(profile.role, "academias", "edit");
   const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
@@ -73,7 +117,7 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         <Kpi label="Grupos" valor={gs.length} />
         <Kpi label="Niños inscritos" valor={ninos} />
         <Kpi label="Cupos libres" valor={libres} tono={libres > 0 ? "ok" : undefined} />
-        <Kpi label="Franjas sobre cupo" valor={sobre} tono={sobre > 0 ? "mal" : undefined} />
+        <Kpi label="Franjas por revisar" valor={enRiesgo} tono={enRiesgo > 0 ? "mal" : undefined} />
       </div>
 
       <section className="space-y-3">
@@ -151,6 +195,24 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
             </span>
           </p>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="cdaf-title text-base">Cómo va el periodo</h2>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Clases dictadas y asistencia de cada franja. Arriba se ve el cupo; aquí, lo que pasó.
+            </p>
+          </div>
+          <PeriodoToggle
+            periodo={periodo}
+            desde={sp.desde}
+            hasta={sp.hasta}
+            basePath={`/academias/${a.id}`}
+          />
+        </div>
+        <TableroPeriodo academiaId={a.id} filas={filas} desde={curStartIso} hasta={curEndIso} hoy={todayIso} />
       </section>
 
       <Card>

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { quitarInscripcion } from "../../../actions";
-import { BarraOcupacion, DIA_CORTO, hhmm, tonoOcupacion } from "../../../ocupacion";
+import { BarraOcupacion, DIA_CORTO, hhmm, pctAsistencia, tonoOcupacion, type Riesgo } from "../../../ocupacion";
 
 export type FranjaFila = {
   id: number;
@@ -15,6 +15,12 @@ export type FranjaFila = {
   cancha: string | null;
   cupo: number;
   inscritos: number;
+  /** Lo que pasó en el periodo escogido arriba. */
+  clases: number;
+  clasesPorVenir: number;
+  presentes: number;
+  ausentes: number;
+  riesgo: Riesgo;
 };
 
 export type NinoEnFranja = {
@@ -163,6 +169,22 @@ export function FranjasDesplegables({
                 {f.profesor ?? "sin profesor"}
                 {f.cancha ? ` · cancha ${f.cancha}` : ""}
               </span>
+              <span className="text-muted-foreground hidden w-40 shrink-0 text-xs tabular-nums sm:block">
+                {f.clases === 0 ? (
+                  f.clasesPorVenir > 0 ? (
+                    `${f.clasesPorVenir} ${f.clasesPorVenir === 1 ? "clase programada" : "clases programadas"}`
+                  ) : (
+                    "sin clases en el periodo"
+                  )
+                ) : (
+                  <>
+                    {f.clases} {f.clases === 1 ? "clase" : "clases"}
+                    {pctAsistencia(f.presentes, f.ausentes) != null && (
+                      <> · {pctAsistencia(f.presentes, f.ausentes)}% asistencia</>
+                    )}
+                  </>
+                )}
+              </span>
               <span className="flex w-48 shrink-0 items-center gap-3">
                 <BarraOcupacion ocupados={f.inscritos} cupo={f.cupo} />
                 <span className={`shrink-0 text-xs tabular-nums ${tono === "sobre" ? "text-destructive font-medium" : "text-muted-foreground"}`}>
@@ -170,6 +192,12 @@ export function FranjasDesplegables({
                 </span>
               </span>
             </button>
+
+            {f.riesgo && (
+              <p className="border-t px-4 py-2 pl-12 text-xs text-[#6d4700]">
+                ⚠ Esta franja {f.riesgo.texto} en el periodo escogido.
+              </p>
+            )}
 
             {abierta && (
               <div className="border-t">

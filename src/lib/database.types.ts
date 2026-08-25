@@ -1222,6 +1222,33 @@ export type Database = {
           excusas: number;
         }[];
       };
+      /** Ocupación y asistencia por franja en un periodo. franja_id null = "Otras horas". 0075. */
+      academia_ocupacion_franja: {
+        Args: { p_academia?: number | null; p_desde?: string | null; p_hasta?: string | null };
+        Returns: {
+          academia_id: number;
+          grupo_id: number | null;
+          grupo_nombre: string;
+          nivel: string;
+          franja_id: number | null;
+          dia_semana: number | null;
+          hora_inicio: string | null;
+          hora_fin: string | null;
+          profesor_id: string | null;
+          cancha: string | null;
+          cupo: number | null;
+          inscritos: number;
+          clases: number;
+          clases_sin_cerrar: number;
+          clases_por_venir: number;
+          presentes: number;
+          ausentes: number;
+          excusas: number;
+          reposiciones: number;
+          /** Desde cuándo se le puede exigir clase a esta franja. null = la academia nunca registró ninguna. */
+          desde_efectivo: string | null;
+        }[];
+      };
       notas_listar: {
         Args: { p_filtro?: string; p_cliente?: number | null; p_limite?: number };
         Returns: {
