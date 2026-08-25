@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "A · Lista con semáforo", "x": 0, "y": 0, "w": 1200, "h": 1180 },
+    { "file": "Semana.dc.html", "title": "B · La semana de un vistazo", "x": 1280, "y": 0, "w": 1200, "h": 1000 },
+    { "file": "Tendencia.dc.html", "title": "C · Fichas con tendencia", "x": 2560, "y": 0, "w": 1200, "h": 1180 }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -190, "w": 460, "text": "Detalle de un grupo de academia — pantalla del coordinador deportivo.\n\nTres formas distintas de leer el rendimiento de las 14 franjas del grupo Mulán. Franjas, profesores, canchas, cupos y nombres son reales; los porcentajes de asistencia son ilustrativos (todavía no hay historia)." },
+    { "id": "nota-a", "x": 0, "y": 1220, "w": 380, "text": "A · Triage. Mantiene el acordeón que ya existe y ordena las franjas por lo que pide atención. La barra manda, los números van debajo.\n\nA favor: es lo más parecido a lo que ya hay y cabe todo.\nEn contra: con 14 franjas sigue habiendo scroll." },
+    { "id": "nota-b", "x": 1280, "y": 1040, "w": 380, "text": "B · Patrón. La semana completa en una rejilla; el color dice cómo va cada franja y los puntos, el cupo.\n\nA favor: se ve de un golpe dónde está el hueco y dónde el problema.\nEn contra: no muestra tendencia, y un grupo de 3 franjas deja la rejilla casi vacía." },
+    { "id": "nota-c", "x": 2560, "y": 1220, "w": 380, "text": "C · Dirección. Cada franja lleva su curva de las últimas semanas.\n\nA favor: dice hacia dónde va, que es lo que un promedio esconde — y es lo que anticipa que un niño se va.\nEn contra: ocupa más y necesita 6+ semanas de datos para decir algo." }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -9,7 +9,7 @@ import { rangoPeriodo, parsePeriodo } from "@/lib/periodo";
 import { PeriodoToggle } from "../../../../dashboard/periodo-toggle";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { DIA_CORTO, NIVEL_LABEL, riesgoFranja } from "../../../ocupacion";
+import { DIA_CORTO, NIVEL_LABEL, pesoRiesgo, riesgoFranja } from "../../../ocupacion";
 import { FranjasDesplegables, type FranjaFila, type NinoEnFranja } from "./franjas-desplegables";
 
 export default async function GrupoPage({
@@ -76,6 +76,7 @@ export default async function GrupoPage({
       inscritos: f.inscritos,
       clases: p?.clases ?? 0,
       clasesPorVenir: p?.clases_por_venir ?? 0,
+      clasesSinCerrar: p?.clases_sin_cerrar ?? 0,
       desdeEfectivo: p?.desde_efectivo ?? null,
       presentes: p?.presentes ?? 0,
       ausentes: p?.ausentes ?? 0,
@@ -98,6 +99,16 @@ export default async function GrupoPage({
         : null,
     };
   });
+  // Primero lo que hay que revisar; dentro de cada grupo, el orden natural de la
+  // semana. Así la ficha se puede dejar de leer cuando se acaban los avisos.
+  franjasUI.sort(
+    (a, b) =>
+      pesoRiesgo(a.riesgo) - pesoRiesgo(b.riesgo) ||
+      a.dia - b.dia ||
+      a.horaInicio.localeCompare(b.horaInicio),
+  );
+  const porRevisar = franjasUI.filter((f) => f.riesgo).length;
+
   const tope = fr[0]?.cupo ?? 0;
   const sobre = fr.filter((f) => f.inscritos > f.cupo);
   const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
@@ -161,6 +172,14 @@ export default async function GrupoPage({
             <h2 className="cdaf-title text-base">Franjas · {totalNinos} {totalNinos === 1 ? "inscrito" : "inscritos"}</h2>
             <p className="text-muted-foreground mt-0.5 text-xs">
               Cada franja es una clase. Ábrela para ver quiénes vienen ese día.
+              {porRevisar > 0 && (
+                <>
+                  {" "}
+                  <span className="font-medium text-[#8a5600]">
+                    {porRevisar === 1 ? "Una pide revisión y va" : `${porRevisar} piden revisión y van`} de primeras.
+                  </span>
+                </>
+              )}
             </p>
           </div>
           {puedeGestionar && (

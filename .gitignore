@@ -47,3 +47,7 @@ next-env.d.ts
 
 # ── Bases de datos con datos personales (NO versionar) ──
 BBD*.xlsx
+
+# Lienzo de diseño ya montado (~2 MB, generado): las fuentes son los .dc.html
+design/*.html
+!design/*.dc.html

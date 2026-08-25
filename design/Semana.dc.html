@@ -1,0 +1,293 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,800;1,800&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #16181a;
+           font-family: "Open Sans", system-ui, sans-serif; font-size: 14px; }
+    a { color: #5b6300; } a:hover { color: #46530a; }
+    .num { font-family: Montserrat, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5c6b73; }
+    .card { background: #fff; border-radius: 11.2px; box-shadow: 0 1px 2px -1px rgb(22 24 26 / 0.06), 0 1px 3px 0 rgb(22 24 26 / 0.05); outline: 1px solid rgb(22 24 26 / 0.06); outline-offset: -1px; }
+    .pill { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+    .tile { border-radius: 8px; padding: 8px 9px; cursor: pointer; outline: 1px solid rgb(22 24 26 / 0.06); outline-offset: -1px; }
+  </style>
+</helmet>
+
+<div style="padding: 32px; max-width: 1136px">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+    <div>
+      <a href="#" style="font-size: 14px; color: #5c6b73; text-decoration: none">← Academia Recreativa Tenis</a>
+      <h1 class="num" style="margin: 4px 0 0; font-size: 32px; line-height: 40px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: -0.01em">Mulán</h1>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap">
+        <span class="pill" style="background: #eaedee; color: #1f2933">Intermedio</span>
+        <span class="pill" style="background: #eaedee; color: #1f2933">11 a 16 años</span>
+        <span style="font-size: 12px; color: #5c6b73">28 niños · 14 franjas</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="display: inline-flex; align-items: center; gap: 4px; background: #eef1f1; border-radius: 8px; padding: 4px">
+        <button style="border: 0; background: transparent; color: #5c6b73; font: inherit; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 6px; cursor: pointer">Semana</button>
+        <button style="border: 0; background: #fff; color: #16181a; font: inherit; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px 0 rgb(22 24 26 / 0.05)">Mes</button>
+        <button style="border: 0; background: transparent; color: #5c6b73; font: inherit; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 6px; cursor: pointer">3 meses</button>
+        <button style="border: 0; background: transparent; color: #5c6b73; font: inherit; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Personalizado
+        </button>
+      </div>
+      <button style="height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid #e4e8ea; background: #fff; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer">Editar franjas</button>
+      <button style="height: 36px; padding: 0 14px; border-radius: 8px; border: 0; background: #d4e157; color: #1a1c1e; font: inherit; font-weight: 700; font-size: 13px; cursor: pointer">+ Inscribir niño</button>
+    </div>
+  </div>
+
+  <!-- ── la semana entera de un vistazo ── -->
+  <div class="card" style="padding: 22px 24px; margin-top: 24px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 12px">
+      <div>
+        <h2 class="num" style="margin: 0; font-size: 20px; line-height: 28px; font-weight: 700; text-transform: uppercase">La semana de Mulán</h2>
+        <p style="margin: 2px 0 0; font-size: 12px; color: #5c6b73">Cada bloque es una franja. El relleno es la asistencia del mes; los puntos, los cupos ocupados.</p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; font-size: 12px; color: #5c6b73">
+        <span style="display: inline-flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #d4e157"></span>bien</span>
+        <span style="display: inline-flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #f2b53d"></span>flojo</span>
+        <span style="display: inline-flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #ba1a1a"></span>se vacía</span>
+        <span style="display: inline-flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #e4e8ea"></span>sin clases</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 18px">
+      <div class="eyebrow" style="text-align: center">Lunes</div>
+      <div class="eyebrow" style="text-align: center">Martes</div>
+      <div class="eyebrow" style="text-align: center">Miércoles</div>
+      <div class="eyebrow" style="text-align: center">Jueves</div>
+      <div class="eyebrow" style="text-align: center">Viernes</div>
+      <div class="eyebrow" style="text-align: center">Sábado</div>
+
+      <!-- LUNES -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 95%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">95%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MARTES -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">16:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 88%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">88%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 82%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">82%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #f2b53d29; outline-color: #f2b53d66">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 64%; background: #d99a1c; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">64%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MIÉRCOLES -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">16:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 91%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">91%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #f2b53d29; outline-color: #f2b53d66">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 67%; background: #d99a1c; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">67%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- JUEVES -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #ba1a1a12; outline-color: #ba1a1a40">
+          <div class="num" style="font-size: 13px; font-weight: 700">15:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 41%; background: #ba1a1a; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700; color: #ba1a1a">41%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #f2b53d29; outline-color: #f2b53d66">
+          <div class="num" style="font-size: 13px; font-weight: 700">16:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 62%; background: #d99a1c; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">62%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 86%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">86%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #f2b53d29; outline-color: #f2b53d66">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Jorge</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 60%; background: #d99a1c; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">60%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIERNES -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">17:30</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 79%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">79%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SÁBADO -->
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div class="tile" style="background: #f2b53d29; outline-color: #f2b53d66">
+          <div class="num" style="font-size: 13px; font-weight: 700">09:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 67%; background: #d99a1c; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">67%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #d4e15733">
+          <div class="num" style="font-size: 13px; font-weight: 700">10:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffffcc; margin-top: 8px; overflow: hidden"><div style="height: 5px; width: 83%; background: #a8bd1f; border-radius: 999px"></div></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span class="num" style="font-size: 12px; font-weight: 700">83%</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+        <div class="tile" style="background: #eef1f1">
+          <div class="num" style="font-size: 13px; font-weight: 700">11:00</div>
+          <div style="font-size: 11px; color: #5c6b73; margin-top: 1px">Esteban</div>
+          <div style="height: 5px; border-radius: 999px; background: #ffffff; margin-top: 8px"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+            <span style="font-size: 11px; color: #5c6b73">sin clases</span>
+            <span style="display: flex; gap: 2px">
+              <span style="width: 6px; height: 6px; border-radius: 999px; background: #37474f"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span><span style="width: 6px; height: 6px; border-radius: 999px; background: #e4e8ea"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── al hacer clic en un bloque, su gente ── -->
+  <div class="card" style="margin-top: 16px; overflow: hidden">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; background: #fafbfb; flex-wrap: wrap">
+      <div>
+        <div class="eyebrow">Franja seleccionada</div>
+        <div class="num" style="font-size: 18px; font-weight: 700; margin-top: 2px">Jueves 15:30–16:30</div>
+        <div style="font-size: 12px; color: #5c6b73; margin-top: 2px">Jorge Pérez · cancha 4 · 4 clases dictadas este mes</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span class="pill" style="background: #ba1a1a1a; color: #ba1a1a; gap: 5px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          Un solo niño y viene la mitad de las veces
+        </span>
+        <button style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #e4e8ea; background: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Fusionar con Jue 16:00</button>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px; padding: 12px 20px">
+      <span style="flex-grow: 1; font-size: 14px">Agustin Ocampo <span style="font-size: 12px; color: #5c6b73">· 12 años</span></span>
+      <span style="width: 150px; display: flex; align-items: center; gap: 8px">
+        <span style="flex-grow: 1; height: 6px; border-radius: 999px; background: #eef1f1; overflow: hidden">
+          <span style="display: block; height: 6px; width: 41%; border-radius: 999px; background: #ba1a1a"></span>
+        </span>
+        <span class="num" style="font-size: 12px; color: #5c6b73; width: 62px; text-align: right">2 de 4</span>
+      </span>
+      <span style="width: 96px; text-align: right; font-size: 12px; color: #5c6b73">Ficha · Días · Retirar</span>
+    </div>
+  </div>
+
+  <p style="font-size: 12px; color: #5c6b73; margin-top: 20px; max-width: 760px; line-height: 18px">
+    Los <strong>puntos</strong> de cada bloque son los cupos: llenos = ocupados. Un bloque gris es una
+    franja que existe pero a la que no se le registró ninguna clase en el periodo.
+  </p>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

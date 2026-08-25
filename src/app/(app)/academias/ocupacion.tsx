@@ -79,6 +79,17 @@ export type FranjaPeriodo = {
   desdeEfectivo: string | null;
 };
 
+/**
+ * De peor a menos grave. Ordena la lista de franjas: quien entra a la ficha del
+ * grupo debe encontrar arriba lo que hay que hacer y poder dejar de leer.
+ */
+export const ORDEN_RIESGO: Record<string, number> = { no_dictada: 0, se_vacia: 1, sin_cerrar: 2 };
+
+/** Peso de una franja para ordenarla: primero lo que pide atención. */
+export function pesoRiesgo(r: Riesgo): number {
+  return r ? ORDEN_RIESGO[r.tipo] ?? 3 : 9;
+}
+
 export type Riesgo =
   | { tipo: "no_dictada"; texto: string }
   | { tipo: "se_vacia"; texto: string }
@@ -104,28 +115,33 @@ export function riesgoFranja(f: FranjaPeriodo, desde: string, hasta: string, hoy
     f.dia == null || !f.desdeEfectivo ? registradas : ocurrenciasDeDia(f.dia, arranque, exigible);
   const sinRegistrar = Math.max(0, tocaba - registradas);
 
-  // De peor a menos grave: que no exista la clase · que el grupo se vacíe ·
-  // que falte cerrarla. Las tres son distintas y no se pueden ver iguales.
+  // ⚠️ El `texto` es una frase COMPLETA, no un trozo para meter en otra: probado
+  // envuelto en "Esta franja …" y salía "Esta franja solo el 41% de asistencia".
+  // De peor a menos grave: que no exista la clase · que el grupo se vacíe · que
+  // falte cerrarla. Las tres son distintas y no se pueden ver iguales.
   if (f.inscritos > 0 && sinRegistrar > 0) {
     return {
       tipo: "no_dictada",
       texto:
         registradas === 0
           ? tocaba === 1
-            ? "no se registró la clase que tocaba"
-            : `no se registró ninguna de las ${tocaba} clases que tocaban`
-          : `${sinRegistrar === 1 ? "falta 1" : `faltan ${sinRegistrar}`} de las ${tocaba} clases que tocaban`,
+            ? "No se registró la clase que tocaba."
+            : `No se registró ninguna de las ${tocaba} clases que tocaban.`
+          : `${sinRegistrar === 1 ? "Falta 1" : `Faltan ${sinRegistrar}`} de las ${tocaba} clases que tocaban.`,
     };
   }
   const base = f.presentes + f.ausentes;
   if (f.clases > 0 && base > 0) {
     const pct = Math.round((f.presentes / base) * 100);
-    if (pct < 60) return { tipo: "se_vacia", texto: `solo el ${pct}% de asistencia` };
+    if (pct < 60) return { tipo: "se_vacia", texto: `Solo el ${pct}% de asistencia: el grupo se está vaciando.` };
   }
   if (f.clasesSinCerrar > 0) {
     return {
       tipo: "sin_cerrar",
-      texto: `${f.clasesSinCerrar} ${f.clasesSinCerrar === 1 ? "clase pasó y no se cerró" : "clases pasaron y no se cerraron"}`,
+      texto:
+        f.clasesSinCerrar === 1
+          ? "Una clase ya pasó y nadie la cerró."
+          : `${f.clasesSinCerrar} clases ya pasaron y nadie las cerró.`,
     };
   }
   return null;

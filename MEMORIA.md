@@ -698,6 +698,20 @@ la ficha del grupo. Agregado en SQL (regla 2). No toca `profiles` (regla 9).
   Medido al probarlo: una clase con 2 presentes se contaba como 2 clases.
 - ⚠️ Agregar una columna de salida a un RPC obliga a **DROP + CREATE**: `create or replace` lo
   rechaza con "cannot change return type of existing function".
+- 🚫 **Se decidió NO hacer gráficas de rendimiento en la ficha del grupo** (Laura, 25-ago-2026;
+  los tres bocetos y el porqué largo están en **`design/README.md`**). Se dibujaron con `/design`
+  —lista con semáforo, rejilla de la semana, fichas con curva— y se descartaron las tres:
+  (a) la ficha del grupo **ya muestra** por franja "N clases · X% asistencia" + ocupación + aviso, y
+  por niño su barra individual, así que lo demás era peso visual; (b) el cuello de botella no es la
+  pantalla sino que **en agosto se registraron 2 clases de las ~250 que tocaban** — cualquiera de los
+  tres montado hoy muestra rayas; (c) la ficha del grupo tiene un trabajo **diario** y analizar
+  rendimiento es **mensual**, y mezclarlos es el mismo error que se acababa de corregir quitando la
+  tabla de 48 filas. **Volver a esto solo cuando haya 6 semanas de clases registradas Y el
+  coordinador pregunte por la tendencia** — si la pregunta sale de él, la pantalla se gana su sitio.
+  Lo único que sí se hizo: **ordenar las franjas por lo que pide atención** (`pesoRiesgo()`), con el
+  aviso pintado según la gravedad (rojo = no se dictó · ámbar = se vacía · gris = falta cerrar).
+  ⚠️ Los `texto` de `riesgoFranja` son **frases completas**: se probaron envueltos en "Esta franja …"
+  y salía *"Esta franja solo el 41% de asistencia"*.
 - 💡 **La pregunta "qué días no tienen asistencia" son DOS fracasos distintos** que antes se veían
   iguales, y solo se separan porque ahora se sabe a quién se esperaba: franja con inscritos y **cero
   clases** = la clase no se dio (operativo) · franja con clases y poca gente = el grupo se vacía
