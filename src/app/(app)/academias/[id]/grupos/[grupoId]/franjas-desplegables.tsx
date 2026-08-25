@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
+import { quitarInscripcion } from "../../../actions";
 import { BarraOcupacion, DIA_CORTO, hhmm, tonoOcupacion } from "../../../ocupacion";
 
 export type FranjaFila = {
@@ -18,6 +19,7 @@ export type FranjaFila = {
 
 export type NinoEnFranja = {
   franjaId: number | null;
+  inscripcionId: number;
   miembroId: number;
   clienteId: number;
   nombre: string;
@@ -51,16 +53,79 @@ function Asistencia({ n }: { n: NinoEnFranja }) {
  * viene el martes 15:30?" — en una lista plana del grupo eso hay que cruzarlo a
  * ojo con la columna de días.
  */
+/** Cambiar días y retirar: las dos cosas que se hacen con un niño ya inscrito. */
+function AccionesNino({
+  n,
+  academiaId,
+  puedeGestionar,
+}: {
+  n: NinoEnFranja;
+  academiaId: number;
+  puedeGestionar: boolean;
+}) {
+  const [confirmar, setConfirmar] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  return (
+    <span className="flex shrink-0 items-center gap-2.5 text-xs">
+      <Link href={`/clientes/${n.clienteId}`} className="text-muted-foreground hover:underline">
+        Ficha
+      </Link>
+      {puedeGestionar && (
+        <>
+          <Link
+            href={`/academias/${academiaId}/inscribir?miembro=${n.miembroId}`}
+            className="text-muted-foreground hover:underline"
+          >
+            Días
+          </Link>
+          {confirmar ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    const r = await quitarInscripcion(n.inscripcionId, academiaId);
+                    if (r.error) setErr(r.error);
+                    setConfirmar(false);
+                  })
+                }
+                className="text-destructive font-medium hover:underline"
+              >
+                {pending ? "Retirando…" : "Sí, retirar"}
+              </button>
+              <button type="button" onClick={() => setConfirmar(false)} className="text-muted-foreground hover:underline">
+                No
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setConfirmar(true)} className="text-destructive hover:underline">
+              Retirar
+            </button>
+          )}
+        </>
+      )}
+      {err && <span className="text-destructive">{err}</span>}
+    </span>
+  );
+}
+
 export function FranjasDesplegables({
   franjas,
   ninos,
   edadMin,
   edadMax,
+  academiaId,
+  puedeGestionar,
 }: {
   franjas: FranjaFila[];
   ninos: NinoEnFranja[];
   edadMin: number;
   edadMax: number;
+  academiaId: number;
+  puedeGestionar: boolean;
 }) {
   // La primera arranca abierta: una lista de acordeones toda cerrada obliga a un
   // clic extra para ver cualquier cosa.
@@ -119,9 +184,7 @@ export function FranjasDesplegables({
                           {n.edad} años
                         </span>
                         <span className="w-44 shrink-0"><Asistencia n={n} /></span>
-                        <Link href={`/clientes/${n.clienteId}`} className="text-muted-foreground shrink-0 text-xs hover:underline">
-                          Ficha
-                        </Link>
+                        <AccionesNino n={n} academiaId={academiaId} puedeGestionar={puedeGestionar} />
                       </li>
                     ))}
                   </ul>
@@ -142,8 +205,11 @@ export function FranjasDesplegables({
           </p>
           <ul className="mt-2 space-y-1">
             {sinFranja.map((n) => (
-              <li key={n.miembroId} className="text-sm">
-                {n.nombre} <span className="text-muted-foreground text-xs">· {n.edad} años</span>
+              <li key={n.miembroId} className="flex flex-wrap items-center gap-x-3 text-sm">
+                <span className="min-w-0 flex-grow">
+                  {n.nombre} <span className="text-muted-foreground text-xs">· {n.edad} años</span>
+                </span>
+                <AccionesNino n={n} academiaId={academiaId} puedeGestionar={puedeGestionar} />
               </li>
             ))}
           </ul>

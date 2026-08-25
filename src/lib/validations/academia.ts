@@ -23,19 +23,27 @@ export const CATEGORIAS = [
 ] as const;
 
 /**
- * Nivel del niño, en lista cerrada. Los cuatro primeros son la progresión de
- * tenis que el club ya usaba en los nombres de sus grupos ("Bola Roja M-J").
- * Si cada uno escribe libre, el reporte por nivel no sirve.
+ * Nivel del GRUPO, no del niño. Los "Bola Roja / Naranja / Verde / Amarilla" que
+ * el club usaba se botaron (decisión de Laura, ago-2026): lo que ordena hoy es
+ * edad + nivel, y el cupo sale del nivel. En competencia no hay iniciación — eso
+ * lo hace cumplir el trigger `grupo_nivel_valido` de la base, no solo la pantalla.
  */
-export const NIVELES = [
-  "Bola Roja",
-  "Bola Naranja",
-  "Bola Verde",
-  "Bola Amarilla",
-  "Principiantes",
-  "Iniciados",
-  "Intermedio",
+export const NIVELES_GRUPO = [
+  { value: "iniciacion", label: "Iniciación", cupo: 6 },
+  { value: "intermedio", label: "Intermedio", cupo: 5 },
+  { value: "avanzado", label: "Avanzado", cupo: 4 },
 ] as const;
+
+/**
+ * Nombres sugeridos para bautizar un grupo: personajes de Disney en las
+ * recreativas y tenistas famosos en las de competencia (decisión de Laura). Son
+ * SUGERENCIAS: el campo es libre y editable, porque el nombre es una etiqueta
+ * para hablar del grupo, no un dato del que dependa nada.
+ */
+export const NOMBRES_SUGERIDOS = {
+  recreativa: ["Simba", "Mulán", "Nemo", "Woody", "Elsa", "Moana", "Rayo McQueen", "Dumbo", "Bambi", "Stitch"],
+  competencia: ["Federer", "Nadal", "Djokovic", "Serena", "Graf", "Alcaraz", "Sabalenka", "Borg", "Agassi", "Swiatek"],
+} as const;
 
 /** Duraciones que usa el club (vistas en los horarios reales de las academias). */
 export const DURACIONES = [

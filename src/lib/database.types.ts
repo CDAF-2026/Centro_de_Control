@@ -426,18 +426,9 @@ export type Database = {
           categoria: AcademiaCategoria | null;
           /** Servicio de Siigo con el que se factura. El ingreso sale de ahí, NO de `precio`. */
           servicio_id: number | null;
-          nivel: string | null;
-          profesor_id: string | null;
-          cancha: string | null;
-          horario: string | null;
+          /** Solo referencia para quien contesta el teléfono. NO se usa para calcular. */
           precio: number;
           matricula: number;
-          periodo_inicio: string | null;
-          periodo_fin: string | null;
-          dias_semana: number[];
-          hora_inicio: string | null;
-          hora_fin: string | null;
-          valor_alumno: number;
           activa: boolean;
           created_at: string;
           updated_at: string;
@@ -449,18 +440,8 @@ export type Database = {
           deporte: Deporte;
           categoria?: AcademiaCategoria | null;
           servicio_id?: number | null;
-          nivel?: string | null;
-          profesor_id?: string | null;
-          cancha?: string | null;
-          horario?: string | null;
           precio?: number;
           matricula?: number;
-          periodo_inicio?: string | null;
-          periodo_fin?: string | null;
-          dias_semana?: number[];
-          hora_inicio?: string | null;
-          hora_fin?: string | null;
-          valor_alumno?: number;
           activa?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -530,46 +511,16 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["inscripcion_franja"]["Insert"]>;
         Relationships: [];
       };
-      inscripcion_horarios: {
-        Row: {
-          id: number;
-          inscripcion_id: number;
-          dia_semana: number;
-          hora_inicio: string;
-          hora_fin: string;
-          profesor_id: string | null;
-          cancha: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          inscripcion_id: number;
-          dia_semana: number;
-          hora_inicio: string;
-          hora_fin: string;
-          profesor_id?: string | null;
-          cancha?: string | null;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["inscripcion_horarios"]["Insert"]>;
-        Relationships: [];
-      };
       inscripciones: {
         Row: {
           id: number;
           academia_id: number;
           cliente_id: number;
           miembro_id: number | null;
-          /** Grupo al que pertenece. Nullable mientras convive con el modelo viejo. */
-          grupo_id: number | null;
-          /** EN DESUSO: el nivel pasa al grupo. Se va en la limpieza final. */
-          nivel: string | null;
-          /** EN DESUSO: la frecuencia se cuenta con los horarios. */
-          plan_frecuencia: number | null;
+          /** Grupo al que pertenece. De él salen su horario, su cupo y el roster del cierre. */
+          grupo_id: number;
           descuento_pct: number;
           fecha_inscripcion: string;
-          /** EN DESUSO: reemplazado por inscripcion_horarios. */
-          dias: number[];
           activa: boolean;
           created_at: string;
         };
@@ -578,12 +529,9 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id?: number | null;
-          grupo_id?: number | null;
-          nivel?: string | null;
-          plan_frecuencia?: number | null;
+          grupo_id: number;
           descuento_pct?: number;
           fecha_inscripcion?: string;
-          dias?: number[];
           activa?: boolean;
           created_at?: string;
         };
@@ -683,6 +631,8 @@ export type Database = {
           id: number;
           tipo: ClaseTipo;
           academia_id: number | null;
+          /** Grupo de academia. Null en particulares y paquetes. */
+          grupo_id: number | null;
           cliente_id: number | null;
           miembro_id: number | null;
           paquete_cliente_id: number | null;
@@ -708,6 +658,7 @@ export type Database = {
           id?: number;
           tipo: ClaseTipo;
           academia_id?: number | null;
+          grupo_id?: number | null;
           cliente_id?: number | null;
           miembro_id?: number | null;
           paquete_cliente_id?: number | null;
@@ -1269,57 +1220,6 @@ export type Database = {
           presentes: number;
           ausentes: number;
           excusas: number;
-        }[];
-      };
-      academia_rendimiento_franja: {
-        Args: { p_academia: number; p_desde: string; p_hasta: string };
-        Returns: {
-          dia_semana: number | null;
-          hora_inicio: string | null;
-          hora_fin: string | null;
-          inscritos: number;
-          clases_cerradas: number;
-          clases_sin_cerrar: number;
-          presentes: number;
-          ausentes: number;
-          excusas: number;
-          reposiciones: number;
-        }[];
-      };
-      academia_clases_periodo: {
-        Args: { p_academia: number; p_desde: string; p_hasta: string };
-        Returns: {
-          clase_id: number;
-          fecha: string;
-          hora_inicio: string;
-          hora_fin: string | null;
-          estado: string;
-          profesor_id: string | null;
-          cancha: string | null;
-          presentes: number;
-          ausentes: number;
-          excusas: number;
-          reposiciones: number;
-          esperados: number;
-        }[];
-      };
-      academia_asistencia_clase: {
-        Args: { p_clase: number };
-        Returns: { miembro_id: number; nombre: string; estado: string; esperado: boolean }[];
-      };
-      /** Una fila por inscrito: clases dictadas en SUS franjas vs a cuántas asistió. 0059. */
-      academia_rendimiento_nino: {
-        Args: { p_academia: number; p_desde: string; p_hasta: string };
-        Returns: {
-          miembro_id: number;
-          nombre: string;
-          nivel: string | null;
-          horarios: number;
-          esperadas: number;
-          presentes: number;
-          ausentes: number;
-          excusas: number;
-          reposiciones: number;
         }[];
       };
       notas_listar: {

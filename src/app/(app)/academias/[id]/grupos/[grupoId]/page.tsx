@@ -45,6 +45,7 @@ export default async function GrupoPage({
   const fr = franjas ?? [];
   const filas: NinoEnFranja[] = (inscritos ?? []).map((n) => ({
     franjaId: n.franja_id,
+    inscripcionId: n.inscripcion_id,
     miembroId: n.miembro_id,
     clienteId: n.cliente_id,
     nombre: n.nombre,
@@ -133,7 +134,7 @@ export default async function GrupoPage({
           </div>
           {puedeGestionar && (
             <Link href={`/academias/${academiaId}/grupos/${gid}/franjas`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              + Agregar franja
+              Editar franjas
             </Link>
           )}
         </div>
@@ -148,6 +149,8 @@ export default async function GrupoPage({
             ninos={filas}
             edadMin={g.edad_min}
             edadMax={g.edad_max}
+            academiaId={academiaId}
+            puedeGestionar={puedeGestionar}
           />
         )}
       </section>

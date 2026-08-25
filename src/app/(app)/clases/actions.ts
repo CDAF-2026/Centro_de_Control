@@ -294,66 +294,86 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
 // Registrar un bloqueo de academia de EasyCancha como clase(s)
 // ─────────────────────────────────────────────────────────────
 
-export type AcademiaOpcion = {
+export type FranjaOpcion = {
   id: number;
-  nombre: string;
-  deporte: string | null;
-  dias: number[];
-  horaInicio: string | null;
-  horaFin: string | null;
-  cancha: string | null;
+  dia: number;
+  hora: string;   // "16:30"
+  horaFin: string;
   profesorId: string | null;
+  cancha: string | null;
 };
+
+export type GrupoOpcion = {
+  id: number;
+  academiaId: number;
+  nombre: string;
+  nivel: string;
+  edadMin: number;
+  edadMax: number;
+  franjas: FranjaOpcion[];
+};
+
+export type AcademiaOpcion = { id: number; nombre: string; deporte: string | null };
 
 export type PrepararAcademia = {
   academias: AcademiaOpcion[];
+  grupos: GrupoOpcion[];
   profesores: { id: string; nombre: string }[];
 };
 
-/** Academias activas + profesores, para el modo "Academia" del modal. */
+/**
+ * Academias activas con SUS GRUPOS y las franjas de cada grupo, más los
+ * profesores. Todo de una vez: son 4 academias, 9 grupos y 64 franjas, y el
+ * modal las necesita todas para proponer qué clases crear dentro del bloqueo.
+ */
 export async function prepararAcademia(): Promise<PrepararAcademia> {
   await requireRole(WRITE);
   const supabase = await createClient();
 
   const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
-  const { data } = await supabase
-    .from("academias")
-    .select("id, nombre, deporte, dias_semana, hora_inicio, hora_fin, cancha, profesor_id")
-    .eq("activa", true)
-    .order("nombre");
+  const [{ data: acas }, { data: grupos }, { data: franjas }] = await Promise.all([
+    supabase.from("academias").select("id, nombre, deporte").eq("activa", true).order("nombre"),
+    supabase.from("academia_grupo").select("id, academia_id, nombre, nivel, edad_min, edad_max").eq("activo", true).order("nombre"),
+    supabase
+      .from("grupo_franja")
+      .select("id, grupo_id, dia_semana, hora_inicio, hora_fin, profesor_id, cancha")
+      .eq("activo", true)
+      .order("dia_semana")
+      .order("hora_inicio"),
+  ]);
 
-  const academias = (data ?? []).map((a) => ({
-    id: a.id,
-    nombre: a.nombre,
-    deporte: a.deporte,
-    dias: a.dias_semana ?? [],
-    horaInicio: a.hora_inicio?.slice(0, 5) ?? null,
-    horaFin: a.hora_fin?.slice(0, 5) ?? null,
-    cancha: a.cancha,
-    profesorId: a.profesor_id,
-  }));
-  return { academias, profesores };
+  return {
+    academias: (acas ?? []).map((a) => ({ id: a.id, nombre: a.nombre, deporte: a.deporte })),
+    profesores,
+    grupos: (grupos ?? []).map((g) => ({
+      id: g.id,
+      academiaId: g.academia_id,
+      nombre: g.nombre,
+      nivel: g.nivel,
+      edadMin: g.edad_min,
+      edadMax: g.edad_max,
+      franjas: (franjas ?? [])
+        .filter((f) => f.grupo_id === g.id)
+        .map((f) => ({
+          id: f.id,
+          dia: f.dia_semana,
+          hora: f.hora_inicio.slice(0, 5),
+          horaFin: f.hora_fin.slice(0, 5),
+          profesorId: f.profesor_id,
+          cancha: f.cancha,
+        })),
+    })),
+  };
 }
 
-/**
- * Registra un bloqueo de academia como una o varias clases.
- *
- * Un bloque de EasyCancha puede durar horas y contener academias DISTINTAS
- * seguidas (miércoles 08:00–12:00 en Cancha 4 = Bola Naranja 08:00 + Bola
- * Amarilla 11:00), por eso entra una lista de {academia, hora} ya armada en el
- * modal y aquí solo se valida y se inserta.
- *
- * Sin cliente: el bloque es del club, no de una persona; el cobro de academia
- * sale de la asistencia. `profesorId` vacío = cada clase con el profesor de su
- * propia academia.
- */
 export async function materializarAcademia(input: {
   bookingId: string;
   fecha: string;
   deporte: "tenis" | "padel" | null;
   cancha: string;
+  /** Override: si viene, manda sobre el profesor de cada franja. */
   profesorId: string;
-  clases: { academiaId: number; inicio: string; fin: string }[];
+  clases: { grupoId: number; inicio: string; fin: string; profesorId: string | null }[];
 }): Promise<CierreLikeState> {
   await requireRole(WRITE);
   const supabase = await createClient();
@@ -368,26 +388,28 @@ export async function materializarAcademia(input: {
     .maybeSingle();
   if (existe) return { error: "Este bloqueo ya estaba registrado como clase." };
 
-  const ids = [...new Set(input.clases.map((c) => c.academiaId))];
-  const { data: acas } = await supabase
-    .from("academias")
-    .select("id, nombre, nivel, profesor_id")
+  const ids = [...new Set(input.clases.map((c) => c.grupoId))];
+  const { data: grupos } = await supabase
+    .from("academia_grupo")
+    .select("id, nombre, academia_id")
     .in("id", ids);
-  const porId = new Map((acas ?? []).map((a) => [a.id, a]));
-  if (ids.some((id) => !porId.has(id))) return { error: "Alguna academia ya no existe." };
+  const porId = new Map((grupos ?? []).map((g) => [g.id, g]));
+  if (ids.some((id) => !porId.has(id))) return { error: "Algún grupo ya no existe." };
 
   const filas = input.clases.map((c) => {
-    const a = porId.get(c.academiaId)!;
+    const g = porId.get(c.grupoId)!;
     return {
       tipo: "academia" as const,
-      academia_id: a.id,
-      profesor_id: input.profesorId || a.profesor_id || null,
+      academia_id: g.academia_id,
+      grupo_id: g.id,
+      // Cada franja ya sabe quién la dicta; lo que se escoja en el modal manda
+      // (hoy puede estar cubriendo un suplente).
+      profesor_id: input.profesorId || c.profesorId || null,
       deporte: input.deporte,
-      nivel: a.nivel,
       cancha: input.cancha || null,
       fecha: input.fecha,
       hora_inicio: c.inicio || null,
-      hora_fin: c.fin || null, // un bloqueo sin hora de fin entra como clase suelta
+      hora_fin: c.fin || null,
       precio: 0,
       estado: "programada" as const,
       easycancha_booking_id: input.bookingId,
@@ -401,7 +423,7 @@ export async function materializarAcademia(input: {
     action: "clase.academia",
     entity: "clases",
     entityId: input.bookingId,
-    after: { easycancha_booking_id: input.bookingId, clases: filas.length, academias: ids },
+    after: { easycancha_booking_id: input.bookingId, clases: filas.length, grupos: ids },
   });
   revalidatePath("/clases");
   revalidatePath("/cierre");

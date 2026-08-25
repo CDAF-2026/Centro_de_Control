@@ -620,9 +620,38 @@ Niveles nuevos: enum **`academia_nivel`** = iniciacion|intermedio|avanzado.
 - 📌 **Pendientes con el club** (nombres en `docs/academias-tenis-datos-a-revisar.md`): 3
   documentos compartidos por 2 niños distintos (6 niños sin cargar), Sara Salazar que no
   existe, 3 niños que ningún grupo cubre, y 2 tipos de documento extranjero.
-- **Falta**: interfaz de grupos, reapuntar cierre y reportes a `grupo_franja`, limpieza de lo
-  viejo (`inscripcion_horarios`, niveles de bola, columnas muertas) y **academias de pádel**,
-  que Laura dejó explícitamente para después.
+- ✅ **Interfaz de grupos completa** (ago-2026): `/academias/[id]/grupos/nuevo` y `.../editar`
+  (nombre + nivel + rango de edad, con sugerencias Disney/tenistas que se pueden ignorar) y
+  `.../franjas` (agregar/editar/borrar franjas del grupo). En la ficha del grupo cada niño tiene
+  **Días** (reabre el formulario de inscripción en modo edición, `?miembro=`, que es idempotente) y
+  **Retirar**.
+  ⚠️ **Borrar un GRUPO se rechaza si tiene niños** (habría que moverlos primero), pero borrar una
+  FRANJA sí se deja: el niño no pierde la inscripción, solo ese día — y aparece en el bloque ámbar
+  de "sin franja asignada". Son dos cosas distintas a propósito.
+- 🎾 **La clase de academia nace del bloqueo con academia → GRUPO → profesor** (migración 0073,
+  `clases.grupo_id`). El modal de `/clases` propone las **franjas del grupo que caen dentro del
+  bloqueo** (mismo día de la semana + hora dentro del rango) y crea **una clase por franja**, con su
+  hora real: un bloqueo de 15:00–18:00 sobre un grupo con franjas de 15:30 y 16:30 son dos clases,
+  sin teclear horarios. Si el grupo no tiene franja a esa hora (clase extra, reposición) se cae al
+  corte manual del bloque, avisándolo.
+  · El **profesor de cada franja** se usa por defecto y el select del modal es un **override que
+    aplica a todas** (sirve para el suplente de hoy). Solo se pre-llena si TODAS las franjas del
+    bloque coinciden en profesor: con dos profes distintos, sugerir uno sería mentira para la otra
+    clase.
+- 🔒 **`inscripciones.grupo_id` es NOT NULL** desde la limpieza (0074): del grupo salen el horario,
+  el cupo y a quién se espera al cerrar. Una inscripción sin grupo no alimentaba nada y desaparecía
+  de todas las pantallas sin dejar rastro.
+- 🗑️ **Limpieza aplicada** (migración 0074, medida antes de borrar: todo en cero). Se fueron la
+  tabla `inscripcion_horarios`, los 4 RPCs del tablero viejo (`academia_rendimiento_franja`,
+  `academia_rendimiento_nino`, `academia_clases_periodo`, `academia_asistencia_clase`), las columnas
+  `inscripciones.dias/plan_frecuencia/nivel` y diez columnas muertas de `academias`
+  (`nivel, profesor_id, cancha, horario, dias_semana, hora_inicio, hora_fin, valor_alumno,
+  periodo_inicio, periodo_fin`). En el código: `esperadoAcademiasCliente`/`esperadoAcademia`/
+  `mesesCorridos` de finanzas.ts, `inscribirEnAcademia` de clientes/actions.ts, los `NIVELES` de bola
+  y **`scripts/seed-demo.mjs`** (borraba TODOS los datos de dominio con `delete().gte("id",0)` y ya
+  escribía a columnas inexistentes: con 100 niños reales cargados era una bomba, no un seeder).
+- **Falta**: **academias de pádel**, que Laura dejó explícitamente para después, y el cruce
+  asistencia vs facturas de Siigo (bloqueado por conciliación, ver más abajo).
 
 **Rendimiento** (migración 0057, RPCs `academia_rendimiento_franja` · `academia_clases_periodo` ·
 `academia_asistencia_clase`): tablero por franja + listado de clases del periodo desplegable a "quién
@@ -714,8 +743,10 @@ academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
   modal la academia se escoge SIEMPRE a mano (arranca vacía, sin pre-seleccionar) porque define a
   quién se le cobra; el **profesor** sí viene sugerido del comentario y se **confirma al cerrar la
   clase** (obligatorio: hoy una clase sin `profesor_id` desaparece de la liquidación en silencio).
-- ✅ **Cierre** (hecho): la lista trae SOLO a los inscritos que tienen esa franja en su horario
-  (día + hora ±20 min, misma tolerancia que el tablero). ⚠️ Antes filtraba por `inscripciones.dias`,
+- ✅ **Cierre** (hecho): la lista trae SOLO a los del GRUPO DE LA CLASE apuntados a esa franja
+  (`clases.grupo_id` → `grupo_franja` → `inscripcion_franja`, día + hora ±20 min, misma tolerancia
+  que el tablero). Medido con datos reales: de 100 inscritos de la academia y 28 del grupo, la lista
+  del lunes 17:30 trae **5**. ⚠️ Antes filtraba por `inscripciones.dias`,
   que quedó en desuso y hoy está siempre vacío, así que la condición `dias.length === 0` dejaba pasar
   a TODOS los inscritos de la academia — Laura lo detectó viendo a una niña de lunes/miércoles en una
   clase de jueves. Los demás inscritos van en una sección **plegada** ("¿vino alguien más?") con

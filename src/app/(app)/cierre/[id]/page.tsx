@@ -26,7 +26,7 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, grupo_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
@@ -58,41 +58,49 @@ export default async function CerrarClasePage({
   let deportistas: { id: number; nombre: string }[] = [];
   let otrosInscritos: { id: number; nombre: string }[] = [];
   if (clase.tipo === "academia" && clase.academia_id) {
-    // Se espera SOLO a quien tenga ese día a esa hora en su horario. Antes se
-    // filtraba por `inscripciones.dias`, que quedó en desuso con el modelo de
-    // horarios por inscrito: hoy está siempre vacío, así que la condición
-    // `dias.length === 0` dejaba pasar a TODOS los inscritos de la academia.
+    // Se espera SOLO a quien tenga ese día a esa hora en SU GRUPO. El horario ya
+    // no es del niño (`inscripcion_horarios`, retirada): es del grupo, y el niño
+    // se apunta a las franjas que le sirven (`inscripcion_franja`).
     const diaClase = new Date(`${clase.fecha}T00:00:00`).getDay();
     const horaClase = aMinutos(clase.hora_inicio);
 
-    const { data: ins } = await supabase
+    // Si la clase sabe de qué grupo es (lo guarda el modal al registrarla), solo
+    // se mira ese grupo. Las clases viejas no lo tienen: se cae a la academia.
+    let q = supabase
       .from("inscripciones")
-      .select("id, miembro_id")
+      .select("id, miembro_id, grupo_id")
       .eq("academia_id", clase.academia_id)
       .eq("activa", true);
+    if (clase.grupo_id) q = q.eq("grupo_id", clase.grupo_id);
+    const { data: ins } = await q;
     const insList = (ins ?? []).filter(
-      (i): i is { id: number; miembro_id: number } => i.miembro_id != null,
+      (i): i is { id: number; miembro_id: number; grupo_id: number } => i.miembro_id != null,
     );
 
-    const { data: hors } = insList.length
+    const gruposIds = [...new Set(insList.map((i) => i.grupo_id))];
+    const { data: franjas } = gruposIds.length
       ? await supabase
-          .from("inscripcion_horarios")
-          .select("inscripcion_id, dia_semana, hora_inicio")
-          .in("inscripcion_id", insList.map((i) => i.id))
+          .from("grupo_franja")
+          .select("id, dia_semana, hora_inicio")
+          .in("grupo_id", gruposIds)
+          .eq("activo", true)
       : { data: [] };
 
     // ±20 min de tolerancia, igual que el tablero de rendimiento: una clase
     // registrada 16:05 sigue siendo la franja de las 16:00.
-    const esperadas = new Set(
-      (hors ?? [])
-        .filter((h) => {
-          if (h.dia_semana !== diaClase) return false;
-          if (horaClase == null) return true; // clase sin hora: basta el día
-          const hh = aMinutos(h.hora_inicio);
-          return hh != null && Math.abs(hh - horaClase) <= 20;
-        })
-        .map((h) => h.inscripcion_id),
-    );
+    const franjasDeLaClase = (franjas ?? [])
+      .filter((f) => {
+        if (f.dia_semana !== diaClase) return false;
+        if (horaClase == null) return true; // clase sin hora: basta el día
+        const hh = aMinutos(f.hora_inicio);
+        return hh != null && Math.abs(hh - horaClase) <= 20;
+      })
+      .map((f) => f.id);
+
+    const { data: enlaces } = franjasDeLaClase.length
+      ? await supabase.from("inscripcion_franja").select("inscripcion_id").in("franja_id", franjasDeLaClase)
+      : { data: [] };
+    const esperadas = new Set((enlaces ?? []).map((e) => e.inscripcion_id));
 
     const idsEsperados = insList.filter((i) => esperadas.has(i.id)).map((i) => i.miembro_id);
     const idsOtros = insList.filter((i) => !esperadas.has(i.id)).map((i) => i.miembro_id);

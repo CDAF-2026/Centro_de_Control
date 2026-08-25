@@ -45,17 +45,23 @@ export function InscribirGrupoForm({
   academiaNombre,
   grupos,
   grupoInicial,
+  ninoInicial = null,
+  franjasIniciales = [],
 }: {
   academiaId: number;
   academiaNombre: string;
   grupos: GrupoOpcion[];
   grupoInicial: number | null;
+  /** Con niño ya puesto, el formulario es "cambiarle los días" (es idempotente). */
+  ninoInicial?: (NinoInfo & { miembroId: number }) | null;
+  franjasIniciales?: number[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [nino, setNino] = useState<(NinoInfo & { miembroId: number }) | null>(null);
+  const [nino, setNino] = useState<(NinoInfo & { miembroId: number }) | null>(ninoInicial);
   const [grupoId, setGrupoId] = useState<number | null>(grupoInicial);
-  const [franjaIds, setFranjaIds] = useState<number[]>([]);
+  const [franjaIds, setFranjaIds] = useState<number[]>(franjasIniciales);
+  const edicion = !!ninoInicial;
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -223,7 +229,7 @@ export function InscribirGrupoForm({
         <p className="text-muted-foreground text-sm">
           {nino && grupo && elegidas.length > 0 ? (
             <>
-              {nino.nombre.split(",")[1]?.trim() ?? nino.nombre} entra a{" "}
+              {nino.nombre.split(",")[1]?.trim() ?? nino.nombre} {edicion ? "queda en" : "entra a"}{" "}
               <strong className="text-foreground">{grupo.nombre}</strong> y viene{" "}
               <strong className="text-foreground">
                 {elegidas.length} {elegidas.length === 1 ? "vez" : "veces"} por semana
@@ -231,7 +237,7 @@ export function InscribirGrupoForm({
               : {elegidas.map((f) => `${DIA_CORTO[f.dia].toLowerCase()} ${f.hora}`).join(", ")}.
             </>
           ) : (
-            "Escoge el niño, su grupo y los días."
+            edicion ? "Marca los días a los que viene." : "Escoge el niño, su grupo y los días."
           )}
         </p>
         <div className="flex shrink-0 gap-2">
@@ -239,7 +245,7 @@ export function InscribirGrupoForm({
             Cancelar
           </Button>
           <Button type="button" onClick={confirmar} disabled={pending || !nino || !grupo || elegidas.length === 0}>
-            {pending ? "Inscribiendo…" : "Inscribir"}
+            {pending ? "Guardando…" : edicion ? "Guardar días" : "Inscribir"}
           </Button>
         </div>
       </div>

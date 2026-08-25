@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
+import { datosDelNino } from "../../actions";
 import { InscribirGrupoForm, type GrupoOpcion } from "./inscribir-grupo-form";
 
 export default async function InscribirPage({
@@ -11,7 +12,7 @@ export default async function InscribirPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ grupo?: string }>;
+  searchParams: Promise<{ grupo?: string; miembro?: string }>;
 }) {
   await requireRole(rolesForModule("academias", "edit"));
   const { id } = await params;
@@ -69,19 +70,49 @@ export default async function InscribirPage({
       }),
   }));
 
+  // Con ?miembro= el formulario abre en modo "cambiarle los días": mismo flujo,
+  // porque `inscribirEnGrupo` es idempotente (reemplaza las franjas del niño).
+  const miembroId = Number(sp.miembro) || null;
+  let ninoInicial = null;
+  let franjasIniciales: number[] = [];
+  let grupoDelNino: number | null = null;
+  if (miembroId) {
+    const [d, { data: insc }] = await Promise.all([
+      datosDelNino(miembroId),
+      supabase
+        .from("inscripciones")
+        .select("id, grupo_id")
+        .eq("academia_id", academiaId)
+        .eq("miembro_id", miembroId)
+        .eq("activa", true)
+        .maybeSingle(),
+    ]);
+    if (d) ninoInicial = { ...d, miembroId };
+    grupoDelNino = insc?.grupo_id ?? null;
+    if (insc) {
+      const { data: suyas } = await supabase
+        .from("inscripcion_franja")
+        .select("franja_id")
+        .eq("inscripcion_id", insc.id);
+      franjasIniciales = (suyas ?? []).map((f) => f.franja_id);
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
         <Link href={`/academias/${academiaId}`} className="text-muted-foreground text-sm hover:underline">
           ← {a.nombre}
         </Link>
-        <h1 className="cdaf-headline mt-1">Inscribir un niño</h1>
+        <h1 className="cdaf-headline mt-1">{ninoInicial ? "Cambiar los días" : "Inscribir un niño"}</h1>
       </div>
       <InscribirGrupoForm
         academiaId={academiaId}
         academiaNombre={a.nombre}
         grupos={grupos}
-        grupoInicial={Number(sp.grupo) || null}
+        grupoInicial={grupoDelNino ?? (Number(sp.grupo) || null)}
+        ninoInicial={ninoInicial}
+        franjasIniciales={franjasIniciales}
       />
     </div>
   );

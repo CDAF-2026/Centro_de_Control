@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { NIVEL_LABEL } from "../../academias/ocupacion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export default async function ClienteDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, miembro_id, nivel, descuento_pct, fecha_inscripcion")
+    .select("id, academia_id, miembro_id, grupo_id, descuento_pct, fecha_inscripcion")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
@@ -86,31 +87,52 @@ export default async function ClienteDetallePage({
     : { data: [] as { id: number; nombre: string }[] };
   const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
 
-  // El horario es del inscrito, no de la academia: se muestra día por día.
+  // El horario es del GRUPO y el niño se apunta a las franjas que le sirven,
+  // así que se llega por inscripcion_franja → grupo_franja.
   const inscIds = (inscripciones ?? []).map((i) => i.id);
-  const { data: inscHorarios } = inscIds.length
+  const grupoIds = [...new Set((inscripciones ?? []).map((i) => i.grupo_id).filter((g): g is number => g != null))];
+  const [{ data: gruposData }, { data: enlaces }] = await Promise.all([
+    grupoIds.length
+      ? supabase.from("academia_grupo").select("id, nombre, nivel").in("id", grupoIds)
+      : Promise.resolve({ data: [] as { id: number; nombre: string; nivel: string }[] }),
+    inscIds.length
+      ? supabase.from("inscripcion_franja").select("inscripcion_id, franja_id").in("inscripcion_id", inscIds)
+      : Promise.resolve({ data: [] as { inscripcion_id: number; franja_id: number }[] }),
+  ]);
+  const grupoById = new Map((gruposData ?? []).map((g) => [g.id, g]));
+  const franjaIds = [...new Set((enlaces ?? []).map((e) => e.franja_id))];
+  const { data: franjasData } = franjaIds.length
     ? await supabase
-        .from("inscripcion_horarios")
-        .select("inscripcion_id, dia_semana, hora_inicio, hora_fin, cancha")
-        .in("inscripcion_id", inscIds)
+        .from("grupo_franja")
+        .select("id, dia_semana, hora_inicio, hora_fin, cancha")
+        .in("id", franjaIds)
         .order("dia_semana")
         .order("hora_inicio")
     : { data: [] };
-  const inscripcionesView = (inscripciones ?? []).map((i) => ({
-    id: i.id,
-    nivel: i.nivel,
-    descuento_pct: i.descuento_pct,
-    academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
-    miembro: conMiembro(i.miembro_id),
-    horarios: (inscHorarios ?? [])
-      .filter((h) => h.inscripcion_id === i.id)
-      .map((h) => ({
-        dia: h.dia_semana,
-        inicio: h.hora_inicio.slice(0, 5),
-        fin: h.hora_fin.slice(0, 5),
-        cancha: h.cancha,
-      })),
-  }));
+  const franjaById = new Map((franjasData ?? []).map((f) => [f.id, f]));
+
+  const inscripcionesView = (inscripciones ?? []).map((i) => {
+    const g = i.grupo_id != null ? grupoById.get(i.grupo_id) : undefined;
+    return {
+      id: i.id,
+      grupo: g?.nombre ?? null,
+      nivel: g ? NIVEL_LABEL[g.nivel] ?? g.nivel : null,
+      descuento_pct: i.descuento_pct,
+      academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
+      miembro: conMiembro(i.miembro_id),
+      horarios: (enlaces ?? [])
+        .filter((e) => e.inscripcion_id === i.id)
+        .map((e) => franjaById.get(e.franja_id))
+        .filter((f): f is NonNullable<typeof f> => !!f)
+        .sort((a, b) => a.dia_semana - b.dia_semana || a.hora_inicio.localeCompare(b.hora_inicio))
+        .map((f) => ({
+          dia: f.dia_semana,
+          inicio: f.hora_inicio.slice(0, 5),
+          fin: f.hora_fin.slice(0, 5),
+          cancha: f.cancha,
+        })),
+    };
+  });
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")

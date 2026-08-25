@@ -10,11 +10,13 @@ import { Pencil } from "lucide-react";
 type InscHorario = { dia: number; inicio: string; fin: string; cancha: string | null };
 type Insc = {
   id: number;
+  /** Grupo del niño dentro de la academia (nombre editable: Disney / tenistas). */
+  grupo: string | null;
   nivel: string | null;
   descuento_pct: number;
   academiaNombre: string;
   miembro: string | null;
-  /** Cuándo viene: el horario es del inscrito, no de la academia. */
+  /** Cuándo viene: las franjas de su grupo a las que está apuntado. */
   horarios: InscHorario[];
 };
 type Pq = {
@@ -166,6 +168,7 @@ export function ServiciosCliente({
                 <span>
                   {i.academiaNombre}
                   {i.miembro && <span className="text-muted-foreground"> · {i.miembro}</span>}
+                  {i.grupo && <span className="text-muted-foreground"> · {i.grupo}</span>}
                   {i.nivel && <span className="text-muted-foreground"> · {i.nivel}</span>}
                 </span>
                 <span className="text-muted-foreground text-right">

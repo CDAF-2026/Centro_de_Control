@@ -15,7 +15,6 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "seed:demo": "node --env-file=.env scripts/seed-demo.mjs",
     "sync:clientes": "node --env-file=.env scripts/sync-clientes-easycancha.mjs",
     "sync:documentos": "node --env-file=.env scripts/sync-documentos-easycancha.mjs",
     "sync:siigo": "node --env-file=.env scripts/sync-siigo.mjs",

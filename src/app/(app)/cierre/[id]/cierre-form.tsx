@@ -23,9 +23,9 @@ export function CierreForm({
 }: {
   claseId: number;
   estadoActual: string;
-  /** Los que tienen ESTE día a ESTA hora en su horario. */
+  /** Los del grupo apuntados a la franja de ESTE día a ESTA hora. */
   deportistas: Alumno[];
-  /** El resto de inscritos de la academia: solo para registrar una reposición. */
+  /** El resto de inscritos del grupo: solo para registrar una reposición. */
   otrosInscritos?: Alumno[];
   estadoPorCliente: Record<number, string>;
   esAcademia: boolean;
@@ -76,7 +76,7 @@ export function CierreForm({
           <Label>Asistencia{esAcademia ? " de los alumnos" : ""}</Label>
           {esAcademia && (
             <p className="text-muted-foreground text-xs">
-              Solo los inscritos que tienen esta franja en su horario.
+              Solo los del grupo que están apuntados a esta franja.
             </p>
           )}
           {deportistas.map((d) => (
@@ -108,8 +108,8 @@ export function CierreForm({
 
       {esAcademia && deportistas.length === 0 && (
         <p className="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-2 text-sm">
-          Ningún inscrito tiene esta academia este día a esta hora en su horario. Revisa el horario de
-          los niños en la ficha de la academia, o marca abajo a quien haya venido.
+          Ningún inscrito del grupo está apuntado a una franja este día a esta hora. Revisa las
+          franjas del grupo, o marca abajo a quien haya venido.
         </p>
       )}
 
