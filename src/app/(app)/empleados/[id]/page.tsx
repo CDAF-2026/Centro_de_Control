@@ -18,6 +18,7 @@ import { CompensacionForm, type Comp } from "./compensacion-form";
 import { ReglasForm, type ReglaInicial } from "./reglas-form";
 import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
 import { AccesoForm } from "./acceso-form";
+import { TurnosForm } from "./turnos-form";
 import { correoVisible } from "@/lib/empleado";
 
 export default async function EmpleadoDetallePage({
@@ -31,7 +32,7 @@ export default async function EmpleadoDetallePage({
   const supabase = await createClient();
   const { data: emp } = await supabase
     .from("profiles")
-    .select("id, nombre, documento, telefono, role, activo")
+    .select("id, nombre, documento, telefono, role, activo, marca_turno")
     .eq("id", id)
     .single();
   if (!emp) notFound();
@@ -53,6 +54,11 @@ export default async function EmpleadoDetallePage({
   );
 
   const esSuperadmin = profile.role === "superadmin";
+  let tienePin = false;
+  if (esSuperadmin) {
+    const { data } = await supabase.rpc("turno_pin_estado", { p_perfil: id });
+    tienePin = !!data;
+  }
   const esAdmin = can(profile.role, "empleados", "edit");
 
   let comp: Comp | null = null;
@@ -151,6 +157,21 @@ export default async function EmpleadoDetallePage({
               tieneCorreo={!!email}
               esUnoMismo={profile.id === emp.id}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {esSuperadmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Registro de horas</CardTitle>
+            <CardDescription>
+              Si esta persona marca entrada y salida, y con qué PIN lo hace desde el
+              computador de recepción.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TurnosForm empleadoId={emp.id} marcaTurno={emp.marca_turno} tienePin={tienePin} />
           </CardContent>
         </Card>
       )}

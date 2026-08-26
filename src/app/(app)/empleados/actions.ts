@@ -452,3 +452,77 @@ export async function deleteEmpleadoDocumento(formData: FormData): Promise<void>
   await logAudit({ action: "empleado.documento.delete", entity: "empleado_documentos", entityId: empleadoId });
   revalidatePath(`/empleados/${empleadoId}`);
 }
+
+/**
+ * Prende o apaga "registra turnos" para una persona.
+ *
+ * Va por PERSONA y no por rol a propósito: los cuatro que marcan hoy son de
+ * roles distintos (recepción, coord. administrativo y seguridad), y marcar turno
+ * es una condición del contrato, no un módulo. Lo blinda además el trigger
+ * `profiles_blindar_rol`: si cualquiera pudiera apagárselo desde "Mi perfil",
+ * desaparecería de la nómina por horas sin que nadie lo note.
+ */
+export async function cambiarMarcaTurno(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin"]);
+  const id = String(formData.get("id") ?? "");
+  const marca = String(formData.get("marca") ?? "") === "1";
+  if (!id) return { error: "Empleado inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("profiles").update({ marca_turno: marca }).eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "empleado.marca_turno",
+    entity: "profiles",
+    entityId: id,
+    after: { marca_turno: marca },
+  });
+
+  revalidatePath(`/empleados/${id}`);
+  revalidatePath("/", "layout"); // la entrada "Mi turno" del menú depende de esto
+  return { ok: marca ? "Ahora registra turnos." : "Ya no registra turnos." };
+}
+
+/** Asigna el PIN de 4 dígitos con el que marca en el PC de recepción. */
+export async function asignarPinTurno(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin"]);
+  const id = String(formData.get("id") ?? "");
+  const pin = String(formData.get("pin") ?? "").trim();
+  if (!id) return { error: "Empleado inválido." };
+  if (!/^\d{4}$/.test(pin)) {
+    return { error: "El PIN son 4 dígitos.", fieldErrors: { pin: "4 dígitos" } };
+  }
+
+  // El PIN NO se registra en la bitácora: eso lo hace la función, y guarda solo
+  // que se asignó, nunca el número.
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("turno_pin_asignar", { p_perfil: id, p_pin: pin });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/empleados/${id}`);
+  return { ok: "PIN asignado." };
+}
+
+/** Quita el PIN. Sigue pudiendo marcar desde su celular: son dos puertas. */
+export async function borrarPinTurno(
+  _prev: EmpleadoFormState,
+  formData: FormData,
+): Promise<EmpleadoFormState> {
+  await requireRole(["superadmin"]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Empleado inválido." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("turno_pin_borrar", { p_perfil: id });
+  if (error) return { error: error.message };
+
+  revalidatePath(`/empleados/${id}`);
+  return { ok: "PIN eliminado." };
+}

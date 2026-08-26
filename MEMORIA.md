@@ -1019,8 +1019,25 @@ semana a semana y el turno por turno con sus fotos (enlace firmado; el bucket es
   reales) y comprueba las CIFRAS, no solo que la página abra; los borra en un `finally` y verifica
   que no quedó ninguno.
 
-**Falta**: pantalla del quiósco (bloque 3), interruptor y PIN en la ficha del empleado, y la tarea
-automática que borra las fotos al mes. Mientras tanto el interruptor se prende por SQL.
+✅ **Interruptor y PIN en la ficha del empleado** (26-ago-2026, migración 0084). Tarjeta "Registro de
+horas" en `/empleados/[id]`, solo superadministrador. Dos cosas separadas a propósito: el
+**interruptor** decide si la persona marca; el **PIN** es solo para la segunda puerta (el PC de
+recepción) y sin él sigue marcando desde el celular con normalidad.
+- ⚠️ `turno_pin` no la lee NADIE, ni el SA. Para poder pintar "Asignado / Sin PIN" se agregó
+  **`turno_pin_estado(p_perfil)`**, que devuelve un booleano y nunca el hash, más
+  `turno_pin_borrar`. Efecto secundario del arnés de pruebas: con service_role, `private.user_role()`
+  es null y la función lanza excepción — supabase-js la devuelve como `error` y la pantalla pinta
+  "Sin PIN" sin reventar. Es del arnés, no de la app.
+- Al prender o apagar el interruptor se revalida el layout entero: la entrada "Mi turno" del menú
+  depende de `profiles.marca_turno`.
+
+⚠️ **Las pruebas que ESCRIBEN filas de verdad tienen que usar personas distintas.**
+`tests/horas-render.test.tsx` siembra un turno ABIERTO y `turno_abierto_uidx` impide dos por persona,
+así que chocaba con `turnos-marcar`/`turnos-horas` —que usan a Santiago— con "duplicate key value
+violates unique constraint". **Solo se veía al correr la suite completa**: archivo por archivo,
+verde. Ahora esa prueba usa a Juan y limpia lo suyo antes de sembrar.
+
+**Falta**: pantalla del quiósco (bloque 3) y la tarea automática que borra las fotos al mes.
 
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya

@@ -58,6 +58,7 @@ const admin = () =>
     auth: { persistSession: false },
   });
 
+const P = <T,>(o: T) => Promise.resolve(o);
 const render = async (fn: any, props: any) => renderToStaticMarkup(await fn(props));
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
@@ -199,5 +200,44 @@ describe("la cámara y sus fallos", () => {
       texto(renderToStaticMarkup(React.createElement(VistaFallo as any, { fallo, onReintentar() {} })));
     expect(pinta("bloqueada")).toContain("candado de la barra de direcciones");
     expect(pinta("sin_camara")).not.toContain("candado de la barra de direcciones");
+  });
+});
+
+describe("el interruptor y el PIN en la ficha del empleado", () => {
+  it("el superadministrador ve la tarjeta de registro de horas", async () => {
+    PERFIL.role = "superadmin";
+    const { data } = await sbClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    ).from("profiles").select("id").eq("marca_turno", true).limit(1);
+    const empleadoId = data?.[0]?.id as string;
+    expect(empleadoId).toBeTruthy();
+
+    const { default: Page } = await import("../src/app/(app)/empleados/[id]/page");
+    const t = texto(await render(Page, { params: P({ id: empleadoId }) }));
+
+    expect(t).toContain("Registro de horas");
+    expect(t).toContain("Registra turnos");
+    expect(t).toContain("Sí marca");
+    // Con el interruptor prendido aparece el PIN del PC de recepción.
+    expect(t).toContain("PIN del computador de recepción");
+    PERFIL.role = "recepcion";
+  });
+
+  it("quien no es superadministrador no la ve", async () => {
+    PERFIL.role = "coord_admin";
+    const { data } = await sbClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    ).from("profiles").select("id").eq("marca_turno", true).limit(1);
+
+    const { default: Page } = await import("../src/app/(app)/empleados/[id]/page");
+    const t = texto(await render(Page, { params: P({ id: data![0].id }) }));
+
+    expect(t).not.toContain("Registro de horas");
+    expect(t).not.toContain("PIN del computador");
+    PERFIL.role = "recepcion";
   });
 });

@@ -1264,6 +1264,15 @@ export type Database = {
         Args: { p_perfil: string; p_pin: string };
         Returns: void;
       };
+      /** ¿Tiene PIN? Nunca devuelve el hash: la tabla no la lee nadie. */
+      turno_pin_estado: {
+        Args: { p_perfil: string };
+        Returns: boolean;
+      };
+      turno_pin_borrar: {
+        Args: { p_perfil: string };
+        Returns: void;
+      };
       staff_directorio: {
         Args: { p_solo_activos?: boolean; p_role?: AppRole | null };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];

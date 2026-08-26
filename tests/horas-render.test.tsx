@@ -87,11 +87,26 @@ async function sembrar(dia: string, entrada: string, salida: string | null, almu
   return data!.id;
 }
 
+/**
+ * ⚠️ Se usa a JUAN a propósito, y no "el primero que marque turnos".
+ *
+ * Esta prueba escribe filas de verdad (las otras van en transacciones que se
+ * revierten), y una de ellas es un turno ABIERTO. `turno_abierto_uidx` impide
+ * dos turnos abiertos por persona, así que si `turnos-marcar` o `turnos-horas`
+ * —que usan a Santiago— corrían en paralelo con esta, chocaban con
+ * "duplicate key value violates unique constraint". Y solo pasaba al correr la
+ * suite completa: cada archivo por separado pasaba en verde.
+ */
+const CORREO_EMPLEADO = "gaviriajuan41@gmail.com";
+
 beforeAll(async () => {
   const sb = admin();
-  const { data } = await sb.from("profiles").select("id").eq("marca_turno", true).limit(1);
-  empleado = data?.[0]?.id;
-  expect(empleado, "hace falta al menos una persona con marca_turno").toBeTruthy();
+  const { data: u } = await sb.auth.admin.listUsers({ perPage: 200 });
+  empleado = u?.users.find((x) => x.email === CORREO_EMPLEADO)?.id as string;
+  expect(empleado, `hace falta el perfil de prueba ${CORREO_EMPLEADO}`).toBeTruthy();
+
+  // Por si una corrida anterior murió a mitad y dejó basura en 2027.
+  await sb.from("turno").delete().eq("perfil_id", empleado).gte("inicio_el", "2027-01-01");
 
   // 7 h diurnas justas.
   await sembrar("2027-09-20", "07:00", "15:00", ["12:00", "13:00"]);

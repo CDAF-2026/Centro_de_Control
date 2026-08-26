@@ -440,3 +440,64 @@ describe("quién ve los turnos", () => {
     });
   });
 });
+
+describe("el PIN desde la ficha del empleado", () => {
+  it("dice si hay PIN sin revelarlo nunca", async () => {
+    await enTransaccion(async () => {
+      await comoUsuario(admin, async () => {
+        const antes = await client.query("select public.turno_pin_estado($1) as hay", [empleado]);
+        expect(antes.rows[0].hay).toBe(false);
+
+        await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
+        const despues = await client.query("select public.turno_pin_estado($1) as hay", [empleado]);
+        expect(despues.rows[0].hay).toBe(true);
+      });
+    });
+  });
+
+  it("quitar el PIN no toca nada más: sigue pudiendo marcar desde el celular", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(admin, async () => {
+        await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
+        await client.query("select public.turno_pin_borrar($1)", [empleado]);
+        const r = await client.query("select public.turno_pin_estado($1) as hay", [empleado]);
+        expect(r.rows[0].hay).toBe(false);
+      });
+      // El interruptor sigue prendido y la puerta del celular funciona igual.
+      await comoUsuario(empleado, async () => {
+        await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
+      });
+      const t = await client.query("select count(*)::int as n from public.turno where perfil_id = $1", [empleado]);
+      expect(t.rows[0].n).toBe(1);
+    });
+  });
+
+  it("solo el superadministrador puede preguntar o quitar el PIN", async () => {
+    await enTransaccion(async () => {
+      await comoUsuario(otro, async () => {
+        expect(await falla("select public.turno_pin_estado($1)", [empleado]))
+          .toMatch(/superadministrador/i);
+        expect(await falla("select public.turno_pin_borrar($1)", [empleado]))
+          .toMatch(/superadministrador/i);
+      });
+    });
+  });
+
+  it("apagar el interruptor deja a la persona sin poder marcar", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(empleado, () =>
+        client.query("select public.turno_marcar('entrada', $1)", [FOTO]),
+      );
+      // El superadministrador lo apaga desde la ficha.
+      await comoUsuario(admin, () =>
+        client.query("update public.profiles set marca_turno = false where id = $1", [empleado]),
+      );
+      await comoUsuario(empleado, async () => {
+        expect(await falla("select public.turno_marcar('salida', $1)", [FOTO]))
+          .toMatch(/no registra turnos/i);
+      });
+    });
+  });
+});
