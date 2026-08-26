@@ -10,6 +10,7 @@ import { ROLE_LABEL } from "@/lib/roles";
 import {
   COLUMNAS,
   EXTRA_SEMANA_MAX_MIN,
+  FOTOS_DIAS,
   SEMANA_MIN,
   SIN_ALMUERZO_DESDE_MIN,
   hm,
@@ -351,8 +352,8 @@ export default async function HorasDeUnaPersonaPage({
         <AgregarTurno perfilId={persona.id} nombre={nombre} fecha={diaIso(new Date().toISOString())} />
         <span className="text-muted-foreground text-xs">
           «Cómo marcó» es la puerta, no el aparato: con su usuario puede ser desde el celular o
-          desde un computador. Las fotos se borran al mes; el registro del turno se conserva
-          siempre.
+          desde un computador. Las fotos se borran a los {FOTOS_DIAS} días; el registro del turno
+          se conserva siempre.
         </span>
       </div>
     </div>

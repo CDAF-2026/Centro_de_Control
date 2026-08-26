@@ -949,7 +949,8 @@ milisegundos. **Al crear una tabla sensible: `revoke all … from anon, authenti
 devolver solo lo que hace falta.**
 
 **Fotos**: bucket privado **`turnos`** (a diferencia de `avatares`, que es público). La foto de una
-cara es dato sensible (Ley 1581) → enlaces firmados y **borrado automático al mes** (Laura). Se borra
+cara es dato sensible (Ley 1581) → enlaces firmados y **borrado automático a los 45 días** (Laura,
+26-ago-2026; antes eran 30). Se borra
 la foto; **el registro del turno se conserva siempre**, porque es la prueba de nómina. Hay que hacerles
 firmar autorización de tratamiento de datos: eso es del club, no del software.
 
@@ -1084,6 +1085,11 @@ la cuenta con rol `quiosco` (y el SA, para probar).
 
 ✅ **Las fotos se borran solas al mes** (bloque 5, 26-ago-2026, migración 0086). Edge Function
 `turnos-limpiar-fotos` + pg_cron a las **07:40 UTC = 02:40 a. m. en Bogotá**, con el club cerrado.
+⚠️ **El plazo son 45 días y vive en UN solo sitio**: el valor por defecto de `turno_fotos_vencidas`
+(migración 0087). La tarea la llama **sin parámetro** justamente para que no haya un segundo número.
+Lo único que hay que mantener a la par es el TEXTO que ve la gente (`FOTOS_DIAS` en
+`src/lib/turnos.ts`), y las dos constantes se apuntan la una a la otra. Hay una prueba que fija el
+valor por defecto.
 Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la prueba de nómina.
 - **La decisión de QUÉ borrar vive en SQL** (`turno_fotos_vencidas` / `turno_fotos_olvidar`) y no
   dentro de la tarea: así se puede probar de verdad. La tarea solo hace lo que en SQL no se puede —

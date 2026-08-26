@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { FOTOS_DIAS } from "@/lib/turnos";
 
 /**
  * La foto de una marcación: miniatura en la tabla, grande al tocarla.
@@ -73,8 +74,8 @@ export function FotoTurno({
           className="bg-muted ring-foreground/[0.06] aspect-square w-full rounded-xl object-cover ring-1"
         />
         <p className="text-muted-foreground text-xs leading-relaxed">
-          La hora la puso el servidor al tomarse la foto, no el aparato. Las fotos se borran al
-          mes; el registro del turno se conserva siempre.
+          La hora la puso el servidor al tomarse la foto, no el aparato. Las fotos se borran a
+          los {FOTOS_DIAS} días; el registro del turno se conserva siempre.
         </p>
       </DialogContent>
     </Dialog>

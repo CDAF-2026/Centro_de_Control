@@ -17,6 +17,16 @@ export const SEMANA_MIN = 42 * 60;
 /** Topes legales de horas extra: 2 al día y 12 a la semana. */
 export const EXTRA_DIA_MAX_MIN = 2 * 60;
 export const EXTRA_SEMANA_MAX_MIN = 12 * 60;
+/**
+ * Cuánto se guardan las fotos de las marcaciones (Laura, 26-ago-2026).
+ *
+ * ⚠️ Esto es SOLO para el texto que ve la gente. Quien de verdad decide es el
+ * plazo por defecto de `turno_fotos_vencidas` (migración 0087), al que la tarea
+ * llama sin parámetro justamente para que no haya dos números en juego. Si se
+ * cambia allá, hay que cambiarlo aquí — y al revés no sirve de nada.
+ */
+export const FOTOS_DIAS = 45;
+
 /** Desde cuántas horas seguidas se espera que haya un almuerzo marcado. */
 export const SIN_ALMUERZO_DESDE_MIN = 6 * 60;
 

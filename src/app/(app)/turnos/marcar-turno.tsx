@@ -5,6 +5,7 @@ import { Camera, CameraOff, Info, Monitor, RotateCcw, Utensils, X } from "lucide
 import { marcar, type MarcarState } from "./actions";
 import { horaCorta } from "@/lib/fecha";
 import { Button } from "@/components/ui/button";
+import { FOTOS_DIAS } from "@/lib/turnos";
 
 type ConFoto = "entrada" | "salida";
 /** Por qué no se pudo abrir la cámara. Cada caso se explica distinto. */
@@ -415,8 +416,8 @@ export function VistaCamara({
           {enviando ? "Guardando…" : "Toca para tomar la foto"}
         </p>
         <p className="max-w-[250px] text-center text-xs leading-[18px] text-white/45">
-          Tu hora queda registrada al tomarla. La foto se guarda un mes y solo la ve el
-          administrador.
+          Tu hora queda registrada al tomarla. La foto se guarda {FOTOS_DIAS} días y solo la ve
+          el administrador.
         </p>
       </div>
     </div>

@@ -652,6 +652,17 @@ describe("borrar las fotos al mes", () => {
     });
   });
 
+  it("el plazo por defecto es de 45 días, y es el que manda", async () => {
+    // La tarea llama a la función SIN parámetro justamente para que este número
+    // sea el único. Si alguien lo cambia en la base, esta prueba lo cuenta.
+    await enTransaccion(async () => {
+      await turnoViejo(40); // dentro de los 45: todavía no vence
+      await turnoViejo(50); // pasado: sí vence
+      const r = await client.query("select ruta from public.turno_fotos_vencidas() order by ruta");
+      expect(r.rows.map((x) => x.ruta)).toEqual(["vieja/50-e.jpg", "vieja/50-s.jpg"]);
+    });
+  });
+
   it("no deja poner un plazo absurdo", async () => {
     await enTransaccion(async () => {
       expect(await falla("select * from public.turno_fotos_vencidas(0)")).toMatch(/al menos un día/i);

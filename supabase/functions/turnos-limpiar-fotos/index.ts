@@ -1,9 +1,9 @@
 // ============================================================================
-// Edge Function `turnos-limpiar-fotos` — borra las fotos de turno del mes pasado.
+// Edge Function `turnos-limpiar-fotos` — borra las fotos de turno ya vencidas.
 //
 // La foto de una cara es dato sensible (Ley 1581) y el club decidió guardarlas
-// un mes. Se borra LA FOTO; el registro del turno se conserva siempre, porque es
-// la prueba de nómina.
+// 45 días. Se borra LA FOTO; el registro del turno se conserva siempre, porque
+// es la prueba de nómina.
 //
 // La invoca pg_cron una vez al día (ver scripts/schedule-turnos-cron.mjs).
 // Seguridad: requiere header `x-sync-secret` = secreto SYNC_SECRET del proyecto,
@@ -19,8 +19,9 @@
 // ============================================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-/** Cuánto se guardan las fotos. Decisión de Laura, 25-ago-2026. */
-const DIAS = 30;
+// ⚠️ El plazo NO se escribe aquí a propósito: manda el valor por defecto de
+// `turno_fotos_vencidas` (migración 0087) y esta tarea la llama sin parámetro,
+// para que no exista un segundo número que se pueda desincronizar.
 /** El API de Storage borra por lotes; se parte para no mandar una lista enorme. */
 const LOTE = 100;
 
@@ -30,7 +31,7 @@ async function limpiar(): Promise<{ vencidas: number; borradas: number; olvidada
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const { data, error } = await sb.rpc("turno_fotos_vencidas", { p_dias: DIAS });
+  const { data, error } = await sb.rpc("turno_fotos_vencidas");
   if (error) throw new Error(`vencidas: ${error.message}`);
 
   const rutas = [...new Set((data ?? []).map((f: { ruta: string }) => f.ruta))];

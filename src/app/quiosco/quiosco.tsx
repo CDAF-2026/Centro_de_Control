@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, Check, ChevronLeft, Delete, Lock, Utensils, X } from "lucide-react";
 import { iniciales } from "@/lib/avatar";
 import { horaCorta } from "@/lib/fecha";
+import { FOTOS_DIAS } from "@/lib/turnos";
 import { marcarQuiosco, verificarPin, type QuioscoState } from "./actions";
 import type { QuioscoEstado, TurnoAccion } from "@/lib/database.types";
 
@@ -602,7 +603,7 @@ export function VistaCamaraQuiosco({
         </button>
 
         <p className="mt-4 text-[13px] leading-relaxed text-white/35">
-          La foto se guarda un mes y solo la ve el administrador.
+          La foto se guarda {FOTOS_DIAS} días y solo la ve el administrador.
         </p>
       </div>
     </div>
