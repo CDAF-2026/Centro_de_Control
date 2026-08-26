@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,900&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #1a1c1e; color: #f0f1f1;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #d4e157; } a:hover { color: #c2cf47; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em;
+               text-transform: uppercase; color: rgba(240,241,241,.45); }
+    .marco { width: 1280px; height: 800px; background: #1a1c1e; position: relative;
+             overflow: hidden; display: flex; flex-direction: column; }
+    .brillo { position: absolute; top: -160px; right: -120px; width: 520px; height: 520px;
+              border-radius: 999px; background: rgba(212,225,87,.10); filter: blur(90px); }
+    .barra { position: relative; display: flex; align-items: flex-start;
+             justify-content: space-between; padding: 32px 40px 0; }
+    .lima { color: #d4e157; }
+  </style>
+</helmet>
+
+<!-- PIN equivocado. Se dice cuántos intentos quedan ANTES de bloquear, para que
+     nadie se quede sin poder marcar sin haber entendido por qué. -->
+<div class="marco">
+  <div class="brillo"></div>
+
+  <div class="barra">
+    <button style="display: flex; align-items: center; gap: 8px; padding: 0; border: none; background: transparent; color: rgba(240,241,241,.55); font: 400 16px/1 'Open Sans'; cursor: pointer;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Volver
+    </button>
+    <div class="h n lima" style="font-size: 30px; line-height: 30px; font-weight: 800; letter-spacing: -.02em;">2:47<span style="font-size: 15px; color: rgba(212,225,87,.6);"> p. m.</span></div>
+  </div>
+
+  <div style="position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 40px;">
+    <div style="width: 76px; height: 76px; border-radius: 999px; background: rgba(255,180,171,.12); display: flex; align-items: center; justify-content: center;">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#ffb4ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="h" style="margin-top: 20px; font-size: 28px; font-weight: 800; color: #ffb4ab;">PIN incorrecto</div>
+    <div style="margin-top: 10px; font-size: 17px; color: rgba(240,241,241,.6);">Te quedan 3 intentos antes de que se bloquee 15 minutos.</div>
+
+    <div style="margin-top: 28px; display: flex; gap: 14px;">
+      <button style="height: 60px; padding: 0 26px; border: none; border-radius: 14px; background: #d4e157; color: #1a1c1e; font-family: Montserrat, sans-serif; font-size: 17px; font-weight: 700; cursor: pointer;">Volver a intentar</button>
+      <button style="height: 60px; padding: 0 26px; border: 1px solid rgba(240,241,241,.25); border-radius: 14px; background: transparent; color: #f0f1f1; font-family: Montserrat, sans-serif; font-size: 17px; font-weight: 600; cursor: pointer;">Cancelar</button>
+    </div>
+
+    <div style="margin-top: 40px; max-width: 460px; text-align: center; font-size: 14px; line-height: 21px; color: rgba(240,241,241,.4);">
+      ¿Se te olvidó? Pídele uno nuevo al administrador, o marca desde tu celular con tu usuario: cuenta igual.
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

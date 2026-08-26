@@ -501,3 +501,84 @@ describe("el PIN desde la ficha del empleado", () => {
     });
   });
 });
+
+describe("verificar el PIN antes de abrir la cámara", () => {
+  it("el PIN bueno pasa y NO marca nada todavía", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(admin, async () => {
+        await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
+        const r = await client.query(
+          "select * from public.quiosco_pin_verificar($1, '4821')",
+          [empleado],
+        );
+        expect(r.rows[0].ok).toBe(true);
+      });
+      const t = await client.query(
+        "select count(*)::int as n from public.turno where perfil_id = $1",
+        [empleado],
+      );
+      expect(t.rows[0].n).toBe(0);
+    });
+  });
+
+  it("dice cuántos intentos quedan, y bloquea al quinto", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(admin, async () => {
+        await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
+        const mensajes: string[] = [];
+        for (let i = 0; i < 5; i++) {
+          const r = await client.query(
+            "select * from public.quiosco_pin_verificar($1, '0000')",
+            [empleado],
+          );
+          expect(r.rows[0].ok).toBe(false);
+          mensajes.push(r.rows[0].mensaje);
+        }
+        expect(mensajes[0]).toMatch(/quedan 4 intentos/i);
+        expect(mensajes[3]).toMatch(/queda 1 intento\./i);
+        expect(mensajes[4]).toMatch(/bloqueado/i);
+
+        // Y bloqueado ya no pasa ni el bueno.
+        const bueno = await client.query(
+          "select * from public.quiosco_pin_verificar($1, '4821')",
+          [empleado],
+        );
+        expect(bueno.rows[0].ok).toBe(false);
+        expect(bueno.rows[0].mensaje).toMatch(/bloqueado/i);
+      });
+    });
+  });
+
+  it("marcar vuelve a validar el PIN: saltarse la verificación no sirve", async () => {
+    // La pantalla verifica primero para fallar temprano, pero la marcación NO
+    // confía en eso: es la misma comprobación, una sola implementación.
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(admin, async () => {
+        await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
+        const r = await client.query(
+          "select * from public.quiosco_marcar($1, '0000', 'entrada', $2)",
+          [empleado, FOTO],
+        );
+        expect(r.rows[0].ok).toBe(false);
+      });
+      const t = await client.query(
+        "select count(*)::int as n from public.turno where perfil_id = $1",
+        [empleado],
+      );
+      expect(t.rows[0].n).toBe(0);
+    });
+  });
+
+  it("un profesor no puede verificar PINes", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(otro, async () => {
+        expect(await falla("select * from public.quiosco_pin_verificar($1, '4821')", [empleado]))
+          .toMatch(/equipo de recepción/i);
+      });
+    });
+  });
+});

@@ -1058,7 +1058,31 @@ así que chocaba con `turnos-marcar`/`turnos-horas` —que usan a Santiago— co
 violates unique constraint". **Solo se veía al correr la suite completa**: archivo por archivo,
 verde. Ahora esa prueba usa a Juan y limpia lo suyo antes de sembrar.
 
-**Falta**: pantalla del quiósco (bloque 3) y la tarea automática que borra las fotos al mes.
+✅ **Quiósco listo** (bloque 3, 26-ago-2026, migración 0085). `/quiosco`, **fuera del grupo `(app)`**
+para que no herede menú ni encabezado: es un aparato de una sola función, no una pantalla más. La abre
+la cuenta con rol `quiosco` (y el SA, para probar).
+- **El orden es nombre → acción → PIN → foto.** El PIN se pide DESPUÉS de escoger la acción: se teclea
+  una sola vez y justo antes de que sirva. El estado de cada quien sí se ve antes (no es secreto) y es
+  lo que le confirma a la persona que tocó su tarjeta.
+- ⚠️ **`quiosco_pin_verificar` existe para fallar TEMPRANO.** Con solo `quiosco_marcar` —que valida y
+  marca en el mismo paso— un PIN malo se descubriría después de tomarse la foto: confuso, y encima
+  deja el archivo subido para nada. Se partió en dos pero con **una sola implementación**
+  (`private.quiosco_pin_check`), que `quiosco_marcar` vuelve a llamar: saltarse la verificación desde
+  el navegador no sirve de nada. Hay prueba que lo fija.
+- El mensaje dice **cuántos intentos quedan** antes del bloqueo de 15 min: que a alguien se le cierre
+  la puerta sin entender por qué es peor que el PIN malo.
+- Quien no tiene PIN sale en la lista **inhabilitado y con la salida escrita** ("marca desde tu
+  celular"), en vez de dejarlo tocar y darle un error.
+- La foto va a la carpeta de la PERSONA, no a la del quiósco: así vive con sus turnos y el reporte la
+  encuentra igual que las del celular.
+- **Vuelve sola a la lista** a los 45 s de inactividad y 3,5 s después del "listo": es una pantalla
+  compartida y no puede quedarse con un PIN a medio escribir.
+- ⚠️ **El reloj no se pinta en el servidor.** Servidor y navegador no marcan el mismo segundo, y
+  pintarlo en SSR descartaría la hidratación del árbol entero — el mismo fallo que documenta
+  `fecha.ts`. Arranca vacío y se llena al montar; hay una prueba que lo fija.
+
+**Falta**: crear la cuenta del quiósco (rol «Quiósco (PC de recepción)» desde `/empleados/nuevo`) y la
+tarea automática que borra las fotos al mes.
 
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya

@@ -1217,6 +1217,11 @@ export type Database = {
         };
         Returns: { ok: boolean; mensaje: string | null; turno_id: number | null }[];
       };
+      /** Comprueba el PIN sin marcar nada, para fallar antes de abrir la cámara. */
+      quiosco_pin_verificar: {
+        Args: { p_perfil: string; p_pin: string };
+        Returns: { ok: boolean; mensaje: string | null }[];
+      };
       /** Lista para la pantalla del quiósco: quién marca turno y cómo va. */
       quiosco_estado: {
         Args: Record<string, never>;

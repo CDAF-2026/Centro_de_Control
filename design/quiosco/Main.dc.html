@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,900&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #1a1c1e; color: #f0f1f1;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #d4e157; } a:hover { color: #c2cf47; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em;
+               text-transform: uppercase; color: rgba(240,241,241,.45); }
+    .marco { width: 1280px; height: 800px; background: #1a1c1e; position: relative;
+             overflow: hidden; display: flex; flex-direction: column; }
+    .brillo { position: absolute; top: -160px; right: -120px; width: 520px; height: 520px;
+              border-radius: 999px; background: rgba(212,225,87,.10); filter: blur(90px); }
+    .barra { position: relative; display: flex; align-items: flex-start;
+             justify-content: space-between; padding: 32px 40px 0; }
+    .lima { color: #d4e157; }
+  </style>
+</helmet>
+
+<!-- Estado de reposo: lo que se ve en el PC de recepción todo el día. Fondo
+     oscuro a propósito — se lee desde lejos, no encandila, y deja claro que
+     esto NO es la aplicación sino un aparato de una sola función. -->
+<div class="marco">
+  <div class="brillo"></div>
+
+  <div class="barra">
+    <div>
+      <div class="eyebrow">Centro Deportivo Alejandro Falla</div>
+      <div class="h" style="margin-top: 8px; font-size: 34px; line-height: 38px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.01em;">Marcar turno</div>
+    </div>
+    <div style="text-align: right;">
+      <div class="h n lima" style="font-size: 56px; line-height: 52px; font-weight: 800; letter-spacing: -.03em;">2:47<span style="font-size: 24px; color: rgba(212,225,87,.6);"> p. m.</span></div>
+      <div style="margin-top: 8px; font-size: 15px; color: rgba(240,241,241,.5);">miércoles 26 de agosto</div>
+    </div>
+  </div>
+
+  <!-- Las personas. Tarjetas grandes: se tocan de pie y de afán. -->
+  <div style="position: relative; flex: 1; display: flex; align-items: center; justify-content: center; gap: 22px; padding: 0 40px;">
+
+    <div style="width: 268px; background: rgba(255,255,255,.05); border-radius: 20px; padding: 30px 24px; text-align: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);">
+      <div style="width: 84px; height: 84px; margin: 0 auto; border-radius: 999px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;" class="h">
+        <span style="font-size: 28px; font-weight: 700; color: rgba(240,241,241,.6);">CA</span>
+      </div>
+      <div class="h" style="margin-top: 18px; font-size: 20px; font-weight: 700; letter-spacing: -.01em;">Camila</div>
+      <div style="font-size: 14px; color: rgba(240,241,241,.45);">Arboleda</div>
+      <div style="margin-top: 16px; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,.06);">
+        <span style="width: 7px; height: 7px; border-radius: 999px; background: rgba(240,241,241,.3);"></span>
+        <span style="font-size: 13px; color: rgba(240,241,241,.5);">Sin turno</span>
+      </div>
+    </div>
+
+    <!-- En turno: el borde y el punto en lima lo dicen sin leer -->
+    <div style="width: 268px; background: rgba(212,225,87,.07); border-radius: 20px; padding: 30px 24px; text-align: center; box-shadow: inset 0 0 0 1px rgba(212,225,87,.3);">
+      <div style="width: 84px; height: 84px; margin: 0 auto; border-radius: 999px; background: #d4e157; display: flex; align-items: center; justify-content: center;" class="h">
+        <span style="font-size: 28px; font-weight: 700; color: #1a1c1e;">JG</span>
+      </div>
+      <div class="h" style="margin-top: 18px; font-size: 20px; font-weight: 700; letter-spacing: -.01em;">Juan Fernando</div>
+      <div style="font-size: 14px; color: rgba(240,241,241,.45);">Gaviria</div>
+      <div style="margin-top: 16px; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 999px; background: rgba(212,225,87,.15);">
+        <span style="width: 7px; height: 7px; border-radius: 999px; background: #d4e157;"></span>
+        <span class="n" style="font-size: 13px; color: #d4e157;">Desde 7:02 a. m.</span>
+      </div>
+    </div>
+
+    <!-- En almuerzo: mismo bloque, en ámbar y apagado -->
+    <div style="width: 268px; background: rgba(242,181,61,.06); border-radius: 20px; padding: 30px 24px; text-align: center; box-shadow: inset 0 0 0 1px rgba(242,181,61,.28);">
+      <div style="width: 84px; height: 84px; margin: 0 auto; border-radius: 999px; background: rgba(242,181,61,.2); display: flex; align-items: center; justify-content: center;" class="h">
+        <span style="font-size: 28px; font-weight: 700; color: #f2b53d;">SM</span>
+      </div>
+      <div class="h" style="margin-top: 18px; font-size: 20px; font-weight: 700; letter-spacing: -.01em;">Santiago</div>
+      <div style="font-size: 14px; color: rgba(240,241,241,.45);">Montoya</div>
+      <div style="margin-top: 16px; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 999px; background: rgba(242,181,61,.15);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f2b53d" stroke-width="2.5" stroke-linecap="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M20 2a4 4 0 0 0-4 4v7h4"/><path d="M20 13v9"/></svg>
+        <span style="font-size: 13px; color: #f2b53d;">Almorzando</span>
+      </div>
+    </div>
+
+    <div style="width: 268px; background: rgba(255,255,255,.05); border-radius: 20px; padding: 30px 24px; text-align: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);">
+      <div style="width: 84px; height: 84px; margin: 0 auto; border-radius: 999px; background: rgba(255,255,255,.08); display: flex; align-items: center; justify-content: center;" class="h">
+        <span style="font-size: 28px; font-weight: 700; color: rgba(240,241,241,.6);">CR</span>
+      </div>
+      <div class="h" style="margin-top: 18px; font-size: 20px; font-weight: 700; letter-spacing: -.01em;">Carlos</div>
+      <div style="font-size: 14px; color: rgba(240,241,241,.45);">Restrepo</div>
+      <div style="margin-top: 16px; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,.06);">
+        <span style="width: 7px; height: 7px; border-radius: 999px; background: rgba(240,241,241,.3);"></span>
+        <span style="font-size: 13px; color: rgba(240,241,241,.5);">Sin turno</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="position: relative; padding: 0 40px 40px; text-align: center; font-size: 15px; color: rgba(240,241,241,.4);">Toca tu nombre para marcar</div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,900&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #1a1c1e; color: #f0f1f1;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #d4e157; } a:hover { color: #c2cf47; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em;
+               text-transform: uppercase; color: rgba(240,241,241,.45); }
+    .marco { width: 1280px; height: 800px; background: #1a1c1e; position: relative;
+             overflow: hidden; display: flex; flex-direction: column; }
+    .brillo { position: absolute; top: -160px; right: -120px; width: 520px; height: 520px;
+              border-radius: 999px; background: rgba(212,225,87,.10); filter: blur(90px); }
+    .barra { position: relative; display: flex; align-items: flex-start;
+             justify-content: space-between; padding: 32px 40px 0; }
+    .lima { color: #d4e157; }
+  </style>
+</helmet>
+
+<!-- Elegida la persona: su estado y lo que puede hacer. Nada más en pantalla.
+     El PIN se pide DESPUÉS de escoger la acción, no antes: así se teclea una
+     sola vez y justo antes de que sirva. -->
+<div class="marco">
+  <div class="brillo"></div>
+
+  <div class="barra">
+    <button style="display: flex; align-items: center; gap: 8px; padding: 0; border: none; background: transparent; color: rgba(240,241,241,.55); font: 400 16px/1 'Open Sans'; cursor: pointer;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Volver
+    </button>
+    <div style="text-align: right;">
+      <div class="h n lima" style="font-size: 30px; line-height: 30px; font-weight: 800; letter-spacing: -.02em;">2:47<span style="font-size: 15px; color: rgba(212,225,87,.6);"> p. m.</span></div>
+    </div>
+  </div>
+
+  <div style="position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 0 40px 60px;">
+    <div style="width: 108px; height: 108px; border-radius: 999px; background: #d4e157; display: flex; align-items: center; justify-content: center;" class="h">
+      <span style="font-size: 36px; font-weight: 700; color: #1a1c1e;">JG</span>
+    </div>
+    <div class="h" style="margin-top: 20px; font-size: 34px; font-weight: 800; letter-spacing: -.02em;">Juan Fernando Gaviria</div>
+    <div style="margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border-radius: 999px; background: rgba(212,225,87,.15);">
+      <span style="width: 8px; height: 8px; border-radius: 999px; background: #d4e157;"></span>
+      <span class="n" style="font-size: 15px; color: #d4e157;">En turno desde las 7:02 a. m.</span>
+    </div>
+
+    <div style="margin-top: 44px; display: flex; gap: 16px;">
+      <button style="width: 300px; height: 84px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 16px; background: #d4e157; color: #1a1c1e; font-family: Montserrat, sans-serif; font-size: 22px; font-weight: 800; cursor: pointer;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+        Cerrar turno
+      </button>
+      <button style="width: 300px; height: 84px; display: flex; align-items: center; justify-content: center; gap: 12px; border: 1px solid rgba(240,241,241,.25); border-radius: 16px; background: transparent; color: #f0f1f1; font-family: Montserrat, sans-serif; font-size: 20px; font-weight: 600; cursor: pointer;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f0f1f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V2"/><path d="M5.5 11v11"/><path d="M20 2a4 4 0 0 0-4 4v7h4"/><path d="M20 13v9"/></svg>
+        Salgo a almorzar
+      </button>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
