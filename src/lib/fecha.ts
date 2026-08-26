@@ -85,3 +85,42 @@ export function tiempoRelativo(iso: string): string {
   if (d < 7) return `hace ${d} días`;
   return fechaHoraCorta(iso);
 }
+
+// ─────────────────────── Turnos ───────────────────────
+// Las tres se arman a mano por lo mismo que `fechaHoraCorta`: se pintan en un
+// componente de cliente, así que servidor y navegador tienen que producir
+// EXACTAMENTE los mismos caracteres o React descarta la hidratación.
+
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** "7:02 a. m." en hora de Bogotá. */
+export function horaCorta(iso: string): string {
+  const p = partes(iso);
+  const h24 = Number(p.hour);
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${p.minute} ${h24 < 12 ? "a. m." : "p. m."}`;
+}
+
+/** "martes 26 de agosto" en hora de Bogotá. */
+export function fechaLarga(iso: string): string {
+  const p = partes(iso);
+  const y = Number(p.year);
+  const m = Number(p.month);
+  const d = Number(p.day);
+  // El día de la semana se saca de la fecha YA convertida a Bogotá, con Date.UTC
+  // para que el resultado no dependa de la zona horaria del proceso.
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${DIAS[dow]} ${d} de ${MESES[m - 1]}`;
+}
+
+/** "Buenos días" · "Buenas tardes" · "Buenas noches", según la hora de Bogotá. */
+export function saludo(iso: string): string {
+  const h = Number(partes(iso).hour);
+  if (h < 12) return "Buenos días";
+  if (h < 19) return "Buenas tardes";
+  return "Buenas noches";
+}

@@ -18,6 +18,7 @@ export default async function AppLayout({
       perfilId={profile.id}
       avatarUrl={avatarUrl(profile.avatar_path)}
       notasSinLeer={notasSinLeer}
+      marcaTurno={profile.marca_turno}
     >
       {children}
     </AppShell>

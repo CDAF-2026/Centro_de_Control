@@ -10,6 +10,8 @@ export type Profile = {
   telefono: string | null;
   avatar_path: string | null;
   activo: boolean;
+  /** Registra entrada y salida por horas. Decide si le aparece "Mi turno". */
+  marca_turno: boolean;
 };
 
 /** Usuario autenticado (o null). Valida el token contra Supabase. */
@@ -31,7 +33,7 @@ export async function getProfile(): Promise<Profile | null> {
 
   const { data } = await supabase
     .from("profiles")
-    .select("id, role, nombre, telefono, avatar_path, activo")
+    .select("id, role, nombre, telefono, avatar_path, activo, marca_turno")
     .eq("id", user.id)
     .single();
 

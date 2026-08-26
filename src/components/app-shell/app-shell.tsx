@@ -48,6 +48,7 @@ export function AppShell({
   perfilId,
   avatarUrl,
   notasSinLeer,
+  marcaTurno,
   children,
 }: {
   role: AppRole;
@@ -55,11 +56,14 @@ export function AppShell({
   perfilId: string;
   avatarUrl: string | null;
   notasSinLeer: number;
+  marcaTurno: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = NAV_ITEMS.filter((i) => can(role, i.module));
+  const items = NAV_ITEMS.filter(
+    (i) => can(role, i.module) && (i.requiere !== "marca_turno" || marcaTurno),
+  );
   const current = items.find(
     (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
   );

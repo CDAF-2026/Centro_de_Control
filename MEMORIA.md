@@ -966,9 +966,36 @@ abortada y toda sentencia siguiente responde "current transaction is aborted" �
 primera prueba de rechazo tumbaba en cascada a las diez siguientes y los mensajes de fallo no tenían
 nada que ver con lo que se estaba probando.
 
-**Falta** (bloques 2 a 4): pantalla `/turnos` con la cámara, reporte del superadministrador,
-pantalla del quiósco, interruptor y PIN en la ficha del empleado, entradas del menú, y la tarea
-automática que borra las fotos al mes.
+✅ **Pantalla `/turnos` lista** (bloque 2, 26-ago-2026). Un solo trabajo: marcar. La cámara se abre
+con `getUserMedia({facingMode:"user"})`, se recorta cuadrada desde el centro a 640 px y se manda en
+JPEG 0.82 (~60 KB) por Server Action. El **visor va espejado** (CSS) porque es lo que uno espera al
+verse, pero **la foto se guarda sin espejo**: es la imagen real.
+- ⚠️ La cámara **solo funciona sobre HTTPS** (o localhost). Si `navigator.mediaDevices` no existe se
+  distingue entre "no es seguro" y otros fallos, y cada caso se explica distinto: bloqueada (con los
+  pasos para desbloquearla), sin cámara, ocupada, insegura. Todas ofrecen la misma salida: el PC de
+  recepción.
+- ⚠️ **`VistaCamara` y `VistaFallo` se separaron a componentes exportados a propósito**: dentro del
+  componente grande solo se alcanzan tocando un botón, así que un error ahí no lo habría visto nada
+  —ni `tsc`, ni el build, ni la prueba de render— hasta que alguien fuera a marcar de verdad. Ahora
+  `tests/turnos-render.test.tsx` las monta con props.
+- La entrada del menú **"Mi turno" se filtra por PERSONA, no solo por rol**: `NavItem.requiere =
+  "marca_turno"`, alimentado por `profiles.marca_turno`, que se agregó al perfil que carga
+  `(app)/layout.tsx`. El rol dice si la pantalla existe; el interruptor dice quién marca.
+- Se usa **`refresh()` de `next/cache`** (Next 16) tras marcar, en vez de `revalidatePath`: es lo que
+  la documentación indica para "refrescar la pantalla actual después de una mutación". ⚠️ Hay que
+  agregarlo al `vi.mock("next/cache")` de las pruebas o la pantalla ni se importa.
+- Helpers nuevos en `src/lib/fecha.ts`: `horaCorta` ("7:02 a. m."), `fechaLarga` ("martes 26 de
+  agosto") y `saludo`. Se arman a mano por lo mismo que `fechaHoraCorta` — se pintan en un componente
+  de cliente y servidor y navegador tienen que producir los mismos caracteres exactos.
+- 💡 **Cómo se verificó el diseño sin poder iniciar sesión**: se renderizó el componente con
+  `renderToStaticMarkup` inyectando el CSS ya compilado de `.next/static/chunks/*.css` en una página
+  suelta. Sirve para MIRAR una pantalla con sesión obligatoria sin inventar credenciales.
+- ⚠️ Al medir: **no correr `npm run build` y `npm test` a la vez.** Las pruebas contra Postgres tienen
+  20 s de tope y con el build compitiendo por CPU se cayeron tres archivos con 38 pruebas saltadas;
+  en tres corridas limpias seguidas pasan las 58.
+
+**Falta** (bloques 3 y 4): reporte del superadministrador, pantalla del quiósco, interruptor y PIN en
+la ficha del empleado, y la tarea automática que borra las fotos al mes.
 
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya
