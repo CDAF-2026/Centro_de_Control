@@ -582,3 +582,90 @@ describe("verificar el PIN antes de abrir la cámara", () => {
     });
   });
 });
+
+describe("borrar las fotos al mes", () => {
+  /** Inserta un turno con fotos, fechado hace `dias` días. */
+  async function turnoViejo(dias: number, cerrado = true): Promise<number> {
+    const r = await client.query(
+      `insert into public.turno (perfil_id, inicio_el, fin_el, foto_inicio_path, foto_fin_path)
+       values ($1,
+               now() - make_interval(days => $2::int),
+               case when $3 then now() - make_interval(days => $2::int) + interval '7 hours' end,
+               'vieja/' || $2::text || '-e.jpg',
+               case when $3 then 'vieja/' || $2::text || '-s.jpg' end)
+       returning id`,
+      [empleado, dias, cerrado],
+    );
+    return r.rows[0].id;
+  }
+
+  it("lista las de más de un mes y deja quietas las recientes", async () => {
+    await enTransaccion(async () => {
+      await turnoViejo(40);
+      await turnoViejo(10);
+      const r = await client.query("select ruta from public.turno_fotos_vencidas(30) order by ruta");
+      const rutas = r.rows.map((x) => x.ruta);
+      expect(rutas).toEqual(["vieja/40-e.jpg", "vieja/40-s.jpg"]);
+    });
+  });
+
+  it("un turno cerrado se mide por la SALIDA, no por la entrada", async () => {
+    // Con 30 días justos de plazo, un turno que entró hace 30 días y 5 horas
+    // pero salió hace 30 días menos 2 horas todavía NO cumple el mes.
+    await enTransaccion(async () => {
+      await client.query(
+        `insert into public.turno (perfil_id, inicio_el, fin_el, foto_inicio_path, foto_fin_path)
+         values ($1, now() - interval '30 days 5 hours', now() - interval '29 days 22 hours',
+                 'borde/e.jpg', 'borde/s.jpg')`,
+        [empleado],
+      );
+      const r = await client.query("select count(*)::int as n from public.turno_fotos_vencidas(30)");
+      expect(r.rows[0].n).toBe(0);
+    });
+  });
+
+  it("un turno que quedó abierto también pierde su foto al mes", async () => {
+    // La política es la política. Y un turno sin cerrar de hace 40 días lleva
+    // saliendo en rojo en el reporte desde el primer día.
+    await enTransaccion(async () => {
+      await turnoViejo(40, false);
+      const r = await client.query("select ruta from public.turno_fotos_vencidas(30)");
+      expect(r.rows.map((x) => x.ruta)).toEqual(["vieja/40-e.jpg"]);
+    });
+  });
+
+  it("olvidar limpia las rutas y CONSERVA el turno", async () => {
+    await enTransaccion(async () => {
+      const id = await turnoViejo(40);
+      const n = await client.query(
+        "select public.turno_fotos_olvidar(array['vieja/40-e.jpg','vieja/40-s.jpg']) as n",
+      );
+      expect(n.rows[0].n).toBe(2);
+
+      const t = await client.query(
+        "select foto_inicio_path, foto_fin_path, inicio_el is not null as vive from public.turno where id = $1",
+        [id],
+      );
+      expect(t.rows[0].foto_inicio_path).toBeNull();
+      expect(t.rows[0].foto_fin_path).toBeNull();
+      expect(t.rows[0].vive).toBe(true);
+    });
+  });
+
+  it("no deja poner un plazo absurdo", async () => {
+    await enTransaccion(async () => {
+      expect(await falla("select * from public.turno_fotos_vencidas(0)")).toMatch(/al menos un día/i);
+    });
+  });
+
+  it("un profesor no puede listarlas ni olvidarlas", async () => {
+    await enTransaccion(async () => {
+      await comoUsuario(otro, async () => {
+        expect(await falla("select * from public.turno_fotos_vencidas(30)"))
+          .toMatch(/tarea de limpieza o el superadministrador/i);
+        expect(await falla("select public.turno_fotos_olvidar(array['x'])"))
+          .toMatch(/tarea de limpieza o el superadministrador/i);
+      });
+    });
+  });
+});

@@ -23,6 +23,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | Sync clientes EasyCancha | `npm run sync:clientes` (nuevos entran ya con cédula/tipo/nacimiento) |
 | Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
 | Redeploy Edge Function siigo-sync | `node --env-file=.env scripts/deploy-siigo-fn.mjs`; re-agendar cron: `scripts/schedule-siigo-cron.mjs` |
+| Redeploy tarea que borra fotos de turno | `npm run deploy:turnos-fn`; re-agendar cron: `npm run cron:turnos` |
 | Verificar esquema/datos | script one-off con Management API (`POST /v1/projects/$REF/database/query`, token de .env) o service-role |
 
 > ⚠️ **`npm run build` en verde NO significa que la página abra.** El 25-ago-2026 `/academias/[id]`
@@ -1081,8 +1082,23 @@ la cuenta con rol `quiosco` (y el SA, para probar).
   pintarlo en SSR descartaría la hidratación del árbol entero — el mismo fallo que documenta
   `fecha.ts`. Arranca vacío y se llena al montar; hay una prueba que lo fija.
 
-**Falta**: crear la cuenta del quiósco (rol «Quiósco (PC de recepción)» desde `/empleados/nuevo`) y la
-tarea automática que borra las fotos al mes.
+✅ **Las fotos se borran solas al mes** (bloque 5, 26-ago-2026, migración 0086). Edge Function
+`turnos-limpiar-fotos` + pg_cron a las **07:40 UTC = 02:40 a. m. en Bogotá**, con el club cerrado.
+Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la prueba de nómina.
+- **La decisión de QUÉ borrar vive en SQL** (`turno_fotos_vencidas` / `turno_fotos_olvidar`) y no
+  dentro de la tarea: así se puede probar de verdad. La tarea solo hace lo que en SQL no se puede —
+  borrar el archivo del almacenamiento.
+- ⚠️ **EL ORDEN NO ES INTERCAMBIABLE**: listar → borrar los archivos → limpiar las rutas. Al revés
+  —olvidar primero— un borrado fallido dejaría archivos huérfanos PARA SIEMPRE, porque nadie volvería
+  a saber que existen. Así, si falla el último paso, la corrida de mañana los vuelve a ver, intenta
+  borrarlos (ya no están, no pasa nada) y limpia las rutas: **se arregla solo**.
+- El plazo se mide desde `coalesce(fin_el, inicio_el)`: con el turno cerrado manda la SALIDA, que es
+  la foto más nueva, para no borrar la de entrada antes de que la otra cumpla el mes. Un turno que
+  quedó ABIERTO se mide por su entrada y pierde su foto igual — la política es la política, y ese
+  turno lleva saliendo en rojo en el reporte desde el primer día. Hay pruebas de los tres casos.
+- Verificado de punta a punta: se sembró una foto real de hace 40 días, se invocó la tarea como lo
+  hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
+  ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya
