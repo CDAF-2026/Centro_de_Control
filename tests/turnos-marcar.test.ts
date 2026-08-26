@@ -347,19 +347,57 @@ describe("correcciones del superadministrador", () => {
 });
 
 describe("quién ve los turnos", () => {
-  it("cada quien ve los suyos y no los de los demás", async () => {
+  it("el empleado NO ve su propio registro de horas", async () => {
+    // Decisión de Laura: el registro es solo del superadministrador. Se cierra en
+    // la base y no solo en la pantalla, porque esconder el menú no cierra la API.
     await enTransaccion(async () => {
       await client.query(
         `insert into public.turno (perfil_id, inicio_el, fin_el) values
            ($1, '2027-09-06 07:00-05', '2027-09-06 15:00-05'),
+           ($1, '2027-09-07 07:00-05', '2027-09-07 15:00-05'),
            ($2, '2027-09-06 07:00-05', '2027-09-06 15:00-05')`,
         [empleado, otro],
       );
       const mios = await comoUsuario(empleado, () =>
         client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01'"),
       );
-      expect(mios.rows).toHaveLength(1);
-      expect(mios.rows[0].perfil_id).toBe(empleado);
+      expect(mios.rows).toHaveLength(0);
+
+      // Y el cálculo de horas tampoco le dice nada: es SECURITY INVOKER, así que
+      // la misma política lo alcanza sin necesidad de un guardia aparte.
+      const horas = await comoUsuario(empleado, () =>
+        client.query(
+          "select coalesce(sum(total), 0)::int as n from public.turnos_horas('2027-09-06', '2027-09-12')",
+        ),
+      );
+      expect(horas.rows[0].n).toBe(0);
+    });
+  });
+
+  it("pero sí ve su turno abierto, que es lo que la pantalla necesita", async () => {
+    // Sin esto no se puede saber si toca ofrecer "Iniciar" o "Cerrar", ni si hay
+    // un almuerzo sin regreso.
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await comoUsuario(empleado, async () => {
+        await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
+        const abierto = await client.query(
+          "select inicio_el from public.turno where fin_el is null",
+        );
+        expect(abierto.rows).toHaveLength(1);
+
+        await client.query("select public.turno_marcar('pausa_inicio')");
+        const pausa = await client.query(
+          "select id from public.turno_pausa where fin_el is null",
+        );
+        expect(pausa.rows).toHaveLength(1);
+
+        // Al cerrarlo deja de verlo: el turno pasa a ser solo del reporte.
+        await client.query("select public.turno_marcar('pausa_fin')");
+        await client.query("select public.turno_marcar('salida', $1)", [FOTO]);
+        const despues = await client.query("select id from public.turno");
+        expect(despues.rows).toHaveLength(0);
+      });
     });
   });
 

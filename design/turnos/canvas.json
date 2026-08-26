@@ -1,0 +1,34 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "1 · Sin turno", "x": 0, "y": 0, "w": 390, "h": 844 },
+    { "file": "Camara.dc.html", "title": "2 · La cámara", "x": 450, "y": 0, "w": 390, "h": 844 },
+    { "file": "EnTurno.dc.html", "title": "3 · En turno", "x": 900, "y": 0, "w": 390, "h": 844 },
+    { "file": "Almorzando.dc.html", "title": "4 · En almuerzo", "x": 1350, "y": 0, "w": 390, "h": 844 },
+    { "file": "SinCamara.dc.html", "title": "5 · Cámara bloqueada", "x": 1800, "y": 0, "w": 390, "h": 844 },
+    { "file": "Escritorio.dc.html", "title": "La misma pantalla en el PC", "x": 0, "y": 940, "w": 1280, "h": 800 }
+  ],
+  "annotations": [
+    {
+      "id": "recorrido",
+      "x": 0,
+      "y": -170,
+      "w": 520,
+      "text": "El recorrido en el celular, de izquierda a derecha.\nLa pantalla tiene UN solo trabajo: marcar. El empleado no ve cuántas horas lleva — ni del día, ni de la semana, ni de turnos pasados. Ese registro es solo tuyo."
+    },
+    {
+      "id": "por-que-oscuro",
+      "x": 900,
+      "y": -170,
+      "w": 420,
+      "text": "El fondo oscuro con destello lima dice, desde el otro lado del mostrador y sin leer, que el turno está corriendo.\nEn almuerzo el color se apaga: es la señal de que no está contando."
+    },
+    {
+      "id": "escritorio-nota",
+      "x": 1350,
+      "y": 940,
+      "w": 400,
+      "text": "En el PC la pantalla hace lo mismo y la tarjeta se centra en vez de estirarse: un botón de 900 px de largo deja de leerse como botón."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

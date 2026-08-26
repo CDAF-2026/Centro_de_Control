@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800;1,900&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #16181a;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #5b6300; } a:hover { color: #46530a; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<!-- La pantalla tiene UN solo trabajo: marcar. El empleado no ve sus horas —
+     ese registro es del superadministrador. Así que en vez de rellenar con
+     tarjetas, el contenido se centra y respira. -->
+<div style="width: 390px; height: 844px; background: #f4f6f5; display: flex; flex-direction: column;">
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(255,255,255,0.8); border-bottom: 1px solid #e4e8ea;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16181a" stroke-width="2" stroke-linecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+    <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+      <span style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: rgba(212,225,87,0.15); box-shadow: inset 0 0 0 1px rgba(212,225,87,0.25);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#37474f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </span>
+      <span class="h" style="font-size: 16px; font-weight: 600; letter-spacing: -0.01em;">Mi turno</span>
+    </div>
+    <span style="margin-left: auto; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: #d4e157; color: #1a1c1e; font-size: 11px; font-weight: 700;">CA</span>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 20px 64px;">
+
+    <div style="text-align: center;">
+      <div class="n" style="font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #5c6b73;">Martes 26 de agosto</div>
+      <div class="h" style="margin-top: 10px; font-size: 30px; line-height: 34px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -0.015em;">Buenos días,<br>Camila</div>
+    </div>
+
+    <!-- El botón ES la pantalla. Grande, lima, centrado y solo. -->
+    <button style="margin-top: 40px; width: 100%; height: 68px; display: flex; align-items: center; justify-content: center; gap: 11px; border: none; border-radius: 12px; background: #d4e157; color: #1a1c1e; font-family: Montserrat, sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; box-shadow: 0 10px 30px -10px rgba(147,160,32,0.5), 0 2px 6px -2px rgba(22,24,26,0.07); cursor: pointer;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a1c1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.2"/></svg>
+      Iniciar turno
+    </button>
+
+    <div style="margin-top: 16px; text-align: center; font-size: 13px; line-height: 19px; color: #5c6b73;">Se abre la cámara para tu foto de entrada.</div>
+
+    <!-- El único dato del día: nada de acumulados, solo qué hacer -->
+    <div style="margin-top: 44px; display: flex; align-items: center; gap: 11px; padding: 14px 16px; background: #ffffff; border-radius: 12px; box-shadow: 0 1px 2px -1px rgba(22,24,26,0.06), inset 0 0 0 1px rgba(22,24,26,0.06);">
+      <svg style="flex-shrink: 0;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5c6b73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div style="font-size: 13px; line-height: 19px; color: #5c6b73;">Marca al llegar, al salir a almorzar, al regresar y al irte.</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -903,6 +903,19 @@ almorzar, regreso y salida.
   superadministrador (`turno_ajustar`, `turno_crear_manual`, `turno_eliminar`, `turno_pausa_fijar`),
   siempre con motivo obligatorio y rastro en `audit_log`.
 
+🔒 **El empleado NO ve cuántas horas lleva** (decisión de Laura, 26-ago-2026, migración 0083).
+Su pantalla marca y nada más: ni el acumulado de la semana, ni la clasificación del día, ni el
+histórico. Va en la BASE y no solo en la pantalla, que es la lección que este proyecto ya aprendió
+tres veces (el dashboard, `cerrarClase`, `/config`): quitarlo del menú lo esconde, no lo cierra.
+`turno_select` quedó en **superadministrador, o su propio turno ABIERTO** — lo abierto es lo mínimo
+para que la pantalla sepa si ofrecer "Iniciar" o "Cerrar" y si hay un almuerzo sin regreso; al
+cerrarlo, la fila deja de ser suya de ver. 💡 No hizo falta tocar `turnos_horas`/`turnos_listar`
+justamente porque son SECURITY INVOKER: el cambio de política las alcanzó solas, sin un segundo
+guardia que se pueda desactualizar. Verificado: con su sesión, un empleado ve **0 turnos** y
+`turnos_horas` le devuelve **0 minutos**.
+⚠️ El dato sigue existiendo completo y Laura lo ve en su reporte; si un empleado pregunta por sus
+horas, se le muestran desde ahí.
+
 **El cálculo va minuto a minuto** (`turnos_horas`, migración 0081) y devuelve **minutos por persona y
 por DÍA**, con 8 baldes. Se hace así porque las fórmulas de "restar horas" obligan a resolver a mano el
 turno que cruza las 7 p.m., el que cruza la medianoche del domingo al lunes y —el peor— el instante
