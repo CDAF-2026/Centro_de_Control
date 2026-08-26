@@ -22,6 +22,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AgregarTurno, CorregirTurno } from "../corregir-turno";
+import { FotoTurno } from "../foto-turno";
 import type { TurnoHoras, TurnoListado } from "@/lib/database.types";
 
 /** Las fotos viven en un bucket privado: se sirven con enlace firmado, no público. */
@@ -274,11 +275,26 @@ export default async function HorasDeUnaPersonaPage({
                           )}
                         </td>
                         <td className="px-4 py-2.5">
-                          <Fotos
-                            inicio={t.foto_inicio_path ? firmadas.get(t.foto_inicio_path) : null}
-                            fin={t.foto_fin_path ? firmadas.get(t.foto_fin_path) : null}
-                            manual={t.origen === "ajuste"}
-                          />
+                          {t.origen === "ajuste" ? (
+                            <span className="text-muted-foreground/45 text-[13px]">sin foto</span>
+                          ) : (
+                            <span className="flex gap-1.5">
+                              <FotoTurno
+                                url={t.foto_inicio_path ? firmadas.get(t.foto_inicio_path) : null}
+                                momento="Entrada"
+                                dia={diaCorto(t.dia)}
+                                hora={horaCorta(t.inicio_el)}
+                                nombre={nombre}
+                              />
+                              <FotoTurno
+                                url={t.foto_fin_path ? firmadas.get(t.foto_fin_path) : null}
+                                momento="Salida"
+                                dia={diaCorto(t.dia)}
+                                hora={t.fin_el ? horaCorta(t.fin_el) : null}
+                                nombre={nombre}
+                              />
+                            </span>
+                          )}
                         </td>
                         {/* ⚠️ NO es el aparato: la base no lo guarda. Es por cuál
                             PUERTA entró la marcación — con su propio usuario (desde
@@ -340,40 +356,6 @@ export default async function HorasDeUnaPersonaPage({
         </span>
       </div>
     </div>
-  );
-}
-
-/** Miniaturas del listado. Un turno creado a mano nunca tuvo foto: se dice, no se deja en blanco. */
-function Fotos({
-  inicio,
-  fin,
-  manual,
-}: {
-  inicio: string | null | undefined;
-  fin: string | null | undefined;
-  manual: boolean;
-}) {
-  if (manual) return <span className="text-muted-foreground/45 text-[13px]">sin foto</span>;
-  return (
-    <span className="flex gap-1.5">
-      {[inicio, fin].map((url, i) =>
-        url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={i}
-            src={url}
-            alt={i === 0 ? "Entrada" : "Salida"}
-            className="ring-foreground/[0.08] size-8 rounded-md object-cover ring-1"
-          />
-        ) : (
-          <span
-            key={i}
-            className="bg-muted ring-foreground/[0.06] size-8 rounded-md ring-1"
-            aria-label="sin foto"
-          />
-        ),
-      )}
-    </span>
   );
 }
 

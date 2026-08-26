@@ -1031,6 +1031,19 @@ recepción) y sin él sigue marcando desde el celular con normalidad.
 - Al prender o apagar el interruptor se revalida el layout entero: la entrada "Mi turno" del menú
   depende de `profiles.marca_turno`.
 
+📷 **La foto se abre en grande al tocarla** (`horas/foto-turno.tsx`): con 32×32 en la tabla no se
+reconoce a nadie. La miniatura es un botón y el modal muestra la foto a tamaño completo con quién,
+qué día y a qué hora.
+- ⚠️ Va con `<img>` y NO con `next/image`: el bucket `turnos` es privado, la foto se sirve con enlace
+  firmado (`/storage/v1/object/sign/…`) y `next.config.ts` solo declara el dominio de Supabase para
+  `/public/**`.
+- ⚠️ **El contenido del modal no se puede probar con `renderToStaticMarkup`.** Se intentó sacarlo a un
+  componente propio, como se hizo con `VistaCamara`, y NO funciona: `DialogTitle` y
+  `DialogDescription` de Base UI exigen el contexto del diálogo ("Cannot destructure property 'store'
+  of 'useDialogRootContext(...)'") y el portal no se pinta en servidor. Se revirtió la extracción para
+  no dejar indirección que no compra nada. Lo que sí se prueba es el botón que lo abre y el hueco de
+  "sin foto".
+
 ⚠️ **`turno.origen` NO dice el aparato, dice la PUERTA.** `app` = marcó con su propio usuario, desde
 donde sea (celular, portátil o el PC); `quiosco` = marcó en la pantalla compartida con su PIN; `ajuste`
 = lo escribió el superadministrador. La columna se llamaba "Marcó en" y decía **"su celular"** para

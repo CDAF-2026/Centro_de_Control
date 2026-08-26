@@ -204,3 +204,53 @@ describe("el detalle de una persona", () => {
     ).rejects.toThrow("NOT_FOUND");
   });
 });
+
+describe("las fotos del turno", () => {
+  it("cada foto es un botón que abre el modal, con su etiqueta", async () => {
+    const { default: Page } = await import("../src/app/(app)/horas/[id]/page");
+    const html = await render(Page, {
+      params: P({ id: empleado }),
+      searchParams: P({ periodo: PERIODO, ym: YM }),
+    });
+    // Ojo: la etiqueta vive en `title`/`aria-label`, así que se busca en el HTML
+    // crudo — `texto()` borra los atributos.
+    // Los turnos sembrados apuntan a fotos que no existen en Storage, así que el
+    // enlace firmado no se genera y sale el hueco de "sin foto". Lo que se
+    // comprueba aquí es que cada marcación tiene su casilla, etiquetada.
+    expect(html).toContain("Sin foto de entrada");
+    expect(html).toContain("Sin foto de salida");
+    // El turno abierto no tiene salida: su casilla existe igual, vacía.
+    expect((html.match(/Sin foto de salida/g) ?? []).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("una foto con enlace se pinta como botón que abre el detalle", async () => {
+    const { FotoTurno } = await import("../src/app/(app)/horas/foto-turno");
+    const html = renderToStaticMarkup(
+      React.createElement(FotoTurno as any, {
+        url: "https://ejemplo/firma.jpg",
+        momento: "Entrada",
+        dia: "mié 26 ago",
+        hora: "5:32 a. m.",
+        nombre: "Camila",
+      }),
+    );
+    expect(html).toContain("<button");
+    expect(html).toContain("https://ejemplo/firma.jpg");
+    expect(html).toContain("Ver la foto de entrada de Camila");
+  });
+
+  it("un turno creado a mano dice «sin foto», no deja el hueco en blanco", async () => {
+    const { FotoTurno } = await import("../src/app/(app)/horas/foto-turno");
+    const html = renderToStaticMarkup(
+      React.createElement(FotoTurno as any, {
+        url: null,
+        momento: "Salida",
+        dia: "mié 26 ago",
+        hora: null,
+        nombre: "Camila",
+      }),
+    );
+    expect(html).not.toContain("<button");
+    expect(html).toContain("Sin foto de salida");
+  });
+});
