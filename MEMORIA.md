@@ -1031,6 +1031,14 @@ recepción) y sin él sigue marcando desde el celular con normalidad.
 - Al prender o apagar el interruptor se revalida el layout entero: la entrada "Mi turno" del menú
   depende de `profiles.marca_turno`.
 
+⚠️ **`turno.origen` NO dice el aparato, dice la PUERTA.** `app` = marcó con su propio usuario, desde
+donde sea (celular, portátil o el PC); `quiosco` = marcó en la pantalla compartida con su PIN; `ajuste`
+= lo escribió el superadministrador. La columna se llamaba "Marcó en" y decía **"su celular"** para
+`app` — Laura marcó desde su computador y la pantalla le dijo que había sido desde el celular
+(26-ago-2026). Ahora dice **"Cómo marcó" · "Con su usuario" · "Quiósco de recepción"**, y el pie lo
+aclara. **La base no guarda el aparato y no hace falta**: lo que importa para nómina es si marcó la
+persona, el quiósco o el administrador.
+
 ⚠️ **Las pruebas que ESCRIBEN filas de verdad tienen que usar personas distintas.**
 `tests/horas-render.test.tsx` siembra un turno ABIERTO y `turno_abierto_uidx` impide dos por persona,
 así que chocaba con `turnos-marcar`/`turnos-horas` —que usan a Santiago— con "duplicate key value

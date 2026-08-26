@@ -228,7 +228,7 @@ export default async function HorasDeUnaPersonaPage({
                     <th className="px-4 py-2">Almuerzo</th>
                     <th className="px-4 py-2 text-right">Trabajadas</th>
                     <th className="px-4 py-2">Fotos</th>
-                    <th className="px-4 py-2">Marcó en</th>
+                    <th className="px-4 py-2">Cómo marcó</th>
                     <th className="px-4 py-2" />
                   </tr>
                 </thead>
@@ -280,11 +280,16 @@ export default async function HorasDeUnaPersonaPage({
                             manual={t.origen === "ajuste"}
                           />
                         </td>
+                        {/* ⚠️ NO es el aparato: la base no lo guarda. Es por cuál
+                            PUERTA entró la marcación — con su propio usuario (desde
+                            donde sea), por el quiósco con PIN, o escrita a mano. */}
                         <td className="px-4 py-2.5 text-[13px]">
                           {t.origen === "quiosco" && (
-                            <span className="text-muted-foreground">PC de recepción</span>
+                            <span className="text-muted-foreground">Quiósco de recepción</span>
                           )}
-                          {t.origen === "app" && <span className="text-muted-foreground">su celular</span>}
+                          {t.origen === "app" && (
+                            <span className="text-muted-foreground">Con su usuario</span>
+                          )}
                           {t.origen === "ajuste" && (
                             <Badge variant="outline">corregido a mano</Badge>
                           )}
@@ -329,7 +334,9 @@ export default async function HorasDeUnaPersonaPage({
       <div className="flex flex-wrap items-center gap-4">
         <AgregarTurno perfilId={persona.id} nombre={nombre} fecha={diaIso(new Date().toISOString())} />
         <span className="text-muted-foreground text-xs">
-          Las fotos se borran al mes; el registro del turno se conserva siempre.
+          «Cómo marcó» es la puerta, no el aparato: con su usuario puede ser desde el celular o
+          desde un computador. Las fotos se borran al mes; el registro del turno se conserva
+          siempre.
         </span>
       </div>
     </div>
