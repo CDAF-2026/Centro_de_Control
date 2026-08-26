@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #16181a;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #5b6300; } a:hover { color: #46530a; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .th { padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: .05em;
+          text-transform: uppercase; color: #5c6b73; text-align: left; }
+    .td { padding: 11px 14px; font-size: 14px; }
+    .foto { width: 30px; height: 30px; border-radius: 6px; background: #dfe3e4;
+            box-shadow: inset 0 0 0 1px rgba(22,24,26,.1); display: inline-block; }
+  </style>
+</helmet>
+
+<div style="width: 1280px; min-height: 980px; background: #f4f6f5; padding: 32px;">
+
+  <a href="#" style="font-size: 13px; font-weight: 600;">← Horas del personal</a>
+
+  <div style="margin-top: 12px; display: flex; align-items: flex-end; gap: 20px;">
+    <div>
+      <h1 class="h" style="margin: 0; font-size: 32px; line-height: 40px; font-weight: 800; font-style: italic; text-transform: uppercase;">Carlos Restrepo</h1>
+      <div style="margin-top: 4px; font-size: 13px; color: #5c6b73;">Seguridad · agosto 2026, quincena 2 (16–31) · 14 turnos</div>
+    </div>
+    <div style="margin-left: auto; text-align: right;">
+      <div class="h n" style="font-size: 40px; line-height: 40px; font-weight: 800; letter-spacing: -.02em;">159<span style="font-size: 20px; color: #5c6b73;"> h </span>00</div>
+      <div style="font-size: 12px; color: #5c6b73;">trabajadas en el periodo</div>
+    </div>
+  </div>
+
+  <!-- Composición del periodo. La barra es la misma lectura que la tabla, pero
+       de un golpe: cuánto de lo trabajado lleva recargo. -->
+  <div style="margin-top: 20px; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06), inset 0 0 0 1px rgba(22,24,26,.06); padding: 18px 20px;">
+    <div style="display: flex; height: 10px; border-radius: 999px; overflow: hidden;">
+      <div style="flex: 84; background: #d4e157;"></div>
+      <div style="flex: 12; background: #3e6280;"></div>
+      <div style="flex: 40; background: #f2b53d;"></div>
+      <div style="flex: 12; background: #c98a14;"></div>
+      <div style="flex: 7; background: #8b7cf6;"></div>
+      <div style="flex: 4; background: #6b57d6;"></div>
+    </div>
+    <div style="margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px;">
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #d4e157;"></span>Diurnas <strong class="n" style="font-weight: 700;">84:00</strong></span>
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #3e6280;"></span>Nocturnas <strong class="n" style="font-weight: 700;">12:00</strong></span>
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #f2b53d;"></span>Extra diurnas <strong class="n" style="font-weight: 700;">40:00</strong></span>
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #c98a14;"></span>Extra nocturnas <strong class="n" style="font-weight: 700;">12:00</strong></span>
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #8b7cf6;"></span>Dominicales <strong class="n" style="font-weight: 700;">7:00</strong></span>
+      <span style="display: flex; align-items: center; gap: 7px; font-size: 13px;"><span style="width: 10px; height: 10px; border-radius: 3px; background: #6b57d6;"></span>Dom. extra <strong class="n" style="font-weight: 700;">4:00</strong></span>
+    </div>
+  </div>
+
+  <!-- El tope de 42 h es SEMANAL, así que la quincena no basta para verlo: hay
+       que partirla en semanas aunque no cuadren con el periodo de nómina. -->
+  <div style="margin-top: 24px;">
+    <div style="display: flex; align-items: baseline; gap: 10px; padding: 0 2px 10px;">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #5c6b73;">Semana a semana</span>
+      <span style="font-size: 12px; color: #5c6b73;">el tope de 42 h es semanal, no quincenal</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="background: #fff; border-radius: 12px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06), inset 0 0 0 1px rgba(22,24,26,.06); padding: 14px 18px; display: flex; align-items: center; gap: 18px;">
+        <div style="width: 190px; font-size: 14px; font-weight: 600;">17 – 23 de agosto</div>
+        <div style="flex: 1; height: 8px; border-radius: 999px; background: #eef1f1; display: flex; overflow: hidden;">
+          <div style="flex: 42; background: #d4e157;"></div>
+          <div style="flex: 24; background: #f2b53d;"></div>
+        </div>
+        <div class="h n" style="width: 70px; text-align: right; font-size: 15px; font-weight: 700;">66:00</div>
+        <div style="width: 260px; text-align: right; font-size: 12.5px; color: #5c6b73;">42:00 ordinarias + <strong style="color: #8a5600;">24:00 extra</strong></div>
+        <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(242,181,61,.2); color: #8a5600; font-size: 12px; font-weight: 600; white-space: nowrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a5600" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Tope legal: 12 h
+        </span>
+      </div>
+
+      <div style="background: #fff; border-radius: 12px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06), inset 0 0 0 1px rgba(22,24,26,.06); padding: 14px 18px; display: flex; align-items: center; gap: 18px;">
+        <div style="width: 190px; font-size: 14px; font-weight: 600;">24 – 30 de agosto</div>
+        <div style="flex: 1; height: 8px; border-radius: 999px; background: #eef1f1; display: flex; overflow: hidden;">
+          <div style="flex: 42; background: #d4e157;"></div>
+          <div style="flex: 22; background: #f2b53d;"></div>
+        </div>
+        <div class="h n" style="width: 70px; text-align: right; font-size: 15px; font-weight: 700;">64:00</div>
+        <div style="width: 260px; text-align: right; font-size: 12.5px; color: #5c6b73;">42:00 ordinarias + <strong style="color: #8a5600;">22:00 extra</strong></div>
+        <span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(242,181,61,.2); color: #8a5600; font-size: 12px; font-weight: 600; white-space: nowrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a5600" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Tope legal: 12 h
+        </span>
+      </div>
+
+      <div style="background: #fff; border-radius: 12px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06), inset 0 0 0 1px rgba(22,24,26,.06); padding: 14px 18px; display: flex; align-items: center; gap: 18px;">
+        <div style="width: 190px; font-size: 14px; font-weight: 600;">31 de agosto</div>
+        <div style="flex: 1; height: 8px; border-radius: 999px; background: #eef1f1; display: flex; overflow: hidden;">
+          <div style="flex: 11; background: #d4e157;"></div>
+          <div style="flex: 55; background: transparent;"></div>
+        </div>
+        <div class="h n" style="width: 70px; text-align: right; font-size: 15px; font-weight: 700;">11:00</div>
+        <div style="width: 260px; text-align: right; font-size: 12.5px; color: #5c6b73;">semana partida por la quincena</div>
+        <span style="width: 118px;"></span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Turno por turno, con la foto: la prueba de quién marcó -->
+  <div style="margin-top: 26px;">
+    <div style="padding: 0 2px 10px; font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #5c6b73;">Turnos</div>
+    <div style="background: #fff; border: 1px solid #e4e8ea; border-radius: 14px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06); overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: rgba(238,241,241,.5);">
+            <th class="th">Día</th>
+            <th class="th">Entrada y salida</th>
+            <th class="th">Almuerzo</th>
+            <th class="th" style="text-align: right;">Trabajadas</th>
+            <th class="th">Fotos</th>
+            <th class="th">Marcó en</th>
+            <th class="th"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-top: 1px solid #e4e8ea;">
+            <td class="td" style="font-weight: 600;">lun 24 ago</td>
+            <td class="td n" style="color: #5c6b73;">9:00 a. m. – 9:03 p. m.</td>
+            <td class="td n" style="color: #5c6b73;">1:00</td>
+            <td class="td h n" style="text-align: right; font-weight: 700;">11:03</td>
+            <td class="td"><span class="foto"></span> <span class="foto"></span></td>
+            <td class="td" style="font-size: 13px; color: #5c6b73;">su celular</td>
+            <td class="td" style="text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Corregir</a></td>
+          </tr>
+
+          <tr style="border-top: 1px solid #e4e8ea; background: rgba(186,26,26,.04);">
+            <td class="td" style="font-weight: 600;">mar 25 ago</td>
+            <td class="td n" style="color: #5c6b73;">9:02 a. m. – <span style="color: #ba1a1a; font-weight: 600;">sin marcar</span></td>
+            <td class="td n" style="color: #b6bfc3;">—</td>
+            <td class="td h n" style="text-align: right; color: #b6bfc3;">—</td>
+            <td class="td"><span class="foto"></span></td>
+            <td class="td" style="font-size: 13px; color: #5c6b73;">su celular</td>
+            <td class="td" style="text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Corregir</a></td>
+          </tr>
+
+          <tr style="border-top: 1px solid #e4e8ea; background: rgba(242,181,61,.05);">
+            <td class="td" style="font-weight: 600;">mié 26 ago</td>
+            <td class="td n" style="color: #5c6b73;">9:00 a. m. – 6:00 p. m.</td>
+            <td class="td"><span style="display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 999px; background: rgba(242,181,61,.2); color: #8a5600; font-size: 12px; font-weight: 600;">sin marcar</span></td>
+            <td class="td h n" style="text-align: right; font-weight: 700;">9:00</td>
+            <td class="td"><span class="foto"></span> <span class="foto"></span></td>
+            <td class="td" style="font-size: 13px; color: #5c6b73;">su celular</td>
+            <td class="td" style="text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Corregir</a></td>
+          </tr>
+
+          <tr style="border-top: 1px solid #e4e8ea;">
+            <td class="td" style="font-weight: 600;">jue 27 ago</td>
+            <td class="td n" style="color: #5c6b73;">9:00 a. m. – 9:00 p. m.</td>
+            <td class="td n" style="color: #5c6b73;">1:00</td>
+            <td class="td h n" style="text-align: right; font-weight: 700;">11:00</td>
+            <td class="td"><span class="foto"></span> <span class="foto"></span></td>
+            <td class="td" style="font-size: 13px; color: #5c6b73;">PC de recepción</td>
+            <td class="td" style="text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Corregir</a></td>
+          </tr>
+
+          <tr style="border-top: 1px solid #e4e8ea;">
+            <td class="td" style="font-weight: 600;">vie 28 ago</td>
+            <td class="td n" style="color: #5c6b73;">9:00 a. m. – 9:00 p. m.</td>
+            <td class="td n" style="color: #5c6b73;">1:00</td>
+            <td class="td h n" style="text-align: right; font-weight: 700;">11:00</td>
+            <td class="td" style="color: #b6bfc3; font-size: 13px;">sin foto</td>
+            <td class="td" style="font-size: 13px;">
+              <span style="display: inline-flex; align-items: center; height: 21px; padding: 0 8px; border-radius: 999px; background: #eaedee; color: #1f2933; font-size: 12px; font-weight: 600;">corregido a mano</span>
+              <div style="margin-top: 3px; font-size: 12px; color: #5c6b73;">«se fue la luz» · Laura</div>
+            </td>
+            <td class="td" style="text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Corregir</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 12px; display: flex; align-items: center; gap: 14px;">
+      <button style="height: 36px; padding: 0 14px; border: 1px solid #e4e8ea; background: #fff; border-radius: 8px; font: 600 13.5px/1 Montserrat, sans-serif; color: #16181a; cursor: pointer;">+ Agregar un turno que no se marcó</button>
+      <span style="font-size: 12px; color: #5c6b73;">Las fotos se borran al mes; el registro del turno se conserva siempre.</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

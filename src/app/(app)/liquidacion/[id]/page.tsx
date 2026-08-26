@@ -5,7 +5,8 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
-import { calcularLiquidacion, rangoPeriodoLiq } from "@/lib/liquidacion";
+import { calcularLiquidacion } from "@/lib/liquidacion";
+import { rangoNomina } from "@/lib/periodo";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -26,7 +27,7 @@ export default async function LiquidacionDetallePage({
   const sp = await searchParams;
   const periodo = sp.periodo === "q1" || sp.periodo === "q2" ? sp.periodo : "mes";
   const ym = /^\d{4}-\d{2}$/.test(sp.ym ?? "") ? sp.ym! : ymActual();
-  const { desde, hasta, quincenas } = rangoPeriodoLiq(periodo, ym);
+  const { desde, hasta, quincenas } = rangoNomina(periodo, ym);
 
   const filas = await calcularLiquidacion(desde, hasta, quincenas);
   const prof = filas.find((f) => f.id === id);

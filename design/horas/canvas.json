@@ -1,0 +1,38 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "1 · El reporte", "x": 0, "y": 0, "w": 1280, "h": 900 },
+    { "file": "Empleado.dc.html", "title": "2 · Detalle de una persona", "x": 1360, "y": 0, "w": 1280, "h": 980 },
+    { "file": "Corregir.dc.html", "title": "3 · Corregir un turno", "x": 2720, "y": 0, "w": 940, "h": 700 }
+  ],
+  "annotations": [
+    {
+      "id": "que-es",
+      "x": 0,
+      "y": -190,
+      "w": 560,
+      "text": "Tu reporte de horas: solo lo ves tú.\nLas seis categorías que pediste, más las nocturnas ordinarias (7 a 9 p. m., 35%) que mencionaste al principio pero no quedaron en la lista — sin esa columna, esas horas se pagarían como diurnas."
+    },
+    {
+      "id": "ceros",
+      "x": 640,
+      "y": -190,
+      "w": 460,
+      "text": "Los ceros salen como raya gris a propósito. En una quincena normal todo es diurno; si las seis columnas gritaran igual, lo que de verdad hay que mirar se perdería entre ceros."
+    },
+    {
+      "id": "semanas",
+      "x": 1360,
+      "y": -190,
+      "w": 520,
+      "text": "El tope de 42 h es SEMANAL y la nómina es quincenal: no cuadran. Por eso la quincena se parte en semanas — es la única forma de ver si alguien pasó el tope, y de que se vea que la última semana quedó cortada por el corte de nómina."
+    },
+    {
+      "id": "corregir-nota",
+      "x": 2720,
+      "y": -190,
+      "w": 440,
+      "text": "Las fotos van ARRIBA de los campos: se corrige mirando la prueba, no de memoria. El motivo es obligatorio y queda en la bitácora con las horas que había antes."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

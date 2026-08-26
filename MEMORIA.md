@@ -994,8 +994,33 @@ verse, pero **la foto se guarda sin espejo**: es la imagen real.
   20 s de tope y con el build compitiendo por CPU se cayeron tres archivos con 38 pruebas saltadas;
   en tres corridas limpias seguidas pasan las 58.
 
-**Falta** (bloques 3 y 4): reporte del superadministrador, pantalla del quiósco, interruptor y PIN en
-la ficha del empleado, y la tarea automática que borra las fotos al mes.
+✅ **Reporte `/horas` listo** (bloque 4, 26-ago-2026). Solo superadministrador. Periodo mes/quincena,
+el MISMO selector de la liquidación porque las dos pantallas son nómina (`rangoNomina` se movió de
+`liquidacion.ts` a `periodo.ts` para no dejar dos copias). Tabla por empleado con las seis columnas,
+tarjeta de avisos arriba, y detalle por persona en `/horas/[id]` con la composición, el desglose
+semana a semana y el turno por turno con sus fotos (enlace firmado; el bucket es privado).
+- 💡 **No hay total general, y es decisión de Laura** (26-ago-2026): sumar las horas de las cuatro
+  personas da un número que nadie usa —no se le paga a nadie "el total del club"— e invita a comparar
+  cifras que no son comparables. El total que importa es el de CADA persona, contra sus 42 h
+  semanales. Hay una prueba que lo fija (cuenta las filas de la tabla).
+- ⚠️ **El detalle parte la quincena en SEMANAS**, aunque no cuadren: el tope de 42 h es semanal y la
+  nómina quincenal. Es la única forma de ver si alguien se pasó, y de que se note cuándo una semana
+  quedó cortada por el corte de nómina. Funciona porque `turnos_horas` devuelve por DÍA ya
+  clasificado: sumar días 16–31 es exacto aunque el periodo parta una semana por la mitad.
+- ⚠️ **En `corregirTurno` el ORDEN de los tres pasos no es intercambiable**: borrar pausas → ajustar
+  el turno → volver a poner el almuerzo. Al revés se traba solo, porque `turno_ajustar` rechaza dejar
+  una pausa fuera del turno y `turno_pausa_fijar` rechaza una pausa fuera del turno ACTUAL; con las
+  dos validaciones vivas, encoger un turno con almuerzo sería imposible.
+- ⚠️ Si la salida es anterior a la entrada se toma como del DÍA SIGUIENTE. Hoy nadie cruza la
+  medianoche, pero sin esa regla la base rechazaría el ajuste sin que se entienda por qué.
+- Los ceros salen como raya gris: en una quincena normal todo es diurno y, si las seis columnas
+  gritaran igual, lo único que hay que mirar se perdería entre ceros.
+- La prueba `tests/horas-render.test.tsx` **siembra turnos** (2027, para no cruzarse con datos
+  reales) y comprueba las CIFRAS, no solo que la página abra; los borra en un `finally` y verifica
+  que no quedó ninguno.
+
+**Falta**: pantalla del quiósco (bloque 3), interruptor y PIN en la ficha del empleado, y la tarea
+automática que borra las fotos al mes. Mientras tanto el interruptor se prende por SQL.
 
 ## Pendientes conocidos
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya

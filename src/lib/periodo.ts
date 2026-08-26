@@ -56,3 +56,19 @@ export function rangoPeriodo(periodo: Periodo, now: Date, desde?: string, hasta?
 
   return { curStartIso: iso(curStart), curEndIso, todayIso, prevStartIso: iso(prevStart), prevEndIso: iso(prevEnd) };
 }
+
+/**
+ * Rango de la QUINCENA de nómina. Vive aquí y no en `liquidacion.ts` porque lo
+ * usan dos pantallas de nómina distintas —la liquidación de entrenadores y las
+ * horas del personal— y una segunda copia de esta regla se desincronizaría el
+ * día que el club cambie los cortes.
+ */
+/** Rango de fechas a partir del periodo (q1 / q2 / mes) y el mes (YYYY-MM). */
+export function rangoNomina(periodo: string, ym: string) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const [y, m] = ym.split("-").map(Number);
+  const ultimo = new Date(y, m, 0).getDate();
+  if (periodo === "q1") return { desde: `${ym}-01`, hasta: `${ym}-15`, quincenas: 1 };
+  if (periodo === "q2") return { desde: `${ym}-16`, hasta: `${ym}-${pad(ultimo)}`, quincenas: 1 };
+  return { desde: `${ym}-01`, hasta: `${ym}-${pad(ultimo)}`, quincenas: 2 };
+}

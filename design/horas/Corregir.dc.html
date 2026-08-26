@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #16181a;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #5b6300; } a:hover { color: #46530a; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .rot { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .in { width: 100%; box-sizing: border-box; height: 36px; padding: 0 10px;
+          border: 1px solid #d4d9dc; background: #fff; border-radius: 8px;
+          font: 400 14px/1 "Open Sans"; color: #16181a; font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+
+<!-- El fondo va atenuado a propósito: corregir un turno es tocar un dato de
+     nómina, no un ajuste al paso. -->
+<div style="position: relative; width: 940px; height: 700px; background: #f4f6f5; overflow: hidden;">
+  <div style="position: absolute; inset: 0; background: rgba(26,28,30,.5); backdrop-filter: blur(3px);"></div>
+
+  <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 560px; background: #fff; border-radius: 18px; box-shadow: 0 22px 44px -14px rgba(22,24,26,.4); overflow: hidden;">
+
+    <div style="padding: 22px 24px 0;">
+      <h2 class="h" style="margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.01em;">Corregir el turno</h2>
+      <p style="margin: 6px 0 0; font-size: 13.5px; color: #5c6b73;">Carlos Restrepo · martes 25 de agosto</p>
+    </div>
+
+    <!-- Las fotos son la prueba de a qué hora estuvo. Van arriba, antes de los
+         campos, para corregir mirándolas y no de memoria. -->
+    <div style="margin: 18px 24px 0; display: flex; gap: 12px; padding: 12px 14px; background: #f4f6f5; border-radius: 12px;">
+      <div style="text-align: center;">
+        <div style="width: 64px; height: 64px; border-radius: 8px; background: #dfe3e4; box-shadow: inset 0 0 0 1px rgba(22,24,26,.1);"></div>
+        <div class="n" style="margin-top: 5px; font-size: 11.5px; color: #5c6b73;">9:02 a. m.</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="width: 64px; height: 64px; border-radius: 8px; background: repeating-linear-gradient(45deg, #eef1f1, #eef1f1 6px, #e4e8ea 6px, #e4e8ea 12px); box-shadow: inset 0 0 0 1px rgba(22,24,26,.08); display: flex; align-items: center; justify-content: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a8b2b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h11"/><path d="M22 16V9a2 2 0 0 0-2-2h-3l-2.5-3"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+        </div>
+        <div style="margin-top: 5px; font-size: 11.5px; color: #a8b2b6;">sin salida</div>
+      </div>
+      <p style="margin: 0; align-self: center; font-size: 12.5px; line-height: 18px; color: #5c6b73;">
+        Marcó entrada a las 9:02 y nunca cerró.<br>Su turno normal termina a las 9 p. m.
+      </p>
+    </div>
+
+    <div style="padding: 20px 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+      <div>
+        <label class="rot">Entrada</label>
+        <input class="in" type="time" value="09:02">
+      </div>
+      <div>
+        <label class="rot">Salida</label>
+        <input class="in" type="time" value="21:00">
+      </div>
+      <div>
+        <label class="rot">Salió a almorzar <span style="font-weight: 400; color: #5c6b73;">(opcional)</span></label>
+        <input class="in" type="time" value="">
+      </div>
+      <div>
+        <label class="rot">Regresó <span style="font-weight: 400; color: #5c6b73;">(opcional)</span></label>
+        <input class="in" type="time" value="">
+      </div>
+    </div>
+
+    <div style="padding: 16px 24px 0;">
+      <label class="rot">Motivo de la corrección</label>
+      <input class="in" type="text" placeholder="Se le olvidó marcar la salida">
+      <p style="margin: 7px 0 0; font-size: 12px; line-height: 17px; color: #5c6b73;">
+        Es obligatorio. Queda guardado quién corrigió, cuándo, y qué decían las horas antes.
+      </p>
+    </div>
+
+    <div style="margin-top: 22px; padding: 16px 24px; background: rgba(238,241,241,.6); border-top: 1px solid #e4e8ea; display: flex; align-items: center; gap: 10px;">
+      <button style="height: 36px; padding: 0 12px; border: none; border-radius: 8px; background: rgba(186,26,26,.1); color: #ba1a1a; font: 600 13.5px/1 Montserrat, sans-serif; cursor: pointer;">Borrar el turno</button>
+      <div style="margin-left: auto; display: flex; gap: 10px;">
+        <button style="height: 36px; padding: 0 14px; border: 1px solid #e4e8ea; background: #fff; border-radius: 8px; font: 600 13.5px/1 Montserrat, sans-serif; color: #16181a; cursor: pointer;">Cancelar</button>
+        <button style="height: 36px; padding: 0 18px; border: none; border-radius: 8px; background: #d4e157; color: #1a1c1e; font: 700 13.5px/1 Montserrat, sans-serif; cursor: pointer;">Guardar corrección</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":940,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

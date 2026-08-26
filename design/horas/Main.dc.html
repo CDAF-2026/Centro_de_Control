@@ -1,0 +1,165 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,600;0,700;0,800;0,900;1,800&family=Open+Sans:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #f4f6f5; color: #16181a;
+           font-family: "Open Sans", system-ui, -apple-system, sans-serif; }
+    a { color: #5b6300; } a:hover { color: #46530a; }
+    .h { font-family: Montserrat, "Helvetica Neue", Arial, sans-serif; }
+    .n { font-variant-numeric: tabular-nums; }
+    .th { padding: 10px 14px; font-size: 11px; font-weight: 600; letter-spacing: .05em;
+          text-transform: uppercase; color: #5c6b73; text-align: right; }
+    .td { padding: 12px 14px; text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
+    .cero { color: #b6bfc3; }
+    .sel { height: 36px; padding: 0 10px; border: 1px solid #d4d9dc; background: #fff;
+           border-radius: 8px; font: 400 14px/1 "Open Sans"; color: #16181a; }
+  </style>
+</helmet>
+
+<div style="width: 1280px; min-height: 900px; background: #f4f6f5; padding: 32px;">
+
+  <h1 class="h" style="margin: 0; font-size: 32px; line-height: 40px; font-weight: 800; font-style: italic; text-transform: uppercase;">Horas del personal</h1>
+
+  <!-- Mismo selector que la liquidación: las dos pantallas son nómina, y no
+       tiene sentido que se manejen distinto. -->
+  <div style="margin-top: 20px; display: flex; align-items: flex-end; gap: 12px;">
+    <div>
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">Periodo</div>
+      <select class="sel"><option>Quincena 2 (16–fin)</option><option>Mes completo</option><option>Quincena 1 (1–15)</option></select>
+    </div>
+    <div>
+      <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">Mes</div>
+      <input class="sel" type="month" value="2026-08">
+    </div>
+    <button style="height: 36px; padding: 0 16px; border: none; border-radius: 8px; background: #d4e157; color: #1a1c1e; font: 600 14px/1 Montserrat, sans-serif; cursor: pointer;">Calcular</button>
+  </div>
+
+  <!-- Lo que pide atención va ARRIBA y nombrado, no como un punto rojo que hay
+       que ir a buscar. Cada línea lleva a la persona. -->
+  <div style="margin-top: 20px; background: #fff; border-radius: 14px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06), inset 0 0 0 1px rgba(242,181,61,.35); padding: 16px 20px;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8a5600" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span class="h" style="font-size: 14px; font-weight: 700;">Tres cosas por revisar</span>
+    </div>
+    <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 6px; height: 6px; border-radius: 999px; background: #ba1a1a;"></span>
+        <span><strong>2 turnos sin cerrar</strong> — Santiago el 19 de ago y Camila el 24. No suman horas hasta que los corrijas.</span>
+        <a href="#" style="margin-left: auto; font-size: 13px; font-weight: 600;">Ver</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 6px; height: 6px; border-radius: 999px; background: #f2b53d;"></span>
+        <span><strong>Carlos pasó el tope legal de extras</strong> en 2 semanas (la ley permite 12 h a la semana; hizo 26 y 24).</span>
+        <a href="#" style="margin-left: auto; font-size: 13px; font-weight: 600;">Ver</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="width: 6px; height: 6px; border-radius: 999px; background: #f2b53d;"></span>
+        <span><strong>1 turno largo sin almuerzo registrado</strong> — Juan el 21 de ago, 9 h seguidas. Se le está pagando la hora de comida.</span>
+        <a href="#" style="margin-left: auto; font-size: 13px; font-weight: 600;">Ver</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- La tabla. Los ceros salen como raya gris para que el ojo solo enganche
+       donde SÍ hay recargo: en una quincena normal todo es diurno. -->
+  <div style="margin-top: 20px; background: #fff; border: 1px solid #e4e8ea; border-radius: 14px; box-shadow: 0 1px 2px -1px rgba(22,24,26,.06); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background: rgba(238,241,241,.5);">
+          <th class="th" style="text-align: left;">Empleado</th>
+          <th class="th">Diurnas</th>
+          <th class="th">Nocturnas<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">+35%</span></th>
+          <th class="th">Extra diurnas<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">+25%</span></th>
+          <th class="th">Extra nocturnas<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">+75%</span></th>
+          <th class="th">Dominicales<br><span style="font-weight: 400; text-transform: none; letter-spacing: 0;">+90%</span></th>
+          <th class="th">Dom. extra</th>
+          <th class="th" style="background: rgba(212,225,87,.12);">Total</th>
+          <th class="th"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top: 1px solid #e4e8ea;">
+          <td style="padding: 12px 14px;">
+            <div style="font-weight: 600; font-size: 14px;">Camila Arboleda</div>
+            <div style="font-size: 12px; color: #5c6b73;">Cafetería · 12 turnos</div>
+          </td>
+          <td class="td">72:00</td>
+          <td class="td">12:00</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td h" style="font-weight: 700; background: rgba(212,225,87,.12);">84:00</td>
+          <td style="padding: 12px 14px; text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Detalle</a></td>
+        </tr>
+
+        <tr style="border-top: 1px solid #e4e8ea; background: rgba(242,181,61,.05);">
+          <td style="padding: 12px 14px;">
+            <div style="font-weight: 600; font-size: 14px;">Carlos Restrepo</div>
+            <div style="font-size: 12px; color: #5c6b73;">Seguridad · 14 turnos</div>
+          </td>
+          <td class="td">84:00</td>
+          <td class="td">12:00</td>
+          <td class="td" style="font-weight: 600; color: #8a5600;">40:00</td>
+          <td class="td" style="font-weight: 600; color: #8a5600;">12:00</td>
+          <td class="td">7:00</td>
+          <td class="td" style="font-weight: 600; color: #8a5600;">4:00</td>
+          <td class="td h" style="font-weight: 700; background: rgba(212,225,87,.12);">159:00</td>
+          <td style="padding: 12px 14px; text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Detalle</a></td>
+        </tr>
+
+        <tr style="border-top: 1px solid #e4e8ea;">
+          <td style="padding: 12px 14px;">
+            <div style="font-weight: 600; font-size: 14px;">Juan Fernando Gaviria</div>
+            <div style="font-size: 12px; color: #5c6b73;">Coord. administrativo · 12 turnos</div>
+          </td>
+          <td class="td">84:00</td>
+          <td class="td cero">—</td>
+          <td class="td" style="font-weight: 600; color: #8a5600;">1:30</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td h" style="font-weight: 700; background: rgba(212,225,87,.12);">85:30</td>
+          <td style="padding: 12px 14px; text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Detalle</a></td>
+        </tr>
+
+        <tr style="border-top: 1px solid #e4e8ea;">
+          <td style="padding: 12px 14px;">
+            <div style="font-weight: 600; font-size: 14px;">Santiago Montoya</div>
+            <div style="font-size: 12px; color: #5c6b73;">Recepción · 11 turnos</div>
+          </td>
+          <td class="td">60:00</td>
+          <td class="td">12:00</td>
+          <td class="td cero">—</td>
+          <td class="td cero">—</td>
+          <td class="td">7:00</td>
+          <td class="td cero">—</td>
+          <td class="td h" style="font-weight: 700; background: rgba(212,225,87,.12);">79:00</td>
+          <td style="padding: 12px 14px; text-align: right;"><a href="#" style="font-size: 13px; font-weight: 600;">Detalle</a></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+  <p style="margin: 12px 2px 0; font-size: 12px; line-height: 18px; color: #5c6b73;">
+    Horas en h:mm. Nocturnas desde las 7 p. m. · extras al pasar de 7 h en el día, de 42 en la semana o después de las 9 p. m. · domingos y los 18 festivos llevan recargo dominical, que se suma al nocturno si aplica.
+  </p>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -124,3 +124,34 @@ export function saludo(iso: string): string {
   if (h < 19) return "Buenas tardes";
   return "Buenas noches";
 }
+
+/** "lun 24 ago" — recibe una fecha simple (YYYY-MM-DD), sin hora. */
+export function diaCorto(fecha: string): string {
+  const [y, m, d] = fecha.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return `${DIAS[dow].slice(0, 3)} ${d} ${MESES_CORTOS[m - 1]}`;
+}
+
+/**
+ * "17 – 23 de agosto" · "29 de septiembre – 5 de octubre" cuando cambia de mes.
+ * Recibe fechas simples (YYYY-MM-DD), como las que devuelve Postgres para `date`.
+ */
+export function rangoDias(desde: string, hasta: string): string {
+  const [, m1, d1] = desde.split("-").map(Number);
+  const [, m2, d2] = hasta.split("-").map(Number);
+  return m1 === m2
+    ? `${d1} – ${d2} de ${MESES[m1 - 1]}`
+    : `${d1} de ${MESES[m1 - 1]} – ${d2} de ${MESES[m2 - 1]}`;
+}
+
+/** "07:02" en hora de Bogotá — el formato que espera un <input type="time">. */
+export function hhmm(iso: string): string {
+  const p = partes(iso);
+  return `${p.hour}:${p.minute}`;
+}
+
+/** "2026-08-25" en hora de Bogotá — para un <input type="date">. */
+export function diaIso(iso: string): string {
+  const p = partes(iso);
+  return `${p.year}-${p.month}-${p.day}`;
+}

@@ -14,6 +14,7 @@ import {
   Bot,
   Settings,
   Clock,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleKey } from "@/lib/auth/permissions";
@@ -43,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Eventos", href: "/eventos", icon: Trophy, module: "eventos" },
   { label: "Notas", href: "/notas", icon: StickyNote, module: "notas" },
   { label: "Mi turno", href: "/turnos", icon: Clock, module: "turnos", requiere: "marca_turno" },
+  { label: "Horas del personal", href: "/horas", icon: Timer, module: "turnos_reporte" },
   { label: "Cierre de clases", href: "/cierre", icon: ClipboardCheck, module: "cierre_clase" },
   { label: "Pagos", href: "/pagos", icon: Wallet, module: "bolsa_pagos" },
   { label: "Cartera", href: "/cartera", icon: Receipt, module: "cartera" },

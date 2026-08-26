@@ -426,12 +426,3 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   return [...porProf.values()];
 }
 
-/** Rango de fechas a partir del periodo (q1 / q2 / mes) y el mes (YYYY-MM). */
-export function rangoPeriodoLiq(periodo: string, ym: string) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const [y, m] = ym.split("-").map(Number);
-  const ultimo = new Date(y, m, 0).getDate();
-  if (periodo === "q1") return { desde: `${ym}-01`, hasta: `${ym}-15`, quincenas: 1 };
-  if (periodo === "q2") return { desde: `${ym}-16`, hasta: `${ym}-${pad(ultimo)}`, quincenas: 1 };
-  return { desde: `${ym}-01`, hasta: `${ym}-${pad(ultimo)}`, quincenas: 2 };
-}
