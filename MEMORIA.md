@@ -42,6 +42,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 
 > **Turbopack "stale"**: si el dev tira `require is not defined` en un chunk de `node_modules_*.js` con el badge **(stale)**, es caché corrupta de Turbopack, NO código (verificar: `grep -rn "require(" src/` vacío + `npm run build` pasa). Fix: `pkill -f "next dev"` + `rm -rf .next` + relanzar dev.
 
+## 🚀 Despliegue (Vercel)
+**Producción: https://alejandrofallacd.com** (+ `www.`). Proyecto `centro-de-control` del equipo
+`centro-deportivo-alejandro-falla`, plan Hobby.
+- **Es automático: `git push` a `main` = despliegue a producción.** No hay comando, ni CLI de Vercel,
+  ni token en `.env`. El agente llega hasta el push; Vercel construye al ver el commit (~40-60 s).
+  Por eso "desplegar" no es una acción aparte: si el push está hecho, ya está en camino.
+- Verificar que entró: `curl -o /dev/null -w "%{http_code}" https://alejandrofallacd.com/login` → 200,
+  y en el panel de Vercel el último *Deployment* debe decir **Ready** con el hash del commit.
+- ⚠️ **La URL `centro-control-cdaf.vercel.app` YA NO EXISTE** (404 `DEPLOYMENT_NOT_FOUND`): es de
+  julio-2026, antes de renombrar el proyecto. Aparece en transcripciones viejas y llevó a diagnosticar
+  "producción caída" cuando estaba perfecta. Usar siempre el dominio propio.
+
 ## Reglas duras
 1. **Migraciones**: escribir SQL en `supabase/migrations/` + actualizar `src/lib/database.types.ts` A MANO
    (es manual, no generado) + `npm run db:apply` + verificar por API. Nunca asumir aplicada sin verificar.
