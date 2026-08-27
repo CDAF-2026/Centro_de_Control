@@ -455,7 +455,8 @@ export default async function EventoDetallePage({
           <CardTitle>Gastos</CardTitle>
           <p className="text-muted-foreground text-xs">
             Refrigerios, premios, logística… Lo que se le paga a los profesores del evento NO va aquí: el
-            resultado ya lo toma de la sección de profesores.
+            resultado ya lo toma de la sección de profesores. Un gasto en <strong>$0</strong> es válido:
+            sirve para dejar constancia de lo que cubrió un patrocinador sin costarle al club.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">

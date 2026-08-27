@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createClient as sbClient } from "@supabase/supabase-js";
 
@@ -50,13 +50,35 @@ const P = <T,>(o: T) => Promise.resolve(o);
 const render = async (fn: any, props: any) => renderToStaticMarkup(await fn(props));
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
-/** Un evento que exista de verdad, para no fijar ids a mano. */
-async function unEvento() {
-  const { data } = await admin().from("eventos").select("id").order("id", { ascending: false }).limit(1);
-  const id = data?.[0]?.id;
-  if (!id) throw new Error("No hay eventos cargados: esta prueba necesita datos.");
-  return String(id);
-}
+/**
+ * Evento propio, ABIERTO y en 2027, creado y borrado por la prueba.
+ *
+ * No sirve tomar "el evento más reciente" de la base: en cuanto el club cierra un torneo
+ * la ficha esconde los formularios (candidatas, gasto, inscripción) y las pruebas fallan
+ * sin que nada esté roto. Y va en 2027 para no cruzarse con facturas reales.
+ */
+let eventoId = "";
+let eventoIdNum = 0;
+
+beforeAll(async () => {
+  const { data, error } = await admin()
+    .from("eventos")
+    .insert({ nombre: "ZZZ prueba automática (render)", fecha_inicio: "2027-03-06", fecha_fin: "2027-03-07" })
+    .select("id")
+    .single();
+  if (error) throw new Error("No se pudo sembrar el evento de prueba: " + error.message);
+  eventoIdNum = data.id;
+  eventoId = String(data.id);
+});
+
+afterAll(async () => {
+  if (eventoIdNum) await admin().from("eventos").delete().eq("id", eventoIdNum);
+  const { count } = await admin()
+    .from("eventos")
+    .select("*", { count: "exact", head: true })
+    .eq("id", eventoIdNum);
+  if (count) throw new Error("Quedó el evento de prueba sin borrar: " + eventoIdNum);
+});
 
 describe("las pantallas de eventos se renderizan enteras", () => {
   it("el listado", async () => {
@@ -70,7 +92,7 @@ describe("las pantallas de eventos se renderizan enteras", () => {
   });
 
   it("la ficha del evento, con P&G, facturas y participantes", async () => {
-    const id = await unEvento();
+    const id = eventoId;
     const { default: Page } = await import("../src/app/(app)/eventos/[id]/page");
     const t = texto(await render(Page, { params: P({ id }), searchParams: P({}) }));
     expect(t).toContain("Resultado del evento");
@@ -81,7 +103,7 @@ describe("las pantallas de eventos se renderizan enteras", () => {
   });
 
   it("la ficha en modo ampliado (?todas=1) — hace una segunda llamada al RPC", async () => {
-    const id = await unEvento();
+    const id = eventoId;
     const { default: Page } = await import("../src/app/(app)/eventos/[id]/page");
     const t = texto(await render(Page, { params: P({ id }), searchParams: P({ todas: "1" }) }));
     expect(t).toContain("Facturas del evento");
@@ -89,8 +111,21 @@ describe("las pantallas de eventos se renderizan enteras", () => {
     expect(t).toContain("Todas las facturas de las fechas");
   });
 
+  it("un gasto puede ir en $0 (patrocinios que el club deja visibles)", async () => {
+    const id = eventoId;
+    const { default: Page } = await import("../src/app/(app)/eventos/[id]/page");
+    const html = await render(Page, { params: P({ id }), searchParams: P({}) });
+    // El campo estuvo en min=1 y eso impedía registrar lo que cubrió un patrocinador,
+    // que al club le cuesta $0 pero quiere ver en el detalle del torneo.
+    // Se busca por el placeholder porque hay DOS campos "monto" en la ficha (el del gasto
+    // y el de la inscripción), y el orden de los atributos en el HTML no está garantizado.
+    const campo = html.match(/<input[^>]*placeholder="Monto \(COP\)"[^>]*>/)?.[0] ?? "";
+    expect(campo, "no se encontró el campo de monto del gasto").not.toBe("");
+    expect(campo).toContain('min="0"');
+  });
+
   it("inscribir NO da el pago por hecho", async () => {
-    const id = await unEvento();
+    const id = eventoId;
     const { default: Page } = await import("../src/app/(app)/eventos/[id]/page");
     const t = texto(await render(Page, { params: P({ id }), searchParams: P({}) }));
     // La casilla existe y arranca sin marcar: el pago se registra a mano, no por teclear

@@ -128,6 +128,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   refrigerios|premios|logistica|publicidad|arbitraje|staff_externo|otro, monto, proveedor, fecha,
   `soporte_path` en bucket **`evento-docs`**). Costo del evento = gastos **+ `evento_profesores.pago`**
   (se toma automático: registrarlo también como gasto lo contaría DOBLE). Utilidad = facturado − costo.
+  💡 **Un gasto puede ir en $0** (ago-2026, pedido de Laura): sirve para dejar constancia de lo que
+  cubrió un PATROCINADOR, que no le cuesta nada al club pero el club quiere verlo en el detalle del
+  torneo. La base ya lo aceptaba (`check (monto >= 0)`); lo impedían el validador de la acción y el
+  `min={1}` del formulario.
   **Cierre**: `eventos.cerrado_el/cerrado_por` + snapshot **congelado** `cierre_ingreso/cierre_costo/
   cierre_utilidad`. Se congela para que una factura tardía o un gasto corregido no muevan un mes ya
   publicado; para corregir hay que **reabrir** (solo SA, queda en audit_log). Con el evento cerrado

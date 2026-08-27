@@ -231,7 +231,10 @@ export async function registrarGasto(_prev: EventoState, formData: FormData): Pr
   const notas = String(formData.get("notas") || "").trim() || null;
   if (!eventoId) return { error: "Evento inválido." };
   if (!concepto) return { error: "Escribe el concepto del gasto." };
-  if (!Number.isFinite(monto) || monto <= 0) return { error: "El monto debe ser mayor a cero." };
+  // Se permite CERO a propósito: un patrocinador que pone los premios no le cuesta nada
+  // al club, pero el club quiere dejarlo visible en el detalle del torneo. La base ya lo
+  // aceptaba (`check (monto >= 0)`); el que lo impedía era este validador.
+  if (!Number.isFinite(monto) || monto < 0) return { error: "El monto no puede ser negativo." };
 
   const supabase = await createClient();
   const cerrado = await evitarSiCerrado(supabase, eventoId);

@@ -42,7 +42,8 @@ export function GastoForm({ eventoId }: { eventoId: number }) {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <Input name="monto" type="number" min={1} placeholder="Monto (COP)" className="h-9 w-36" required />
+        {/* min 0, no 1: un patrocinio que el club quiere dejar visible cuesta $0. */}
+        <Input name="monto" type="number" min={0} placeholder="Monto (COP)" className="h-9 w-36" required />
         <Input name="proveedor" placeholder="Proveedor (opcional)" className="h-9 w-44" />
         <Input name="fecha" type="date" defaultValue={fechaHoy} className="h-9 w-40" aria-label="Fecha del gasto" />
         <Button type="submit" size="sm" disabled={pending}>{pending ? "Guardando…" : "Agregar gasto"}</Button>
