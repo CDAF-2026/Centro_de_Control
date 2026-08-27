@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FacturaLink, type FacturaDetalleData } from "@/components/factura-detalle";
 import { VENTANA_CANDIDATAS, correDias } from "@/lib/eventos";
 import { cn } from "@/lib/utils";
-import { ParticipanteForm } from "./participante-form";
+import { ParticipanteForm, PagoParticipante } from "./participante-form";
 import { ProfesorForm } from "./profesor-form";
 import { GastoForm, CATEGORIA_LABEL } from "./gasto-form";
 import { CerrarEvento, ReabrirEvento } from "./cierre-evento";
@@ -130,6 +130,10 @@ export default async function EventoDetallePage({
   const profes = profesRes.data ?? [];
   const gastos = gastosRes.data ?? [];
   const profesores = profesoresRes;
+
+  // Cuántos faltan por cobrar. El "pagado" es control interno del torneo; el ingreso
+  // de verdad sigue saliendo de las facturas de Siigo atadas arriba.
+  const pendientesPago = parts.filter((p) => p.estado === "inscrito").length;
 
   const cliIds = parts.map((p) => p.cliente_id).filter((x): x is number => x != null);
   const { data: clientes } = cliIds.length
@@ -523,6 +527,7 @@ export default async function EventoDetallePage({
             <span className="text-muted-foreground text-sm font-normal tabular-nums">
               {parts.length}
               {evento.cupo ? ` / ${evento.cupo}` : ""}
+              {pendientesPago > 0 && ` · ${pendientesPago} sin pagar`}
             </span>
           </CardTitle>
         </CardHeader>
@@ -536,9 +541,20 @@ export default async function EventoDetallePage({
                     {!p.cliente_id && <Badge variant="outline" className="ml-2">Externo</Badge>}
                     {p.telefono_externo && <span className="text-muted-foreground"> · {p.telefono_externo}</span>}
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-2">
                     <span className="text-muted-foreground tabular-nums">{COP.format(p.monto ?? 0)}</span>
-                    {p.monto > 0 && <Badge variant="secondary">pagado</Badge>}
+                    {/* La insignia sale del ESTADO. Antes salía de `monto > 0`, así que teclear
+                        el valor de la inscripción ya lo daba por cobrado. */}
+                    {p.estado === "cancelado" ? (
+                      <Badge variant="outline" className="text-muted-foreground">Cancelado</Badge>
+                    ) : p.estado === "pagado" ? (
+                      <Badge variant="success">Pagado</Badge>
+                    ) : (
+                      <Badge variant="outline">Pendiente</Badge>
+                    )}
+                    {puedeEditar && p.estado !== "cancelado" && (
+                      <PagoParticipante id={p.id} eventoId={eventoId} pagado={p.estado === "pagado"} />
+                    )}
                     {puedeEditar && <RemoveButton action={quitarParticipante} id={p.id} eventoId={eventoId} />}
                   </span>
                 </li>

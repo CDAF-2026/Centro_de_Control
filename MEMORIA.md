@@ -149,6 +149,15 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   en la ficha del evento (`facturas-evento.tsx`) con acciones `atarFacturas`/`soltarFactura`. **Atar no
   concilia**: `estado_conciliacion` y `cliente_id` se dejan intactos (una mostrador sigue anónima).
   Al cerrar, si quedan candidatas sueltas se avisa para no publicar el torneo con el ingreso corto.
+- 💰 **Inscribir NO es haber pagado** (ago-2026). La insignia "pagado" de la lista de participantes
+  salía de `monto > 0`, así que teclear el valor de la inscripción ya lo daba por cobrado. Son dos
+  cosas distintas: `monto` es lo que DEBE y `estado` (inscrito|pagado|cancelado) si ya entregó. Ahora
+  el formulario trae una casilla **"Ya pagó"** que arranca SIN marcar, y cada fila tiene "Marcar
+  pagado / Marcar pendiente" (`cambiarPagoParticipante`) para el que paga después — sin eso, quien se
+  inscribiera sin pagar se quedaba en pendiente para siempre. El título muestra "N sin pagar".
+  ⚠️ Esto es **control interno del torneo** (quién entregó la plata), NO el ingreso del evento: ese
+  sigue saliendo de las facturas de Siigo atadas, y `evento_participantes.monto` nunca ha alimentado
+  el P&G.
 - 💡 **El evento se mide por CONTRIBUCIÓN, no por inscripción pura** (decisión de Laura, jul-2026, y
   está zanjada — no reproponer partir por línea). La mitad de las facturas de torneo son **canastas
   mixtas** (21 de 42: inscripción + cafetería + almacén en el mismo documento; ej. FV-4-15577 = $90.000

@@ -96,6 +96,10 @@ export async function inscribirParticipante(_prev: EventoState, formData: FormDa
   const nombreExterno = String(formData.get("nombre_externo") || "").trim() || null;
   const telefonoExterno = String(formData.get("telefono_externo") || "").trim() || null;
   const monto = Number(formData.get("monto") || 0);
+  // El pago se marca A MANO. Antes bastaba con teclear el monto para que la ficha lo
+  // diera por pagado, y son dos cosas distintas: el monto es lo que DEBE por inscribirse,
+  // no lo que ya entregó.
+  const pagado = formData.get("pagado") === "on";
   if (!eventoId) return { error: "Evento inválido." };
   if (!clienteId && !nombreExterno) return { error: "Indica un cliente o un nombre externo." };
 
@@ -110,10 +114,10 @@ export async function inscribirParticipante(_prev: EventoState, formData: FormDa
     nombre_externo: nombreExterno,
     telefono_externo: telefonoExterno,
     monto,
-    estado: "inscrito",
+    estado: pagado ? "pagado" : "inscrito",
   });
   if (error) return { error: error.message };
-  await logAudit({ action: "evento.inscribir", entity: "evento_participantes", entityId: String(eventoId), after: { clienteId, nombreExterno, monto } });
+  await logAudit({ action: "evento.inscribir", entity: "evento_participantes", entityId: String(eventoId), after: { clienteId, nombreExterno, monto, pagado } });
   revalidatePath(`/eventos/${eventoId}`);
   return { ok: "Participante inscrito." };
 }
@@ -128,6 +132,48 @@ export async function quitarParticipante(_prev: EventoState, formData: FormData)
   await logAudit({ action: "evento.quitar_participante", entity: "evento_participantes", entityId: String(id) });
   revalidatePath(`/eventos/${eventoId}`);
   return { ok: "Participante eliminado." };
+}
+
+/**
+ * Marca o desmarca el pago de un participante. Existe porque la inscripción ya NO da el
+ * pago por hecho: sin esto, quien se inscribe sin pagar se quedaría en pendiente para
+ * siempre y la lista no serviría para cobrar.
+ *
+ * OJO: esto es control interno del torneo (quién ya entregó la plata), NO es el ingreso
+ * del evento — ese sigue saliendo de las facturas de Siigo atadas más arriba.
+ */
+export async function cambiarPagoParticipante(_prev: EventoState, formData: FormData): Promise<EventoState> {
+  await requireRole(ADMIN);
+  const id = Number(formData.get("id"));
+  const eventoId = Number(formData.get("evento_id"));
+  if (!id || !eventoId) return { error: "Inválido." };
+
+  const supabase = await createClient();
+  const cerrado = await evitarSiCerrado(supabase, eventoId);
+  if (cerrado) return { error: cerrado };
+
+  const { data: actual } = await supabase
+    .from("evento_participantes")
+    .select("estado")
+    .eq("id", id)
+    .single();
+  if (!actual) return { error: "El participante no existe." };
+  // Un participante cancelado no cambia de pago desde aquí: primero hay que reinscribirlo.
+  if (actual.estado === "cancelado") return { error: "Ese participante está cancelado." };
+
+  const nuevo = actual.estado === "pagado" ? "inscrito" : "pagado";
+  const { error } = await supabase.from("evento_participantes").update({ estado: nuevo }).eq("id", id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "evento.pago_participante",
+    entity: "evento_participantes",
+    entityId: String(id),
+    before: { estado: actual.estado },
+    after: { estado: nuevo },
+  });
+  revalidatePath(`/eventos/${eventoId}`);
+  return { ok: nuevo === "pagado" ? "Marcado como pagado." : "Marcado como pendiente." };
 }
 
 export async function agregarProfesor(_prev: EventoState, formData: FormData): Promise<EventoState> {
