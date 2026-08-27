@@ -15,7 +15,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 |---|---|
 | Dev server | `nohup npm run dev > /tmp/cdaf-dev.log 2>&1 & disown` (localhost:3000; log en /tmp/cdaf-dev.log) |
 | Build (verificar SIEMPRE antes de commit) | `npm run build` (si falla por Google Fonts, reintentar) |
-| **Pruebas (verificar SIEMPRE antes de commit)** | `npm test` — incluye `tests/academias-render.test.tsx`, que RENDERIZA las páginas de verdad. ⚠️ **El build NO sustituye a esto**: ver abajo |
+| **Pruebas (verificar SIEMPRE antes de commit)** | `npm test` — incluye `tests/academias-render.test.tsx` y `tests/eventos-render.test.tsx`, que RENDERIZAN las páginas de verdad. ⚠️ **El build NO sustituye a esto**: ver abajo |
 | **Migraciones** | `npm run db:apply` (Management API/HTTPS con PAT en .env). ⚠️ `db:push` NO sirve desde el agente (Postgres directo es IPv6-only) |
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
 | **Refrescar solo el catálogo de productos** | `npm run sync:productos` (`-- --dry` para simulacro). Úsalo cuando el club renombre un grupo en Siigo: el sync completo solo refresca este caché si encuentra facturas nuevas, y con el rezago de ~1 día puede pasar medio día sin hacerlo |
