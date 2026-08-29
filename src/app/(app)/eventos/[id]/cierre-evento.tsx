@@ -110,7 +110,8 @@ export function CerrarEvento({
   );
 }
 
-/** Reabrir saca la utilidad del dashboard y vuelve a permitir editar. Solo superadmin. */
+/** Reabrir saca la utilidad del dashboard y vuelve a permitir editar.
+ *  Quién lo ve lo decide `PUEDE_REABRIR_EVENTO` en src/lib/eventos.ts. */
 export function ReabrirEvento({ eventoId }: { eventoId: number }) {
   const [state, action, pending] = useActionState(reabrirEvento, init);
   return (

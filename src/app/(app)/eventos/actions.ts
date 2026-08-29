@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
+import { PUEDE_REABRIR_EVENTO } from "@/lib/eventos";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import type { AppRole, Deporte } from "@/lib/database.types";
@@ -413,9 +414,13 @@ export async function cerrarEvento(_prev: EventoState, formData: FormData): Prom
   return { ok: "Evento cerrado. Su utilidad ya entra al dashboard." };
 }
 
-/** Reabre un evento cerrado (solo superadmin): borra el snapshot y lo saca del dashboard. */
+/**
+ * Reabre un evento cerrado: borra el snapshot congelado y lo saca del dashboard.
+ * Quién puede hacerlo vive en `PUEDE_REABRIR_EVENTO` (src/lib/eventos.ts), que es
+ * también de donde sale el gateo del botón — una sola lista para las dos capas.
+ */
 export async function reabrirEvento(_prev: EventoState, formData: FormData): Promise<EventoState> {
-  await requireRole(["superadmin"]);
+  await requireRole(PUEDE_REABRIR_EVENTO);
   const eventoId = Number(formData.get("evento_id"));
   if (!eventoId) return { error: "Evento inválido." };
 

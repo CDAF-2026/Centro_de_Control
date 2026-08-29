@@ -1,3 +1,5 @@
+import type { AppRole } from "@/lib/database.types";
+
 /**
  * Ventana de captura de facturas de un evento.
  *
@@ -26,4 +28,30 @@ export function correDias(iso: string, dias: number): string {
   const d = new Date(`${iso}T00:00:00`);
   d.setDate(d.getDate() + dias);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Quién puede REABRIR un evento ya cerrado.
+ *
+ * No es un permiso de módulo: `eventos` en la matriz vale para todo lo demás
+ * (crear, inscribir, gastos, profesores, atar facturas y cerrar), y ahí ya entran
+ * el coordinador administrativo y Gestión de Eventos. Reabrir es aparte porque es
+ * el único que mueve un número YA PUBLICADO: al cerrar se congela el P&G del
+ * torneo (`cierre_ingreso/costo/utilidad`) justo para que una factura tardía no
+ * cambie un mes que el club ya reportó, y reabrir descongela eso y lo saca del
+ * dashboard. Queda en el `audit_log`.
+ *
+ * Se le suma el coordinador deportivo (24-ago-2026, decisión de Laura: en el
+ * módulo de eventos debe poder lo mismo que el superadministrador), porque es
+ * quien lleva los torneos y no tiene por qué depender de ella para corregir uno.
+ *
+ * Es una lista escrita a mano a propósito —como `ADMIN_NOTAS` en notas.ts— por ser
+ * una regla de DENTRO del módulo. Si mañana hay que dársela también al
+ * coordinador administrativo o a Gestión de Eventos, se agrega aquí y solo aquí.
+ */
+export const PUEDE_REABRIR_EVENTO: AppRole[] = ["superadmin", "coord_deportivo"];
+
+/** ¿Este rol puede reabrir un evento cerrado? */
+export function puedeReabrirEvento(role: AppRole): boolean {
+  return PUEDE_REABRIR_EVENTO.includes(role);
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Paperclip, TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
+import { puedeReabrirEvento } from "@/lib/eventos";
 import { createClient } from "@/lib/supabase/server";
 import { profesoresActivos } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
@@ -230,7 +231,7 @@ export default async function EventoDetallePage({
   }
 
   const fechaImputacion = evento.fecha_fin ?? evento.fecha_inicio;
-  const esSuperadmin = profile.role === "superadmin";
+  const puedeReabrir = puedeReabrirEvento(profile.role);
   const puedeCerrar = can(profile.role, "eventos", "edit") && !cerrado && evento.estado !== "cancelado";
 
   return (
@@ -262,7 +263,7 @@ export default async function EventoDetallePage({
                 montoCandidatas={montoCandidatas}
               />
             )}
-            {cerrado && esSuperadmin && <ReabrirEvento eventoId={eventoId} />}
+            {cerrado && puedeReabrir && <ReabrirEvento eventoId={eventoId} />}
           </div>
         </div>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -609,7 +610,7 @@ export default async function EventoDetallePage({
       {cerrado && (
         <p className="text-muted-foreground text-xs">
           Evento cerrado el {new Date(evento.cerrado_el!).toLocaleDateString("es-CO")}. Para editarlo hay que
-          reabrirlo{esSuperadmin ? "" : " (solo superadmin)"}.
+          reabrirlo{puedeReabrir ? "" : " (solo el superadministrador o el coordinador deportivo)"}.
         </p>
       )}
     </div>
