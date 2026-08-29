@@ -146,7 +146,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   `min={1}` del formulario.
   **Cierre**: `eventos.cerrado_el/cerrado_por` + snapshot **congelado** `cierre_ingreso/cierre_costo/
   cierre_utilidad`. Se congela para que una factura tardía o un gasto corregido no muevan un mes ya
-  publicado; para corregir hay que **reabrir** (solo SA, queda en audit_log). Con el evento cerrado
+  publicado; para corregir hay que **reabrir** (SA y coord. deportivo, queda en audit_log). Con el evento cerrado
   no se puede editar gastos/participantes/profes ni atarle facturas desde `/pagos`.
   RPCs: `eventos_pyg(p_evento default null)` (P&G de uno o de todos, una sola llamada para el
   listado), `eventos_resultado_periodo(desde,hasta)` (utilidad congelada de los CERRADOS, con su
@@ -560,7 +560,13 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
   **deportivo**), y a recepción las acciones de paquetes la rechazaban aunque el módulo le apareciera.
   Ahora casi todos derivan de **`rolesForModule(modulo, "edit"|"read")`**. Los que siguen literales
   son los **solo-SA** deliberados, que no son de módulo: crear cuentas, cambiar rol, asignar
-  contraseña, reabrir un evento y cerrar una clase vencida.
+  contraseña y cerrar una clase vencida.
+- 🏆 **Reabrir un evento ya NO es solo-SA** (24-ago-2026): entra también el **coordinador
+  deportivo**, que es quien lleva los torneos (pedido de Laura: en eventos debe poder lo mismo que el
+  superadministrador). La lista vive en **`PUEDE_REABRIR_EVENTO`** de `src/lib/eventos.ts`, y de ahí
+  beben tanto la server action como el gateo del botón — una sola lista para las dos capas. Sigue
+  siendo regla de DENTRO del módulo y no una fila de la matriz: `eventos` en E ya lo tienen también
+  el coord. administrativo y Gestión de Eventos, que **no** pueden reabrir.
 - ⚠️ **Los guardias se escriben de TRES formas y hay que barrer las tres.** Buscar solo
   `requireRole([…])` deja fuera las otras dos, y por ahí se colaron dos veces:
   1. lista literal — `requireRole(["superadmin", …])`
