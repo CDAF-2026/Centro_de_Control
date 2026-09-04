@@ -10,7 +10,7 @@ import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
 import { getBookings, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
-import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo } from "@/lib/database.types";
+import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo, PaqueteEstado } from "@/lib/database.types";
 import { clausulasBusqueda } from "./buscar";
 
 // Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
@@ -492,16 +492,25 @@ export async function editarPaqueteCliente(
   const supabase = await createClient();
   const { data: pq } = await supabase
     .from("paquetes_cliente")
-    .select("estado")
+    .select("estado, num_clases, clases_consumidas")
     .eq("id", paqueteId)
     .eq("cliente_id", clienteId)
     .maybeSingle();
   if (!pq) return { error: "Ese paquete no es de este cliente." };
   if (pq.estado === "anulado") return { error: "Ese paquete está anulado." };
 
+  // ⚠️ El estado se RECALCULA desde la vigencia y el saldo. Sin esto, extenderle
+  // la fecha a un paquete vencido no servía de nada: se quedaba en `vencido` y
+  // seguía sin ofrecerse, porque todas las listas piden `estado = 'activo'`.
+  // El anulado ya salió arriba: ese no revive por cambiarle una fecha.
+  const hoy = new Date().toISOString().slice(0, 10);
+  const saldo = pq.num_clases - pq.clases_consumidas;
+  const estado: PaqueteEstado =
+    saldo <= 0 ? "agotado" : vence != null && vence < hoy ? "vencido" : "activo";
+
   const { error } = await supabase
     .from("paquetes_cliente")
-    .update({ inicia_el: inicia, vence_el: vence, descuento_pct: descuento })
+    .update({ inicia_el: inicia, vence_el: vence, descuento_pct: descuento, estado })
     .eq("id", paqueteId);
   if (error) return { error: error.message };
 
@@ -509,10 +518,16 @@ export async function editarPaqueteCliente(
     action: "paquete.editar",
     entity: "paquetes_cliente",
     entityId: String(paqueteId),
-    after: { inicia_el: inicia, vence_el: vence, descuento_pct: descuento },
+    before: { estado: pq.estado },
+    after: { inicia_el: inicia, vence_el: vence, descuento_pct: descuento, estado },
   });
   revalidatePath(`/clientes/${clienteId}`);
-  return { ok: "Paquete actualizado." };
+  return {
+    ok:
+      pq.estado === "vencido" && estado === "activo"
+        ? "Vigencia extendida: el paquete vuelve a estar disponible."
+        : "Paquete actualizado.",
+  };
 }
 
 /**

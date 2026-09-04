@@ -65,6 +65,8 @@ function PaqueteFila({
 
   const saldo = p.num_clases - p.clases_consumidas;
   const anulado = p.estado === "anulado";
+  // Vencido por estado (lo marca el job nocturno) o por fecha (aún no ha corrido).
+  const vencido = !anulado && (p.estado === "vencido" || (p.vence != null && p.vence < hoy));
 
   if (editando) {
     return (
@@ -76,6 +78,12 @@ function PaqueteFila({
             {p.nombre}
             <span className="text-muted-foreground font-normal"> · {saldo}/{p.num_clases} disponibles</span>
           </p>
+          {vencido && saldo > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Está vencido. Al ponerle una fecha de vencimiento futura vuelve a quedar disponible
+              para cobrarle clases.
+            </p>
+          )}
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <span className="text-muted-foreground block text-xs">Inicio</span>
@@ -105,7 +113,7 @@ function PaqueteFila({
           {p.nombre}{p.descuento_pct > 0 ? ` · ${p.descuento_pct}% desc.` : ""}
           {p.miembro && <span className="text-muted-foreground"> · {p.miembro}</span>}
           {p.vence && <span className="text-muted-foreground"> · vence {p.vence}</span>}
-          {!anulado && p.vence && p.vence < hoy && <span className="text-destructive"> · Vencido</span>}
+          {vencido && <span className="text-destructive"> · Vencido</span>}
           {anulado && <Badge variant="outline" className="ml-2">Anulado</Badge>}
         </span>
         <div className="flex shrink-0 items-center gap-2">
@@ -122,6 +130,19 @@ function PaqueteFila({
             </form>
           ) : (
             <>
+              {/* Atajo visible cuando ya venció: es el mismo formulario, pero el
+                  superadministrador no tiene que adivinar que está tras el lápiz. */}
+              {vencido && saldo > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title="Darle una nueva fecha de vencimiento para que vuelva a estar disponible"
+                  onClick={() => setEditando(true)}
+                >
+                  Extender vigencia
+                </Button>
+              )}
               <Button type="button" variant="ghost" size="icon-sm" title="Corregir vigencia o descuento" onClick={() => setEditando(true)}>
                 <Pencil className="size-4" />
               </Button>
