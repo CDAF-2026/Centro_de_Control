@@ -10,10 +10,13 @@ export default async function NuevaClasePage() {
   const supabase = await createClient();
   const [profesores, { data: pqRaw }] = await Promise.all([
     profesoresActivos(),
+    // Además del estado se mira la FECHA: el job que marca los vencidos corre de
+    // noche, así que entre que vence y él corre el paquete seguiría ofreciéndose.
     supabase
       .from("paquetes_cliente")
       .select("id, miembro_id, catalogo_id, num_clases, clases_consumidas")
-      .eq("estado", "activo"),
+      .eq("estado", "activo")
+      .or(`vence_el.is.null,vence_el.gte.${new Date().toISOString().slice(0, 10)}`),
   ]);
 
   // Nombre del catálogo para etiquetar cada paquete

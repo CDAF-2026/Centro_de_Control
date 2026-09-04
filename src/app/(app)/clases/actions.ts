@@ -110,11 +110,14 @@ export async function prepararAsignacion(email: string): Promise<PrepararAsignac
     .maybeSingle();
   if (!cliente) return { sinCorreo: false, sinCliente: true, paquetes: [], profesores };
 
+  // Un paquete vencido no se ofrece. Se mira también la FECHA porque el job que
+  // los marca corre de noche: si no, quedaría una ventana en la que se ofrece.
   const { data: pqs } = await supabase
     .from("paquetes_cliente")
     .select("id, num_clases, clases_consumidas, catalogo_id")
     .eq("cliente_id", cliente.id)
-    .eq("estado", "activo");
+    .eq("estado", "activo")
+    .or(`vence_el.is.null,vence_el.gte.${new Date().toISOString().slice(0, 10)}`);
   const catIds = [...new Set((pqs ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null))];
   const catName = new Map<number, string>();
   if (catIds.length) {
@@ -181,10 +184,15 @@ export async function materializarReserva(input: {
     if (!clienteId) return { error: "La reserva no tiene correo; no se puede vincular a un paquete." };
     const { data: pq } = await supabase
       .from("paquetes_cliente")
-      .select("id, cliente_id, num_clases, clases_consumidas, estado")
+      .select("id, cliente_id, num_clases, clases_consumidas, estado, vence_el")
       .eq("id", input.paqueteClienteId ?? 0)
       .maybeSingle();
     if (!pq || pq.cliente_id !== clienteId) return { error: "El paquete no corresponde a este cliente." };
+    // El guardia del servidor también revisa la fecha: la lista podía haberse
+    // pintado antes de que el paquete venciera.
+    if (pq.estado === "vencido" || (pq.vence_el != null && pq.vence_el < new Date().toISOString().slice(0, 10))) {
+      return { error: "Ese paquete está vencido: ya no se le pueden cobrar clases." };
+    }
     if (pq.estado !== "activo" || pq.num_clases - pq.clases_consumidas <= 0) return { error: "El paquete no tiene saldo disponible." };
     paqueteClienteId = pq.id;
   } else {
