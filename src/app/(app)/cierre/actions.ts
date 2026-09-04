@@ -109,7 +109,10 @@ export async function cerrarClase(
     const est = estadoAsis(mid);
     const cliId = cliDeMiembro.get(mid) ?? clase.cliente_id;
     if (cliId == null) continue; // sin ficha no se puede registrar asistencia
-    await supabase.from("asistencias").upsert(
+    // Se mira el error a propósito: un rechazo de RLS aquí dejaría la clase
+    // cerrada SIN asistencia, y la asistencia es lo que después se liquida.
+    // (Así fue como el descuento del paquete se perdió meses sin que nadie lo viera.)
+    const { error: asisErr } = await supabase.from("asistencias").upsert(
       {
         clase_id: claseId,
         miembro_id: mid,
@@ -120,28 +123,30 @@ export async function cerrarClase(
       },
       { onConflict: "clase_id,miembro_id" },
     );
+    if (asisErr) return { error: `No se pudo registrar la asistencia: ${asisErr.message}` };
   }
 
   // Consumo de paquete (si la clase está ligada a uno y se dictó).
+  // ⚠️ Va por RPC y NO por UPDATE directo: `paq_cli_write` solo deja escribir a
+  // superadmin/coord_admin/recepcion, así que cuando cerraba el coord. deportivo
+  // o un profesor —los que más cierran— RLS rechazaba el descuento y, como no se
+  // miraba el error, el saldo se quedaba intacto sin avisar. Se descubrió con el
+  // paquete de Daniela Parra: 8/8 disponibles con 2 clases ya dictadas.
+  // `paquete_consumir` valida por dentro y toca solo el saldo (una política de
+  // UPDATE no puede limitar columnas); además es atómica.
   let paqueteInfo: { restante: number; total: number } | null = null;
   if (estado === "realizada" && clase.paquete_cliente_id) {
-    const { data: pq } = await supabase
-      .from("paquetes_cliente")
-      .select("num_clases, clases_consumidas, estado")
-      .eq("id", clase.paquete_cliente_id)
-      .single();
-    if (pq) {
-      const consumidas = pq.clases_consumidas + 1;
-      await supabase
-        .from("paquetes_cliente")
-        .update({
-          clases_consumidas: consumidas,
-          // Un paquete anulado no revive por cerrarle una clase vieja.
-          estado: pq.estado === "anulado" ? "anulado" : consumidas >= pq.num_clases ? "agotado" : "activo",
-        })
-        .eq("id", clase.paquete_cliente_id);
-      paqueteInfo = { restante: pq.num_clases - consumidas, total: pq.num_clases };
+    const { data: pq, error: pqErr } = await supabase.rpc("paquete_consumir", {
+      p_clase: claseId,
+      p_delta: 1,
+    });
+    if (pqErr) {
+      return {
+        error: `La clase quedó registrada, pero no se pudo descontar del paquete: ${pqErr.message}. Avísale al superadministrador.`,
+      };
     }
+    const r = pq?.[0];
+    if (r) paqueteInfo = { restante: Number(r.restante), total: Number(r.total) };
   }
 
   // Notificación a la familia: clase confirmada + saldo del paquete (no bloquea el cierre).
@@ -214,23 +219,10 @@ export async function reabrirCierre(claseId: number): Promise<CierreState> {
   if (clase.estado === "programada") return { error: "La clase ya está abierta (pendiente de cierre)." };
 
   // Restaurar consumo del paquete solo si la clase estaba realizada (lo que consumió saldo).
+  // Por el mismo RPC que el consumo, en negativo: una sola regla y sin carrera.
   if (clase.estado === "realizada" && clase.paquete_cliente_id) {
-    const { data: pq } = await supabase
-      .from("paquetes_cliente")
-      .select("num_clases, clases_consumidas, estado")
-      .eq("id", clase.paquete_cliente_id)
-      .single();
-    if (pq) {
-      const consumidas = Math.max(0, pq.clases_consumidas - 1);
-      await supabase
-        .from("paquetes_cliente")
-        .update({
-          clases_consumidas: consumidas,
-          // Un paquete anulado no revive por reabrirle una clase.
-          estado: pq.estado === "anulado" ? "anulado" : consumidas >= pq.num_clases ? "agotado" : "activo",
-        })
-        .eq("id", clase.paquete_cliente_id);
-    }
+    const { error: pqErr } = await supabase.rpc("paquete_consumir", { p_clase: claseId, p_delta: -1 });
+    if (pqErr) return { error: `No se pudo devolver la clase al paquete: ${pqErr.message}` };
   }
 
   // Vuelve a pendiente y limpia la asistencia registrada.

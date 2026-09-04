@@ -1503,6 +1503,10 @@ export type Database = {
        * evento: su aporte entra como utilidad neta vía `eventos_resultado_periodo`, no como
        * bruto. Con el default (false) las cifras son las de siempre y cuadran con Siigo.
        */
+      paquete_consumir: {
+        Args: { p_clase: number; p_delta?: number };
+        Returns: { restante: number; total: number }[];
+      };
       siigo_recaudo: {
         Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { facturado: number; cobrado: number; pendiente: number }[];
