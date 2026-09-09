@@ -1,4 +1,4 @@
-import type { TurnoHoras, TurnoListado } from "@/lib/database.types";
+import type { AppRole, TurnoHoras, TurnoListado } from "@/lib/database.types";
 
 /**
  * Reglas y formatos del módulo de turnos.
@@ -9,6 +9,22 @@ import type { TurnoHoras, TurnoListado } from "@/lib/database.types";
  * pantalla. Si algún día cambian, hay que tocar los dos sitios: la migración
  * manda sobre el cálculo, esto solo sobre los avisos.
  */
+
+/**
+ * Quién puede CORREGIR un turno (ajustar horas, crear uno a mano, borrarlo).
+ *
+ * Una sola lista para las dos capas: de aquí beben tanto las server actions de
+ * `/horas` como el gateo de los botones en pantalla. Mismo patrón que
+ * `PUEDE_REABRIR_EVENTO` — sin él, esconder el botón y olvidar la acción (o al
+ * revés) es cuestión de tiempo.
+ *
+ * ⚠️ Es una regla de DENTRO del módulo, no una fila de la matriz: el
+ * coordinador administrativo tiene `turnos_reporte` en **L** desde el
+ * 9-sep-2026, o sea que VE el reporte completo pero no toca nada. La base opina
+ * lo mismo por su lado (`private.turno_exige_sa`, migración 0080): esto solo
+ * evita ofrecerle un botón que le iba a fallar.
+ */
+export const PUEDE_CORREGIR_TURNO: AppRole[] = ["superadmin"];
 
 /** Jornada pactada: 7 h trabajadas al día, más 1 de almuerzo que no cuenta. */
 export const JORNADA_DIA_MIN = 7 * 60;

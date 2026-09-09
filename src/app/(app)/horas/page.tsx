@@ -131,7 +131,7 @@ export default async function HorasPage({
                 <span className="bg-destructive size-1.5 shrink-0 rounded-full" />
                 <span>
                   <strong>{quien(t.perfil_id)}</strong> no cerró el turno del{" "}
-                  {diaCorto(t.dia)}. No suma horas hasta que lo corrijas.
+                  {diaCorto(t.dia)}. No suma horas hasta que se corrija.
                 </span>
                 <Link
                   href={`/horas/${t.perfil_id}${qs}`}

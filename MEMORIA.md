@@ -940,6 +940,34 @@ almorzar, regreso y salida.
   superadministrador (`turno_ajustar`, `turno_crear_manual`, `turno_eliminar`, `turno_pausa_fijar`),
   siempre con motivo obligatorio y rastro en `audit_log`.
 
+👀 **El coordinador administrativo VE el reporte, pero no corrige** (9-sep-2026, migración 0088).
+`turnos_reporte` pasa a **L** para `coord_admin` y las políticas `turno_select`, `turno_pausa_select` y
+`turnos_obj_select` (las fotos, que Laura decidió que también viera) admiten ahora superadmin **o**
+coord. administrativo. Corregir no se movió: las cinco funciones de corrección siguen pasando por
+`private.turno_exige_sa()`.
+- **Quién corrige vive en `PUEDE_CORREGIR_TURNO` (src/lib/turnos.ts)**, no en la matriz: es regla de
+  DENTRO del módulo, como `PUEDE_REABRIR_EVENTO`. De ahí beben la server action y el gateo de los
+  botones — una sola lista para las dos capas, que es lo que evita esconder el botón y olvidar la
+  acción (o al revés).
+- ⚠️ **Consecuencia conocida y aceptada: Juan Fernando es coord. administrativo Y uno de los cuatro
+  que marca**, así que ahora ve su propio acumulado y el de sus compañeros — justo lo que 0083 le
+  cerró a los empleados. Se le advirtió a Laura antes de aplicarlo y decidió seguir: los permisos son
+  por ROL, y dárselo a Sebastián y no a Juan exigiría excepciones por usuario (descartado desde 0068).
+- 💡 Tercera vez que `turnos_horas`/`turnos_listar` siendo SECURITY INVOKER ahorra trabajo: el cambio
+  de política las alcanzó solas.
+
+⚠️⚠️ **DOS LECCIONES DE PRUEBAS que salieron al aplicar esto, y las dos son del tipo "solo falla
+cuando ya hay datos reales"** (9-sep-2026; el módulo lleva en uso desde el 27-ago y hay 31 turnos):
+1. **Nueve pruebas preguntaban "¿cuántos turnos tiene esta persona?"**, que con la tabla vacía era lo
+   mismo que "¿cuántos acabo de crear?". Con datos reales daban 8 donde esperaban 1 y cayeron todas a
+   la vez. Ahora cada una toma un **corte de `max(id)`** al abrir la transacción y solo mira lo suyo.
+2. **Ninguna prueba que ABRA un turno puede usar a alguien que marque de verdad.**
+   `turno_abierto_uidx` permite UNO abierto por persona, así que la prueba reventaba con "duplicate
+   key" **según la hora del día** — el peor tipo de fallo. Las pruebas de base ahora usan a **Dairon**
+   (profesor que nunca marca; el interruptor se le prende dentro de la transacción), y
+   `horas-render.test.tsx` **dejó de sembrar el turno abierto**: esa detección se prueba sobre
+   `revisar()`, que es donde vive la lógica, sin tocar la base.
+
 🔒 **El empleado NO ve cuántas horas lleva** (decisión de Laura, 26-ago-2026, migración 0083).
 Su pantalla marca y nada más: ni el acumulado de la semana, ni la clasificación del día, ni el
 histórico. Va en la BASE y no solo en la pantalla, que es la lección que este proyecto ya aprendió

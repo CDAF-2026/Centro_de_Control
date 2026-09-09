@@ -114,8 +114,12 @@ beforeAll(async () => {
   await sembrar("2027-09-21", "13:00", "23:00", ["16:00", "17:00"]);
   // 10 h seguidas SIN almuerzo: 7 ordinarias + 3 extra diurnas. Debe avisar.
   await sembrar("2027-09-22", "07:00", "17:00");
-  // Turno abierto: aporta cero y debe avisar.
-  await sembrar("2027-09-23", "07:00", null);
+  // ⚠️ Aquí NO se siembra un turno abierto, aunque el reporte lo avise. Esta
+  // prueba escribe filas de verdad, y `turno_abierto_uidx` solo permite UNO
+  // abierto por persona: el día que Juan estuviera trabajando —o se le olvidara
+  // cerrar, que es justo lo que pasó el 9-sep-2026— reventaba con "duplicate
+  // key", según la hora a la que corrieran las pruebas. La detección de "sin
+  // cerrar" se prueba abajo sobre `revisar()`, que es donde vive.
 });
 
 afterAll(async () => {
@@ -152,7 +156,6 @@ describe("el reporte de horas", () => {
     const { default: Page } = await import("../src/app/(app)/horas/page");
     const t = texto(await render(Page, { searchParams: P({ periodo: PERIODO, ym: YM }) }));
     expect(t).toContain("Por revisar");
-    expect(t).toContain("no cerró el turno");
     expect(t).toContain("sin marcar almuerzo");
   });
 
@@ -178,8 +181,6 @@ describe("el detalle de una persona", () => {
     // La semana del 20 al 26 de septiembre, con sus 26 horas.
     expect(t).toContain("20 – 26 de septiembre");
     expect(t).toContain("26:00");
-    // El turno abierto se ve y se dice que no tiene salida.
-    expect(t).toContain("sin marcar");
     expect(t).toContain("Corregir");
   });
 
@@ -252,5 +253,90 @@ describe("las fotos del turno", () => {
     );
     expect(html).not.toContain("<button");
     expect(html).toContain("Sin foto de salida");
+  });
+});
+
+describe("el coordinador administrativo lo ve, pero sin botones de corregir", () => {
+  it("el reporte le sale completo", async () => {
+    PERFIL.role = "coord_admin";
+    const { default: Page } = await import("../src/app/(app)/horas/page");
+    const t = texto(await render(Page, { searchParams: P({ periodo: PERIODO, ym: YM }) }));
+    expect(t).toContain("Horas del personal");
+    expect(t).toContain("26:00");
+    PERFIL.role = "superadmin";
+  });
+
+  it("en el detalle NO aparece «Corregir» ni «Agregar un turno»", async () => {
+    // La base ya lo rechaza (`private.turno_exige_sa`); esto evita ofrecerle un
+    // botón que le iba a fallar. Las dos capas beben de PUEDE_CORREGIR_TURNO.
+    const { default: Page } = await import("../src/app/(app)/horas/[id]/page");
+    const props = {
+      params: P({ id: empleado }),
+      searchParams: P({ periodo: PERIODO, ym: YM }),
+    };
+
+    PERFIL.role = "coord_admin";
+    const suyo = texto(await render(Page, props));
+    expect(suyo).toContain("Semana a semana");
+    expect(suyo).not.toContain("Corregir");
+    expect(suyo).not.toContain("Agregar un turno que no se marcó");
+
+    PERFIL.role = "superadmin";
+    const delSa = texto(
+      await render(Page, {
+        params: P({ id: empleado }),
+        searchParams: P({ periodo: PERIODO, ym: YM }),
+      }),
+    );
+    expect(delSa).toContain("Corregir");
+    expect(delSa).toContain("Agregar un turno que no se marcó");
+  });
+});
+
+describe("qué se considera «por revisar»", () => {
+  /** Un turno mínimo con lo que mira `revisar()`. */
+  const turno = (extra: Record<string, unknown>) => ({
+    id: 1,
+    perfil_id: "p1",
+    dia: "2027-09-23",
+    inicio_el: "2027-09-23T12:00:00Z",
+    fin_el: "2027-09-23T20:00:00Z",
+    minutos: 420,
+    minutos_pausa: 60,
+    n_pausas: 1,
+    pausa_abierta: false,
+    foto_inicio_path: "a.jpg",
+    foto_fin_path: "b.jpg",
+    origen: "app",
+    ajustado_por: null,
+    ajuste_motivo: null,
+    ...extra,
+  });
+
+  it("un turno sin salida es «sin cerrar»", async () => {
+    const { revisar } = await import("../src/lib/turnos");
+    const r = revisar([
+      turno({ fin_el: null, minutos: null, foto_fin_path: null }) as any,
+      turno({ id: 2 }) as any,
+    ]);
+    expect(r.sinCerrar.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("un turno largo sin pausa es «sin almuerzo»; uno corto no", async () => {
+    const { revisar } = await import("../src/lib/turnos");
+    const r = revisar([
+      turno({ id: 1, minutos: 600, n_pausas: 0 }) as any, // 10 h seguidas
+      turno({ id: 2, minutos: 240, n_pausas: 0 }) as any, // 4 h: normal
+    ]);
+    expect(r.sinAlmuerzo.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("un turno creado a mano no cuenta como «sin foto»: nunca la tuvo", async () => {
+    const { revisar } = await import("../src/lib/turnos");
+    const r = revisar([
+      turno({ id: 1, origen: "ajuste", foto_inicio_path: null, foto_fin_path: null }) as any,
+      turno({ id: 2, foto_fin_path: null }) as any,
+    ]);
+    expect(r.sinFoto.map((t) => t.id)).toEqual([2]);
   });
 });

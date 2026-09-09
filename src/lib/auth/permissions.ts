@@ -25,7 +25,7 @@ export type ModuleKey =
   /** Marcar entrada y salida. Ojo: el rol solo abre la pantalla — QUIÉN debe
    *  marcar lo dice `profiles.marca_turno`, persona por persona. */
   | "turnos"
-  /** El reporte de horas clasificadas por la normativa. Solo superadministrador. */
+  /** El reporte de horas clasificadas por la normativa. Corregir es solo del SA. */
   | "turnos_reporte";
 
 const E: Permission = "edit";
@@ -103,9 +103,15 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   // entrar cualquier otro. `quiosco` no marca lo suyo: marca por cuenta de otros,
   // y para eso tiene su propia pantalla.
   turnos: { superadmin: E, coord_admin: E, coord_deportivo: E, recepcion: E, profesor: E, gestion_eventos: E, seguridad: E, quiosco: N },
-  // El reporte de horas: solo el superadministrador (decisión de Laura, 25-ago-2026).
-  // Ni siquiera el coordinador administrativo, que además es uno de los que marca.
-  turnos_reporte: { superadmin: E, coord_admin: N, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N, seguridad: N, quiosco: N },
+  // El reporte de horas. El coordinador administrativo entra en **L** (9-sep-2026,
+  // decisión de Laura): consulta el reporte completo —fotos incluidas— pero
+  // CORREGIR sigue siendo solo del superadministrador. Quién corrige vive en
+  // `PUEDE_CORREGIR_TURNO` (src/lib/turnos.ts), no aquí: es una regla de DENTRO
+  // del módulo, como `PUEDE_REABRIR_EVENTO`.
+  // ⚠️ Efecto conocido y aceptado: Juan Fernando es coord. administrativo Y uno
+  // de los cuatro que marca, así que con esto ve su propio acumulado — justo lo
+  // que la migración 0083 le cerró a los empleados. Se le advirtió a Laura.
+  turnos_reporte: { superadmin: E, coord_admin: L, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N, seguridad: N, quiosco: N },
 };
 
 /** ¿El rol puede `read` (ver) o `edit` (editar) el módulo? */

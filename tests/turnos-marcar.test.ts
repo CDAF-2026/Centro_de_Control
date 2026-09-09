@@ -22,21 +22,45 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 });
 
-let empleado: string; // recepción, será quien marca turno
+/**
+ * ⚠️ El "empleado de prueba" es DAIRON, un profesor que NO marca turno en la
+ * vida real, y eso es deliberado desde el 9-sep-2026.
+ *
+ * Antes era Santiago, uno de los cuatro que sí marca. Estas pruebas abren
+ * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona: el día
+ * que Santiago estuviera trabajando —o se le olvidara cerrar— la prueba
+ * reventaba con "duplicate key". Un fallo que aparece según la hora del día es
+ * el peor de todos. Con alguien que nunca marca, no puede pasar; el interruptor
+ * `marca_turno` se le prende DENTRO de la transacción, que se revierte.
+ */
+let empleado: string; // el que marca turno en las pruebas
 let admin: string;    // superadministradora
 let otro: string;     // profesor: ni marca turno ni corrige nada
+/**
+ * ⚠️ Se usa a SEBASTIÁN y no a Juan a propósito, aunque los dos sean coord.
+ * administrativo: `tests/horas-render.test.tsx` escribe filas de verdad con Juan
+ * y ya chocaron una vez por el índice de turno abierto. Sebastián no lo toca
+ * nadie más.
+ */
+let coord: string;    // coord. administrativo: VE el reporte, no corrige
 
 beforeAll(async () => {
   await client.connect();
   const r = await client.query(
     `select p.id, u.email from public.profiles p join auth.users u on u.id = p.id
-      where u.email in ($1, $2, $3)`,
-    ["santivelz2004@gmail.com", "vena.digital.2207@gmail.com", "cristianjo12@gmail.com"],
+      where u.email in ($1, $2, $3, $4)`,
+    [
+      "dga3104100965@gmail.com",
+      "vena.digital.2207@gmail.com",
+      "cristianjo12@gmail.com",
+      "snino777@gmail.com",
+    ],
   );
-  empleado = r.rows.find((x) => x.email === "santivelz2004@gmail.com")?.id;
+  empleado = r.rows.find((x) => x.email === "dga3104100965@gmail.com")?.id;
   admin = r.rows.find((x) => x.email === "vena.digital.2207@gmail.com")?.id;
   otro = r.rows.find((x) => x.email === "cristianjo12@gmail.com")?.id;
-  expect(empleado && admin && otro, "faltan perfiles de prueba").toBeTruthy();
+  coord = r.rows.find((x) => x.email === "snino777@gmail.com")?.id;
+  expect(empleado && admin && otro && coord, "faltan perfiles de prueba").toBeTruthy();
 });
 
 afterAll(async () => {
@@ -90,11 +114,26 @@ async function habilitar(perfil: string, valor = true): Promise<void> {
   await client.query("update public.profiles set marca_turno = $2 where id = $1", [perfil, valor]);
 }
 
+/**
+ * Último id de `turno` ANTES de que la prueba escriba nada.
+ *
+ * ⚠️ Hace falta desde que el módulo está EN USO. Estas pruebas se escribieron con
+ * la tabla vacía y preguntaban "¿cuántos turnos tiene esta persona?", que
+ * entonces era lo mismo que "¿cuántos acabo de crear?". Con turnos reales desde
+ * el 27-ago-2026 esa cuenta empezó a dar 8 donde se esperaba 1, y las nueve
+ * pruebas que la usaban cayeron a la vez. Ahora se compara contra este corte.
+ */
+async function corte(): Promise<number> {
+  const r = await client.query("select coalesce(max(id), 0)::int as id from public.turno");
+  return r.rows[0].id;
+}
+
 const FOTO = "prueba/foto.jpg";
 
 describe("marcar desde el celular", () => {
   it("la secuencia completa: entrada, almuerzo, regreso y salida", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(empleado, async () => {
         await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
@@ -106,8 +145,8 @@ describe("marcar desde el celular", () => {
       const t = await client.query(
         `select t.origen, t.fin_el is not null as cerrado,
                 (select count(*)::int from public.turno_pausa p where p.turno_id = t.id) as pausas
-           from public.turno t where t.perfil_id = $1`,
-        [empleado],
+           from public.turno t where t.perfil_id = $1 and t.id > $2`,
+        [empleado, desde],
       );
       expect(t.rows).toHaveLength(1);
       expect(t.rows[0].origen).toBe("app");
@@ -118,6 +157,7 @@ describe("marcar desde el celular", () => {
 
   it("la hora la pone el servidor y va sin segundos", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(empleado, () =>
         client.query("select public.turno_marcar('entrada', $1)", [FOTO]),
@@ -125,8 +165,8 @@ describe("marcar desde el celular", () => {
       const r = await client.query(
         `select extract(second from inicio_el)::int as seg,
                 abs(extract(epoch from (now() - inicio_el))) < 90 as reciente
-           from public.turno where perfil_id = $1`,
-        [empleado],
+           from public.turno where perfil_id = $1 and id > $2`,
+        [empleado, desde],
       );
       expect(r.rows[0].seg).toBe(0);
       expect(r.rows[0].reciente).toBe(true);
@@ -184,6 +224,7 @@ describe("marcar desde el celular", () => {
 describe("marcar desde el quiósco", () => {
   it("con el PIN correcto marca y queda registrado como quiósco", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(admin, async () => {
         await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
@@ -194,7 +235,10 @@ describe("marcar desde el quiósco", () => {
         expect(r.rows[0].ok).toBe(true);
         expect(r.rows[0].turno_id).toBeTruthy();
       });
-      const t = await client.query("select origen from public.turno where perfil_id = $1", [empleado]);
+      const t = await client.query(
+        "select origen from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
+      );
       expect(t.rows[0].origen).toBe("quiosco");
     });
   });
@@ -204,6 +248,7 @@ describe("marcar desde el quiósco", () => {
     // lanzar excepción: una excepción revertiría la transacción y con ella el
     // contador de intentos, así que nunca llegaría a cinco.
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(admin, async () => {
         await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
@@ -223,8 +268,8 @@ describe("marcar desde el quiósco", () => {
         expect(bueno.rows[0].mensaje).toMatch(/bloqueado/i);
       });
       const t = await client.query(
-        "select count(*)::int as n from public.turno where perfil_id = $1",
-        [empleado],
+        "select count(*)::int as n from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
       );
       expect(t.rows[0].n).toBe(0);
     });
@@ -330,6 +375,7 @@ describe("correcciones del superadministrador", () => {
 
   it("crear un turno a mano exige entrada y salida", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await comoUsuario(admin, async () => {
         expect(
           await falla("select public.turno_crear_manual($1, '2027-09-06 07:00-05', null, $2)", [empleado, "prueba"]),
@@ -340,7 +386,10 @@ describe("correcciones del superadministrador", () => {
         );
         expect(r.rows[0].id).toBeTruthy();
       });
-      const t = await client.query("select origen from public.turno where perfil_id = $1", [empleado]);
+      const t = await client.query(
+        "select origen from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
+      );
       expect(t.rows[0].origen).toBe("ajuste");
     });
   });
@@ -445,6 +494,9 @@ describe("el PIN desde la ficha del empleado", () => {
   it("dice si hay PIN sin revelarlo nunca", async () => {
     await enTransaccion(async () => {
       await comoUsuario(admin, async () => {
+        // ⚠️ Ya hay PINes reales asignados, así que no se puede dar por hecho el
+        // punto de partida: se limpia dentro de la transacción (que se revierte).
+        await client.query("select public.turno_pin_borrar($1)", [empleado]);
         const antes = await client.query("select public.turno_pin_estado($1) as hay", [empleado]);
         expect(antes.rows[0].hay).toBe(false);
 
@@ -457,6 +509,7 @@ describe("el PIN desde la ficha del empleado", () => {
 
   it("quitar el PIN no toca nada más: sigue pudiendo marcar desde el celular", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(admin, async () => {
         await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
@@ -468,7 +521,10 @@ describe("el PIN desde la ficha del empleado", () => {
       await comoUsuario(empleado, async () => {
         await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
       });
-      const t = await client.query("select count(*)::int as n from public.turno where perfil_id = $1", [empleado]);
+      const t = await client.query(
+        "select count(*)::int as n from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
+      );
       expect(t.rows[0].n).toBe(1);
     });
   });
@@ -505,6 +561,7 @@ describe("el PIN desde la ficha del empleado", () => {
 describe("verificar el PIN antes de abrir la cámara", () => {
   it("el PIN bueno pasa y NO marca nada todavía", async () => {
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(admin, async () => {
         await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
@@ -515,8 +572,8 @@ describe("verificar el PIN antes de abrir la cámara", () => {
         expect(r.rows[0].ok).toBe(true);
       });
       const t = await client.query(
-        "select count(*)::int as n from public.turno where perfil_id = $1",
-        [empleado],
+        "select count(*)::int as n from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
       );
       expect(t.rows[0].n).toBe(0);
     });
@@ -555,6 +612,7 @@ describe("verificar el PIN antes de abrir la cámara", () => {
     // La pantalla verifica primero para fallar temprano, pero la marcación NO
     // confía en eso: es la misma comprobación, una sola implementación.
     await enTransaccion(async () => {
+      const desde = await corte();
       await habilitar(empleado);
       await comoUsuario(admin, async () => {
         await client.query("select public.turno_pin_asignar($1, '4821')", [empleado]);
@@ -565,8 +623,8 @@ describe("verificar el PIN antes de abrir la cámara", () => {
         expect(r.rows[0].ok).toBe(false);
       });
       const t = await client.query(
-        "select count(*)::int as n from public.turno where perfil_id = $1",
-        [empleado],
+        "select count(*)::int as n from public.turno where perfil_id = $1 and id > $2",
+        [empleado, desde],
       );
       expect(t.rows[0].n).toBe(0);
     });
@@ -676,6 +734,76 @@ describe("borrar las fotos al mes", () => {
           .toMatch(/tarea de limpieza o el superadministrador/i);
         expect(await falla("select public.turno_fotos_olvidar(array['x'])"))
           .toMatch(/tarea de limpieza o el superadministrador/i);
+      });
+    });
+  });
+});
+
+describe("el coordinador administrativo ve el reporte pero no corrige", () => {
+  it("ve los turnos de TODOS, no solo los suyos", async () => {
+    await enTransaccion(async () => {
+      await client.query(
+        `insert into public.turno (perfil_id, inicio_el, fin_el) values
+           ($1, '2027-09-06 07:00-05', '2027-09-06 15:00-05'),
+           ($2, '2027-09-06 07:00-05', '2027-09-06 15:00-05')`,
+        [empleado, otro],
+      );
+      const vistos = await comoUsuario(coord, () =>
+        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01'"),
+      );
+      expect(vistos.rows).toHaveLength(2);
+    });
+  });
+
+  it("el cálculo de horas también le responde", async () => {
+    // `turnos_horas` es SECURITY INVOKER: si la política no lo incluyera, le
+    // devolvería CERO minutos sin error y el reporte saldría en blanco.
+    await enTransaccion(async () => {
+      await client.query(
+        `insert into public.turno (perfil_id, inicio_el, fin_el)
+         values ($1, '2027-09-06 07:00-05', '2027-09-06 14:00-05')`,
+        [empleado],
+      );
+      const r = await comoUsuario(coord, () =>
+        client.query(
+          "select coalesce(sum(total), 0)::int as n from public.turnos_horas('2027-09-06', '2027-09-12')",
+        ),
+      );
+      expect(r.rows[0].n).toBe(7 * 60);
+    });
+  });
+
+  it("pero la base lo rechaza al corregir, borrar o crear a mano", async () => {
+    await enTransaccion(async () => {
+      const t = await client.query(
+        `insert into public.turno (perfil_id, inicio_el, fin_el)
+         values ($1, '2027-09-06 07:00-05', '2027-09-06 15:00-05') returning id`,
+        [empleado],
+      );
+      const id = t.rows[0].id;
+      await comoUsuario(coord, async () => {
+        expect(
+          await falla("select public.turno_ajustar($1, '2027-09-06 07:00-05', '2027-09-06 18:00-05', $2)", [id, "prueba"]),
+        ).toMatch(/superadministrador/i);
+        expect(await falla("select public.turno_eliminar($1, $2)", [id, "prueba"]))
+          .toMatch(/superadministrador/i);
+        expect(
+          await falla("select public.turno_crear_manual($1, '2027-09-06 07:00-05', '2027-09-06 14:00-05', $2)", [empleado, "prueba"]),
+        ).toMatch(/superadministrador/i);
+      });
+      // El turno quedó intacto.
+      const sigue = await client.query("select fin_el from public.turno where id = $1", [id]);
+      expect(sigue.rows).toHaveLength(1);
+    });
+  });
+
+  it("tampoco puede tocar los PIN ni entrar al quiósco", async () => {
+    await enTransaccion(async () => {
+      await comoUsuario(coord, async () => {
+        expect(await falla("select public.turno_pin_asignar($1, '1234')", [empleado]))
+          .toMatch(/superadministrador/i);
+        expect(await falla("select * from public.quiosco_estado()"))
+          .toMatch(/equipo de recepción/i);
       });
     });
   });

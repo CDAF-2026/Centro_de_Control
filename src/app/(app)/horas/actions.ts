@@ -3,7 +3,7 @@
 import { refresh } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { instanteBogota } from "@/lib/turnos";
+import { PUEDE_CORREGIR_TURNO, instanteBogota } from "@/lib/turnos";
 
 export type CorregirState = { error?: string; ok?: string };
 
@@ -32,9 +32,13 @@ function instantes(fecha: string, entrada: string, salida: string | null) {
   return { inicio, fin };
 }
 
-/** Solo el superadministrador corrige turnos. La base lo vuelve a validar. */
+/**
+ * Solo quien esté en `PUEDE_CORREGIR_TURNO`. La base lo vuelve a validar por su
+ * cuenta (`private.turno_exige_sa`), así que esto es el primer filtro, no el
+ * único: el coordinador administrativo ve el reporte pero rebota aquí.
+ */
 async function exigeSA() {
-  return requireRole(["superadmin"]);
+  return requireRole(PUEDE_CORREGIR_TURNO);
 }
 
 /**

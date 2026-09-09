@@ -11,6 +11,7 @@ import {
   COLUMNAS,
   EXTRA_SEMANA_MAX_MIN,
   FOTOS_DIAS,
+  PUEDE_CORREGIR_TURNO,
   SEMANA_MIN,
   SIN_ALMUERZO_DESDE_MIN,
   hm,
@@ -36,7 +37,11 @@ export default async function HorasDeUnaPersonaPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ periodo?: string; ym?: string }>;
 }) {
-  await requireRole(rolesForModule("turnos_reporte"));
+  const yo = await requireRole(rolesForModule("turnos_reporte"));
+  // El coordinador administrativo VE el reporte pero no corrige (9-sep-2026). La
+  // base ya lo rechaza por su cuenta; esto evita ofrecerle un botón que le iba a
+  // fallar. Misma lista para las dos capas.
+  const puedeCorregir = PUEDE_CORREGIR_TURNO.includes(yo.role);
   const { id } = await params;
   const sp = await searchParams;
 
@@ -317,6 +322,7 @@ export default async function HorasDeUnaPersonaPage({
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
+                          {puedeCorregir && (
                           <CorregirTurno
                             turnoId={t.id}
                             nombre={nombre}
@@ -337,6 +343,7 @@ export default async function HorasDeUnaPersonaPage({
                               hora: t.fin_el ? horaCorta(t.fin_el) : null,
                             }}
                           />
+                          )}
                         </td>
                       </tr>
                     );
@@ -349,7 +356,9 @@ export default async function HorasDeUnaPersonaPage({
       )}
 
       <div className="flex flex-wrap items-center gap-4">
-        <AgregarTurno perfilId={persona.id} nombre={nombre} fecha={diaIso(new Date().toISOString())} />
+        {puedeCorregir && (
+          <AgregarTurno perfilId={persona.id} nombre={nombre} fecha={diaIso(new Date().toISOString())} />
+        )}
         <span className="text-muted-foreground text-xs">
           «Cómo marcó» es la puerta, no el aparato: con su usuario puede ser desde el celular o
           desde un computador. Las fotos se borran a los {FOTOS_DIAS} días; el registro del turno

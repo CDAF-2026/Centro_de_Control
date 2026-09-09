@@ -30,6 +30,17 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 });
 
+/**
+ * ⚠️ El "empleado de prueba" es DAIRON, un profesor que NO marca turno en la
+ * vida real, y eso es deliberado desde el 9-sep-2026.
+ *
+ * Antes era Santiago, uno de los cuatro que sí marca. Estas pruebas abren
+ * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona: el día
+ * que Santiago estuviera trabajando —o se le olvidara cerrar— la prueba
+ * reventaba con "duplicate key". Un fallo que aparece según la hora del día es
+ * el peor de todos. Con alguien que nunca marca, no puede pasar; el interruptor
+ * `marca_turno` se le prende DENTRO de la transacción, que se revierte.
+ */
 /** Empleado de prueba (existe en la base; sus turnos de prueba se revierten). */
 let empleado: string;
 /** Superadministradora, para las funciones que solo ella puede llamar. */
@@ -43,9 +54,9 @@ beforeAll(async () => {
     `select p.id, p.role::text as role, u.email
        from public.profiles p join auth.users u on u.id = p.id
       where u.email in ($1, $2, $3)`,
-    ["santivelz2004@gmail.com", "vena.digital.2207@gmail.com", "cristianjo12@gmail.com"],
+    ["dga3104100965@gmail.com", "vena.digital.2207@gmail.com", "cristianjo12@gmail.com"],
   );
-  empleado = r.rows.find((x) => x.email === "santivelz2004@gmail.com")?.id;
+  empleado = r.rows.find((x) => x.email === "dga3104100965@gmail.com")?.id;
   admin = r.rows.find((x) => x.email === "vena.digital.2207@gmail.com")?.id;
   noAdmin = r.rows.find((x) => x.email === "cristianjo12@gmail.com")?.id;
   expect(empleado, "falta el empleado de prueba").toBeTruthy();
