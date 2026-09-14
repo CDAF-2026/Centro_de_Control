@@ -44,7 +44,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 
 ## 🚀 Despliegue (Vercel)
 **Producción: https://alejandrofallacd.com** (+ `www.`). Proyecto `centro-de-control` del equipo
-`centro-deportivo-alejandro-falla`, plan Hobby.
+`centro-deportivo-alejandro-falla`, **plan Pro desde el 14-sep-2026** (antes Hobby).
 - **Es automático: `git push` a `main` = despliegue a producción.** No hay comando, ni CLI de Vercel,
   ni token en `.env`. El agente llega hasta el push; Vercel construye al ver el commit (~40-60 s).
   Por eso "desplegar" no es una acción aparte: si el push está hecho, ya está en camino.
@@ -904,9 +904,18 @@ administrativa sin darle también la creación de usuarios.
   💡 **Regla**: un fallo del sistema y una clave mala se arreglan de formas distintas, así que no
   pueden verse igual. Mismo veneno que ya documenta este archivo tres veces ("leer devuelve 0 filas
   sin error", "una escritura rechazada por RLS no lanza error"), pero de cara al usuario.
-  ⚠️ **El plan de Supabase es `free` y la organización quedó con facturas sin pagar**: restaurar el
-  proyecto está BLOQUEADO hasta saldarlas (`PaymentRequiredException`). Es cosa de Laura en el panel
-  de Supabase, no del código.
+  ⚠️ **La causa fue el plan `free` + facturas sin pagar**: restaurar estaba BLOQUEADO hasta saldarlas
+  (`PaymentRequiredException`). Laura pagó y **subió Supabase y Vercel a Pro el 14-sep-2026**, así que
+  el proyecto ya no se pausa por inactividad. Verificado tras reactivar: `plan: "pro"`,
+  `ACTIVE_HEALTHY`, y **9 respaldos diarios** con 7 días de retención (antes la lista salía vacía).
+  ⚠️ **`pitr_enabled` sigue en `false`**: Pro trae respaldo DIARIO, no recuperación al minuto — si un
+  día se borra algo por error, se puede perder hasta un día de trabajo. El PITR es un añadido que se
+  paga aparte; decisión pendiente, no un olvido.
+  💡 **Restaurar da un susto que conviene conocer**: el proyecto pasa por `COMING_UP` con la base
+  **VACÍA** (0 tablas, 0 usuarios, 9,5 MB) antes de entrar en `RESTORING` y reponer los datos. Vacío
+  NO es pérdida: hay que esperar a `ACTIVE_HEALTHY`. **No correr migraciones ni escribir nada durante
+  la ventana.** Tardó ~10 min y volvió todo (501 clientes, 5.348 facturas, 100 niños, 42 turnos, y
+  las 4 tareas de pg_cron activas).
 - 💡 **Los profesores SÍ van a entrar** (decisión de Laura, jul-2026): son quienes cierran clases.
   Hasta ahora ninguno había iniciado sesión nunca y los 9 tienen correo placeholder
   (`vena.digital.2207+profe.…`), que es de Laura, no de ellos. Laura tiene los correos reales y los
