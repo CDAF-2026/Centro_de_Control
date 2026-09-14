@@ -888,6 +888,25 @@ administrativa sin darle también la creación de usuarios.
   (dominio ya verificado), el punto a cambiar es `cambiarMiCorreo` en `perfil/actions.ts`.
 - **Recuperar contraseña = el SA la asigna** desde la ficha del empleado. No hay "olvidé mi
   contraseña" en el login por lo mismo del correo.
+- ⚠️⚠️ **El login decía "Correo o contraseña incorrectos" ante CUALQUIER fallo** — incluido "la base
+  de datos no responde". El **14-sep-2026** Supabase **pausó el proyecto por facturas sin pagar**
+  (`status: INACTIVE`, y el host ni siquiera resuelve en DNS: `getaddrinfo ENOTFOUND
+  rxkfgbxdxhrirsscvfwe.supabase.co`), y la pantalla acusó a Laura de escribir mal la clave: estuvo
+  reintentando y dudando de su contraseña mientras el problema era una factura. **La web de Vercel
+  respondía 200** — se cae la base, no el sitio, y desde fuera las dos cosas se ven igual.
+  Ahora el mensaje sale de **`mensajeLogin()` en `src/lib/auth/mensajes.ts`**, que separa cuatro
+  casos por el `status`/`code` del `AuthError`: sin `status` (nunca hubo respuesta) o 5xx = **problema
+  del sistema**, 429 = demasiados intentos, `user_banned` = **cuenta dada de baja** (¡`cambiarAccesoEmpleado`
+  banea en Auth, y el baneo se rechaza ANTES de mirar el perfil — al despedido le decía que su clave
+  estaba mal!), y solo el resto = clave mala. La lectura de `profiles` que sigue **también mira su
+  `error`**: sin eso, con la base caída `perfil` salía null y respondía "esta cuenta ya no tiene
+  acceso", que es inventar. Pruebas en `tests/login-mensajes.test.ts`.
+  💡 **Regla**: un fallo del sistema y una clave mala se arreglan de formas distintas, así que no
+  pueden verse igual. Mismo veneno que ya documenta este archivo tres veces ("leer devuelve 0 filas
+  sin error", "una escritura rechazada por RLS no lanza error"), pero de cara al usuario.
+  ⚠️ **El plan de Supabase es `free` y la organización quedó con facturas sin pagar**: restaurar el
+  proyecto está BLOQUEADO hasta saldarlas (`PaymentRequiredException`). Es cosa de Laura en el panel
+  de Supabase, no del código.
 - 💡 **Los profesores SÍ van a entrar** (decisión de Laura, jul-2026): son quienes cierran clases.
   Hasta ahora ninguno había iniciado sesión nunca y los 9 tienen correo placeholder
   (`vena.digital.2207+profe.…`), que es de Laura, no de ellos. Laura tiene los correos reales y los
