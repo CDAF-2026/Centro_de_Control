@@ -11,6 +11,7 @@ import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
 import { CourtPicker } from "./court-picker";
+import { FechaPicker } from "./fecha-picker";
 import { courtInfo, type CalEvento } from "./types";
 
 const MESES = [
@@ -324,7 +325,7 @@ export default async function ClasesPage({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {vista === "mes" ? (
             <>
               <Link href={navMes(prevM.y, prevM.m)} className={buttonVariants({ variant: "outline", size: "sm" })}>←</Link>
@@ -341,6 +342,7 @@ export default async function ClasesPage({
               )}
             </>
           )}
+          <FechaPicker vista={vista} date={diaDate} deporte={deporte} profesor={selProf} cancha={selCancha} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {vista === "profesor" && (
@@ -397,7 +399,7 @@ export default async function ClasesPage({
         <span><span className="mr-1 inline-block size-3 rounded bg-[#8b7cf6]/60 align-middle" /> Academia</span>
         <span><span className="border-foreground/40 mr-1 inline-block size-3 rounded border-l-2 align-middle" /> Reserva EasyCancha</span>
         <span className="line-through opacity-60">Cancelada</span>
-        {vista === "mes" && <span>· Haz clic en el número del día para abrir la vista por día.</span>}
+        {vista === "mes" && <span>· Haz clic en el número del día —o usa «Ir a»— para abrir la vista por día.</span>}
         {vista === "profesor" && selProf && <span>· Día de: <strong>{selProf}</strong></span>}
         {vista === "cancha" && selCancha && <span>· Cancha: <strong>{selCanchaLabel}</strong></span>}
       </div>
