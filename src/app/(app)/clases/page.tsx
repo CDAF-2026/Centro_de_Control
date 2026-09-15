@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { mapaNombresStaff } from "@/lib/staff";
+import { mapaNombresStaff, docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { nombresDeportistas } from "@/lib/deportistas";
 import { instanteClase } from "@/lib/fecha";
 import { buttonVariants } from "@/components/ui/button";
@@ -131,6 +131,12 @@ export default async function ClasesPage({
     return (clave ? aliasCanon.get(clave) : null) ?? raw;
   };
 
+  // Docentes con su deporte, UNA sola vez para todo el mes: el selector de
+  // "clase sin profesor" se arma en memoria con `opcionesParaDeporte`, que es
+  // pura. Pedirlos por clase serían decenas de consultas idénticas.
+  const puedeAsignar = can(profile.role, "clases", "edit");
+  const docentes = puedeAsignar ? await docentesConDeporte() : [];
+
   // Corregir el valor de una particular usa el MISMO techo de 24 h que cerrar la clase,
   // con el mismo helper, para no tener dos cálculos de "fecha+hora" que se desincronicen.
   const esSA = profile.role === "superadmin";
@@ -171,6 +177,12 @@ export default async function ClasesPage({
         ["Profesor", profesor ?? "—"],
         ["Cancha", c.cancha ?? "—"],
       ],
+      // Clase ya registrada a la que nunca se le puso profesor: el modal ofrece
+      // asignarlo. Sin esto la clase existe, se cobra y la liquidación la salta
+      // en silencio, porque `liquidacion.ts` descarta las que no tienen profesor.
+      ...(puedeAsignar && !c.profesor_id && c.estado !== "cancelada"
+        ? { sinProfesor: { claseId: c.id, opciones: opcionesParaDeporte(docentes, c.deporte) } }
+        : {}),
       // Solo la particular (individual sin paquete) lleva valor corregible en el modal.
       // El plazo es el MISMO techo de 24 h que rige el cierre (ver editarValorClase).
       ...(c.tipo === "individual" && !c.paquete_cliente_id
@@ -304,7 +316,7 @@ export default async function ClasesPage({
   const fmtDiaRaw = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(dy, dm - 1, dd));
   const fmtDia = fmtDiaRaw.charAt(0).toUpperCase() + fmtDiaRaw.slice(1);
 
-  const puedeCrear = can(profile.role, "clases", "edit");
+  const puedeCrear = puedeAsignar;
   const tabCls = (activa: boolean) => buttonVariants({ variant: activa ? "default" : "outline", size: "sm" });
 
   return (

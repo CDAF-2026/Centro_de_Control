@@ -109,9 +109,24 @@ async function falla(sql: string, params: unknown[] = []): Promise<string> {
   throw new Error(`Se esperaba un error y la sentencia pasó: ${sql}`);
 }
 
-/** Prende el interruptor de "registra turnos" (como lo haría el superadministrador). */
+/**
+ * Prende el interruptor de "registra turnos" (como lo haría el superadministrador).
+ *
+ * ⚠️ También fuerza `activo`, y NO es de adorno: `turno_marcar` exige
+ * `activo and marca_turno`, así que el día que el club dé de baja a la persona
+ * de la prueba caen 13 pruebas de golpe con "Tu cuenta no registra turnos" —
+ * un mensaje que no tiene NADA que ver con lo que se está probando. Pasó el
+ * 15-sep-2026, cuando Dairon quedó inactivo. Va dentro de la transacción, que
+ * se revierte, así que no toca el dato real.
+ *
+ * Tercera vez que muerde la misma idea: una prueba no puede depender del estado
+ * que el club mueve por su cuenta (ver las dos lecciones de 9-sep en MEMORIA).
+ */
 async function habilitar(perfil: string, valor = true): Promise<void> {
-  await client.query("update public.profiles set marca_turno = $2 where id = $1", [perfil, valor]);
+  await client.query(
+    "update public.profiles set marca_turno = $2, activo = true where id = $1",
+    [perfil, valor],
+  );
 }
 
 /**

@@ -15,7 +15,10 @@ import {
   STAFF_ROLES,
 } from "@/lib/validations/empleado";
 import { asignarPasswordSchema } from "@/lib/validations/perfil";
-import type { EmpleadoDocumentoTipo } from "@/lib/database.types";
+import type { Deporte, EmpleadoDocumentoTipo } from "@/lib/database.types";
+
+/** Deportes que puede dictar alguien. Lista cerrada: alimenta el selector del calendario. */
+const DEPORTES: readonly Deporte[] = ["tenis", "padel"];
 
 export type EmpleadoFormState = {
   error?: string;
@@ -265,11 +268,20 @@ export async function updateEmpleado(
     }
   }
 
+  // Deportes que dicta (migración 0089): alimenta el selector de profesor del
+  // calendario. Van con `getAll` y NO por el esquema de zod porque son casillas
+  // y `Object.fromEntries(formData)` se queda solo con la última marcada.
+  const deportes = [
+    ...new Set(formData.getAll("deportes").map(String).filter((x): x is Deporte =>
+      (DEPORTES as readonly string[]).includes(x),
+    )),
+  ];
+
   // Perfil.
   const supabase = await createClient();
   const { error: upErr } = await supabase
     .from("profiles")
-    .update({ nombre: d.nombre, documento: d.documento || null, telefono: d.telefono || null })
+    .update({ nombre: d.nombre, documento: d.documento || null, telefono: d.telefono || null, deportes })
     .eq("id", d.id);
   if (upErr) return { error: upErr.message };
 
@@ -277,7 +289,7 @@ export async function updateEmpleado(
     action: "empleado.update",
     entity: "profiles",
     entityId: d.id,
-    after: { nombre: d.nombre, email: d.email },
+    after: { nombre: d.nombre, email: d.email, deportes },
   });
   revalidatePath("/empleados");
   revalidatePath(`/empleados/${d.id}`);

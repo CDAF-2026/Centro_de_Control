@@ -771,6 +771,56 @@ la academia (48 filas casi todas en cero, ilegible) y los avisos en el acordeón
 - **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
   (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
 
+🎾 **Asignar el profesor a una clase que llegó SIN profesor** (15-sep-2026, migración 0089).
+El club crea reservas en EasyCancha sin profesor —el profe es nuevo y allá todavía no existe, o
+simplemente se les olvida— y al materializarlas la clase entra con `profesor_id = null`. **El daño
+es invisible**: `liquidacion.ts` salta esas clases (`if (!c.profesor_id) continue`), así que la
+clase se dictó, se cobró y no se le pagó a nadie, sin un solo error por ningún lado. Medido al
+construirlo: **12 clases así, del 7 al 14 de septiembre**, ninguna cerrada todavía.
+- La fila "Profesor" del modal de `/clases` cambia el guión por un **select**
+  (`profesor-clase-form.tsx` → `asignarProfesorClase`), mismo patrón que `ValorClaseForm`.
+  **No hubo que tocar `/cierre` ni `liquidacion.ts`**: los dos ya leen `clases.profesor_id`, así que
+  con el profesor puesto la clase le entra sola a su liquidación.
+- ⚠️ **Solo aparece si la clase NO tiene profesor.** Esto REPARA una omisión, no reasigna: poner a
+  alguien donde no había nadie solo puede SUMARLE una clase a su liquidación, nunca quitársela a
+  otro. Cambiar un profesor ya puesto movería plata de una persona a otra y es una decisión distinta
+  que hoy no existe. La acción lo revalida en el servidor y el `update` lleva `.is("profesor_id",
+  null)` por si dos personas lo asignan a la vez.
+- ⚠️ **NO lleva el techo de 24 h de `editarValorClase`, a propósito.** Estas clases se descubren
+  justamente tarde (la del 12-sep apareció el 15): un plazo de 24 h dejaría sin arreglo exactamente
+  los casos que motivaron esto. El rastro queda en `audit_log` (`clase.asignar_profesor`).
+- 🆕 **`profiles.deportes`** (`deporte[]`, migración 0089) — no existía NADA que dijera si un
+  profesor es de tenis o de pádel, y sin eso no se puede ofrecer "los de pádel para una clase de
+  pádel". Se marca en `/empleados/[id]/editar` y lo blinda el trigger `profiles_blindar_rol` (junto
+  con `role`/`activo`/`marca_turno`): si no, un profesor podría quitárselo desde "Mi perfil" y
+  desaparecer del selector de su propia cancha. Verificado con prueba revertida: el profesor queda
+  bloqueado al cambiarse el deporte y sigue pudiendo editar sus otros datos.
+- ⚠️ **El que no tiene deporte marcado SE MUESTRA, en un grupo "Sin deporte asignado"** — no se
+  esconde. Filtrar estricto habría dejado fuera del selector justo al **profesor nuevo**, que es uno
+  de los dos casos que se querían resolver. Medido: de los 8 docentes activos, **Victor Acosta y
+  Yeison Bedoya no tienen ni una clase dictada**. Por eso también se descartó *deducir el deporte
+  del historial*: a ellos dos los habría dejado invisibles.
+- Los otros 6 sí se pre-llenaron desde su historial real, que salió **inequívoco** (ninguno ha
+  dictado los dos deportes): Cristian 34 tenis · Esteban 42 tenis · Jorge 2 tenis · Sebastián 4
+  tenis · Leo 65 pádel · Joaquín 4 pádel. Fue un `update` de datos, no migración, porque el campo se
+  edita desde la ficha del empleado.
+- ⚠️ Las casillas van con **`formData.getAll("deportes")`** y NO por el esquema de zod:
+  `Object.fromEntries(formData)` se queda solo con la última marcada. Mismo patrón que los arreglos
+  paralelos de los horarios de academia.
+- ⚠️ Agregar `deportes` a la salida de `staff_docentes` obligó a **DROP + CREATE** (cambia el tipo de
+  retorno). `StaffDocente` va aparte de `StaffMiembro` porque `staff_directorio` NO trae deportes.
+- Pruebas: `tests/profesor-clase.test.tsx` (13). ⚠️ Montan **`ProfesorClaseForm` suelto y no
+  `EventoDetalle`**: el modal usa `DialogTitle` de Base UI, que exige el contexto del diálogo y
+  revienta con `renderToStaticMarkup` — ya documentado arriba con la foto de turno.
+
+⚠️ **Una prueba no puede depender de un estado que el club mueve por su cuenta** (15-sep-2026,
+tercera vez que muerde lo mismo). `tests/turnos-marcar.test.ts` usaba a **Dairon** porque "nunca
+marca turno"… y el club lo dio de baja. Como `turno_marcar` exige `activo and marca_turno` y la
+prueba solo prendía `marca_turno`, **cayeron 13 pruebas de golpe** con "Tu cuenta no registra
+turnos", un mensaje que no tiene nada que ver con lo que se probaba. `habilitar()` ahora fuerza
+también `activo` dentro de la transacción que se revierte. Ojo al diagnosticar: se confirmó que era
+previo guardando los cambios propios con `git stash` y volviendo a correr — fallaban igual.
+
 💰 **Corregir el valor de una clase particular** (ago-2026, `editarValorClase` en clases/actions.ts +
 `valor-clase-form.tsx`). Se edita desde el **modal de `/clases`**, NO desde `/cierre`: recepción es
 quien teclea el precio al registrar la clase y **no tiene acceso a `/cierre`** (`cierre_clase` = N),

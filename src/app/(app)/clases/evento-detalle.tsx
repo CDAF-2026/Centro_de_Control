@@ -4,6 +4,7 @@ import { DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/di
 import { Badge } from "@/components/ui/badge";
 import { MaterializarReserva } from "./asignar-paquete";
 import { ValorClaseForm } from "./valor-clase-form";
+import { ProfesorClaseForm } from "./profesor-clase-form";
 import type { CalEvento } from "./types";
 
 const TONE: Record<string, "success" | "warning" | "destructive"> = {
@@ -33,7 +34,18 @@ export function EventoDetalle({
         {ev.detalles.map(([k, v]) => (
           <p key={k} className="flex items-baseline justify-between gap-3">
             <span className="text-muted-foreground shrink-0">{k}</span>
-            <span className="text-right font-medium">{v}</span>
+            {/* La clase sin profesor no muestra un guión resignado: muestra el
+                selector para arreglarlo, justo donde se ve el hueco. */}
+            {k === "Profesor" && canAssign && ev.sinProfesor && !ev.cancelada ? (
+              <ProfesorClaseForm
+                claseId={ev.sinProfesor.claseId}
+                opciones={ev.sinProfesor.opciones}
+                deporte={ev.deporte}
+                onGuardado={onCerrar}
+              />
+            ) : (
+              <span className="text-right font-medium">{v}</span>
+            )}
           </p>
         ))}
         <p className="flex items-center justify-between gap-3 border-t pt-2">

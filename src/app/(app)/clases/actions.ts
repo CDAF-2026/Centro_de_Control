@@ -298,6 +298,80 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
   return { ok: "Precio cambiado con éxito.", valor };
 }
 
+/**
+ * Asigna el profesor a una clase que se quedó SIN profesor.
+ *
+ * El club crea reservas en EasyCancha sin profesor —porque el profe es nuevo y
+ * todavía no está creado allá, o simplemente se les olvidó— y al materializarlas
+ * la clase entra con `profesor_id = null`. El daño es invisible: la liquidación
+ * las salta (`if (!c.profesor_id) continue` en liquidacion.ts), así que la clase
+ * se dictó, se cobró, y no se le pagó a nadie sin un solo error por ningún lado.
+ *
+ * Tres guardias, validados AQUÍ y no solo en la pantalla (el guardia de la
+ * página no protege la server action):
+ *  · Solo si la clase NO tiene profesor. Esto REPARA una omisión, no reasigna:
+ *    poner a alguien donde no había nadie solo puede SUMARLE una clase a su
+ *    liquidación, nunca quitársela a otro. Cambiar un profesor ya puesto movería
+ *    plata de una persona a otra y es una decisión distinta, que hoy no existe.
+ *  · El profesor tiene que salir de `staff_docentes`: es quien tiene con qué
+ *    cobrarla. Un id tecleado a mano no pasa.
+ *  · NO lleva el techo de 24 h que sí tiene `editarValorClase`, y es a propósito:
+ *    estas clases se descubren justamente tarde (la del 12-sep apareció el 15),
+ *    así que un plazo de 24 h dejaría sin arreglo exactamente los casos que
+ *    motivaron esto. El rastro queda en `audit_log`.
+ */
+export type ProfesorClaseState = { error?: string; ok?: string; profesor?: string };
+
+export async function asignarProfesorClase(
+  _prev: ProfesorClaseState,
+  formData: FormData,
+): Promise<ProfesorClaseState> {
+  await requireRole(WRITE);
+  const claseId = Number(formData.get("claseId"));
+  const profesorId = String(formData.get("profesorId") ?? "").trim();
+  if (!claseId) return { error: "Clase inválida." };
+  if (!profesorId) return { error: "Escoge un profesor." };
+
+  const supabase = await createClient();
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, profesor_id, deporte, fecha, hora_inicio, estado")
+    .eq("id", claseId)
+    .maybeSingle();
+  if (!clase) return { error: "No se encontró la clase." };
+  if (clase.profesor_id) {
+    return { error: "Esta clase ya tiene profesor. Para cambiarlo, pídeselo al superadministrador." };
+  }
+
+  // Que sea alguien a quien de verdad se le pueda pagar por dictar.
+  const docentes = await profesoresActivos();
+  const elegido = docentes.find((p) => p.id === profesorId);
+  if (!elegido) return { error: "Ese profesor no está disponible para dictar." };
+
+  const { error } = await supabase
+    .from("clases")
+    .update({ profesor_id: profesorId })
+    .eq("id", claseId)
+    // Carrera: si entre la lectura y el update alguien más lo asignó, este
+    // update no toca nada en vez de pisarle el profesor al otro.
+    .is("profesor_id", null);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    action: "clase.asignar_profesor",
+    entity: "clases",
+    entityId: String(claseId),
+    before: { profesor_id: null },
+    after: { profesor_id: profesorId, estado: clase.estado, deporte: clase.deporte },
+  });
+  revalidatePath("/clases");
+  revalidatePath("/cierre");
+  revalidatePath("/liquidacion");
+  // Se devuelve el nombre para que el modal confirme: su copia del evento es de
+  // cuando se abrió y no se refresca sola.
+  return { ok: "Profesor asignado.", profesor: elegido.nombre ?? "—" };
+}
+
 // ─────────────────────────────────────────────────────────────
 // Registrar un bloqueo de academia de EasyCancha como clase(s)
 // ─────────────────────────────────────────────────────────────

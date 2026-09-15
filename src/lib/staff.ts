@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { AppRole, StaffMiembro } from "@/lib/database.types";
+import type { AppRole, Deporte, StaffDocente, StaffMiembro } from "@/lib/database.types";
 
 /**
  * Directorio del staff.
@@ -31,7 +31,7 @@ export async function listarStaff(opts?: {
  * es coordinador deportivo y da las clases de las 7 a.m.; filtrando por rol
  * desaparecía de los selectores y sus clases no se le podían asignar.
  */
-async function listarDocentes(soloActivos = true): Promise<StaffMiembro[]> {
+async function listarDocentes(soloActivos = true): Promise<StaffDocente[]> {
   const supabase = await createClient();
   const { data } = await supabase.rpc("staff_docentes", { p_solo_activos: soloActivos });
   return data ?? [];
@@ -74,4 +74,56 @@ export async function nombreStaff(id: string | null): Promise<string | null> {
 export async function staffDirectorio(excluir?: string): Promise<StaffMiembro[]> {
   const staff = await listarStaff();
   return staff.filter((p) => p.id !== excluir);
+}
+
+/** Una opción del selector de profesor de una clase. */
+export type OpcionProfesor = {
+  id: string;
+  nombre: string;
+  /** false = no tiene deporte marcado; va en su propio grupo, nunca se esconde. */
+  delDeporte: boolean;
+};
+
+/** Docentes activos con sus deportes, para armar selectores (migración 0089). */
+export async function docentesConDeporte(): Promise<StaffDocente[]> {
+  return listarDocentes();
+}
+
+/**
+ * Profesores que se le pueden asignar a una clase de `deporte`.
+ *
+ * Trae PRIMERO a los que dictan ese deporte y DESPUÉS a los que no tienen
+ * deporte marcado (migración 0089). A los del otro deporte no los ofrece: el
+ * club pidió que una clase de pádel liste profesores de pádel.
+ *
+ * ⚠️ Los "sin marcar" NO se esconden a propósito. Si se filtrara estricto, un
+ * profesor al que nadie le marcó el deporte simplemente no existiría en el
+ * selector y no habría forma de entender por qué — el fallo callado que este
+ * proyecto ya ha pagado varias veces. Apareciendo aparte, el hueco se ve y se
+ * arregla en la ficha del empleado.
+ *
+ * `deporte` en null (clase sin deporte) = se ofrecen todos, sin separar.
+ *
+ * Es una función PURA y recibe la lista ya cargada: el calendario pinta un mes
+ * entero y pedir los docentes una vez por clase serían decenas de consultas
+ * idénticas.
+ */
+export function opcionesParaDeporte(
+  docentes: StaffDocente[],
+  deporte: Deporte | null,
+): OpcionProfesor[] {
+  return docentes
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre ?? "—",
+      // Sin deporte en la clase no hay nada contra qué comparar: todos cuentan
+      // como "del deporte" para que salgan en un solo grupo.
+      delDeporte: !deporte || (p.deportes ?? []).includes(deporte),
+      sinMarcar: (p.deportes ?? []).length === 0,
+    }))
+    .filter((p) => p.delDeporte || p.sinMarcar)
+    // Los del deporte arriba; dentro de cada grupo se conserva el orden por
+    // nombre que ya trae el RPC (sort estable).
+    .sort((a, b) => Number(b.delDeporte) - Number(a.delDeporte))
+    .map(({ id, nombre, delDeporte }) => ({ id, nombre, delDeporte }));
 }

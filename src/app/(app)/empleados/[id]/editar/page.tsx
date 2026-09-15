@@ -13,7 +13,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
   const supabase = await createClient();
   const { data: emp } = await supabase
     .from("profiles")
-    .select("id, nombre, documento, telefono")
+    .select("id, nombre, documento, telefono, deportes")
     .eq("id", id)
     .maybeSingle();
   if (!emp) notFound();
@@ -31,7 +31,7 @@ export default async function EditarEmpleadoPage({ params }: { params: Promise<{
         <h1 className="cdaf-headline mt-1">Editar empleado</h1>
       </div>
       <EditarEmpleadoForm
-        empleado={{ id: emp.id, nombre: emp.nombre ?? "", email, documento: emp.documento, telefono: emp.telefono }}
+        empleado={{ id: emp.id, nombre: emp.nombre ?? "", email, documento: emp.documento, telefono: emp.telefono, deportes: emp.deportes ?? [] }}
       />
     </div>
   );

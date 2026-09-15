@@ -14,6 +14,8 @@ export type EmpleadoEditable = {
   email: string;
   documento: string | null;
   telefono: string | null;
+  /** Deportes que dicta. Vacío = sin marcar. */
+  deportes: string[];
 };
 
 function Field({
@@ -43,6 +45,29 @@ export function EditarEmpleadoForm({ empleado }: { empleado: EmpleadoEditable })
         <Field label="Documento" name="documento" error={fe.documento} defaultValue={empleado.documento ?? ""} />
         <Field label="Teléfono" name="telefono" error={fe.telefono} defaultValue={empleado.telefono ?? ""} />
       </div>
+      {/* Alimenta el selector de profesor del calendario: una clase de pádel
+          ofrece profesores de pádel. A quien no tenga nada marcado NO se le
+          esconde — sale en un grupo aparte, para que el olvido se vea. */}
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium">Deportes que dicta</legend>
+        <p className="text-muted-foreground text-xs">
+          Solo aplica a quien dicta clases. Define en qué canchas se le puede asignar una clase.
+        </p>
+        <div className="flex gap-4 pt-1">
+          {[["tenis", "Tenis"], ["padel", "Pádel"]].map(([valor, etiqueta]) => (
+            <label key={valor} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="deportes"
+                value={valor}
+                defaultChecked={empleado.deportes.includes(valor)}
+                className="border-input size-4 rounded border"
+              />
+              {etiqueta}
+            </label>
+          ))}
+        </div>
+      </fieldset>
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar cambios"}</Button>
     </form>

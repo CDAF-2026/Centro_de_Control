@@ -1,3 +1,5 @@
+import type { OpcionProfesor } from "@/lib/staff";
+
 export type CalEvento = {
   id: string;
   dia: number;
@@ -31,6 +33,18 @@ export type CalEvento = {
     editable: boolean;
     /** Por qué está bloqueada, o la advertencia a mostrar. null = sin nota. */
     aviso: string | null;
+  };
+  /**
+   * Solo en clases YA REGISTRADAS que se quedaron sin profesor: deja asignarlo
+   * desde el modal. El club crea reservas sin profesor en EasyCancha (el profe
+   * es nuevo, o se les olvida) y esa clase desaparece de la liquidación en
+   * silencio, porque `liquidacion.ts` salta las que no tienen profesor.
+   * Ausente = la clase ya tiene profesor y no se toca desde aquí.
+   */
+  sinProfesor?: {
+    claseId: number;
+    /** Profesores del deporte de la clase + los que no tengan deporte marcado. */
+    opciones: OpcionProfesor[];
   };
   /** Datos de la reserva EasyCancha (solo eventos no materializados) para registrarla. */
   ec?: {

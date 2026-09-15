@@ -133,6 +133,8 @@ export type Database = {
           activo: boolean;
           /** Registra entrada y salida por horas. Solo lo mueve el superadministrador. */
           marca_turno: boolean;
+          /** Deportes que dicta. Vacío = sin marcar. Solo lo mueve el superadministrador. */
+          deportes: Deporte[];
           created_at: string;
           updated_at: string;
         };
@@ -145,6 +147,7 @@ export type Database = {
           avatar_path?: string | null;
           activo?: boolean;
           marca_turno?: boolean;
+          deportes?: Deporte[];
           created_at?: string;
           updated_at?: string;
         };
@@ -157,6 +160,7 @@ export type Database = {
           avatar_path?: string | null;
           activo?: boolean;
           marca_turno?: boolean;
+          deportes?: Deporte[];
           created_at?: string;
           updated_at?: string;
         };
@@ -1293,7 +1297,7 @@ export type Database = {
       };
       staff_docentes: {
         Args: { p_solo_activos?: boolean };
-        Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean }[];
+        Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean; deportes: Deporte[] }[];
       };
       /** Rendimiento por franja de una academia. La franja en null = clases dictadas
        *  a una hora que nadie tiene inscrita. Migración 0057. */
@@ -1592,4 +1596,14 @@ export type StaffMiembro = {
   nombre: string | null;
   role: AppRole;
   activo: boolean;
+};
+
+/**
+ * Lo que devuelve `staff_docentes` (migración 0089): un miembro del staff que
+ * además dicta, con los deportes que dicta. Va aparte de `StaffMiembro` porque
+ * `staff_directorio` NO trae `deportes` y mezclarlos haría mentir al tipo.
+ */
+export type StaffDocente = StaffMiembro & {
+  /** Vacío = sin marcar. No se esconde: sale en su propio grupo en los selectores. */
+  deportes: Deporte[];
 };
