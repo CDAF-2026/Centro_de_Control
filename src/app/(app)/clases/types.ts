@@ -62,6 +62,13 @@ export type CalEvento = {
     profesorMatched: string | null;
     /** Reserva del usuario "BLOQUEOS ACADEMIAS" = cancha que el club se auto-reserva. */
     esBloqueo: boolean;
+    /**
+     * false = parece un ALQUILER de cancha, no una clase (ver `pareceClase` en
+     * easycancha/client.ts). El modal entonces no ofrece "A un paquete /
+     * Particular": convertir un alquiler en clase fue justo el error del
+     * 15-sep-2026, que dejó 5 alquileres metidos en la cola de cierre.
+     */
+    pareceClase: boolean;
     /** Nota de EasyCancha; solo se propaga en los bloqueos (en las de clientes es privada). */
     comentario: string;
     /**

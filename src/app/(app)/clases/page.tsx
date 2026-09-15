@@ -6,7 +6,7 @@ import { mapaNombresStaff, docentesConDeporte, opcionesParaDeporte } from "@/lib
 import { nombresDeportistas } from "@/lib/deportistas";
 import { instanteClase } from "@/lib/fecha";
 import { buttonVariants } from "@/components/ui/button";
-import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia } from "@/lib/easycancha/client";
+import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia, pareceClase } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
 import { DayView } from "./day-view";
 import { ProfesorPicker } from "./profesor-picker";
@@ -256,6 +256,9 @@ export default async function ClasesPage({
           telefono: b.userPhone ?? "",
           profesorMatched: profesor,
           esBloqueo: esBloqueoAcademia(b),
+          // Se decide en el SERVIDOR y viaja como booleano: la nota que lo
+          // determina trae datos privados del cliente y no puede salir a pantalla.
+          pareceClase: pareceClase(b),
           comentario: esBloqueoAcademia(b) ? (b.comments ?? "").trim() : "",
           monto: b.totalAmount ?? null,
         },

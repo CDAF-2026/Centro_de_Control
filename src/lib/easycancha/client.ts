@@ -73,6 +73,48 @@ export function deporteDeSport(sportName: string | null): "tenis" | "padel" | nu
 }
 
 /**
+ * Palabras con las que el club anuncia una clase en la nota de la reserva.
+ * Medidas sobre las notas REALES de ago–sep 2026: "Clase con entrenador
+ * Sebastián", "clase victor", "Personalizada con Mauro o Salamanca",
+ * "CLASE CON VICTOR", "Entrenador Sebastian".
+ */
+const RE_NOTA_CLASE =
+  /\b(clase|clases|entrenador|entrenadora|entrenadores|profesor|profesora|profe|personalizada|personalizado)\b/i;
+
+/**
+ * ¿Esta reserva es una CLASE, o un simple alquiler de cancha?
+ *
+ * Nace del 15-sep-2026: en cafetería pulsaron "Particular" sobre el alquiler de
+ * Iván Darío Botero y lo convirtieron en clase. Se revisó la reserva en la API y
+ * EasyCancha la manda como alquiler sin ninguna ambigüedad — el error no fue de
+ * ellos: fue que la plataforma ofrecía "A un paquete / Particular" sobre
+ * CUALQUIER reserva, sin distinguir. Salieron 5 alquileres convertidos en clase.
+ *
+ * Dos señales, en este orden:
+ *  1. La cancha lleva el profesor en el nombre ("Profesor Leo Ruíz Cancha 3").
+ *     Es la señal fuerte: 670 de 1.354 reservas de ago–sep.
+ *  2. Si la cancha viene pelada ("Cancha 2"), manda la NOTA de la reserva.
+ *
+ * ⚠️ La cancha pelada NO basta y por eso hace falta la nota: se midió que las
+ * clases reales también se reservan en cancha normal —y por el mismo monto de
+ * $70.000— así que filtrar solo por el nombre de la cancha habría bloqueado
+ * trabajo legítimo del club. Verificado contra los 6 casos que la dueña
+ * confirmó a mano: 6 de 6.
+ *
+ * ⚠️ La nota se USA para decidir pero NUNCA se muestra en una reserva de
+ * cliente: ahí el club escribe datos privados ("PAGA LA PRIMERA SEMANA DE
+ * MAYO"). Solo se propaga a pantalla en los bloqueos de academia.
+ *
+ * ⚠️ No es infalible y no debe bloquear: hay clases reales sin nota (la del
+ * 23-ago de Esteban venía en blanco). Por eso la pantalla esconde los botones
+ * pero deja una salida explícita, en vez de impedirlo.
+ */
+export function pareceClase(b: Pick<EcBooking, "courtName" | "comments">): boolean {
+  if (profesorDeCancha(b.courtName)) return true;
+  return RE_NOTA_CLASE.test(b.comments ?? "");
+}
+
+/**
  * Extrae el profesor desde el nombre de cancha de EasyCancha.
  * Las clases vienen como "Profesor Leo Ruíz Cancha 3" / "Entrenador Cristian - Cancha 1";
  * los alquileres de cancha abierta ("Cancha 2") devuelven null.

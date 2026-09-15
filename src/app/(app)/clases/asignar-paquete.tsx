@@ -50,6 +50,8 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   // clase en $0 — que le pagaría $0 al profesor con una regla por porcentaje.
   const [precio, setPrecio] = useState(ev.ec?.monto != null ? String(Math.trunc(ev.ec.monto)) : "0");
   const [personas, setPersonas] = useState("1");
+  // Alquiler de cancha: los botones salen escondidos y esto los destapa.
+  const [forzarClase, setForzarClase] = useState(false);
   const [academiaId, setAcademiaId] = useState("");
   const [grupoId, setGrupoId] = useState("");
   const [franjasElegidas, setFranjasElegidas] = useState<Set<number>>(new Set());
@@ -168,26 +170,60 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
 
   return (
     <div className="mt-3 space-y-2 border-t pt-3">
-      <p className="text-sm font-medium">Registrar para poder cerrarla</p>
+      {/* Un alquiler no se registra ni se cierra: el título no puede pedirlo. */}
+      <p className="text-sm font-medium">
+        {!ec.esBloqueo && !ec.pareceClase && !forzarClase ? "Reserva de cancha" : "Registrar para poder cerrarla"}
+      </p>
 
-      {/* Un bloqueo es cancha que el club se auto-reserva: no tiene cliente, así que
-          paquete/particular no aplican (crearían un cliente "BLOQUEOS ACADEMIAS"). */}
-      <div className="flex gap-2">
-        {ec.esBloqueo ? (
-          <Button type="button" size="sm" variant={modo === "academia" ? "default" : "outline"} onClick={() => abrir("academia")} disabled={pending}>
-            Academia
-          </Button>
-        ) : (
-          <>
-            <Button type="button" size="sm" variant={modo === "paquete" ? "default" : "outline"} onClick={() => abrir("paquete")} disabled={pending}>
-              A un paquete
-            </Button>
-            <Button type="button" size="sm" variant={modo === "particular" ? "default" : "outline"} onClick={() => abrir("particular")} disabled={pending}>
-              Particular
-            </Button>
-          </>
-        )}
-      </div>
+      {/* Alquiler de cancha: NO se ofrece convertirlo en clase.
+          El 15-sep-2026 en cafetería pulsaron "Particular" sobre el alquiler de
+          Iván Darío Botero y quedó de clase; salieron 5 casos iguales. Solo se
+          cierran CLASES, así que un alquiler no tiene nada que hacer en la cola
+          de cierre. Se esconde, no se bloquea: hay clases reales sin nota (la
+          del 23-ago de Esteban venía en blanco) y bloquear dejaría al club sin
+          poder registrarlas. */}
+      {!ec.esBloqueo && !ec.pareceClase && !forzarClase ? (
+        <div className="space-y-1.5">
+          <p className="text-muted-foreground text-sm">
+            Esto es un <span className="font-medium">alquiler de cancha</span>, no una clase:
+            la reserva no viene a nombre de un profesor ni dice que lo sea.
+            No hay que registrarlo ni cerrarlo.
+          </p>
+          <button
+            type="button"
+            className="text-muted-foreground text-xs underline"
+            onClick={() => setForzarClase(true)}
+          >
+            Me consta que sí fue una clase, registrarla
+          </button>
+        </div>
+      ) : (
+        <>
+          {!ec.esBloqueo && !ec.pareceClase && (
+            <p className="text-muted-foreground text-xs">
+              Ojo: esta reserva parece un alquiler de cancha. Regístrala solo si de verdad se dictó una clase.
+            </p>
+          )}
+          {/* Un bloqueo es cancha que el club se auto-reserva: no tiene cliente, así que
+              paquete/particular no aplican (crearían un cliente "BLOQUEOS ACADEMIAS"). */}
+          <div className="flex gap-2">
+            {ec.esBloqueo ? (
+              <Button type="button" size="sm" variant={modo === "academia" ? "default" : "outline"} onClick={() => abrir("academia")} disabled={pending}>
+                Academia
+              </Button>
+            ) : (
+              <>
+                <Button type="button" size="sm" variant={modo === "paquete" ? "default" : "outline"} onClick={() => abrir("paquete")} disabled={pending}>
+                  A un paquete
+                </Button>
+                <Button type="button" size="sm" variant={modo === "particular" ? "default" : "outline"} onClick={() => abrir("particular")} disabled={pending}>
+                  Particular
+                </Button>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {err && <p className="text-destructive text-sm">{err}</p>}
 

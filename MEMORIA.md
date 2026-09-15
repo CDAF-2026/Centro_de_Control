@@ -771,6 +771,37 @@ la academia (48 filas casi todas en cero, ilegible) y los avisos en el acordeón
 - **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
   (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
 
+🏟️ **Un ALQUILER de cancha no se registra como clase** (15-sep-2026). En cafetería pulsaron
+"Particular" sobre el alquiler de **Iván Darío Botero** (14-sep, 8 a. m.) y quedó de clase. Se
+consultó esa reserva en la API y **EasyCancha la manda como alquiler sin ninguna ambigüedad**
+(`courtName: "Cancha 2"`, `comments: null`, $70.000): **el error no fue de EasyCancha ni del selector
+de profesor** —que solo se pinta en clases YA registradas— sino que el modal ofrecía
+"A un paquete / Particular" sobre CUALQUIER reserva. **Se encontraron 5 alquileres convertidos en
+clase** (420, 422, 427, 438, 443) y se borraron con rastro en `audit_log`.
+- La regla vive en **`pareceClase()` de `easycancha/client.ts`**, con DOS señales en orden:
+  (1) la cancha lleva profesor en el nombre — 670 de 1.354 reservas de ago–sep; (2) si viene pelada
+  ("Cancha 2"), manda la **NOTA** de la reserva (`comments`) contra una lista de palabras medida
+  sobre las notas reales: *clase · entrenador · profesor · profe · personalizada*.
+- ⚠️⚠️ **La cancha pelada NO basta, y esto es lo que casi arruina el arreglo.** Se midió que las
+  clases REALES también se reservan en cancha normal **y por el mismo monto** ($70.000, idéntico al
+  alquiler): 331 Esteban, 392/436/444 Sebastián y 441 Victor. **Ni el nombre de la cancha ni el
+  precio distinguen**; lo único que distingue es la nota. Filtrar por cancha habría bloqueado trabajo
+  legítimo del club.
+- ⚠️ **Se ESCONDE, no se bloquea.** Hay clases reales **sin nota** (la del 23-ago de Esteban venía en
+  blanco), así que el modal muestra "Esto es un alquiler de cancha…" + el enlace **"Me consta que sí
+  fue una clase, registrarla"**, que destapa los botones. Bloquear habría creado el fallo de siempre:
+  trabajo real imposible y nadie entiende por qué.
+- ⚠️ **La nota se USA para decidir pero NUNCA se muestra** en una reserva de cliente: ahí el club
+  escribe datos privados ("PAGA LA PRIMERA SEMANA DE MAYO"). Se resuelve en el SERVIDOR y a la
+  pantalla solo viaja el booleano `ec.pareceClase`. Sigue mostrándose el texto solo en los bloqueos.
+- 💡 **La misma regla salvó dos clases de ser borradas**: de las 7 candidatas, **429** ("Clase
+  personalizada con Mauricio o Salamanca") y **426** ("clase victor") SÍ eran clases. Verificado
+  contra los 6 casos que la dueña confirmó a mano: **6 de 6**. Pruebas en
+  `tests/reserva-vs-clase.test.ts` (24), con las reservas y notas reales.
+- ⚠️ Queda un dato torcido: la clase **429 tiene `precio` en $0** (EasyCancha dice $105.000). Es el
+  rastro del bug del precio que arrancaba en cero, arreglado el mismo día. **Decidir a mano**: con una
+  regla `pct_facturado` ese profesor cobraría $0.
+
 🎾 **Asignar el profesor a una clase que llegó SIN profesor** (15-sep-2026, migración 0089).
 El club crea reservas en EasyCancha sin profesor —el profe es nuevo y allá todavía no existe, o
 simplemente se les olvida— y al materializarlas la clase entra con `profesor_id = null`. **El daño
