@@ -44,13 +44,14 @@ describe("en cancha pelada manda la nota de la reserva", () => {
     expect(pareceClase(r("Cancha 2", nota))).toBe(true);
   });
 
-  it.each([
+  const SIN_SENAL: [string | null, string][] = [
     [null, "sin nota (el caso de Iván Darío Botero)"],
     ["", "nota vacía"],
     ["Celeste", "un nombre suelto"],
     ["esta mojada porque limpiaron los vidrios", "una nota de mantenimiento"],
-  ])("es ALQUILER con %s (%s)", (nota) => {
-    expect(pareceClase(r("Cancha 2", nota as string | null))).toBe(false);
+  ];
+  it.each(SIN_SENAL)("es ALQUILER con %s (%s)", (nota) => {
+    expect(pareceClase(r("Cancha 2", nota))).toBe(false);
   });
 });
 

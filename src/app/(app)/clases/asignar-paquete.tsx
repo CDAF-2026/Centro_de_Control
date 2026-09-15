@@ -185,23 +185,21 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
       {!ec.esBloqueo && !ec.pareceClase && !forzarClase ? (
         <div className="space-y-1.5">
           <p className="text-muted-foreground text-sm">
-            Esto es un <span className="font-medium">alquiler de cancha</span>, no una clase:
-            la reserva no viene a nombre de un profesor ni dice que lo sea.
-            No hay que registrarlo ni cerrarlo.
+            <span className="font-medium">Alquiler de cancha</span>: no se registra ni se cierra.
           </p>
           <button
             type="button"
             className="text-muted-foreground text-xs underline"
             onClick={() => setForzarClase(true)}
           >
-            Me consta que sí fue una clase, registrarla
+            Sí fue una clase
           </button>
         </div>
       ) : (
         <>
           {!ec.esBloqueo && !ec.pareceClase && (
             <p className="text-muted-foreground text-xs">
-              Ojo: esta reserva parece un alquiler de cancha. Regístrala solo si de verdad se dictó una clase.
+              Parece un alquiler: regístrala solo si se dictó clase.
             </p>
           )}
           {/* Un bloqueo es cancha que el club se auto-reserva: no tiene cliente, así que
