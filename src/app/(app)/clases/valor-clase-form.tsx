@@ -12,19 +12,29 @@ const init: ValorClaseState = {};
 const MS_CONFIRMACION = 1600;
 
 /**
- * Edita el valor cobrado de una clase particular. Al guardar, confirma con la cifra
- * nueva y cierra el modal solo: si se quedara abierto mostraría el valor viejo —el
- * modal guarda una copia del evento de cuando se abrió— y parecería que no guardó.
+ * Edita el valor cobrado y el nº de personas de una clase particular.
+ *
+ * Los dos juntos y no en dos botones porque en el club son la MISMA corrección
+ * (pedido de la dueña, 15-sep-2026): "vinieron 2, entonces son $150.000, no
+ * $130.000". Separarlos invita a cambiar uno y olvidar el otro. Las personas
+ * además deciden el escalón de pago del profesor en la liquidación, así que un
+ * 1 donde vinieron 2 le paga de menos.
+ *
+ * Al guardar, confirma con la cifra nueva y cierra el modal solo: si se quedara
+ * abierto mostraría el valor viejo —el modal guarda una copia del evento de
+ * cuando se abrió— y parecería que no guardó.
  */
 export function ValorClaseForm({
   claseId,
   valor,
+  personas,
   editable,
   aviso,
   onGuardado,
 }: {
   claseId: number;
   valor: number;
+  personas: number;
   editable: boolean;
   aviso: string | null;
   onGuardado?: () => void;
@@ -47,13 +57,15 @@ export function ValorClaseForm({
 
   const guardado = state.ok != null;
   const valorMostrado = state.valor ?? valor;
+  const personasMostradas = state.personas ?? personas;
 
   if (guardado) {
     return (
       <div className="border-t pt-3">
         <p className="text-primary flex items-center justify-center gap-2 py-1 text-sm font-medium">
           <Check className="size-4" />
-          Precio cambiado con éxito · {COP.format(valorMostrado)}
+          Guardado · {COP.format(valorMostrado)} · {personasMostradas}{" "}
+          {personasMostradas === 1 ? "persona" : "personas"}
         </p>
       </div>
     );
@@ -65,6 +77,9 @@ export function ValorClaseForm({
         <span className="text-muted-foreground text-sm">Valor cobrado</span>
         <span className="flex items-center gap-2">
           <span className="font-semibold tabular-nums">{COP.format(valorMostrado)}</span>
+          <span className="text-muted-foreground text-xs tabular-nums">
+            · {personasMostradas} {personasMostradas === 1 ? "persona" : "personas"}
+          </span>
           {editable && !abierto && (
             <Button type="button" size="sm" variant="ghost" onClick={() => setAbierto(true)}>
               Editar
@@ -77,14 +92,27 @@ export function ValorClaseForm({
         <form action={action} className="mt-2">
           <input type="hidden" name="claseId" value={claseId} />
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              name="valor"
-              defaultValue={String(valor)}
-              inputMode="numeric"
-              placeholder="Ej: 110000"
-              className="max-w-[9rem]"
-              autoFocus
-            />
+            <label className="text-muted-foreground text-xs">
+              Valor
+              <Input
+                name="valor"
+                defaultValue={String(valor)}
+                inputMode="numeric"
+                placeholder="Ej: 150000"
+                className="max-w-[9rem]"
+                autoFocus
+              />
+            </label>
+            <label className="text-muted-foreground text-xs">
+              Personas
+              <Input
+                name="personas"
+                defaultValue={String(personas)}
+                inputMode="numeric"
+                placeholder="1"
+                className="max-w-[5rem]"
+              />
+            </label>
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}
             </Button>

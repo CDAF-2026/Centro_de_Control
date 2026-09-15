@@ -19,7 +19,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {}, revalidateTag: () => {} }));
 // La acción vive en un archivo "use server" que arrastra media app; el modal
 // solo necesita que exista para pasársela a useActionState.
-vi.mock("@/app/(app)/clases/actions", () => ({ asignarProfesorClase: async () => ({}) }));
+vi.mock("@/app/(app)/clases/actions", () => ({
+  asignarProfesorClase: async () => ({}),
+  editarValorClase: async () => ({}),
+}));
 
 const docente = (nombre: string, deportes: StaffDocente["deportes"]): StaffDocente => ({
   id: `id-${nombre}`,
@@ -151,3 +154,50 @@ describe("el selector del modal", () => {
     expect(html).toContain("No hay profesores disponibles");
   });
 });
+
+/**
+ * Personas y valor de la clase particular (pedido de la dueña, 15-sep-2026).
+ *
+ * El club cobra por persona: 1 → $130.000, 2 → $150.000. Cafetería registra la
+ * clase desde el calendario pero NO tiene acceso a `/cierre` (`cierre_clase` = N
+ * para recepción), así que no había dónde poner "vinieron 2" y le tocaba a la
+ * dueña al cerrar. El nº de personas además decide el escalón de pago del
+ * profesor (`escalonado_asistentes` en liquidacion.ts), así que un 1 donde
+ * vinieron 2 le paga de menos.
+ */
+describe("corregir valor y personas de la clase", () => {
+  const montar = async (props: Record<string, unknown>) => {
+    const { ValorClaseForm } = await import("@/app/(app)/clases/valor-clase-form");
+    return renderToStaticMarkup(
+      React.createElement(ValorClaseForm, {
+        claseId: 1, valor: 150000, personas: 2, editable: true, aviso: null, ...props,
+      } as never),
+    );
+  };
+
+  it("muestra cuántas personas tomaron la clase, no solo el valor", async () => {
+    const html = await montar({});
+    expect(html).toContain("150.000");
+    expect(html).toContain("2 personas");
+  });
+
+  it("dice 'persona' en singular cuando fue una", async () => {
+    const html = await montar({ valor: 130000, personas: 1 });
+    expect(html).toContain("1 persona");
+    expect(html).not.toContain("1 personas");
+  });
+
+  it("sin permiso para corregir no ofrece el botón", async () => {
+    expect(await montar({ editable: false })).not.toContain("Editar");
+  });
+
+  it("con permiso sí lo ofrece", async () => {
+    expect(await montar({ editable: true })).toContain("Editar");
+  });
+});
+
+// ⚠️ El pre-llenado del precio desde el monto de EasyCancha NO se prueba aquí:
+// el formulario de `MaterializarReserva` solo se pinta después de pulsar
+// "Particular", así que el valor inicial del estado no llega nunca al HTML de
+// `renderToStaticMarkup`. Queda cubierto por el guardia del servidor, que es
+// donde importa: `materializarReserva` recorta el nº de personas a [1, 20].

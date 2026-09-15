@@ -29,6 +29,12 @@ export type CalEvento = {
     claseId: number;
     /** Lo que hoy se cobra: el corregido si existe, si no el original. */
     valor: number;
+    /**
+     * Cuántas personas tomaron la clase. Decide el escalón de pago del profesor
+     * (`escalonado_asistentes` en liquidacion.ts), así que un 1 por defecto
+     * donde vinieron 2 le paga de menos.
+     */
+    personas: number;
     /** Si este usuario puede corregirla AHORA (24 h desde el inicio; el SA siempre). */
     editable: boolean;
     /** Por qué está bloqueada, o la advertencia a mostrar. null = sin nota. */
@@ -58,6 +64,13 @@ export type CalEvento = {
     esBloqueo: boolean;
     /** Nota de EasyCancha; solo se propaga en los bloqueos (en las de clientes es privada). */
     comentario: string;
+    /**
+     * Lo que EasyCancha dice que vale la reserva. Se usa para PRE-LLENAR el
+     * precio al registrarla: el club cobra por personas (1 persona $130.000,
+     * 2 personas $150.000) y EasyCancha solo conoce la tarifa de la reserva, así
+     * que la cifra es un punto de partida que se corrige, no un dato firme.
+     */
+    monto: number | null;
   };
 };
 

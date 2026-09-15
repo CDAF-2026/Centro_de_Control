@@ -146,6 +146,13 @@ export async function materializarReserva(input: {
   cancha: string;
   paqueteClienteId?: number | null;
   precio?: number;
+  /**
+   * Cuántas personas toman la clase. Lo pidió la dueña (15-sep-2026): el club
+   * cobra por persona (1 → $130.000, 2 → $150.000) y cafetería, que es quien
+   * registra la clase, no tenía dónde ponerlo — le tocaba a ella al cerrarla.
+   * Además decide el escalón de pago del profesor en la liquidación.
+   */
+  numAsistentes?: number;
   profesorId: string;
 }): Promise<CierreLikeState> {
   await requireRole(WRITE);
@@ -199,6 +206,11 @@ export async function materializarReserva(input: {
     precio = Number.isFinite(input.precio) ? Number(input.precio) : 0;
   }
 
+  // Entre 1 y 20. Sin dato se deja null y `/cierre` y la liquidación caen a 1,
+  // que es el comportamiento que ya había.
+  const n = Number(input.numAsistentes);
+  const numAsistentes = Number.isFinite(n) && n >= 1 && n <= 20 ? Math.trunc(n) : null;
+
   const { data: clase, error: insErr } = await supabase
     .from("clases")
     .insert({
@@ -212,6 +224,7 @@ export async function materializarReserva(input: {
       hora_inicio: input.horaInicio || null,
       hora_fin: input.horaFin || null,
       precio,
+      num_asistentes: numAsistentes,
       estado: "programada",
       easycancha_booking_id: input.bookingId,
     })
@@ -223,7 +236,7 @@ export async function materializarReserva(input: {
     action: input.modo === "paquete" ? "clase.asignar_paquete" : "clase.particular",
     entity: "clases",
     entityId: String(clase.id),
-    after: { easycancha_booking_id: input.bookingId, paquete_cliente_id: paqueteClienteId, modo: input.modo },
+    after: { easycancha_booking_id: input.bookingId, paquete_cliente_id: paqueteClienteId, modo: input.modo, precio, num_asistentes: numAsistentes },
   });
   revalidatePath("/clases");
   revalidatePath("/cierre");
@@ -253,7 +266,7 @@ type CierreLikeState = { error?: string; ok?: string };
  *    una clase particular se registra y se cierra en segundos, así que atar el permiso al
  *    estado `programada` habría dejado a recepción sin ventana real para corregir.
  */
-export type ValorClaseState = { error?: string; ok?: string; valor?: number };
+export type ValorClaseState = { error?: string; ok?: string; valor?: number; personas?: number };
 
 export async function editarValorClase(_prev: ValorClaseState, formData: FormData): Promise<ValorClaseState> {
   const profile = await requireRole(WRITE);
@@ -265,10 +278,20 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
   if (!Number.isFinite(valor) || valor < 0) return { error: "El valor debe ser un número positivo." };
   if (valor > 100_000_000) return { error: "Ese valor es demasiado alto; revísalo." };
 
+  // Las personas van JUNTO al valor y no en su propia acción porque en el club
+  // son la misma corrección: "vinieron 2, entonces son $150.000". Partirlo en
+  // dos botones invita a cambiar uno y olvidar el otro, que es justo el
+  // descuadre que se quiere evitar.
+  const personasCrudo = String(formData.get("personas") ?? "").replace(/[^\d]/g, "");
+  const personas = personasCrudo ? Number(personasCrudo) : null;
+  if (personas != null && (personas < 1 || personas > 20)) {
+    return { error: "El número de personas debe estar entre 1 y 20." };
+  }
+
   const supabase = await createClient();
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, estado, fecha, hora_inicio, paquete_cliente_id, precio, valor_facturado")
+    .select("id, tipo, estado, fecha, hora_inicio, paquete_cliente_id, precio, valor_facturado, num_asistentes")
     .eq("id", claseId)
     .maybeSingle();
   if (!clase) return { error: "No se encontró la clase." };
@@ -280,22 +303,25 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
     return { error: "Pasaron más de 24 h desde la clase y su valor ya cuenta para la liquidación. Pídele el ajuste al superadministrador." };
   }
 
-  const { error } = await supabase.from("clases").update({ valor_facturado: valor }).eq("id", claseId);
+  const { error } = await supabase
+    .from("clases")
+    .update({ valor_facturado: valor, ...(personas != null ? { num_asistentes: personas } : {}) })
+    .eq("id", claseId);
   if (error) return { error: error.message };
 
   await logAudit({
     action: "clase.editar_valor",
     entity: "clases",
     entityId: String(claseId),
-    before: { valor_facturado: clase.valor_facturado, precio: clase.precio },
-    after: { valor_facturado: valor, estado: clase.estado },
+    before: { valor_facturado: clase.valor_facturado, precio: clase.precio, num_asistentes: clase.num_asistentes },
+    after: { valor_facturado: valor, num_asistentes: personas ?? clase.num_asistentes, estado: clase.estado },
   });
   revalidatePath("/clases");
   revalidatePath("/cierre");
   revalidatePath("/liquidacion");
   // Se devuelve el valor guardado para que el modal confirme con la cifra real del
   // servidor: su copia del evento es de cuando se abrió y no se refresca sola.
-  return { ok: "Precio cambiado con éxito.", valor };
+  return { ok: "Cambio guardado.", valor, personas: personas ?? clase.num_asistentes ?? undefined };
 }
 
 /**

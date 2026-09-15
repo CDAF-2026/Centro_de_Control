@@ -44,7 +44,12 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   const [ok, setOk] = useState<string | null>(null);
   const [paqueteId, setPaqueteId] = useState("");
   const [profesorId, setProfesorId] = useState("");
-  const [precio, setPrecio] = useState("0");
+  // Arranca con lo que EasyCancha dice que vale la reserva, no en "0": así
+  // cambiar $130.000 → $150.000 (que es lo que pasa cuando van 2 personas) es
+  // corregir una cifra a la vista, y no hay forma de registrar sin querer una
+  // clase en $0 — que le pagaría $0 al profesor con una regla por porcentaje.
+  const [precio, setPrecio] = useState(ev.ec?.monto != null ? String(Math.trunc(ev.ec.monto)) : "0");
+  const [personas, setPersonas] = useState("1");
   const [academiaId, setAcademiaId] = useState("");
   const [grupoId, setGrupoId] = useState("");
   const [franjasElegidas, setFranjasElegidas] = useState<Set<number>>(new Set());
@@ -144,6 +149,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
               cancha: ev.cancha ?? "",
               paqueteClienteId: modo === "paquete" ? Number(paqueteId) : null,
               precio: modo === "particular" ? Number(precio || 0) : 0,
+              numAsistentes: modo === "particular" ? Number(personas || 1) : 1,
               profesorId,
             });
       if (r.error) setErr(r.error);
@@ -347,10 +353,26 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
               </label>
             )
           ) : (
-            <label className="block text-xs">
-              Precio (COP, opcional)
-              <input type="number" min={0} value={precio} onChange={(e) => setPrecio(e.target.value)} className={SELECT} />
-            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs">
+                Personas
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={personas}
+                  onChange={(e) => setPersonas(e.target.value)}
+                  className={SELECT}
+                />
+              </label>
+              <label className="block text-xs">
+                Precio (COP)
+                <input type="number" min={0} value={precio} onChange={(e) => setPrecio(e.target.value)} className={SELECT} />
+              </label>
+              <p className="text-muted-foreground col-span-2 text-xs">
+                El precio viene de EasyCancha. Si vinieron más personas, corrígelo aquí.
+              </p>
+            </div>
           )}
 
           {!(modo === "paquete" && (data.sinCorreo || sinPaquetes)) && (

@@ -57,6 +57,7 @@ export function EventoDetalle({
           <ValorClaseForm
             claseId={ev.particular.claseId}
             valor={ev.particular.valor}
+            personas={ev.particular.personas}
             editable={ev.particular.editable}
             aviso={ev.particular.aviso}
             onGuardado={onCerrar}

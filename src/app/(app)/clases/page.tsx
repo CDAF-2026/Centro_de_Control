@@ -84,7 +84,7 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, miembro_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, miembro_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado, num_asistentes")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
@@ -190,6 +190,7 @@ export default async function ClasesPage({
             particular: {
               claseId: c.id,
               valor: c.valor_facturado ?? c.precio ?? 0,
+              personas: c.num_asistentes ?? 1,
               editable: esSA || !vencida(c.fecha, c.hora_inicio),
               aviso: vencida(c.fecha, c.hora_inicio)
                 ? esSA
@@ -256,6 +257,7 @@ export default async function ClasesPage({
           profesorMatched: profesor,
           esBloqueo: esBloqueoAcademia(b),
           comentario: esBloqueoAcademia(b) ? (b.comments ?? "").trim() : "",
+          monto: b.totalAmount ?? null,
         },
       };
     });

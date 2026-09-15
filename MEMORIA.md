@@ -821,6 +821,34 @@ turnos", un mensaje que no tiene nada que ver con lo que se probaba. `habilitar(
 también `activo` dentro de la transacción que se revierte. Ojo al diagnosticar: se confirmó que era
 previo guardando los cambios propios con `git stash` y volviendo a correr — fallaban igual.
 
+👥 **Personas y valor de la clase particular, desde el calendario** (15-sep-2026, pedido de la DUEÑA
+en video). El club **cobra por persona**: 1 persona $130.000, 2 personas $150.000. Cafetería
+(**Camila Arboleda, rol `recepcion`**) es quien registra la clase desde `/clases`, pero **no tiene
+acceso a `/cierre`** (`cierre_clase` = N para recepción), que era el ÚNICO sitio donde existía
+"¿cuántas personas tomaron la clase?" → le tocaba a la dueña al cerrar, una por una. Sus palabras:
+*"no les da para poner que son 2 personas… al que le toca poner que son 2 personas es a mí cuando yo
+cierro la clase"*.
+- Al **registrar** la reserva (`asignar-paquete.tsx` → `materializarReserva`) hay ahora **Personas**
+  junto a **Precio**, y al **corregir** después (`ValorClaseForm` → `editarValorClase`) se editan
+  **los dos juntos**. Juntos y no en dos botones a propósito: en el club son la MISMA corrección
+  ("vinieron 2, entonces son $150.000"), y separarlos invita a cambiar uno y olvidar el otro.
+- **No hubo que tocar `/cierre` ni `liquidacion.ts`**: `/cierre` ya pre-llenaba con
+  `clase.num_asistentes ?? 1` y la liquidación ya lee `num_asistentes` para el escalón
+  (`nPersonas` → `valorEscalon`, método `escalonado_asistentes`) y `valor_facturado ?? precio` para
+  los porcentajes. Lo que faltaba era **quién podía escribirlo**, no el cálculo.
+- ⚠️ **El precio ya NO arranca en "0"**: se pre-llena con el `totalAmount` de EasyCancha (el "Monto"
+  que el modal ya mostraba de solo lectura). Arrancando en cero, registrar sin escribir nada dejaba
+  la clase en **$0** y, con una regla `pct_facturado`, el profesor cobraba $0 — en silencio. Ahora la
+  cifra está a la vista para CORREGIRLA de 130.000 a 150.000, que es literalmente lo que pidió.
+  ⚠️ Ojo: el monto de EasyCancha es la tarifa de la RESERVA, no la verdad del cobro. Es un punto de
+  partida, no un dato firme.
+- `num_asistentes` se recorta a **[1, 20]** en el servidor; fuera de rango se guarda null y todo cae
+  a 1, que es el comportamiento que ya había.
+- ⚠️ El pre-llenado del precio **no tiene prueba de render**: el formulario de `MaterializarReserva`
+  solo se pinta tras pulsar "Particular", así que el estado inicial nunca llega al HTML de
+  `renderToStaticMarkup`. Lo cubierto es el guardia del servidor. Pruebas en
+  `tests/profesor-clase.test.tsx`.
+
 💰 **Corregir el valor de una clase particular** (ago-2026, `editarValorClase` en clases/actions.ts +
 `valor-clase-form.tsx`). Se edita desde el **modal de `/clases`**, NO desde `/cierre`: recepción es
 quien teclea el precio al registrar la clase y **no tiene acceso a `/cierre`** (`cierre_clase` = N),
