@@ -386,9 +386,11 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 
   Más el **salario fijo** (id 49) y la **academia en $0** (id 50), por la regla de tapar los dos
   frentes al poner a alguien a salario.
-  · ⚠️⚠️ **El salario de Yeison está en DISPUTA: la base dice $3.500.000 y Laura dictó "el mismo de
-    Graciano" ($1.834.996).** Se le preguntó el 16-sep-2026 y está sin resolver — **no cambiarlo sin
-    su respuesta.** Ver abajo cómo pasó.
+  · 💰 **Su salario son $3.500.000, no los $1.834.996 de Graciano.** Laura dictó primero *"el mismo
+    que Graciano"*, pero esa misma noche **la dueña la llamó a confirmarle el precio final** y ella
+    lo corrigió a mano desde `/empleados/[id]` (16-sep-2026, 22:15). **Es el valor bueno y está
+    confirmado**: no "arreglarlo" a $1.834.996 por más que la instrucción original dijera otra cosa.
+    Que coincida con el de **Cristian Castro** es casualidad, no un copiado.
   · **De 12 a 1:30 es comisión, y eso ya lo confirmó Laura** (16-sep-2026). Ella dictó "de 1:30 a 9
     salario, todo lo de la mañana comisión" y no dijo nada de ese hueco; se estiró la banda de
     comisión hasta las 13:30 para que no quedara sin regla, y al preguntarle respondió *"de 12 a 1:30
@@ -412,10 +414,11 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   ⚠️⚠️ **Y aquí salió un fallo nuevo del que hay que acordarse: `reglas.update` BORRA Y REESCRIBE
   todas las reglas del profesor, y el `audit_log` solo guarda cuántas quedaron.** El 16-sep-2026 a
   las 22:15 Laura guardó las reglas de Yeison desde `/empleados/[id]` y eso **eliminó las seis que
-  se habían insertado por SQL (ids 43–48) y creó otras seis (49–54)** con los mismos nombres y
-  franjas pero con el salario en **$3.500.000** — que es la cifra de **Cristian Castro**, no la de
-  Graciano. La entrada del audit (`before: null`, `after: {"reglas": 6}`) **no permite reconstruir
-  qué había antes**: si no se supiera de memoria qué se insertó, la cifra vieja estaría perdida.
+  se habían insertado por SQL (ids 43–48) y creó otras seis (49–54)**. El cambio era legítimo —
+  estaba corrigiendo el salario a $3.500.000 tras hablar con la dueña— pero la entrada del audit
+  (`before: null`, `after: {"reglas": 6}`) **no permite reconstruir qué había antes**: se vio que el
+  sueldo había cambiado solo porque se sabía de memoria qué se había insertado. **Un cambio de
+  salario hecho desde la app hoy no deja rastro de su cifra anterior.**
   💡 Dos cosas que arreglar el día que se retome nómina: (a) que el audit de reglas guarde el
   `before` completo, porque son SUELDOS y hoy no hay forma de auditar un cambio; (b) que los ids de
   las reglas no se puedan citar como estables en ningún sitio — este archivo ya tuvo que
@@ -1582,8 +1585,6 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   estar configurado.
   ⚠️ Quedan **dos preguntas abiertas** para el club, que hoy caen en su regla 54 y salen con nombre:
   qué se le paga **después de las 9 p.m. entre semana** y **el domingo después de la 1 p.m.**
-  ⚠️⚠️ **Y una tercera, que es plata: su salario está en $3.500.000 en la base y Laura dictó el de
-  Graciano, $1.834.996.** Pendiente de su respuesta; no tocarlo por iniciativa propia.
 - ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
