@@ -326,8 +326,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   Laura anticipa que van a cambiar. Frenado el 16-sep-2026 porque *"la misma configuración de
   Graciano"* no dice si el **salario fijo de $4.000.000** entra o no, y el club lo está revisando.
   Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
-  ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000): **le falta la
-  de paquetes**. No se ha preguntado; si dicta una clase de paquete, sale en $0.
+  ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000) y **NO tiene
+  regla de paquetes**. Se le preguntó a Laura el 16-sep-2026 y decidió **"de momento dejémoslo así"**,
+  así que es una decisión tomada, no un olvido: **no agregarle la regla por iniciativa propia.**
+  Consecuencia conocida y aceptada: si dicta una clase de paquete, se liquida en $0.
   **Pickers de
   profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
   (07:00 y 13:00, lun–sáb) = 2 reglas.
@@ -923,9 +925,15 @@ $150.000, y una Karent fantasma.
   perfil, alias Y reglas** — las tres cosas fallan en silencio y cada una por su lado.
   ⚠️ Le queda el **correo `test@gmail.com`**: no puede entrar a la plataforma hasta que Laura le
   cargue el real desde `/empleados/[id]/editar`.
-  ⚠️ **La clase 400 (7-sep, 9 a.m., "Profesor Juan Cruz - Cancha 1") sigue sin profesor y ya está
-  `realizada`**: se dictó, se cobró y no se le pagó a nadie. Se arregla con el selector del modal de
-  `/clases`; no se asignó por SQL a propósito, para que el `audit_log` registre a quien lo decide.
+  ✅ La clase 400 (7-sep, 9 a.m.) ya quedó asignada a Juan Cruz, por el selector del modal.
+  ⚠️ **Pero su precio está en $50.000 y EasyCancha dice $130.000** (reserva 29907546, Carolina
+  Gutiérrez — y $130.000 es justo la tarifa de 1 persona del club). Se registró el **7-sep**, o sea
+  **antes** del arreglo del 15-sep que pre-llena el precio con el monto de EasyCancha: hasta ese día
+  el campo arrancaba en "0" y había que teclearlo. Con su regla de 50%, a Juan le salen **$25.000
+  donde iban $65.000**. Lo corrige el SA con "Editar" en el modal (pasadas 24 h, solo él).
+  💡 **Esto mide el valor del pre-llenado**: el fallo que arregló no era teórico, ya había dejado al
+  menos una clase mal cobrada. Vale la pena barrer las particulares anteriores al 15-sep comparando
+  `precio` contra el `totalAmount` de su reserva.
 - Pruebas: `tests/cliente-match.test.ts` (8), con el correo y la cédula reales del caso.
 
 🏟️ **Un ALQUILER de cancha no se registra como clase** (15-sep-2026). En cafetería pulsaron
@@ -1477,10 +1485,14 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   Hoy el único con correo de mentira es **Juan Cruz** (`test@gmail.com`); Laura lo carga.
 - ⏸️ **Reglas de pago de Yeison Bedoya y Esteban Graciano** — EN PAUSA desde el 16-sep-2026, el club
   las está revisando. **Yeison tiene 0 reglas**, o sea que cada clase suya se liquida en $0 sin un
-  solo aviso, y en septiembre lleva 56 reservas. Es lo primero que hay que cerrar cuando respondan.
+  solo aviso, y en septiembre lleva 56 reservas. **Y ya no es hipotético: la clase 454 (15-sep,
+  7 p.m., Diego Chalarca, $110.000) está CERRADA y le paga $0.** Es lo primero al retomar.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
-- **¿Victor Acosta necesita regla de paquetes?** Hoy solo tiene la de particulares.
+- **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
+  `totalAmount` de su reserva de EasyCancha. Hasta ese día el precio arrancaba en "0" y se tecleaba a
+  mano; la clase 400 ya salió mal ($50.000 contra $130.000). Cada peso de diferencia es la mitad de
+  menos en el pago del profesor.
 - D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
 - Retirar `profesor_valor_clase` / `profesor_compensacion` cuando se confirme que nadie vuelve al
   modelo viejo de pagos a profesores (hoy TODOS los entrenadores están migrados a reglas).
