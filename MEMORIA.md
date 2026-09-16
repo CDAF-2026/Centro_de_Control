@@ -771,6 +771,40 @@ la academia (48 filas casi todas en cero, ilegible) y los avisos en el acordeón
 - **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
   (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
 
+👤 **La ficha del cliente se busca por correo Y por CÉDULA** (15-sep-2026,
+`src/lib/clientes-match.ts`). EasyCancha tenía a **Karent Coronado** como
+`karentcoronadop@gmail.com` y su ficha del club como `karentcoronado@gmail.com` — **UNA LETRA**.
+Como `materializarReserva` buscaba **solo por correo**, no la encontró, **creó una ficha nueva**
+(550) y esa ficha no tenía paquetes: el modal dijo *"este cliente no tiene paquete activo"* y a
+cafetería solo le quedó **"Particular"**. Resultado: una clase de PAQUETE cobrada como particular a
+$150.000, y una Karent fantasma.
+- **El dato para acertar ya venía en la reserva**: `userFoidNumber: "1128424694"`, la misma cédula
+  de su ficha buena (554). Se miraba el correo y se ignoraba la cédula.
+- `buscarClienteDeReserva()` la usan **los dos sitios** que buscaban por su cuenta:
+  `prepararAsignacion` (lo que llena el selector de paquetes) y `materializarReserva` (lo que crea
+  la clase). Una sola copia — el problema de las segundas copias ya mordió dos veces aquí.
+- ⚠️ **El correo va PRIMERO a propósito.** Es lo que se usaba hasta ahora, así que mirarlo antes
+  deja intacto todo lo que ya funcionaba; la cédula solo entra **cuando el correo no encuentra a
+  nadie**, que es exactamente el caso que fallaba. Al revés se cambiaría el emparejamiento de casos
+  hoy correctos, y esto decide **a quién se le cobra**.
+- La ficha que sí se crea nace ya **con su cédula**, para que la próxima reserva de esa persona
+  encuentre ESA ficha aunque el correo venga distinto otra vez.
+- ⚠️ Se compara la cédula en crudo (solo dígitos). Si en la ficha quedó escrita con puntos no casa —
+  pero ahí no se pierde nada: es el mismo resultado que antes.
+- 🔧 **Arreglado a mano**: la clase 424 se movió a la ficha 554, atada al paquete #23 (saldo 8 → 7)
+  y se fusionó la 550 (solo tenía esa clase y su titular). Con rastro en `audit_log`
+  (`clase.mover_a_paquete`, `cliente.fusionar`).
+- ⚠️ **Quedan 16 personas más con ficha duplicada** (misma persona, correos distintos), pero **hoy
+  ninguna tiene paquetes**, así que no muerden todavía. Medirlas de nuevo antes de asumir que
+  siguen inocuas: la consulta agrupa por nombre normalizado en `clientes`.
+- ⚠️ **No hay pantalla para cambiar una clase YA registrada de particular a paquete** (ni al revés).
+  Hoy toca borrarla y volverla a registrar. Es el mismo hueco que tenía el profesor y sigue abierto.
+- ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,
+  aunque la cancha diga "Profesor Juan Cruz - Cancha 1". Por eso esa clase salió sin profesor. Al
+  entrar un profesor nuevo hay que crearle perfil **y** alias — el fallo es silencioso (ya avisado
+  arriba en los 8 alias).
+- Pruebas: `tests/cliente-match.test.ts` (8), con el correo y la cédula reales del caso.
+
 🏟️ **Un ALQUILER de cancha no se registra como clase** (15-sep-2026). En cafetería pulsaron
 "Particular" sobre el alquiler de **Iván Darío Botero** (14-sep, 8 a. m.) y quedó de clase. Se
 consultó esa reserva en la API y **EasyCancha la manda como alquiler sin ninguna ambigüedad**

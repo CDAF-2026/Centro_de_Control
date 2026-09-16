@@ -59,6 +59,12 @@ export type CalEvento = {
     nombres: string;
     apellidos: string;
     telefono: string;
+    /**
+     * Cédula del cliente según EasyCancha. Es el SEGUNDO camino para encontrar
+     * su ficha cuando el correo no casa — el caso de Karent Coronado, cuya
+     * ficha se partió en dos por una letra de más en el correo.
+     */
+    documento: string;
     profesorMatched: string | null;
     /** Reserva del usuario "BLOQUEOS ACADEMIAS" = cancha que el club se auto-reserva. */
     esBloqueo: boolean;

@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { instanteClase } from "@/lib/fecha";
 import { profesoresActivos } from "@/lib/staff";
+import { buscarClienteDeReserva } from "@/lib/clientes-match";
 import { createClaseSchema } from "@/lib/validations/clase";
 import type { AppRole } from "@/lib/database.types";
 
@@ -93,22 +94,22 @@ export type PrepararAsignacion = {
 };
 
 /** Busca el cliente por correo + sus paquetes activos + la lista de profesores (para el modal). */
-export async function prepararAsignacion(email: string): Promise<PrepararAsignacion> {
+export async function prepararAsignacion(email: string, documento?: string): Promise<PrepararAsignacion> {
   await requireRole(WRITE);
   const supabase = await createClient();
 
   const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
 
   const em = email.trim().toLowerCase();
-  if (!em) return { sinCorreo: true, sinCliente: true, paquetes: [], profesores };
+  const doc = (documento ?? "").trim();
+  // Sin correo NI cédula no hay por dónde buscar.
+  if (!em && !doc) return { sinCorreo: true, sinCliente: true, paquetes: [], profesores };
 
-  const { data: cliente } = await supabase
-    .from("clientes")
-    .select("id, nombres, apellidos")
-    .ilike("email", em)
-    .limit(1)
-    .maybeSingle();
-  if (!cliente) return { sinCorreo: false, sinCliente: true, paquetes: [], profesores };
+  // Correo y, si no aparece, CÉDULA. Ver `clientes-match.ts`: el caso de Karent
+  // Coronado, cuya ficha no se encontró por una letra de más en el correo, y
+  // acabó con su clase de paquete cobrada como particular.
+  const cliente = await buscarClienteDeReserva(supabase, { email: em, documento: doc });
+  if (!cliente) return { sinCorreo: !em, sinCliente: true, paquetes: [], profesores };
 
   // Un paquete vencido no se ofrece. Se mira también la FECHA porque el job que
   // los marca corre de noche: si no, quedaría una ventana en la que se ofrece.
@@ -139,6 +140,8 @@ export async function materializarReserva(input: {
   nombres: string;
   apellidos: string;
   telefono: string;
+  /** Cédula que manda EasyCancha; segundo camino para encontrar la ficha. */
+  documento?: string;
   fecha: string;
   horaInicio: string;
   horaFin: string;
@@ -168,16 +171,29 @@ export async function materializarReserva(input: {
     .maybeSingle();
   if (existe) return { error: "Esta reserva ya estaba registrada como clase." };
 
-  // Cliente por correo (crear si no existe). Obligatorio para paquete; opcional para particular.
+  // Cliente por correo y, si no aparece, por CÉDULA (crear solo si no está por
+  // ninguno de los dos). Obligatorio para paquete; opcional para particular.
+  // ⚠️ Buscar solo por correo fue lo que partió en dos la ficha de Karent
+  // Coronado: una letra de diferencia creó una ficha nueva sin sus paquetes.
   const em = input.email.trim().toLowerCase();
+  const doc = (input.documento ?? "").trim();
   let clienteId: number | null = null;
-  if (em) {
-    const { data: c } = await supabase.from("clientes").select("id").ilike("email", em).limit(1).maybeSingle();
+  if (em || doc) {
+    const c = await buscarClienteDeReserva(supabase, { email: em, documento: doc });
     clienteId = c?.id ?? null;
-    if (!clienteId) {
+    if (!clienteId && em) {
       const { data: nc, error } = await supabase
         .from("clientes")
-        .insert({ nombres: input.nombres || "(sin nombre)", apellidos: input.apellidos || "", email: em, celular: input.telefono || null, es_menor: false })
+        // Se le guarda la CÉDULA: es lo que hará que la próxima reserva de esta
+        // persona encuentre ESTA ficha aunque el correo venga distinto.
+        .insert({
+          nombres: input.nombres || "(sin nombre)",
+          apellidos: input.apellidos || "",
+          email: em,
+          celular: input.telefono || null,
+          es_menor: false,
+          ...(doc ? { documento: doc.replace(/\D/g, "") } : {}),
+        })
         .select("id")
         .single();
       if (error || !nc) return { error: `No se pudo crear el cliente: ${error?.message ?? ""}` };

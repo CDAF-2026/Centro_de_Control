@@ -79,7 +79,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
       return;
     }
     start(async () => {
-      const r = await prepararAsignacion(ec.email);
+      const r = await prepararAsignacion(ec.email, ec.documento);
       setData(r);
       const match = r.profesores.find((p) => p.nombre === ec.profesorMatched);
       setProfesorId(match?.id ?? "");
@@ -144,6 +144,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
               nombres: ec.nombres,
               apellidos: ec.apellidos,
               telefono: ec.telefono,
+              documento: ec.documento,
               fecha: ev.fecha,
               horaInicio: ev.hora,
               horaFin: ev.horaFin,
