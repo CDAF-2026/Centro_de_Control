@@ -313,6 +313,22 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     **8 docentes**. **TODOS los entrenadores activos están migrados** al modelo de
   reglas (Leo, Joaquín, Dairon, Cristian, Willington, Esteban, Sebastián, Jorge); nadie usa ya el modelo
   viejo, pero `profesor_compensacion`/`profesor_valor_clase` quedan como respaldo/tumba. **Pickers de
+  ♟️ **Movimiento de pádel (16-sep-2026, instrucción de Laura).** Entró **Juan Cruz** y se le
+  cargaron **las mismas 4 reglas que tiene Leo Ruíz**: particulares 50% · paquetes 50% · Academia
+  Recreativa Pádel `fijo_por_clase` **$90.000** · Academia Competencia Pádel `pct_siigo_servicio`
+  **25%** (servicio 22). Y **Joaquín Della Mea SALE de las academias**: sus reglas 7 y 8 quedaron en
+  `activo = false`; conserva particulares y paquetes al 50%. El 25% de Competencia Pádel queda
+  repartido **Leo 25% + Juan 25%**, o sea el mismo 50% total que había con Leo + Joaquín — no cambia
+  lo que paga el club, cambia a quién.
+  ⚠️ Se desactivan, **no se borran**: la liquidación de quincenas pasadas tiene que poder explicarse.
+  ⏸️ **EN PAUSA, no olvidado**: las reglas de **Yeison Bedoya** (que hoy tiene **CERO** y por eso se
+  liquidaría en $0 sin avisar, con 56 reservas en septiembre) y las de **Esteban Graciano**, que
+  Laura anticipa que van a cambiar. Frenado el 16-sep-2026 porque *"la misma configuración de
+  Graciano"* no dice si el **salario fijo de $4.000.000** entra o no, y el club lo está revisando.
+  Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
+  ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000): **le falta la
+  de paquetes**. No se ha preguntado; si dicta una clase de paquete, sale en $0.
+  **Pickers de
   profesor filtran por `activo`** (clases/eventos/academias). Esteban tiene comisión 50% en 2 franjas
   (07:00 y 13:00, lun–sáb) = 2 reglas.
 - **EasyCancha ↔ profesor**: el courtName ("Profesor Willinton - Cancha 3") da el profe del calendario
@@ -338,6 +354,16 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     Ojo, la clave sale del texto de EasyCancha y no siempre es el nombre completo (`joaquin` →
     Joaquín Della Mea, `jorge` → Jorge Pérez): **al entrar un profesor nuevo hay que crearle su fila**,
     porque nada lo hace automáticamente y el fallo es silencioso.
+  - 🩹 **Y el fallo silencioso OCURRIÓ: son 10 alias desde el 16-sep-2026.** Entraron dos profesores
+    y a ninguno se le creó la fila, así que sus reservas venían sin profesor. Medido sobre septiembre
+    (1.534 reservas): **`juan cruz` 37** ("Profesor Juan Cruz - Cancha 1/2/3" y "/ Profesor Juan
+    Cruz - Cancha 4") y **`yeison bedoya` 56** ("Entrenador Yeison Bedoya - Cancha 1/2/3/4"). Ya
+    están creados. **La comprobación que lo caza** es listar los `courtName` del mes, pasarlos por
+    `claveProfesor()` y ver cuáles no tienen alias — vale la pena repetirla cada vez que entre gente
+    nueva, porque nada avisa.
+  - ⚠️ Queda **`mauricio`** sin alias (1 reserva de sep-2026, "Entrenador  Mauricio - Cancha 1"): no
+    existe en `profiles`, así que no hay a quién apuntarlo. Es el mismo "Mauricio" de la nota de la
+    clase 429. Preguntarle al club quién es antes de inventarle una ficha.
   - ✅ **Las variantes de un mismo profesor ya se unifican solas**: "Profesor Willinton",
     "Entrenador  Willinton" y "/ Profesor Willinton" dan las tres `willinton`, porque `claveProfesor()`
     quita prefijos, tildes y signos. Sus 99 reservas nunca se estuvieron perdiendo.
@@ -891,10 +917,15 @@ $150.000, y una Karent fantasma.
     $150.000 como particular, así que el pago del profesor no cambió con la corrección.
   · Pruebas: `tests/cobro-clase.test.tsx` (10) — 6 de pantalla y 4 contra Postgres (las tres de
     movimiento de saldo se revierten; la cuarta audita los paquetes reales).
-- ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,
-  aunque la cancha diga "Profesor Juan Cruz - Cancha 1". Por eso esa clase salió sin profesor. Al
-  entrar un profesor nuevo hay que crearle perfil **y** alias — el fallo es silencioso (ya avisado
-  arriba en los 8 alias).
+- ✅ **"Juan Cruz" ya existe** (16-sep-2026): perfil, alias de EasyCancha y sus 4 reglas de pago.
+  Antes no estaba en ninguna de las dos tablas aunque la cancha dijera "Profesor Juan Cruz -
+  Cancha 1", y por eso su clase salió sin profesor. **Al entrar un profesor nuevo hay que crearle
+  perfil, alias Y reglas** — las tres cosas fallan en silencio y cada una por su lado.
+  ⚠️ Le queda el **correo `test@gmail.com`**: no puede entrar a la plataforma hasta que Laura le
+  cargue el real desde `/empleados/[id]/editar`.
+  ⚠️ **La clase 400 (7-sep, 9 a.m., "Profesor Juan Cruz - Cancha 1") sigue sin profesor y ya está
+  `realizada`**: se dictó, se cobró y no se le pagó a nadie. Se arregla con el selector del modal de
+  `/clases`; no se asignó por SQL a propósito, para que el `audit_log` registre a quien lo decide.
 - Pruebas: `tests/cliente-match.test.ts` (8), con el correo y la cédula reales del caso.
 
 🏟️ **Un ALQUILER de cancha no se registra como clase** (15-sep-2026). En cafetería pulsaron
@@ -1443,6 +1474,13 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 - **Apuntar el SMTP de Supabase a Resend** → habilita enlace de "olvidé mi contraseña" y confirmación
   al cambiar de correo. Hoy ambos flujos van por el SA.
 - **Cargar los correos reales de los 9 profesores** y darles su contraseña (ver Perfil y acceso).
+  Hoy el único con correo de mentira es **Juan Cruz** (`test@gmail.com`); Laura lo carga.
+- ⏸️ **Reglas de pago de Yeison Bedoya y Esteban Graciano** — EN PAUSA desde el 16-sep-2026, el club
+  las está revisando. **Yeison tiene 0 reglas**, o sea que cada clase suya se liquida en $0 sin un
+  solo aviso, y en septiembre lleva 56 reservas. Es lo primero que hay que cerrar cuando respondan.
+- **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
+  Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
+- **¿Victor Acosta necesita regla de paquetes?** Hoy solo tiene la de particulares.
 - D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
 - Retirar `profesor_valor_clase` / `profesor_compensacion` cuando se confirme que nadie vuelve al
   modelo viejo de pagos a profesores (hoy TODOS los entrenadores están migrados a reglas).
