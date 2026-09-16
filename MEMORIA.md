@@ -840,10 +840,18 @@ $150.000, y una Karent fantasma.
 - ⚠️ **157 de 496 clientes (32%) no tenían cédula**, y son justo los que se pueden volver a duplicar:
   el emparejamiento se apoya en ella. Los nuevos ya nacen con la suya; para los viejos está
   **`npm run sync:documentos`** (simulacro por defecto, `-- --apply` para escribir).
-  📊 Medido el 15-sep-2026 en simulacro: rellenaría **105 documentos** y 67 fechas de nacimiento
-  sobre 123 clientes — el 32% bajaría a ~10% — y de paso **engancharía 106 facturas de Siigo hoy sin
-  dueño, por $17.164.032**. No se aplicó todavía: hay **27 conflictos** (la ficha dice un documento y
-  EasyCancha otro) que el script NO toca y hay que mirar a mano.
+  ✅ **APLICADO el 15-sep-2026**: 123 fichas actualizadas (105 documentos + 67 fechas de nacimiento),
+  **106 facturas de Siigo enganchadas a su cliente por $17.164.032**, y los sin cédula bajaron de
+  **157 (32%) a 52 (10,5%)**. Respaldo del estado anterior en `/tmp/cdaf-documentos-antes-*.json`.
+  💡 **Los 27 "conflictos" NO son 27 problemas: 19 son NIÑOS.** La ficha tiene la cédula del niño
+  (correcta) y EasyCancha devuelve la del **padre**, porque la cuenta de EasyCancha es de los papás.
+  En esos NUESTRO dato es el bueno y no hay nada que corregir — medido por `fecha_nacimiento`: los 19
+  tienen entre 3 y 17 años. Solo **8 son adultos** y necesitan revisión: 2 con el **teléfono metido en
+  el campo cédula** (#115 Alex Ortiz, #129 Juan Trelles — ahí EasyCancha tiene razón), 4 dedazos de un
+  dígito (#331, #353, #87, #116) y 2 con números sin parecido (#121, #122). Lista con el detalle en
+  **`docs/cedulas-en-conflicto.md`**.
+  ⚠️ Al leer el reporte del script, **no tomar "conflicto" como "error"**: en un club con academias de
+  niños, el choque ficha-vs-EasyCancha es lo NORMAL y esperado.
 - ⚠️ **No hay pantalla para cambiar una clase YA registrada de particular a paquete** (ni al revés).
   Hoy toca borrarla y volverla a registrar. Es el mismo hueco que tenía el profesor y sigue abierto.
 - ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,
