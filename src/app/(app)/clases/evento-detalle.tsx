@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MaterializarReserva } from "./asignar-paquete";
 import { ValorClaseForm } from "./valor-clase-form";
 import { ProfesorClaseForm } from "./profesor-clase-form";
+import { CobroClaseForm } from "./cobro-clase-form";
 import type { CalEvento } from "./types";
 
 const TONE: Record<string, "success" | "warning" | "destructive"> = {
@@ -52,6 +53,21 @@ export function EventoDetalle({
           <span className="text-muted-foreground">Estado</span>
           <Badge variant={TONE[ev.estadoTone] ?? "outline"}>{ev.estadoLabel}</Badge>
         </p>
+        {/* Cómo se cobra la clase (paquete o particular) y con qué cambiarlo.
+            Va ANTES del valor porque decide si hay valor que corregir: una de
+            paquete saca su valor del paquete. */}
+        {canAssign && ev.cobro && !ev.cancelada && (
+          <CobroClaseForm
+            claseId={ev.cobro.claseId}
+            modo={ev.cobro.modo}
+            paqueteLabel={ev.cobro.paqueteLabel}
+            valor={ev.cobro.valor}
+            editable={ev.cobro.editable}
+            aviso={ev.cobro.aviso}
+            cerrada={ev.cobro.cerrada}
+            onGuardado={onCerrar}
+          />
+        )}
         {/* Solo en clases particulares: corregir lo que se cobró (ver editarValorClase). */}
         {canAssign && ev.particular && !ev.cancelada && (
           <ValorClaseForm

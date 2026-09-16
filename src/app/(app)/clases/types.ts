@@ -41,6 +41,39 @@ export type CalEvento = {
     aviso: string | null;
   };
   /**
+   * Cómo se cobra una clase individual YA REGISTRADA — y con qué cambiarlo.
+   *
+   * Existe por dos cosas que salieron el 15-sep-2026 con la clase de Karent
+   * Coronado (16-sep, tras arreglarle la ficha):
+   *  · **No se veía.** El subtítulo decía "Clase individual" en TODAS las que no
+   *    son de academia, así que una clase de paquete y una particular se leían
+   *    igual. La de Karent ya estaba bien atada a su paquete y la pantalla la
+   *    mostraba como individual: el dato era correcto y la pantalla mentía.
+   *  · **No se podía cambiar.** Registrar mal (particular donde iba paquete) no
+   *    tenía arreglo: había que borrar la clase y volverla a crear.
+   *
+   * Ausente = academia, cancelada, o quien mira no puede editar clases.
+   */
+  cobro?: {
+    claseId: number;
+    /** Cómo se cobra HOY. */
+    modo: "paquete" | "particular";
+    /** Nombre y saldo del paquete al que está atada. null si es particular. */
+    paqueteLabel: string | null;
+    /** Lo que se cobró como particular; se propone si se vuelve a particular. */
+    valor: number;
+    /** Si este usuario puede cambiarlo AHORA (24 h desde el inicio; el SA siempre). */
+    editable: boolean;
+    /** Por qué está bloqueado, o la advertencia a mostrar. null = sin nota. */
+    aviso: string | null;
+    /**
+     * Cerrada = el cambio MUEVE saldo de paquete, no solo la etiqueta: el
+     * descuento ocurre al cerrar (`cerrarClase` → `paquete_consumir`), así que
+     * una clase todavía programada no ha consumido nada.
+     */
+    cerrada: boolean;
+  };
+  /**
    * Solo en clases YA REGISTRADAS que se quedaron sin profesor: deja asignarlo
    * desde el modal. El club crea reservas sin profesor en EasyCancha (el profe
    * es nuevo, o se les olvida) y esa clase desaparece de la liquidación en

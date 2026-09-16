@@ -852,8 +852,45 @@ $150.000, y una Karent fantasma.
   **`docs/cedulas-en-conflicto.md`**.
   ⚠️ Al leer el reporte del script, **no tomar "conflicto" como "error"**: en un club con academias de
   niños, el choque ficha-vs-EasyCancha es lo NORMAL y esperado.
-- ⚠️ **No hay pantalla para cambiar una clase YA registrada de particular a paquete** (ni al revés).
-  Hoy toca borrarla y volverla a registrar. Es el mismo hueco que tenía el profesor y sigue abierto.
+- ✅ **RESUELTO (16-sep-2026): se puede cambiar una clase YA registrada de particular a paquete**
+  (y al revés, y de un paquete a otro). Fila **"Cobro"** en el modal de `/clases`
+  (`cobro-clase-form.tsx` → `prepararCobro` / `cambiarCobroClase`). Antes solo se arreglaba
+  borrando la clase y volviéndola a crear.
+  ⚠️⚠️ **Pero lo que de verdad falló fue la PANTALLA, no el dato.** Laura reportó que la clase de
+  Karent del 12-sep "seguía apareciendo como clase individual": **ya estaba bien atada a su
+  paquete #23** desde el arreglo del día anterior. El subtítulo decía `"Clase individual"` para
+  TODAS las de `tipo = individual`, y dentro de ese tipo lo que separa paquete de particular es
+  `paquete_cliente_id` — que no se pintaba en ningún sitio. O sea: **el dato correcto y la pantalla
+  mintiendo**, que es peor que un dato malo, porque invita a "arreglar" lo que ya está bien. Ahora
+  el subtítulo dice **"Clase de paquete" / "Clase particular" / "Clase de academia"**, el chip de la
+  celda dice `Paq.`/`Part.`/`Acad.` (antes `Ind.` para las dos primeras) y el modal muestra **de qué
+  paquete sale y cuánto le queda**.
+  💡 Mismo veneno que este archivo ya documenta cuatro veces ("leer devuelve 0 filas sin error",
+  "una escritura rechazada por RLS no lanza error", "un fallo del sistema y una clave mala se ven
+  igual"): **dos situaciones que se arreglan distinto no pueden verse iguales.**
+- 🩹 **Doble descuento en el paquete de Karent — error del arreglo manual, corregido el 16-sep-2026.**
+  Al mover la clase 424 a su paquete se le bajó el saldo a mano (8 → 7), pero **la clase seguía
+  `programada`**: el descuento lo hace `cerrarClase` → `paquete_consumir`, así que al cerrarla se le
+  habría cobrado **DOS veces**. Se devolvió a `clases_consumidas = 0` (rastro en `audit_log`,
+  `paquete.corregir_saldo`). Se comprobó contra los 11 paquetes reales que la invariante es
+  `clases_consumidas == clases cerradas`: el 23 era el ÚNICO desviado. Hay una prueba que la fija
+  para todos.
+  ⚠️ **Regla: el saldo se mueve al CERRAR, nunca al registrar.** `cambiarCobroClase` solo lo toca si
+  la clase está `realizada`; si está `programada` no toca nada y lo dice en pantalla
+  ("se le descontará al paquete cuando se cierre la clase").
+  ⚠️ **El ORDEN de los tres pasos no es intercambiable**: devolver al paquete viejo → mover la clase
+  → descontar del nuevo. `paquete_consumir` lee el `paquete_cliente_id` que la clase tiene EN ESE
+  MOMENTO, así que devolver DESPUÉS del update se lo devolvería al paquete equivocado. Mismo cuidado
+  que en `corregirTurno`. Si el paso 3 falla, se revierte todo y se avisa.
+  ⚠️ **Al pasar a paquete se limpia `valor_facturado`**: la liquidación lee
+  `valor_facturado ?? valorDelPaquete` (liquidacion.ts), así que dejar el override puesto seguiría
+  pagándole al profesor sobre el precio de particular.
+  · Mismo techo de **24 h** que `editarValorClase`, con el mismo helper y a propósito: una sola regla
+    que recordar. Pasado el plazo, solo el superadministrador.
+  · Dato tranquilizador del caso Karent: el paquete vale **$149.999 por clase** y se había cobrado
+    $150.000 como particular, así que el pago del profesor no cambió con la corrección.
+  · Pruebas: `tests/cobro-clase.test.tsx` (10) — 6 de pantalla y 4 contra Postgres (las tres de
+    movimiento de saldo se revierten; la cuarta audita los paquetes reales).
 - ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,
   aunque la cancha diga "Profesor Juan Cruz - Cancha 1". Por eso esa clase salió sin profesor. Al
   entrar un profesor nuevo hay que crearle perfil **y** alias — el fallo es silencioso (ya avisado

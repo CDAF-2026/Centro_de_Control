@@ -340,6 +340,231 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
   return { ok: "Cambio guardado.", valor, personas: personas ?? clase.num_asistentes ?? undefined };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Cambiar cómo se cobra una clase ya registrada (paquete ↔ particular)
+// ─────────────────────────────────────────────────────────────
+
+export type PrepararCobro = {
+  error?: string;
+  clienteId?: number;
+  clienteNombre?: string;
+  /** Paquetes activos, vigentes y con saldo del cliente de la clase. */
+  paquetes: { id: number; label: string }[];
+};
+
+/**
+ * Paquetes a los que se puede mover esta clase. Se pide al abrir el formulario
+ * y no al pintar el calendario: el mes trae decenas de clases y casi ninguna se
+ * va a corregir.
+ */
+export async function prepararCobro(claseId: number): Promise<PrepararCobro> {
+  await requireRole(WRITE);
+  const supabase = await createClient();
+
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, tipo, cliente_id, paquete_cliente_id")
+    .eq("id", Number(claseId) || 0)
+    .maybeSingle();
+  if (!clase) return { error: "No se encontró la clase.", paquetes: [] };
+  if (!clase.cliente_id) {
+    return { error: "Esta clase no tiene cliente, así que no se le puede cobrar un paquete.", paquetes: [] };
+  }
+
+  const { data: cli } = await supabase
+    .from("clientes")
+    .select("id, nombres, apellidos")
+    .eq("id", clase.cliente_id)
+    .maybeSingle();
+
+  // Mismo criterio que `prepararAsignacion`: activo Y vigente por fecha. El job
+  // que marca vencidos corre de noche, así que mirar solo el estado deja una
+  // ventana en la que se ofrecería un paquete ya muerto.
+  const hoy = new Date().toISOString().slice(0, 10);
+  const { data: pqs } = await supabase
+    .from("paquetes_cliente")
+    .select("id, num_clases, clases_consumidas, catalogo_id")
+    .eq("cliente_id", clase.cliente_id)
+    .eq("estado", "activo")
+    .or(`vence_el.is.null,vence_el.gte.${hoy}`);
+
+  const catIds = [...new Set((pqs ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null))];
+  const catName = new Map<number, string>();
+  if (catIds.length) {
+    const { data } = await supabase.from("paquetes_catalogo").select("id, nombre").in("id", catIds);
+    for (const c of data ?? []) catName.set(c.id, c.nombre);
+  }
+
+  const paquetes = (pqs ?? [])
+    .map((p) => ({
+      id: p.id,
+      saldo: p.num_clases - p.clases_consumidas,
+      nombre: p.catalogo_id ? catName.get(p.catalogo_id) ?? "Paquete" : "Paquete",
+      num: p.num_clases,
+    }))
+    // El paquete al que YA está atada se ofrece igual: así el selector no sale
+    // vacío cuando es el único, y se ve de dónde viene la clase.
+    .filter((p) => p.saldo > 0 || p.id === clase.paquete_cliente_id)
+    .map((p) => ({ id: p.id, label: `${p.nombre} · ${p.saldo}/${p.num} disponibles` }));
+
+  return {
+    clienteId: clase.cliente_id,
+    clienteNombre: cli ? `${cli.nombres} ${cli.apellidos}` : undefined,
+    paquetes,
+  };
+}
+
+export type CobroClaseState = { error?: string; ok?: string };
+
+/**
+ * Pasa una clase individual de PARTICULAR a PAQUETE (o al revés, o a otro paquete).
+ *
+ * Hasta ahora esto no existía: registrar mal solo se arreglaba borrando la clase
+ * y volviéndola a crear. Es el hueco que dejó la clase de Karent Coronado
+ * cobrada como particular a $150.000 cuando iba contra su paquete.
+ *
+ * ⚠️ **El saldo del paquete se mueve SOLO si la clase ya está cerrada.** El
+ * descuento lo hace `cerrarClase` (→ `paquete_consumir`), así que una clase
+ * `programada` no ha consumido nada y tocarle el saldo aquí la cobraría DOS
+ * veces al cerrarla. Justo eso pasó al arreglar a mano la clase 424 el
+ * 15-sep-2026: se le bajó el saldo al paquete 23 con la clase aún programada.
+ *
+ * ⚠️ **El orden de los tres pasos no es intercambiable**: devolver el saldo del
+ * paquete viejo → mover la clase → descontar del nuevo. `paquete_consumir` lee
+ * el `paquete_cliente_id` que la clase tiene EN ESE MOMENTO, así que hacerlo
+ * después del update devolvería el saldo al paquete equivocado. Mismo cuidado
+ * que en `corregirTurno`.
+ *
+ * ⚠️ **Al pasar a paquete se borra `valor_facturado`.** La liquidación lee
+ * `valor_facturado ?? valorDelPaquete` (liquidacion.ts), así que dejar el
+ * override puesto seguiría pagándole al profesor sobre el precio de particular.
+ *
+ * Mismo techo de 24 h que `editarValorClase`, con el mismo helper y a propósito:
+ * una sola regla que recordar. Pasado el plazo, solo el superadministrador.
+ */
+export async function cambiarCobroClase(input: {
+  claseId: number;
+  modo: "paquete" | "particular";
+  paqueteClienteId?: number | null;
+  precio?: number;
+}): Promise<CobroClaseState> {
+  const profile = await requireRole(WRITE);
+  const claseId = Number(input.claseId);
+  if (!claseId) return { error: "Clase inválida." };
+
+  const supabase = await createClient();
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, tipo, estado, fecha, hora_inicio, cliente_id, paquete_cliente_id, precio, valor_facturado")
+    .eq("id", claseId)
+    .maybeSingle();
+  if (!clase) return { error: "No se encontró la clase." };
+  if (clase.tipo !== "individual") {
+    return { error: "Solo se puede cambiar el cobro de una clase individual." };
+  }
+  if (clase.estado === "cancelada" || clase.estado === "no_show") {
+    return { error: "Esta clase está cancelada: no tiene cobro que cambiar." };
+  }
+
+  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+  if (venció && profile.role !== "superadmin") {
+    return {
+      error:
+        "Pasaron más de 24 h desde la clase y su cobro ya cuenta para la liquidación. Pídele el cambio al superadministrador.",
+    };
+  }
+
+  const viejo = clase.paquete_cliente_id;
+  // Solo la clase CERRADA ha consumido saldo; la programada lo consume al cerrarse.
+  const mueveSaldo = clase.estado === "realizada";
+
+  let nuevo: number | null = null;
+  let precio = 0;
+  if (input.modo === "paquete") {
+    if (!clase.cliente_id) {
+      return { error: "Esta clase no tiene cliente, así que no se le puede cobrar un paquete." };
+    }
+    const pqId = Number(input.paqueteClienteId);
+    if (!pqId) return { error: "Escoge el paquete." };
+    if (pqId === viejo) return { error: "La clase ya se cobra de ese paquete." };
+
+    const { data: pq } = await supabase
+      .from("paquetes_cliente")
+      .select("id, cliente_id, num_clases, clases_consumidas, estado, vence_el")
+      .eq("id", pqId)
+      .maybeSingle();
+    if (!pq || pq.cliente_id !== clase.cliente_id) return { error: "Ese paquete no es de este cliente." };
+    if (pq.estado === "vencido" || (pq.vence_el != null && pq.vence_el < new Date().toISOString().slice(0, 10))) {
+      return { error: "Ese paquete está vencido: ya no se le pueden cobrar clases." };
+    }
+    if (pq.estado !== "activo") return { error: "Ese paquete no está activo." };
+    // El saldo solo tiene que alcanzar si la clase ya está cerrada: es cuando se descuenta.
+    if (mueveSaldo && pq.num_clases - pq.clases_consumidas <= 0) {
+      return { error: "Ese paquete no tiene saldo disponible." };
+    }
+    nuevo = pq.id;
+  } else {
+    if (!viejo) return { error: "La clase ya es particular." };
+    const v = Number(input.precio);
+    if (!Number.isFinite(v) || v < 0) return { error: "Escribe el valor a cobrar." };
+    if (v > 100_000_000) return { error: "Ese valor es demasiado alto; revísalo." };
+    precio = Math.trunc(v);
+  }
+
+  // 1) Devolver el saldo al paquete viejo, MIENTRAS la clase todavía lo apunta.
+  if (mueveSaldo && viejo) {
+    const { error } = await supabase.rpc("paquete_consumir", { p_clase: claseId, p_delta: -1 });
+    if (error) return { error: `No se pudo devolver la clase al paquete anterior: ${error.message}` };
+  }
+
+  // 2) Mover la clase. `valor_facturado` se limpia siempre: si va a paquete, el
+  //    override taparía el valor del paquete; si va a particular, el precio
+  //    nuevo es el que manda.
+  const { error: updErr } = await supabase
+    .from("clases")
+    .update({ paquete_cliente_id: nuevo, precio, valor_facturado: null })
+    .eq("id", claseId);
+  if (updErr) {
+    // Se deshace el paso 1 para no dejar el saldo inflado con la clase intacta.
+    if (mueveSaldo && viejo) await supabase.rpc("paquete_consumir", { p_clase: claseId, p_delta: 1 });
+    return { error: updErr.message };
+  }
+
+  // 3) Descontar del paquete nuevo, ya con la clase apuntándolo.
+  if (mueveSaldo && nuevo) {
+    const { error } = await supabase.rpc("paquete_consumir", { p_clase: claseId, p_delta: 1 });
+    if (error) {
+      // Se revierte todo: la clase vuelve a como estaba y el saldo viejo también.
+      await supabase
+        .from("clases")
+        .update({ paquete_cliente_id: viejo, precio: clase.precio, valor_facturado: clase.valor_facturado })
+        .eq("id", claseId);
+      if (viejo) await supabase.rpc("paquete_consumir", { p_clase: claseId, p_delta: 1 });
+      return { error: `No se pudo descontar del paquete nuevo: ${error.message}. La clase quedó como estaba.` };
+    }
+  }
+
+  await logAudit({
+    action: "clase.cambiar_cobro",
+    entity: "clases",
+    entityId: String(claseId),
+    before: { paquete_cliente_id: viejo, precio: clase.precio, valor_facturado: clase.valor_facturado, estado: clase.estado },
+    after: { paquete_cliente_id: nuevo, precio, valor_facturado: null, modo: input.modo, saldo_movido: mueveSaldo },
+  });
+  revalidatePath("/clases");
+  revalidatePath("/cierre");
+  revalidatePath("/liquidacion");
+
+  // El aviso dice si el saldo se movió o si se moverá al cerrar: son dos
+  // situaciones distintas y confundirlas es lo que produjo el doble descuento.
+  const nota = nuevo
+    ? mueveSaldo
+      ? "Se descontó del paquete."
+      : "Se descontará del paquete al cerrar la clase."
+    : "Ahora se cobra aparte.";
+  return { ok: `${nuevo ? "Clase de paquete" : "Clase particular"}. ${nota}` };
+}
+
 /**
  * Asigna el profesor a una clase que se quedó SIN profesor.
  *

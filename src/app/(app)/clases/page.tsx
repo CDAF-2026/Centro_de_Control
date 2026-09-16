@@ -114,6 +114,30 @@ export default async function ClasesPage({
     for (const a of data ?? []) acaName.set(a.id, a.nombre);
   }
 
+  // Paquete de cada clase que va por paquete: el modal tiene que DECIR de cuál
+  // sale. Sin esto, una clase de paquete y una particular se leían exactamente
+  // igual ("Clase individual"), y la de Karent Coronado —ya bien atada a su
+  // paquete— seguía pareciendo particular. Son pocas filas: se resuelve con dos
+  // consultas para todo el mes, igual que los nombres de academia.
+  const pqIds = [...new Set(lista.map((c) => c.paquete_cliente_id).filter((x): x is number => x != null))];
+  const pqLabel = new Map<number, string>();
+  if (pqIds.length) {
+    const { data: pqs } = await supabase
+      .from("paquetes_cliente")
+      .select("id, num_clases, clases_consumidas, catalogo_id")
+      .in("id", pqIds);
+    const catIds = [...new Set((pqs ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null))];
+    const catName = new Map<number, string>();
+    if (catIds.length) {
+      const { data } = await supabase.from("paquetes_catalogo").select("id, nombre").in("id", catIds);
+      for (const c of data ?? []) catName.set(c.id, c.nombre);
+    }
+    for (const p of pqs ?? []) {
+      const n = p.catalogo_id ? catName.get(p.catalogo_id) ?? "Paquete" : "Paquete";
+      pqLabel.set(p.id, `${n} · ${p.num_clases - p.clases_consumidas}/${p.num_clases} disponibles`);
+    }
+  }
+
   // Alias EasyCancha → perfil canónico (unifica duplicados como Willington en el calendario).
   const aliasCanon = new Map<string, string>();
   {
@@ -153,6 +177,12 @@ export default async function ClasesPage({
       c.tipo === "academia"
         ? (c.academia_id ? acaName.get(c.academia_id) ?? "Academia" : "Academia")
         : deportista(c) ?? "Sin deportista";
+    // "Individual" es el TIPO en la base (academia | individual); dentro de las
+    // individuales, lo que decide a quién se le cobra es tener paquete o no.
+    // Llamarlas a todas "Clase individual" borraba justo esa diferencia.
+    const dePaquete = c.tipo === "individual" && c.paquete_cliente_id != null;
+    const tipoLabel =
+      c.tipo === "academia" ? "Clase de academia" : dePaquete ? "Clase de paquete" : "Clase particular";
     return {
       id: `int-${c.id}`,
       dia: Number(c.fecha.slice(8, 10)),
@@ -167,9 +197,9 @@ export default async function ClasesPage({
       fuente: "interna",
       esAcademia: c.tipo === "academia",
       cancelada: c.estado === "cancelada" || c.estado === "no_show",
-      chip: `${hora} ${c.tipo === "academia" ? "Acad." : "Ind."}`,
+      chip: `${hora} ${c.tipo === "academia" ? "Acad." : dePaquete ? "Paq." : "Part."}`,
       titulo,
-      subtitulo: `${c.tipo === "academia" ? "Clase de academia" : "Clase individual"}${c.deporte ? ` · ${c.deporte}` : ""} · CDAF`,
+      subtitulo: `${tipoLabel}${c.deporte ? ` · ${c.deporte}` : ""} · CDAF`,
       estadoLabel: est.label,
       estadoTone: est.tone,
       detalles: [
@@ -182,6 +212,28 @@ export default async function ClasesPage({
       // en silencio, porque `liquidacion.ts` descarta las que no tienen profesor.
       ...(puedeAsignar && !c.profesor_id && c.estado !== "cancelada"
         ? { sinProfesor: { claseId: c.id, opciones: opcionesParaDeporte(docentes, c.deporte) } }
+        : {}),
+      // Cómo se cobra, y con qué cambiarlo: registrar "Particular" donde iba
+      // paquete no tenía arreglo salvo borrar la clase y volverla a crear.
+      // Mismo plazo que corregir el valor: 24 h, y el SA siempre.
+      ...(puedeAsignar && c.tipo === "individual" && c.estado !== "cancelada" && c.estado !== "no_show"
+        ? {
+            cobro: {
+              claseId: c.id,
+              modo: (c.paquete_cliente_id ? "paquete" : "particular") as "paquete" | "particular",
+              paqueteLabel: c.paquete_cliente_id ? pqLabel.get(c.paquete_cliente_id) ?? "Paquete" : null,
+              valor: c.valor_facturado ?? c.precio ?? 0,
+              editable: esSA || !vencida(c.fecha, c.hora_inicio),
+              aviso: vencida(c.fecha, c.hora_inicio)
+                ? esSA
+                  ? null
+                  : "Pasaron más de 24 h: para cambiarlo, pídeselo al superadministrador."
+                : null,
+              // El saldo del paquete se mueve al CERRAR, no al registrar: una
+              // clase programada todavía no ha consumido nada.
+              cerrada: c.estado === "realizada",
+            },
+          }
         : {}),
       // Solo la particular (individual sin paquete) lleva valor corregible en el modal.
       // El plazo es el MISMO techo de 24 h que rige el cierre (ver editarValorClase).
