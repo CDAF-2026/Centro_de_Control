@@ -808,9 +808,27 @@ $150.000, y una Karent fantasma.
 - 🔧 **Arreglado a mano**: la clase 424 se movió a la ficha 554, atada al paquete #23 (saldo 8 → 7)
   y se fusionó la 550 (solo tenía esa clase y su titular). Con rastro en `audit_log`
   (`clase.mover_a_paquete`, `cliente.fusionar`).
-- ⚠️ **Quedan 16 personas más con ficha duplicada** (misma persona, correos distintos), pero **hoy
-  ninguna tiene paquetes**, así que no muerden todavía. Medirlas de nuevo antes de asumir que
-  siguen inocuas: la consulta agrupa por nombre normalizado en `clientes`.
+- 🧹 **Limpieza de duplicados (15-sep-2026)**: había 17 nombres repetidos. Se fusionaron **8**, se
+  dejaron **9** a la espera del club, y `clientes` pasó de 504 a **496**.
+  ⚠️ **El nombre repetido NO basta para fusionar** — dos personas pueden llamarse igual. La
+  evidencia que se usó es el **TELÉFONO normalizado** (últimos 10 dígitos) y/o el **correo idéntico**:
+  · **8 con misma persona confirmada** — david de greiff (327→302), elias sotelo (54→423, además
+    mismo correo), isabel duque (356→226), laura restrepo (352→387), lucas piedrahita (257→208),
+    maximiliano velásquez (344→370), sofía serrano (276→411, mismo correo), tomás roldán (264→263).
+    En cada par sobrevive la que tiene historia (cédula, facturas, inscripciones) y muere la vacía.
+    **Las 8 que murieron estaban en CERO** (0 clases, 0 facturas, 0 inscripciones, 0 paquetes; solo
+    su titular): se verificó una por una antes de borrar, incluidas las referencias por `miembro_id`.
+    El correo y el teléfono de cada una quedaron en `audit_log` (`cliente.fusionar`) por si hacen falta.
+  · **9 DUDOSOS, sin tocar**: andres zapata, daniel uribe, diego chalarca, enrique mateus, isaak
+    ruiz, jorge moreno, laura restrepo (la 3ª ficha), manuel mejía y santiago correa. **Nada en
+    común**: teléfonos y correos distintos. Dos señales de que pueden ser personas DISTINTAS —
+    jorge moreno tiene un teléfono de **Chile** (+56) en una ficha y de Colombia en la otra, y
+    andrés zapata tiene un correo que dice "agudelo". Hay que preguntarle al club, no adivinar.
+  · 💡 Hallazgo suelto: la ficha 356 de isabel duque tenía **el teléfono metido en el campo cédula**
+    (3116190917). Murió en la fusión, pero conviene saber que ese error existe.
+- ⚠️ **157 de 496 clientes (32%) no tienen cédula**, y son justo los que pueden volver a duplicarse:
+  el emparejamiento nuevo se apoya en ella. Los que entran por EasyCancha ya nacen con su cédula;
+  los viejos no. Un backfill de documentos existe (`npm run sync:documentos`).
 - ⚠️ **No hay pantalla para cambiar una clase YA registrada de particular a paquete** (ni al revés).
   Hoy toca borrarla y volverla a registrar. Es el mismo hueco que tenía el profesor y sigue abierto.
 - ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,
