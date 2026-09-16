@@ -826,9 +826,24 @@ $150.000, y una Karent fantasma.
     andrés zapata tiene un correo que dice "agudelo". Hay que preguntarle al club, no adivinar.
   · 💡 Hallazgo suelto: la ficha 356 de isabel duque tenía **el teléfono metido en el campo cédula**
     (3116190917). Murió en la fusión, pero conviene saber que ese error existe.
-- ⚠️ **157 de 496 clientes (32%) no tienen cédula**, y son justo los que pueden volver a duplicarse:
-  el emparejamiento nuevo se apoya en ella. Los que entran por EasyCancha ya nacen con su cédula;
-  los viejos no. Un backfill de documentos existe (`npm run sync:documentos`).
+- 🔁 **Los DOS sync de clientes hacen doble validación: correo Y cédula** (15-sep-2026, pedido de
+  Laura). Antes los dos emparejaban **solo por correo**, así que quien ya estaba con otro correo
+  entraba como ficha nueva — la fábrica de duplicados.
+  ⚠️ **El botón de dentro de la app era el peor**: además de emparejar solo por correo, **NO GUARDABA
+  LA CÉDULA** aunque EasyCancha la manda. O sea que cada ficha que creaba nacía sin la llave que
+  ahora evita el duplicado, y sin la que atribuye las facturas de Siigo. Ya guarda
+  `documento`, `tipo_documento` y `fecha_nacimiento`, como el script de consola.
+  ⚠️ En el script (`sync-clientes-easycancha.mjs`) el `docsBD` YA existía, pero solo se usaba para no
+  robarle el documento a otra ficha (`libre`): si la cédula estaba repetida, creaba la ficha igual y
+  **sin documento**. Ahora se salta la creación. Los dos avisan cuántos omitieron por cédula, para
+  que "no se agregó nadie" no se confunda con un fallo.
+- ⚠️ **157 de 496 clientes (32%) no tenían cédula**, y son justo los que se pueden volver a duplicar:
+  el emparejamiento se apoya en ella. Los nuevos ya nacen con la suya; para los viejos está
+  **`npm run sync:documentos`** (simulacro por defecto, `-- --apply` para escribir).
+  📊 Medido el 15-sep-2026 en simulacro: rellenaría **105 documentos** y 67 fechas de nacimiento
+  sobre 123 clientes — el 32% bajaría a ~10% — y de paso **engancharía 106 facturas de Siigo hoy sin
+  dueño, por $17.164.032**. No se aplicó todavía: hay **27 conflictos** (la ficha dice un documento y
+  EasyCancha otro) que el script NO toca y hay que mirar a mano.
 - ⚠️ **No hay pantalla para cambiar una clase YA registrada de particular a paquete** (ni al revés).
   Hoy toca borrarla y volverla a registrar. Es el mismo hueco que tenía el profesor y sigue abierto.
 - ⚠️ **"Juan Cruz" no existe en la plataforma**: ni en `profiles` ni en `easycancha_profesor_alias`,

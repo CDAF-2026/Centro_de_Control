@@ -69,14 +69,27 @@ async function main() {
   // Recolectar SOLO personas nuevas con correo.
   const vistos = new Set();
   const nuevos = [];
+  let omitidosPorCedula = 0;
   for (const b of reservas) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
     if (!email || emailsBD.has(email) || vistos.has(email)) continue;
-    vistos.add(email);
 
+    const doc = documentoDeBooking(b);
+
+    // DOBLE VALIDACIÓN: correo Y cédula. Antes, una persona que ya estaba en la
+    // base con OTRO correo entraba como ficha nueva — y encima sin documento,
+    // porque abajo `libre` daba false. Eso partió en dos a Karent Coronado
+    // (15-sep-2026): EasyCancha traía `karentcoronadop@` y su ficha decía
+    // `karentcoronado@`, una letra de diferencia, y la ficha nueva no tenía sus
+    // paquetes. La cédula ya venía en la reserva y era la misma en las dos.
+    if (doc && docsBD.has(doc.documento)) {
+      omitidosPorCedula++;
+      continue;
+    }
+
+    vistos.add(email);
     // El documento solo entra si es válido y no se lo está robando a otra ficha:
     // es la llave con la que se le atribuyen las facturas de Siigo.
-    const doc = documentoDeBooking(b);
     const libre = doc && !docsBD.has(doc.documento);
     if (libre) docsBD.add(doc.documento);
 
@@ -110,9 +123,12 @@ async function main() {
 
   const total = (await s.from("clientes").select("*", { count: "exact", head: true })).count;
   const conDoc = nuevos.filter((n) => n.documento).length;
+  const notaCedula = omitidosPorCedula > 0
+    ? ` ${omitidosPorCedula} se omitieron: ya estaban con otro correo (reconocidos por la cédula).`
+    : "";
   console.log(
     `✅ Sync clientes: +${insertados} nuevos (${MESES} meses), ${conDoc} con documento de EasyCancha. ` +
-      `Total clientes: ${total}. Existentes intactos.`,
+      `Total clientes: ${total}. Existentes intactos.${notaCedula}`,
   );
 }
 

@@ -7,7 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
-import { getBookings, type EcBooking } from "@/lib/easycancha/client";
+import { getBookings, documentoDeBooking, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
 import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo, PaqueteEstado } from "@/lib/database.types";
@@ -740,20 +740,48 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   }
   if (!bookings.length && ecErr) return { error: `No se pudo consultar EasyCancha: ${ecErr}` };
 
-  const { data: ex } = await supabase.from("clientes").select("email");
+  // DOBLE VALIDACIÓN: correo Y cédula. Mirar solo el correo fue lo que partió en
+  // dos la ficha de Karent Coronado (15-sep-2026) — EasyCancha traía
+  // `karentcoronadop@` y su ficha decía `karentcoronado@`, una letra, y esto le
+  // creó una ficha nueva SIN sus paquetes. La cédula venía en la reserva y era
+  // la misma en las dos. De 17 nombres repetidos, 8 eran duplicados de verdad.
+  const { data: ex } = await supabase.from("clientes").select("email, documento, factura_a_nit");
   const emailsBD = new Set((ex ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
+  const docsBD = new Set(
+    (ex ?? [])
+      .flatMap((c) => [c.documento, c.factura_a_nit])
+      .filter(Boolean)
+      .map((d) => String(d).trim()),
+  );
 
   const vistos = new Set<string>();
   const nuevos = [];
+  let omitidosPorCedula = 0;
   for (const b of bookings) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
     if (!email || emailsBD.has(email) || vistos.has(email)) continue;
+
+    // Ya está en la base con otro correo: NO se crea una segunda ficha.
+    const doc = documentoDeBooking(b);
+    if (doc && docsBD.has(doc.documento)) {
+      omitidosPorCedula++;
+      continue;
+    }
+
     vistos.add(email);
+    // La cédula se GUARDA (antes no se guardaba, aunque EasyCancha la manda):
+    // es lo que hará que la próxima reserva de esta persona encuentre ESTA
+    // ficha aunque venga con otro correo. Al medir, 157 de 496 clientes (32%)
+    // no tenían cédula, y son justo los que se pueden volver a duplicar.
+    if (doc) docsBD.add(doc.documento);
     nuevos.push({
       nombres: (b.userFirstName ?? "").trim() || "(sin nombre)",
       apellidos: (b.userLastName ?? "").trim() || "",
       email,
       celular: (b.userPhone ?? "").trim() || null,
+      documento: doc?.documento ?? null,
+      tipo_documento: doc?.tipo ?? null,
+      fecha_nacimiento: (b.userBirthDate ?? "").trim() || null,
       es_menor: false,
     });
   }
@@ -764,9 +792,23 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
     if (!error) insertados += Math.min(500, nuevos.length - i);
   }
 
-  await logAudit({ action: "cliente.sync_easycancha", entity: "clientes", after: { agregados: insertados } });
+  const conDoc = nuevos.filter((n) => n.documento).length;
+  await logAudit({
+    action: "cliente.sync_easycancha",
+    entity: "clientes",
+    after: { agregados: insertados, con_cedula: conDoc, omitidos_por_cedula: omitidosPorCedula },
+  });
   revalidatePath("/clientes");
-  return { ok: insertados > 0 ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha.` : "Sin clientes nuevos: todo al día." };
+  // Se dice cuántos se saltaron por cédula repetida: es la señal de que el club
+  // tiene a esa persona con otro correo, no de que algo falló.
+  const nota = omitidosPorCedula > 0
+    ? ` ${omitidosPorCedula} ya estaba(n) con otro correo (se reconocieron por la cédula).`
+    : "";
+  return {
+    ok: insertados > 0
+      ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha, ${conDoc} con cédula.${nota}`
+      : `Sin clientes nuevos: todo al día.${nota}`,
+  };
 }
 
 /** Miembros (hermanos) activos de una ficha, para elegir a quién inscribir/asignar. */
