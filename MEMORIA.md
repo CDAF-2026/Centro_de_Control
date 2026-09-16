@@ -1539,9 +1539,16 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   **Yeison tiene 0 reglas**, o sea que cada clase suya se liquida en $0 sin un solo aviso, y en
   septiembre lleva 56 reservas. **Y ya no es hipotético: la clase 454 (15-sep, 7 p.m., Diego
   Chalarca, $110.000) está CERRADA y le paga $0.** Es lo primero al retomar.
-- ⚠️ **La quincena de agosto de Graciano cambió DESPUÉS de cerrada**: su clase del domingo 23-ago
-  pasó de $0 a $55.000 al entrar las reglas de fin de semana (16-sep). Si esa quincena ya se pagó,
-  hay que ajustarle la diferencia a mano — la liquidación se calcula al vuelo y no guarda historia.
+- ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
+  liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
+  24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
+  pagados. Pasó el 16-sep-2026 con los tres cambios de nómina: a Graciano agosto le subió de
+  $2.164.996 a $2.219.996, y a Cristian agosto y septiembre le pasaron de $485.000 y $710.000 a
+  $3.500.000. **Laura revisó y confirmó que los pagos ya hechos estaban correctos y NO se ajustan**
+  (16-sep-2026) — o sea que para esos meses la pantalla y lo que de verdad se pagó **no cuadran, y
+  está bien**. No "arreglar" esa diferencia ni proponer un backfill.
+  💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
+  existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
