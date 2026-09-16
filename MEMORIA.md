@@ -291,12 +291,17 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   50% de las clases de 7 a.m." le tapaba a la regla de academia solo por estar más arriba, y pagaba
   $60.000 donde van $0. Verificado con las reglas reales de Esteban: con el blindaje la academia paga
   $0 aunque la regla esté al final de la lista, y la clase particular de 7 a.m. sigue pagando 50%.
-  ⚠️ Esteban y Jorge dan academia con **salario fijo**: tienen regla explícita `academia` /
-  `fijo_por_clase` en **$0** llamada "Academia · cubierta por salario fijo" (ids 25 y 26, insertadas a
+  ⚠️ Esteban, Jorge y Cristian dan academia con **salario fijo**: tienen regla explícita `academia` /
+  `fijo_por_clase` en **$0** llamada "Academia · cubierta por salario fijo" (ids 25, 26 y 41, insertadas a
   mano en la BD, no en migración). No cambia el pago —ya era $0 por no casar ninguna regla— pero la
   liquidación ahora dice POR QUÉ: antes "$0 porque va en su salario" y "$0 porque falta configurar la
   regla" se veían idénticos, así que un olvido era invisible. Regla general: **todo el que dé academia
   necesita regla de academia, aunque sea en $0.**
+  💡 **Y el corolario que faltaba: lo mismo aplica a las CLASES, no solo a la academia.** Al pasar a
+  Cristian Castro a salario fijo (16-sep-2026) se le pusieron DOS reglas en $0, no una: `academia`
+  (concepto exacto) y **`clase`** (comodín, que cubre particular Y paquete). Con solo la de academia,
+  sus 35 clases habrían quedado en $0 sin explicación. **Al poner a alguien a salario fijo hay que
+  tapar los dos frentes.**
   ⚠️ **El ROL dice qué ve; las REGLAS dicen cómo se le paga.** Eran la misma respuesta (`role =
   'profesor'`) y se rompió con **Willington**: es **coordinador deportivo** y además dicta las clases
   de 7 a.m., con salario fijo $4M + comisión 50% ya configurados. Al pasarlo a coordinador (jul-2026)
@@ -321,6 +326,17 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   repartido **Leo 25% + Juan 25%**, o sea el mismo 50% total que había con Leo + Joaquín — no cambia
   lo que paga el club, cambia a quién.
   ⚠️ Se desactivan, **no se borran**: la liquidación de quincenas pasadas tiene que poder explicarse.
+  💼 **Cristian Castro pasó a SALARIO FIJO puro** (16-sep-2026, dictado por Laura): **$3.500.000
+  mensuales y ninguna comisión.** Se desactivaron sus dos reglas por clase (id 11, particulares
+  `escalonado_asistentes` 1→$35.000 / 2→$45.000 / 3→$55.000; id 12, "Apoyo Academia"
+  `fijo_por_clase` $35.000) y entraron la de salario (id 40) más las dos en $0 (ids 41 y 42).
+  · **Es un cambio grande de contrato, no un ajuste**: con las reglas viejas cobraba **$485.000 en
+    agosto y $710.000 en septiembre** por clase dictada. Ahora son $3.500.000 fijos pase lo que pase.
+  · 💡 **De paso se tapó un hueco que ya existía**: sus **2 clases de paquete de septiembre** no
+    casaban NINGUNA regla (solo tenía `clase_particular` y `academia`), así que pagaban $0 en
+    silencio. Ahora caen en "Clases · cubiertas por salario fijo" — el mismo $0, pero con nombre.
+  · Verificado: sus 35 clases cerradas caen todas en una regla con nombre; antes eran 33 de 35.
+
   🕐 **Esteban Graciano se paga POR FRANJA HORARIA** (16-sep-2026, dictado por Laura). El salario
   fijo baja de **$4.000.000 a $1.834.996** y el día se parte en bandas: unas las cubre el salario y
   otras pagan comisión del 50%.
@@ -420,7 +436,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   profesor ("ACADEMIA CON WILLY" sí; "Alicia Londoño", "esta mojada porque limpiaron los vidrios" no).
   El `courtName` de estos bloqueos es "Cancha N" pelado → `profesorDeCancha()` da null.
   ⚠️ **Un bloqueo ≠ una clase**: el 77% dura ≥2h (hay de 6,5h) y adentro caben varios grupos seguidos;
-  la academia se paga `fijo_por_clase` (Joaquín $100k, Leo $90k, Cristian apoyo $35k), así que meter un
+  la academia se paga `fijo_por_clase` (Leo $90k, Juan Cruz $90k; Joaquín y Cristian ya no), así que meter un
   bloque de 4h como UNA clase paga de menos. 30% de los bloqueos se cancela o permuta.
   💡 Y un bloque largo NO es "una academia repetida": son academias **distintas** seguidas (martes
   15:00–18:00 en Cancha 3 = Bola Roja + Bola Verde + Bola Amarilla). Por eso el modal propone
