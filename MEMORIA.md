@@ -378,18 +378,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 
   | Día | Franja | Cómo se paga | Regla |
   |---|---|---|---|
-  | lun–vie | hasta 13:30 | comisión 50% | id 45 |
-  | lun–vie | 13:30–21:00 | cubierta por el salario ($0) | id 46 |
-  | **domingo** | 08:00–13:00 | cubierta por el salario ($0) | id 47 |
-  | sábado | **no trabaja** | — (cae en la 48) | — |
-  | cualquier otra | **"Fuera de sus franjas · revisar"** ($0) | id 48 |
+  | lun–vie | hasta 13:30 | comisión 50% | id 51 |
+  | lun–vie | 13:30–21:00 | cubierta por el salario ($0) | id 52 |
+  | **domingo** | 08:00–13:00 | cubierta por el salario ($0) | id 53 |
+  | sábado | **no trabaja** | — (cae en la 54) | — |
+  | cualquier otra | **"Fuera de sus franjas · revisar"** ($0) | id 54 |
 
-  Más el **salario fijo** (id 43) y la **academia en $0** (id 44), por la regla de tapar los dos
+  Más el **salario fijo** (id 49) y la **academia en $0** (id 50), por la regla de tapar los dos
   frentes al poner a alguien a salario.
-  · **Laura dictó "de 1:30 a 9 salario, todo lo de la mañana comisión"**, y entre las 12 y la 1:30 no
-    dijo nada. La banda de comisión se estiró **hasta las 13:30** en vez de cortarla a las 12: así no
-    queda un hueco justo antes del salario. **Es una interpretación, no un dictado** — si el club
-    quiere que 12–13:30 sea otra cosa, se mueve `hora_hasta` de la 45.
+  · ⚠️⚠️ **El salario de Yeison está en DISPUTA: la base dice $3.500.000 y Laura dictó "el mismo de
+    Graciano" ($1.834.996).** Se le preguntó el 16-sep-2026 y está sin resolver — **no cambiarlo sin
+    su respuesta.** Ver abajo cómo pasó.
+  · **De 12 a 1:30 es comisión, y eso ya lo confirmó Laura** (16-sep-2026). Ella dictó "de 1:30 a 9
+    salario, todo lo de la mañana comisión" y no dijo nada de ese hueco; se estiró la banda de
+    comisión hasta las 13:30 para que no quedara sin regla, y al preguntarle respondió *"de 12 a 1:30
+    déjalo también como comisión"*. Ya no es interpretación.
   · El **50%** tampoco lo dijo esta vez: sale de su instrucción anterior (*"la misma configuración de
     Graciano"*), que es el único porcentaje que hay sobre la mesa.
   · **Después de las 9 p.m. y el domingo después de la 1 NO tienen banda, a propósito**: ella dijo
@@ -406,6 +409,17 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   · 💡 Dato para leer su liquidación sin sustos: de sus 50 reservas, **solo 3 son de comisión** (las
     de miércoles a las 9 y 10 a. m.). Casi todo lo que dicta cae dentro del salario, así que su pago
     variable va a ser pequeño y eso **no es un fallo**.
+  ⚠️⚠️ **Y aquí salió un fallo nuevo del que hay que acordarse: `reglas.update` BORRA Y REESCRIBE
+  todas las reglas del profesor, y el `audit_log` solo guarda cuántas quedaron.** El 16-sep-2026 a
+  las 22:15 Laura guardó las reglas de Yeison desde `/empleados/[id]` y eso **eliminó las seis que
+  se habían insertado por SQL (ids 43–48) y creó otras seis (49–54)** con los mismos nombres y
+  franjas pero con el salario en **$3.500.000** — que es la cifra de **Cristian Castro**, no la de
+  Graciano. La entrada del audit (`before: null`, `after: {"reglas": 6}`) **no permite reconstruir
+  qué había antes**: si no se supiera de memoria qué se insertó, la cifra vieja estaría perdida.
+  💡 Dos cosas que arreglar el día que se retome nómina: (a) que el audit de reglas guarde el
+  `before` completo, porque son SUELDOS y hoy no hay forma de auditar un cambio; (b) que los ids de
+  las reglas no se puedan citar como estables en ningún sitio — este archivo ya tuvo que
+  reescribirlos una vez.
   Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
   ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000) y **NO tiene
   regla de paquetes**. Se le preguntó a Laura el 16-sep-2026 y decidió **"de momento dejémoslo así"**,
@@ -1566,8 +1580,10 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 - ✅ **Reglas de pago de Yeison Bedoya — APLICADAS** el 16-sep-2026 (ver su tabla de franjas arriba).
   Con esto **los 9 entrenadores activos tienen reglas**; ya no queda nadie liquidándose en $0 por no
   estar configurado.
-  ⚠️ Quedan **dos preguntas abiertas** para el club, que hoy caen en su regla 48 y salen con nombre:
+  ⚠️ Quedan **dos preguntas abiertas** para el club, que hoy caen en su regla 54 y salen con nombre:
   qué se le paga **después de las 9 p.m. entre semana** y **el domingo después de la 1 p.m.**
+  ⚠️⚠️ **Y una tercera, que es plata: su salario está en $3.500.000 en la base y Laura dictó el de
+  Graciano, $1.834.996.** Pendiente de su respuesta; no tocarlo por iniciativa propia.
 - ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
