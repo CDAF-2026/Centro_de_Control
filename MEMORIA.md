@@ -325,27 +325,37 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   fijo baja de **$4.000.000 a $1.834.996** y el día se parte en bandas: unas las cubre el salario y
   otras pagan comisión del 50%.
 
-  | Franja (lun–sáb) | Cómo se paga | Regla |
-  |---|---|---|
-  | 07:00–08:00 | comisión 50% | id 19 |
-  | 08:00–11:00 | cubierta por el salario ($0) | id 32 |
-  | 11:00–12:00 | comisión 50% | id 33 |
-  | 15:00–19:30 | cubierta por el salario ($0) | id 34 |
-  | 19:30–23:59 | comisión 50% | id 35 |
+  **El fin de semana tiene sus propias bandas**, así que son TRES calendarios distintos:
+
+  | Día | Franja | Cómo se paga | Regla |
+  |---|---|---|---|
+  | lun–vie | 07:00–08:00 | comisión 50% | id 19 |
+  | lun–vie | 08:00–11:00 | cubierta por el salario ($0) | id 32 |
+  | lun–vie | 11:00–12:00 | comisión 50% | id 33 |
+  | lun–vie | 15:00–19:30 | cubierta por el salario ($0) | id 34 |
+  | lun–vie | 19:30–23:59 | comisión 50% | id 35 |
+  | **sábado** | 08:00–13:00 | cubierta por el salario ($0) | id 37 |
+  | **sábado** | fuera de esa franja | comisión 50% | id 38 |
+  | **domingo** | todo el día | comisión 50% | id 39 |
   | cualquier otra | **"Fuera de sus franjas · revisar"** ($0) | id 36 |
 
-  · Se desactivó la vieja **"Comisión clases 1 p.m."** (id 20, 13:00–14:00): la franja 12–15 ya no es
-    de comisión. **No movió plata**: medido, 0 clases a esa hora.
+  · Se desactivó la vieja **"Comisión clases 1 p.m."** (id 20, 13:00–14:00): la franja 12–15 entre
+    semana ya no es de comisión. **No movió plata**: medido, 0 clases a esa hora.
   · ⚠️ El rango es **[desde, hasta)** (`reglaClaseAplica` en liquidacion.ts), así que 08:00–11:00
     cubre las de 8, 9 y 10 y deja las de 11 para la banda siguiente. Al agregar una banda, pegarla al
     borde de la anterior o queda un hueco.
-  · 💡 **La regla 36 es la que hace que esto sea seguro.** Sin ella, una clase fuera de todas las
-    bandas paga $0 **sin que nadie lo vea** — el fallo que este archivo persigue en todas partes.
-    Paga lo mismo, pero con nombre. **Y cazó una de una**: la clase **331 (domingo 23-ago, 8 a. m.,
-    $110.000)** cae fuera porque todas las bandas son lun–sáb. NO es regresión (con las reglas viejas
-    también pagaba $0, en silencio), pero **falta decidir si el domingo va a comisión**.
-  · Verificado contra sus 44 clases cerradas simulando `reglaClaseAplica` en SQL: cada una cae en la
-    banda que le toca. Agosto $2.164.996 · septiembre $1.949.996 (salario + comisiones).
+  · ⚠️ **En sábado el ORDEN es lo único que separa las dos reglas.** La de comisión (id 38) NO filtra
+    por hora —cubre todo el sábado— y solo funciona porque la de salario (id 37) tiene `orden` menor
+    y gana primero. Invertirlos le pagaría comisión también de 8 a 1. Igual con domingo (id 39), que
+    tampoco filtra hora.
+  · 💡 **La regla 36 es la red de seguridad, y se ganó el puesto el primer día.** Sin ella una clase
+    fuera de todas las bandas paga $0 **sin que nadie lo vea** — el fallo que este archivo persigue
+    en todas partes. Al ponerla cazó la clase **331 (domingo 23-ago, 8 a. m., $110.000)**, que caía
+    fuera porque entonces todas las bandas eran lun–sáb; se le preguntó a Laura y de ahí salieron las
+    reglas del fin de semana. Esa clase **pasó de $0 a $55.000**. Hoy la 36 no captura nada, y así
+    debe seguir: si algún día aparece algo ahí, es que falta una banda.
+  · Verificado contra sus 44 clases cerradas simulando `reglaClaseAplica` en SQL: cada una cae en una
+    regla con nombre. Agosto $2.219.996 · septiembre $1.949.996 (salario + comisiones).
   ⏸️ **EN PAUSA, no olvidado**: las reglas de **Yeison Bedoya**, que hoy tiene **CERO** y por eso se
   liquida en $0 sin avisar, con 56 reservas en septiembre. Frenado el 16-sep-2026 porque *"la misma
   configuración de Graciano"* no dice si el salario fijo entra o no, y el club lo está revisando.
@@ -1513,8 +1523,9 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   **Yeison tiene 0 reglas**, o sea que cada clase suya se liquida en $0 sin un solo aviso, y en
   septiembre lleva 56 reservas. **Y ya no es hipotético: la clase 454 (15-sep, 7 p.m., Diego
   Chalarca, $110.000) está CERRADA y le paga $0.** Es lo primero al retomar.
-- ❓ **¿El domingo de Graciano va a comisión?** Sus seis bandas son lun–sáb, así que un domingo cae en
-  "Fuera de sus franjas · revisar" y paga $0. Ya pasó una vez: clase 331, domingo 23-ago, $110.000.
+- ⚠️ **La quincena de agosto de Graciano cambió DESPUÉS de cerrada**: su clase del domingo 23-ago
+  pasó de $0 a $55.000 al entrar las reglas de fin de semana (16-sep). Si esa quincena ya se pagó,
+  hay que ajustarle la diferencia a mano — la liquidación se calcula al vuelo y no guarda historia.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
