@@ -372,11 +372,40 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     debe seguir: si algún día aparece algo ahí, es que falta una banda.
   · Verificado contra sus 44 clases cerradas simulando `reglaClaseAplica` en SQL: cada una cae en una
     regla con nombre. Agosto $2.219.996 · septiembre $1.949.996 (salario + comisiones).
-  ⏸️ **EN PAUSA, no olvidado**: las reglas de **Yeison Bedoya**, que hoy tiene **CERO** y por eso se
-  liquida en $0 sin avisar, con 56 reservas en septiembre. Frenado el 16-sep-2026 porque *"la misma
-  configuración de Graciano"* no dice si el salario fijo entra o no, y el club lo está revisando.
-  ⚠️ **Ya no se puede copiar de Graciano sin pensar**: sus bandas son suyas (da de 7 a 12 y de 3 a
-  7:30) y Yeison dicta a otras horas. Hay que pedir las de Yeison aparte.
+  🕐 **Yeison Bedoya también se paga POR FRANJA** (16-sep-2026, dictado por Laura). Mismo salario
+  que Graciano —**$1.834.996**— pero **bandas propias**, que es justo por lo que se frenó "cópiale lo
+  de Graciano": los dos dan a horas distintas.
+
+  | Día | Franja | Cómo se paga | Regla |
+  |---|---|---|---|
+  | lun–vie | hasta 13:30 | comisión 50% | id 45 |
+  | lun–vie | 13:30–21:00 | cubierta por el salario ($0) | id 46 |
+  | **domingo** | 08:00–13:00 | cubierta por el salario ($0) | id 47 |
+  | sábado | **no trabaja** | — (cae en la 48) | — |
+  | cualquier otra | **"Fuera de sus franjas · revisar"** ($0) | id 48 |
+
+  Más el **salario fijo** (id 43) y la **academia en $0** (id 44), por la regla de tapar los dos
+  frentes al poner a alguien a salario.
+  · **Laura dictó "de 1:30 a 9 salario, todo lo de la mañana comisión"**, y entre las 12 y la 1:30 no
+    dijo nada. La banda de comisión se estiró **hasta las 13:30** en vez de cortarla a las 12: así no
+    queda un hueco justo antes del salario. **Es una interpretación, no un dictado** — si el club
+    quiere que 12–13:30 sea otra cosa, se mueve `hora_hasta` de la 45.
+  · El **50%** tampoco lo dijo esta vez: sale de su instrucción anterior (*"la misma configuración de
+    Graciano"*), que es el único porcentaje que hay sobre la mesa.
+  · **Después de las 9 p.m. y el domingo después de la 1 NO tienen banda, a propósito**: ella dijo
+    dónde termina el salario y no qué pasa después. Caen en la 48 y salen con nombre para
+    preguntarle, en vez de pagarse solas.
+  · ⚠️ **El sábado no lleva regla porque no trabaja.** Una clase suya en sábado cae en la 48 y paga
+    $0 CON NOMBRE: es exactamente lo que se quiere, porque significa "esto no debería existir,
+    revísalo", no "se me olvidó configurarlo".
+  · Verificado contra sus **50 reservas reales** de ago–sep en EasyCancha (las 57 menos 7 canceladas):
+    **todas caen en una banda con nombre**, ninguna en la 48, y **no hay ni una en sábado** — la
+    instrucción de Laura cuadra con lo que EasyCancha ya muestra. Su única clase cerrada, la **454**
+    (martes 15-sep, 7 p.m.), cae en *Cubierta por salario*: sigue pagando $0, pero ahora **dice por
+    qué**. Antes era $0 por no tener ninguna regla, que se ve igual y significa lo contrario.
+  · 💡 Dato para leer su liquidación sin sustos: de sus 50 reservas, **solo 3 son de comisión** (las
+    de miércoles a las 9 y 10 a. m.). Casi todo lo que dicta cae dentro del salario, así que su pago
+    variable va a ser pequeño y eso **no es un fallo**.
   Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
   ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000) y **NO tiene
   regla de paquetes**. Se le preguntó a Laura el 16-sep-2026 y decidió **"de momento dejémoslo así"**,
@@ -1534,11 +1563,11 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   al cambiar de correo. Hoy ambos flujos van por el SA.
 - **Cargar los correos reales de los 9 profesores** y darles su contraseña (ver Perfil y acceso).
   Hoy el único con correo de mentira es **Juan Cruz** (`test@gmail.com`); Laura lo carga.
-- ⏸️ **Reglas de pago de Yeison Bedoya** — EN PAUSA desde el 16-sep-2026, el club las revisa.
-  (Las de **Graciano ya se aplicaron** el mismo día; ver la tabla de franjas arriba.)
-  **Yeison tiene 0 reglas**, o sea que cada clase suya se liquida en $0 sin un solo aviso, y en
-  septiembre lleva 56 reservas. **Y ya no es hipotético: la clase 454 (15-sep, 7 p.m., Diego
-  Chalarca, $110.000) está CERRADA y le paga $0.** Es lo primero al retomar.
+- ✅ **Reglas de pago de Yeison Bedoya — APLICADAS** el 16-sep-2026 (ver su tabla de franjas arriba).
+  Con esto **los 9 entrenadores activos tienen reglas**; ya no queda nadie liquidándose en $0 por no
+  estar configurado.
+  ⚠️ Quedan **dos preguntas abiertas** para el club, que hoy caen en su regla 48 y salen con nombre:
+  qué se le paga **después de las 9 p.m. entre semana** y **el domingo después de la 1 p.m.**
 - ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
