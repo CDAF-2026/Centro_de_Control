@@ -61,9 +61,6 @@ export function EmpleadoForm() {
           ))}
         </select>
       </div>
-      {role === "profesor" && (
-        <Field label="Valor por hora (COP)" name="valorClase" type="number" error={fe.valorClase} required />
-      )}
       <div className="space-y-1.5">
         <Label htmlFor="contrato">Contrato (PDF o imagen, opcional)</Label>
         <Input id="contrato" name="contrato" type="file" />

@@ -429,7 +429,21 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   `total_facturado_mes`, `total_cobrado_mes` y `pendiente_de_cobro_mes`.
 - **Tablas en desuso** (persisten, no borrar aún): `profesor_valor_clase` y
   `profesor_compensacion` — son el respaldo del modelo viejo de pagos a profesores y **sí tienen
-  filas** (1 y 5).
+  filas** (2 y 5).
+  ⚠️ **`profesor_valor_clase` ya NO SE ESCRIBE desde ningún sitio** (15-sep-2026). El formulario de
+  `/empleados/nuevo` pedía un **"Valor por hora (COP)" OBLIGATORIO para profesores** que se guardaba
+  ahí y **no lo leía nadie**: la liquidación calcula con `profesor_regla` y `profesor_compensacion`,
+  y `liquidacion.ts` no menciona esa tabla ni una vez. Medido: a **Victor Acosta** le quedó en
+  **"$100"** por un dedazo y su pago salía correcto igual, porque el número no se usa.
+  💡 El daño no era el campo muerto sino lo que HACÍA CREER: que con eso el profesor quedaba
+  configurado. Lo que decide su pago son las **REGLAS**, que se cargan aparte en su ficha — y
+  **Yeison Bedoya quedó con 0 reglas**, o sea que su primera clase se habría liquidado en $0 sin un
+  solo aviso. Se quitaron el campo, su validación (`valorClase` + el `refine` del esquema), el
+  insert de `createEmpleado`, la acción `updateValorClase` y el componente **`valor-form.tsx`**, que
+  encima estaba **huérfano** (nadie lo importaba; ojo, se llama `ValorClaseForm` igual que el de
+  `/clases`, que sí está vivo y es otro).
+  ⚠️ **Queda pendiente**: el formulario de crear empleado NO pide las reglas de pago, así que todo
+  profesor nuevo nace sin forma de cobrar. Falta un aviso de "este profesor no tiene regla".
 
 ## Sincronización Siigo (automática)
 Edge Function **`siigo-sync`** (fuente: `supabase/functions/siigo-sync/index.ts`, misma lógica que el

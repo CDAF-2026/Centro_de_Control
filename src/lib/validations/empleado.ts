@@ -22,12 +22,7 @@ export const createEmpleadoSchema = z
     documento: z.string().trim().optional(),
     telefono: z.string().trim().optional(),
     role: z.enum(STAFF_ROLES),
-    valorClase: z.string().trim().optional(),
-  })
-  .refine(
-    (d) => d.role !== "profesor" || (!!d.valorClase && /^\d+$/.test(d.valorClase)),
-    { message: "Valor de clase (número en COP) requerido para profesores", path: ["valorClase"] },
-  );
+  });
 
 export const updateEmpleadoSchema = z.object({
   id: z.string().uuid(),
@@ -35,11 +30,6 @@ export const updateEmpleadoSchema = z.object({
   email: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   documento: z.string().trim().optional(),
   telefono: z.string().trim().optional(),
-});
-
-export const valorClaseSchema = z.object({
-  profesorId: z.string().uuid(),
-  valor: z.coerce.number().int().min(0, "Valor inválido"),
 });
 
 // ── Reglas de compensación por entrenador (modelo flexible) ──

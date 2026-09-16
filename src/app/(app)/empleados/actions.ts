@@ -10,7 +10,6 @@ import { logAudit } from "@/lib/audit";
 import {
   createEmpleadoSchema,
   updateEmpleadoSchema,
-  valorClaseSchema,
   reglasSchema,
   STAFF_ROLES,
 } from "@/lib/validations/empleado";
@@ -74,17 +73,16 @@ export async function createEmpleado(
     .eq("id", userId);
   if (upErr) return { error: `Cuenta creada, pero falló el perfil: ${upErr.message}` };
 
-  // 3) Valor de clase inicial para profesores.
-  if (d.role === "profesor" && d.valorClase) {
-    const { error: vErr } = await supabase.from("profesor_valor_clase").insert({
-      profesor_id: userId,
-      valor: parseInt(d.valorClase, 10),
-      created_by: sa.id,
-    });
-    if (vErr) return { error: `Empleado creado, pero falló el valor de clase: ${vErr.message}` };
-  }
+  // ⚠️ Aquí había un "Valor por hora (COP)" obligatorio para profesores, que se
+  // guardaba en `profesor_valor_clase` y NO LO LEÍA NADIE (15-sep-2026): la
+  // liquidación calcula con `profesor_regla` y `profesor_compensacion`, y esa
+  // tabla solo se escribía. Se midió: a Victor Acosta le quedó en "$100" por un
+  // dedazo y su pago salía correcto igual, porque el número no se usa. Pedir una
+  // cifra que no hace nada hace creer que el profesor ya quedó configurado —
+  // cuando lo que decide su pago son las REGLAS, que se cargan aparte en su
+  // ficha. Se quitó el campo, su validación y este insert.
 
-  // 4) Contrato adjunto (opcional).
+  // 3) Contrato adjunto (opcional).
   const contrato = formData.get("contrato");
   if (contrato instanceof File && contrato.size > 0 && contrato.size <= 10 * 1024 * 1024) {
     const path = `${userId}/${Date.now()}-${contrato.name}`;
@@ -112,36 +110,6 @@ export async function createEmpleado(
 }
 
 /** Registra un nuevo valor de clase (queda en el historial). Solo superadministrador. */
-export async function updateValorClase(
-  _prev: EmpleadoFormState,
-  formData: FormData,
-): Promise<EmpleadoFormState> {
-  const sa = await requireRole(["superadmin"]);
-
-  const parsed = valorClaseSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("profesor_valor_clase").insert({
-    profesor_id: parsed.data.profesorId,
-    valor: parsed.data.valor,
-    created_by: sa.id,
-  });
-  if (error) return { error: error.message };
-
-  await logAudit({
-    action: "valor_clase.update",
-    entity: "profesor_valor_clase",
-    entityId: parsed.data.profesorId,
-    after: { valor: parsed.data.valor },
-  });
-
-  revalidatePath(`/empleados/${parsed.data.profesorId}`);
-  return {};
-}
-
 /** Guarda la compensación del profesor (tipo + montos) y el valor por alumno de sus academias. */
 export async function guardarCompensacion(
   _prev: EmpleadoFormState,
