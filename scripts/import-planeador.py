@@ -72,6 +72,19 @@ def dig(s): return re.sub(r"\D", "", str(s or ""))
 
 DIA_NUM = {"DOM": 0, "LUN": 1, "MAR": 2, "MIE": 3, "JUE": 4, "VIE": 5, "SAB": 6}
 COLEGIOS = {"MONTESSORI", "MONTELUNA", "MONTE LUNA"}
+
+# Niños que el Excel escribe distinto a como están en la plataforma Y a los que
+# además les puso un documento que no es suyo, así que no hay forma automática
+# de cruzarlos. Va como lista explícita y no como emparejamiento difuso, porque
+# esto decide a quién se le cobra: cada entrada lleva la evidencia que la
+# sostiene. El mismo patrón de `easycancha_profesor_alias`.
+#   · EMA HOYOS: el Excel le da el documento de Luciana Osorio (1040881722). La
+#     plataforma tiene a "Emma Hoyos" (m425, doc 1035002652, nac 22-oct-2013 →
+#     12 años), que es justo la edad del Excel; y la propia rejilla del club la
+#     escribe "EMMA HOYOS". Verificado 22-sep-2026.
+ALIAS_NINO = {
+    "EMA HOYOS": "EMMA HOYOS",
+}
 # El Excel escribe los nombres cortos; la plataforma los tiene completos.
 ALIAS_PROFESOR = {
     "JORGE": "Jorge Pérez",
@@ -141,11 +154,14 @@ COMPARTIDOS = {d for d, k in reclaman.items() if len(k) > 1}
 
 def cruzar(nom, ape, doc):
     clave = nm(f"{nom} {ape}")
+    clave = ALIAS_NINO.get(clave, clave)
     d = dig(doc)
     cands = por_doc.get(d, [])
     exacto = [m for m in cands if nm(f"{m['nombres']} {m['apellidos']}") == clave]
     if d in COMPARTIDOS:
         if len(exacto) == 1: return exacto[0], "documento compartido, resuelto por nombre"
+        porn = por_nom.get(clave, [])
+        if len(porn) == 1: return porn[0], "documento de un hermano; resuelto por nombre"
         return None, "documento que el Excel le da a dos hermanos"
     if len(exacto) == 1: return exacto[0], "documento+nombre"
     # El documento es de una sola persona: el nombre puede venir escrito distinto

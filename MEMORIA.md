@@ -844,7 +844,7 @@ dice. Hay prueba de los dos caminos.
 
 ### 📥 El importador: `npm run import:planeador` (scripts/import-planeador.py)
 Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 22-sep-2026: 52 clases ·
-106 niños · 170 enlaces · 0 niños sin día.**
+107 niños · 171 enlaces · 0 niños sin día.**
 - ⚠️⚠️ **Se lee "BASE DE DATOS", NO las rejillas por profesor.** Cada bloque de 30 min de la rejilla
   tiene sitio para 4 nombres y el 5º se cae a la fila de abajo, donde **parece una clase nueva**:
   medidos **13 bloques fantasma** (la "clase de Jorge martes 17:00" con Ismael, Josué y Nicolás son
@@ -860,10 +860,36 @@ Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 22-sep
 - **Monte Luna y Montessori se excluyen**: son colegios, no academias (60 filas). Curiosamente son las
   ÚNICAS con la columna ASIST. llena — el club quiso llevar asistencia en el planeador y no lo logró.
   Eso es exactamente lo que hace `/cierre`.
-- **4 niños no cruzan** y son los pendientes ya conocidos de `docs/academias-tenis-datos-a-revisar.md`:
-  Sara Salazar (no existe) + los 3 hermanos del documento compartido.
-- ⚠️ **Maximiliano Pimienta tiene ficha DUPLICADA** en la plataforma (ids 269 y 499). Se toma la más
-  antigua y se avisa; hay que fusionarlas.
+- **3 niños no cruzan** (de 110). Revisados uno por uno el 22-sep-2026, y **son tres casos
+  distintos** — no uno solo:
+  · **Ema Hoyos ya estaba resuelta y no hacía falta preguntar nada.** Existe (m425, doc
+    **1035002652**, nac 22-oct-2013 → 12 años, la edad que dice el Excel); lo que está mal es el
+    Excel, que le puso el documento de **Luciana Osorio**. La propia rejilla del club la escribe
+    "EMMA HOYOS" y la tabla "EMA HOYOS". Resuelta con `ALIAS_NINO` en el importador — lista
+    EXPLÍCITA con su evidencia, no emparejamiento difuso, porque esto decide a quién se le cobra.
+  · **Valentín Ramírez Arango EXISTE pero sin cédula**: es el **titular de la ficha 112**
+    (`alejaro90@hotmail.com`), y Clemente es miembro de esa misma ficha. Falta cargarle documento y
+    fecha de nacimiento; el Excel le puso el de su hermano.
+  · **Matías Restrepo es el único que de verdad no existe**: Elena Restrepo es la ficha 430
+    (acudiente Daniela Caicedo), 5 años; el Excel dice que Matías tiene 4. Hay que crearlo como
+    hermano dentro de esa ficha.
+  · Y **Sara Salazar** sigue sin existir. Pista para preguntarle al club: Arianna (`1125814022`) y
+    Gianna Salazar (`1125814023`) sí están, con documentos **consecutivos**, y Arianna está en la
+    misma clase del sábado 8:00.
+- ✅ **Maximiliano Pimienta: fusionado** (22-sep-2026). Tenía DOS fichas del mismo niño (doc
+  1019911784, nac 26-ago-2015): la **166** (titular **Alex Pimienta**, el papá, con 28 facturas de
+  Siigo) y la **485**, que creó el importador de academias el 25-ago-2026 con el correo y el celular
+  de otra persona. Sobrevive la 166, por decisión de Laura.
+  ⚠️ **La 485 NO estaba vacía, y por poco se borra con algo dentro**: tenía colgada la **clase 429**
+  (`clases.cliente_id = 485`), la del 12-sep que este archivo ya perseguía por otros dos motivos
+  (precio en $0 contra $105.000 de EasyCancha, y sin profesor). La reserva se hizo con el correo de
+  la mamá y por eso cayó en la ficha duplicada. Se movió a la 166 **antes** de borrar; `miembro_id`
+  se dejó en null porque no consta cuál de los dos tomó la clase. **Moraleja: contar referencias por
+  `miembro_id` no basta — hay que contar también por `cliente_id`, y sobre las 16 columnas que
+  apuntan a `clientes`/`cliente_miembros`, no sobre las que uno recuerda.**
+  · El correo y el celular de la 485 eran de **Luisa Quimbayo, la mamá** (dato de Laura): quedó
+    creada como **acudiente 151** de la ficha 166, para no perder el contacto.
+  · Rastro en `audit_log` (`cliente.fusionar`) con la ficha vieja entera. `clientes`: 501 → 500.
 
 ### 🧮 El planeador del club cuenta MAL la ocupación, y nosotros no
 Su panel cuenta **una fila de niño = media hora de profesor**, así que una clase de 4 le sale como 2
@@ -884,7 +910,7 @@ cae ahí es una reposición: se le pide de cuál de sus clases es, para que el r
 siendo exacto. El selector "¿la dicta otro hoy?" es el suplente y **es a quien se le liquida**.
 
 ### Estado y pendientes de academias
-- **Cargado**: 52 clases · 106 niños · 170 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
+- **Cargado**: 52 clases · 107 niños · 171 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
   Cristian 10/29 · Sebastián Niño 9/24 · Yeison 0.
 - ⚠️ **Sebastián Niño Mora es `coord_admin`, no profesor**, y dicta las 9 clases de competencia. Sale
   en los selectores porque `staff_docentes` entra por REGLAS DE PAGO activas, no por el rol.
@@ -1536,11 +1562,10 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
-- **Fusionar las dos fichas de Maximiliano Pimienta** (`cliente_miembros` 269 y 499): el importador
-  del planeador toma la más antigua y avisa, pero el duplicado sigue ahí.
-- **Los 4 niños del planeador que no cruzan**: Sara Salazar (no existe en la plataforma) y los tres
-  hermanos a los que el Excel les repite el documento (Valentín Ramírez Arango, Matías Restrepo,
-  Ema Hoyos). Detalle en `docs/academias-tenis-datos-a-revisar.md`.
+- 📌 **Tres datos que el club tiene que dar para cerrar la matrícula de academias**:
+  (a) **la cédula y la fecha de nacimiento de Valentín Ramírez Arango** — ya existe como titular de
+  la ficha 112, solo le falta eso; (b) **nombre completo, documento y nacimiento de Matías
+  Restrepo**, para crearlo como hermano en la ficha 430 de Elena; (c) **quién es Sara Salazar**.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
