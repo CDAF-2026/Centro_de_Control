@@ -835,6 +835,52 @@ misma fila**, no crea otra.
   alguien, sus clases tienen que seguir siendo alcanzables para reasignarlas. Solo es 404 si el id no
   es nadie Y además no dicta nada.
 
+### 🔁 El cierre SALE DEL PLANEADOR: no se genera nada (22-sep-2026)
+La programación es la MISMA todas las semanas, así que **`/cierre` le pregunta al
+planeador qué debió dictarse** en vez de esperar a que alguien registre la clase.
+La fila de `clases` **NACE CUANDO EL PROFESOR CIERRA**.
+- Se descartó **generar** las 52 clases cada lunes (propuesta mía; Laura la corrigió y
+  tenía razón): si nadie cierra se acumulan, en festivos y vacaciones crea clases que
+  nunca pasaron, y un mes sin cerrar deja ~220 filas fantasma en la tabla de la que come
+  la liquidación. Derivando no hay nada que generar ni nada que limpiar.
+- **`clase_semanal.vigente_desde`** es el piso, si no la cola iría hacia atrás sin fin.
+  Las 52 arrancan el **1-oct-2026** (decisión de Laura: empezar el mes limpio).
+- RPC **`academia_pendientes(desde, hasta, profesor)`** — SECURITY INVOKER, así la RLS
+  filtra sola. `/cierre` mira **30 días** hacia atrás para que la cola del día a día siga
+  siendo legible; lo más viejo vive en **`/cierre/vencidas`** (solo SA), que también lo
+  deriva. Nada queda escondido de quien puede arreglarlo.
+- ⚠️⚠️ **Abrir la clase va por RPC SECURITY DEFINER (`clase_abrir_del_planeador`), y NO
+  es opcional**: `clases_write` cubre SA/CA/coord. deportivo/recepción y **NO al
+  profesor**, que es justo quien más cierra. Verificado: su `insert` directo lo rechaza
+  la RLS. Si alguien lo cambiara por un insert desde la acción, **no escribiría y
+  seguiría de largo sin error** — el fallo que este proyecto ya pagó con el saldo de los
+  paquetes. La función valida por dentro con el mismo criterio que cerrar (coordinación/
+  recepción, o el profesor de la clase) y es **idempotente**: dos clics no crean dos
+  clases.
+- **Índice único `clases (clase_semanal_id, fecha)`** (parcial, porque las 3 clases de
+  agosto no apuntan a ninguna celda): es lo que impide que el cierre derivado y el
+  registro desde `/clases` creen la misma clase por duplicado.
+
+### 📅 Festivo y receso NO son lo mismo, y la diferencia la dictó el club
+| | Qué pasa en la cola de cierre |
+|---|---|
+| **Festivo** | **La academia no dicta** → la clase ni se propone. Sale de la tabla `festivo`, ya cargada hasta 2032. El lunes 12-oct desaparece solo, con sus 10 clases. Si un día excepcional sí dictan, se registra desde `/clases` como siempre |
+| **Receso** (`academia_receso`) | **Sí hay clase y no todos van** → se propone igual, marcada "Semana de receso", y **no se reprocha**: no entra en el conteo ni lleva el badge de +24 h |
+
+- Se descartó **esconder el receso** (dejaría sin registrar a los que sí fueron) y
+  **tratarlo como semana normal** (llenaría la cola de ~100 clases que nadie va a cerrar,
+  y a la tercera semana nadie le cree al aviso de "falta cerrar" — la misma regla de
+  "un aviso donde no está la acción es solo carga").
+- Se administra desde el bloque **Calendario** de `/academias` (coord. deportivo y admin).
+- 💡 Una falta marcada en receso no debería contarle al niño. **No hace falta guardar
+  nada extra**: la clase lleva su fecha y el receso es un rango, así que cualquier
+  informe futuro la puede excluir.
+- 📌 **El receso de diciembre está pendiente de que Laura confirme las fechas.**
+- Pruebas: `tests/cierre-planeador.test.ts` (8, contra Postgres y revertidas). ⚠️ Cada
+  prueba de rechazo va con su **SAVEPOINT**, y la del futuro usa una fecha **en el día de
+  la semana de esa clase**: si no, saltaba antes el guardia del día y la prueba pasaba
+  sin haber probado nada.
+
 ### El cierre dejó de adivinar
 `clases.clase_semanal_id` guarda de qué celda del planeador salió la clase, así que el roster es una
 lectura directa. Antes se cruzaba día + hora **±20 min** contra las franjas del grupo, y eso repartía
@@ -922,9 +968,9 @@ siendo exacto. El selector "¿la dicta otro hoy?" es el suplente y **es a quien 
   líneas de Academia Recreativa Tenis solo 36 tienen `cliente_id`, 95 son mostrador — sin saber de
   quién es la factura no se puede decir "a Pepito no le cobraron") · y decidir cómo tratar a los
   hermanos, porque la factura va a la familia (`cliente`) y el alumno es un `miembro`.
-- 💡 **El cuello de botella sigue siendo registrar la clase**: en agosto se registraron 2 de ~250. Con
-  el planeador como modelo, ahora se puede **generar la semana sola** (52 clases) y que el profesor
-  solo cierre. Es lo siguiente que rinde.
+- ✅ **El cuello de botella (en agosto se registraron 2 clases de ~250) está resuelto**: ya no hay que
+  registrar nada antes — `/cierre` deriva del planeador y la clase nace al cerrarla.
+- 📌 **Pendiente de Laura**: las fechas del **receso de diciembre**.
 
 ⚠️⚠️ **Una escritura rechazada por RLS NO lanza error: no escribe y sigue de largo.** Es el mismo veneno que "leer devuelve 0 filas sin error", pero al revés y peor, porque se pierde un dato. Mordió el 4-sep-2026: al cerrar una clase de paquete, el descuento del saldo era un `update` directo a `paquetes_cliente`, cuya política de escritura solo cubre **SA/CA/recepción** — así que cuando cerraba el **coord. deportivo o un profesor (los que más cierran)** el saldo no bajaba y nadie se enteraba. Daniela Parra mostraba **8/8 disponibles con 2 clases ya dictadas**; correlación 100% con el rol de quien cerró (el único paquete correcto lo había cerrado el SA). **Ampliar la política no era la salida**: le daría al profesor la tabla entera (num_clases, descuentos, borrar) — una política de UPDATE **no puede limitar por columna**. Se resolvió con el RPC **`paquete_consumir(p_clase, p_delta)`** (SECURITY DEFINER; valida por dentro con el mismo criterio que cerrar: coordinación/recepción o el profesor dueño; toca solo el saldo y es atómico), y `cerrarClase`/`reabrirCierre` **sí miran el error**. Mismo patrón que `evento_atar_facturas`. **Regla: toda escritura que dependa de una tabla que el rol que ejecuta no puede escribir va por RPC, y SIEMPRE se mira el `error`.** La asistencia se blindó igual (su política sí cubre al profesor dueño, pero un rechazo dejaría la clase cerrada sin asistencia, que es lo que se liquida).
 
@@ -1562,6 +1608,8 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
+- 📌 **Las fechas del receso de diciembre** (Laura las confirma). Se cargan desde el bloque
+  Calendario de `/academias`; sin ellas, esas semanas saldrán en la cola de cierre como normales.
 - 📌 **Tres datos que el club tiene que dar para cerrar la matrícula de academias**:
   (a) **la cédula y la fecha de nacimiento de Valentín Ramírez Arango** — ya existe como titular de
   la ficha 112, solo le falta eso; (b) **nombre completo, documento y nacimiento de Matías

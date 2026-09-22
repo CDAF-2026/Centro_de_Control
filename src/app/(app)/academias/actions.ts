@@ -438,3 +438,56 @@ export async function cambiarCategoria(inscripcionId: number, academiaId: number
   refrescar();
   return { ok: "Cambiado de academia." };
 }
+
+// ─────────────────────────────────────────────────────────────
+// El calendario: festivos y recesos
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Marca una semana (o un puente) de receso.
+ *
+ * Un FESTIVO y un RECESO no son lo mismo, y la diferencia la dictó el club: en
+ * festivo la academia NO dicta —la cola de cierre ni lo propone, sale solo de la
+ * tabla `festivo`— pero en receso **sí hay clase y no todos van**. Por eso el
+ * receso no esconde nada: la clase se sigue proponiendo, para poder cerrar a los
+ * que fueron, y simplemente deja de reprocharse si nadie la cierra.
+ */
+export async function guardarReceso(
+  _prev: AcademiaFormState,
+  formData: FormData,
+): Promise<AcademiaFormState> {
+  await requireRole(EDITA);
+  const desde = String(formData.get("desde") || "");
+  const hasta = String(formData.get("hasta") || "");
+  const motivo = String(formData.get("motivo") || "").trim();
+
+  const fieldErrors: Record<string, string> = {};
+  const esFecha = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+  if (!esFecha(desde)) fieldErrors.desde = "Escoge la fecha de inicio.";
+  if (!esFecha(hasta)) fieldErrors.hasta = "Escoge la fecha de fin.";
+  if (!motivo) fieldErrors.motivo = "Ponle un nombre (ej. «Receso de diciembre»).";
+  if (!fieldErrors.desde && !fieldErrors.hasta && hasta < desde) {
+    fieldErrors.hasta = "La fecha de fin no puede ser anterior a la de inicio.";
+  }
+  if (Object.keys(fieldErrors).length) return { error: "Revisa los campos.", fieldErrors };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("academia_receso").insert({ desde, hasta, motivo });
+  if (error) return { error: error.message };
+
+  await logAudit({ action: "academia.receso_crear", entity: "academia_receso", entityId: desde, after: { desde, hasta, motivo } });
+  refrescar();
+  revalidatePath("/cierre", "layout");
+  return { ok: "Receso guardado." };
+}
+
+export async function eliminarReceso(id: number): Promise<AcademiaFormState> {
+  await requireRole(EDITA);
+  const supabase = await createClient();
+  const { error } = await supabase.from("academia_receso").delete().eq("id", id);
+  if (error) return { error: error.message };
+  await logAudit({ action: "academia.receso_borrar", entity: "academia_receso", entityId: String(id) });
+  refrescar();
+  revalidatePath("/cierre", "layout");
+  return { ok: "Receso quitado." };
+}

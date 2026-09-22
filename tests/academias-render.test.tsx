@@ -205,4 +205,51 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(t).toContain("no tiene a nadie apuntado");
     expect(t).toContain("Vino de reposición");
   });
+
+  it("/cierre saca las academias del planeador, sin que nadie las registre antes", async () => {
+    // Se siembra UNA clase del planeador a una hora que nadie usa (06:15) y con
+    // el piso en el pasado, para que la cola la proponga hoy. Se borra al final.
+    const { profesorId } = await unaClase();
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const fecha = ayer.toISOString().slice(0, 10);
+    const { data: cs } = await admin()
+      .from("clase_semanal")
+      .insert({
+        profesor_id: profesorId, deporte: "tenis", dia_semana: ayer.getDay(),
+        hora_inicio: "06:15:00", duracion_min: 60, vigente_desde: "2026-01-01",
+      })
+      .select("id")
+      .single();
+    try {
+      const { data: pend } = await admin().rpc("academia_pendientes", {
+        p_desde: fecha, p_hasta: fecha, p_profesor: profesorId,
+      });
+      expect(pend?.some((p) => p.clase_id === cs!.id && p.fecha === fecha)).toBe(true);
+
+      const { default: Page } = await import("../src/app/(app)/cierre/page");
+      const t = texto(await render(Page, { searchParams: P({}) }));
+      expect(t).toContain("Academias ·");
+      expect(t).toContain("Salen del planeador");
+      expect(t).toContain("06:15");
+    } finally {
+      await admin().from("clase_semanal").delete().eq("id", cs!.id);
+    }
+  });
+
+  it("las clases vencidas de academia también salen del planeador", async () => {
+    const { default: Page } = await import("../src/app/(app)/cierre/vencidas/page");
+    const t = texto(await render(Page, {}));
+    expect(t).toContain("Clases vencidas");
+  });
+
+  it("el calendario de la academia distingue festivo de receso", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/page");
+    const t = texto(await render(Page, { searchParams: P({}) }));
+    expect(t).toContain("Calendario");
+    // La diferencia entre los dos es lo que el club dictó, y si se borra de la
+    // pantalla nadie entiende por qué unos días no aparecen y otros sí.
+    expect(t).toContain("no dicta");
+    expect(t).toContain("no se reprocha");
+  });
 });

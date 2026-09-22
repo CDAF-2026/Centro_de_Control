@@ -526,6 +526,8 @@ export type Database = {
           hora_inicio: string;
           duracion_min: number;
           cancha: string | null;
+          /** Desde qué fecha se le puede exigir esta clase (piso del cierre derivado). */
+          vigente_desde: string;
           activa: boolean;
           created_at: string;
           updated_at: string;
@@ -538,11 +540,20 @@ export type Database = {
           hora_inicio: string;
           duracion_min: number;
           cancha?: string | null;
+          vigente_desde?: string;
           activa?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["clase_semanal"]["Insert"]>;
+        Relationships: [];
+      };
+      /** Semana de receso: la clase SÍ se propone (algunos niños van) pero no se
+       *  reprocha si nadie la cierra. Distinto de un festivo, donde no hay clase. */
+      academia_receso: {
+        Row: { id: number; desde: string; hasta: string; motivo: string; created_at: string };
+        Insert: { id?: number; desde: string; hasta: string; motivo: string; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["academia_receso"]["Insert"]>;
         Relationships: [];
       };
       inscripcion_clase: {
@@ -1318,6 +1329,28 @@ export type Database = {
           n_clases: number;
           clases: { id: number; dia: number; hora: string; profesorId: string | null }[];
         }[];
+      };
+      /** Lo que el planeador dice que debió dictarse y nadie ha cerrado. Los
+       *  festivos se saltan; los recesos salen marcados. */
+      academia_pendientes: {
+        Args: { p_desde: string; p_hasta: string; p_profesor?: string | null };
+        Returns: {
+          clase_id: number;
+          profesor_id: string;
+          fecha: string;
+          hora_inicio: string;
+          duracion_min: number;
+          cancha: string | null;
+          ninos: number;
+          en_receso: boolean;
+        }[];
+      };
+      /** Crea la fila de `clases` de una celda del planeador en una fecha, y
+       *  devuelve su id. Idempotente. SECURITY DEFINER: `clases_write` no cubre
+       *  al profesor, que es quien más cierra. */
+      clase_abrir_del_planeador: {
+        Args: { p_clase_semanal: number; p_fecha: string };
+        Returns: number;
       };
       /** Las clases de academia de un niño, para su ficha. */
       miembro_clases_academia: {

@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
 import { ClienteAutocomplete } from "@/components/cliente-autocomplete";
 import { CierreToast } from "./cierre-toast";
+import { abrirClaseDelPlaneador } from "./actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
 
 export default async function CierrePage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; profesor?: string; cliente?: string }>;
+  searchParams: Promise<{ ok?: string; aviso?: string; profesor?: string; cliente?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("cierre_clase"));
   const sp = await searchParams;
@@ -49,6 +50,25 @@ export default async function CierrePage({
     (c) => instanteClase(c.fecha, c.hora_inicio) <= ahoraMs,
   );
 
+  // Las academias NO se registran de antemano: la programación es la misma todas
+  // las semanas, así que se le pregunta al planeador qué debió dictarse. La fila
+  // de `clases` nace al cerrar. Se mira una ventana de 30 días para que la cola
+  // del día a día siga siendo legible; lo más viejo lo ve el SA en /cierre/vencidas.
+  const VENTANA_DIAS = 30;
+  const desde = new Date(hoyD);
+  desde.setDate(desde.getDate() - VENTANA_DIAS);
+  const desdeIso = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, "0")}-${String(desde.getDate()).padStart(2, "0")}`;
+  const { data: delPlaneador } = clienteFilter
+    ? { data: [] }  // el filtro por cliente es de clases individuales; una academia no tiene una sola ficha
+    : await supabase.rpc("academia_pendientes", {
+        p_desde: desdeIso,
+        p_hasta: hoyIso,
+        p_profesor: esProfesor ? profile.id : profesorFilter || null,
+      });
+  const pendientesPlan = (delPlaneador ?? []).filter(
+    (p) => instanteClase(p.fecha, p.hora_inicio) <= ahoraMs,
+  );
+
   // Listas para los filtros (solo staff que ve varias clases).
   // Incluye inactivos: quien ya no está pudo dar las clases que se consultan.
   const profesores = !esProfesor ? await profesoresParaFiltrar() : [];
@@ -59,7 +79,10 @@ export default async function CierrePage({
   }
 
   // Nombres de profesor / deportista (individual) / academia
-  const profIds = [...new Set(lista.map((c) => c.profesor_id).filter((x): x is string => !!x))];
+  const profIds = [...new Set(
+    [...lista.map((c) => c.profesor_id), ...pendientesPlan.map((p) => p.profesor_id)]
+      .filter((x): x is string => !!x),
+  )];
   const acaIds = [...new Set(lista.map((c) => c.academia_id).filter((x): x is number => x != null))];
 
   const profName = new Map<string, string>((profesores).map((p) => [p.id, p.nombre ?? "—"]));
@@ -84,14 +107,31 @@ export default async function CierrePage({
 
   const now = Date.now();
   const hayFiltro = !!profesorFilter || !!clienteFilter;
+  // En receso no se reprocha nada: si nadie la cierra, está bien. Por eso no
+  // entra en el conteo ni lleva el badge de vencida.
+  const enReceso = pendientesPlan.filter((p) => p.en_receso).length;
+  const nRecla = lista.length + pendientesPlan.length - enReceso;
 
   return (
     <div className="space-y-6">
       {sp.ok && <CierreToast estado={sp.ok} />}
+      {sp.aviso && (
+        <p className="border-destructive/40 bg-destructive/5 text-destructive rounded-xl border px-4 py-3 text-sm">
+          {sp.aviso}
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="cdaf-headline">
-          {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
-        </h1>
+        <div>
+          <h1 className="cdaf-headline">
+            {esProfesor ? "Mis clases por cerrar" : "Clases pendientes de cierre"}
+          </h1>
+          {nRecla > 0 && (
+            <p className="text-muted-foreground mt-1.5 text-sm tabular-nums">
+              {nRecla} {nRecla === 1 ? "pendiente" : "pendientes"}
+              {enReceso > 0 && ` · ${enReceso} más en semana de receso, que no se reprochan`}
+            </p>
+          )}
+        </div>
         {esSuperadmin && (
           <div className="flex items-center gap-2">
             <Link href="/cierre/vencidas" className={buttonVariants({ variant: "outline", size: "sm" })}>Clases vencidas</Link>
@@ -118,12 +158,52 @@ export default async function CierrePage({
         </form>
       )}
 
-      {lista.length === 0 && (
+      {lista.length + pendientesPlan.length === 0 && (
         <EmptyState
           icon={CalendarCheck}
           title={hayFiltro ? "No hay clases pendientes con esos filtros" : "No hay clases pendientes"}
           description={hayFiltro ? "Prueba quitar los filtros." : "¡Todo al día! 🎾"}
         />
+      )}
+
+      {pendientesPlan.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="cdaf-title text-base">
+              Academias · {pendientesPlan.length} {pendientesPlan.length === 1 ? "clase" : "clases"}
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              Salen del planeador. Se registran al cerrarlas — no hay que crearlas antes.
+            </p>
+          </div>
+          {pendientesPlan.map((p) => {
+            const vencida =
+              !p.en_receso && now > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+            return (
+              <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                <div>
+                  <p className="font-medium">
+                    Academia · {p.ninos} {p.ninos === 1 ? "niño" : "niños"}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {p.fecha} {p.hora_inicio.slice(0, 5)} · Profe:{" "}
+                    {profName.get(p.profesor_id) ?? "—"}
+                    {p.cancha ? ` · Cancha ${p.cancha}` : ""}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {p.en_receso && <Badge variant="outline">Semana de receso</Badge>}
+                    {vencida && <Badge variant="destructive">+24 h sin cerrar</Badge>}
+                  </div>
+                </div>
+                <form action={abrirClaseDelPlaneador}>
+                  <input type="hidden" name="claseSemanal" value={p.clase_id} />
+                  <input type="hidden" name="fecha" value={p.fecha} />
+                  <button type="submit" className={buttonVariants({ size: "sm" })}>Cerrar</button>
+                </form>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <div className="space-y-2">

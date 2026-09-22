@@ -6,6 +6,7 @@ import { docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DIA_CORTO, DIAS_SEMANA, hhmm } from "./ui";
+import { CalendarioAcademia } from "./calendario";
 
 /**
  * El planeador de la semana.
@@ -24,11 +25,15 @@ export default async function AcademiasPage({
   const { aviso } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: clases }, { data: academias }, docentes] = await Promise.all([
-    supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
-    supabase.from("academias").select("id, codigo, nombre, deporte, categoria, activa").order("deporte", { ascending: false }).order("categoria"),
-    docentesConDeporte(),
-  ]);
+  const hoyIso = new Date().toISOString().slice(0, 10);
+  const [{ data: clases }, { data: academias }, docentes, { data: recesos }, { data: festivos }] =
+    await Promise.all([
+      supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
+      supabase.from("academias").select("id, codigo, nombre, deporte, categoria, activa").order("deporte", { ascending: false }).order("categoria"),
+      docentesConDeporte(),
+      supabase.from("academia_receso").select("id, desde, hasta, motivo").order("desde"),
+      supabase.from("festivo").select("fecha, nombre").gte("fecha", hoyIso).order("fecha").limit(6),
+    ]);
 
   const cs = clases ?? [];
   // Se listan TODOS los docentes de tenis, no solo los que hoy tienen clases:
@@ -138,6 +143,12 @@ export default async function AcademiasPage({
         Una clase es un profesor, un día y una hora. Recreativa y competencia conviven en la misma
         clase — la categoría es de cada niño, y decide cómo se le cobra.
       </p>
+
+      <CalendarioAcademia
+        recesos={recesos ?? []}
+        festivos={festivos ?? []}
+        puedeEditar={puedeEditar}
+      />
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">

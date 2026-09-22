@@ -240,3 +240,38 @@ export async function reabrirCierre(claseId: number): Promise<CierreState> {
   revalidatePath("/clases");
   return { ok: "Cierre deshecho. La clase volvió a pendientes." };
 }
+
+/**
+ * Abre una clase que el PLANEADOR dice que debió dictarse, para poder cerrarla.
+ *
+ * La fila de `clases` nace aquí, en el momento en que alguien va a cerrarla —
+ * no hay ningún proceso que genere la semana por adelantado. Va por RPC
+ * (SECURITY DEFINER) porque `clases_write` NO cubre al profesor, y el profesor
+ * es justo quien más cierra: un insert suyo lo rechazaría la RLS **sin lanzar
+ * error** y la clase no se crearía en silencio.
+ */
+export async function abrirClaseDelPlaneador(formData: FormData): Promise<void> {
+  await requireRole(rolesForModule("cierre_clase"));
+  const claseSemanal = Number(formData.get("claseSemanal"));
+  const fecha = String(formData.get("fecha") || "");
+  if (!claseSemanal || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    redirect("/cierre?ok=error");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("clase_abrir_del_planeador", {
+    p_clase_semanal: claseSemanal,
+    p_fecha: fecha,
+  });
+  if (error || !data) {
+    redirect(`/cierre?aviso=${encodeURIComponent(error?.message ?? "No se pudo abrir la clase.")}`);
+  }
+
+  await logAudit({
+    action: "clase.abrir_planeador",
+    entity: "clases",
+    entityId: String(data),
+    after: { clase_semanal_id: claseSemanal, fecha },
+  });
+  redirect(`/cierre/${data}`);
+}

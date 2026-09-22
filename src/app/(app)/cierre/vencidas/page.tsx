@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
+import { abrirClaseDelPlaneador } from "../actions";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -31,7 +32,24 @@ export default async function ClasesVencidasPage() {
     return nowMs > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
   });
 
-  const profIds = [...new Set(vencidas.map((c) => c.profesor_id).filter((x): x is string => !!x))];
+  // Las academias no se registran de antemano, así que lo vencido de academia hay
+  // que pedírselo al planeador. La cola del día a día solo mira 30 días atrás para
+  // seguir siendo legible; lo más viejo vive AQUÍ, donde está quien puede cerrarlo.
+  const { data: delPlan } = await supabase.rpc("academia_pendientes", {
+    p_desde: "2026-01-01",   // el piso real lo pone `clase_semanal.vigente_desde`
+    p_hasta: hoyIso,
+    p_profesor: null,
+  });
+  const planVencidas = (delPlan ?? [])
+    .filter((p) => !p.en_receso)
+    .filter((p) => nowMs > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .slice(0, 300);
+
+  const profIds = [...new Set(
+    [...vencidas.map((c) => c.profesor_id), ...planVencidas.map((p) => p.profesor_id)]
+      .filter((x): x is string => !!x),
+  )];
   const cliIds = [...new Set(vencidas.map((c) => c.cliente_id).filter((x): x is number => x != null))];
   const acaIds = [...new Set(vencidas.map((c) => c.academia_id).filter((x): x is number => x != null))];
   const profName = new Map<string, string>();
@@ -60,14 +78,14 @@ export default async function ClasesVencidasPage() {
     <div className="space-y-6">
       <div>
         <Link href="/cierre" className="text-muted-foreground text-sm hover:underline">← Clases por cerrar</Link>
-        <h1 className="cdaf-headline mt-1">Clases vencidas ({vencidas.length})</h1>
+        <h1 className="cdaf-headline mt-1">Clases vencidas ({vencidas.length + planVencidas.length})</h1>
         <p className="text-muted-foreground text-sm">
           Clases que pasaron <strong>24 h sin cerrarse</strong> por el profesor → no entran a la liquidación.
           Ciérralas tú (como superadministrador) o reactívalas para que el profesor las registre.
         </p>
       </div>
 
-      {vencidas.length === 0 ? (
+      {vencidas.length + planVencidas.length === 0 ? (
         <EmptyState icon={CalendarCheck} title="No hay clases vencidas" description="Todo se cerró a tiempo. 🎉" />
       ) : (
         <div className="space-y-2">
@@ -91,6 +109,33 @@ export default async function ClasesVencidasPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {planVencidas.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="cdaf-title text-base">
+            Academias · {planVencidas.length} sin cerrar
+          </h2>
+          <p className="text-muted-foreground text-xs">
+            Salen del planeador y no llegaron a registrarse. Las semanas de receso no se cuentan aquí.
+          </p>
+          {planVencidas.map((p) => (
+            <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+              <div>
+                <p className="font-medium">Academia · {p.ninos} {p.ninos === 1 ? "niño" : "niños"}</p>
+                <p className="text-muted-foreground text-sm">
+                  {p.fecha} {p.hora_inicio.slice(0, 5)} · Profe: {profName.get(p.profesor_id) ?? "—"}
+                </p>
+                <Badge variant="destructive" className="mt-1">{haceTexto(p)}</Badge>
+              </div>
+              <form action={abrirClaseDelPlaneador}>
+                <input type="hidden" name="claseSemanal" value={p.clase_id} />
+                <input type="hidden" name="fecha" value={p.fecha} />
+                <button type="submit" className={buttonVariants({ size: "sm" })}>Cerrar</button>
+              </form>
+            </div>
+          ))}
         </div>
       )}
     </div>
