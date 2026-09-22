@@ -881,6 +881,24 @@ La fila de `clases` **NACE CUANDO EL PROFESOR CIERRA**.
   la semana de esa clase**: si no, saltaba antes el guardia del día y la prueba pasaba
   sin haber probado nada.
 
+### 🔁 El flujo, de punta a punta (medido el 22-sep-2026)
+| | Particular / paquete | **Academia** |
+|---|---|---|
+| Habilitar la clase | **Recepción** entra a `/clases` cada día y la registra desde la reserva de EasyCancha | **Nadie.** Sale sola del planeador |
+| Cerrarla | El profesor, en `/cierre` | Igual: el profesor, en `/cierre` |
+
+**El único paso que cambia es el primero, y desaparece.** Medido sobre `audit_log` de los últimos 30
+días: **Camila Arboleda (recepción) registró 154 de 176 clases** —el 88%, la última hoy mismo— y de
+academia solo hay **3 registradas en toda la historia** (Laura 2, Leo 1). Ese paso manual era
+exactamente el cuello de botella.
+⚠️ **`clases.registrada_por` NO es quién registró la clase: es quién registró el CIERRE.** La llena
+`cerrarClase` y la borra `reabrirCierre`; el nombre engaña y me hizo leer mal la operación del club
+antes de mirar el `audit_log`. Para saber quién habilita una clase hay que mirar `audit_log`
+(`clase.particular` / `clase.paquete` / `clase.academia`), no esa columna.
+⚠️ Consecuencia del cierre derivado que hay que vigilar: con ~10 clases de academia al día, si los
+profesores no cierran a diario, a las 24 h pasan a `/cierre/vencidas` y **solo el superadministrador
+puede cerrarlas**. El atraso no se pierde, pero se le acumula a una sola persona.
+
 ### El cierre dejó de adivinar
 `clases.clase_semanal_id` guarda de qué celda del planeador salió la clase, así que el roster es una
 lectura directa. Antes se cruzaba día + hora **±20 min** contra las franjas del grupo, y eso repartía
@@ -1300,11 +1318,11 @@ administrativa sin darle también la creación de usuarios.
   NO es pérdida: hay que esperar a `ACTIVE_HEALTHY`. **No correr migraciones ni escribir nada durante
   la ventana.** Tardó ~10 min y volvió todo (501 clientes, 5.348 facturas, 100 niños, 42 turnos, y
   las 4 tareas de pg_cron activas).
-- 💡 **Los profesores SÍ van a entrar** (decisión de Laura, jul-2026): son quienes cierran clases.
-  Hasta ahora ninguno había iniciado sesión nunca y los 9 tienen correo placeholder
-  (`vena.digital.2207+profe.…`), que es de Laura, no de ellos. Laura tiene los correos reales y los
-  carga por `/empleados/[id]/editar`; la ficha avisa cuando alguien no tiene correo propio, porque el
-  correo es lo que se escribe para entrar.
+- ✅ **Los profesores YA ENTRAN y ya cierran sus clases** (medido el 22-sep-2026). Todos tienen su
+  correo real; no queda ni un placeholder `vena.digital.2207+profe.…` ni el `test@gmail.com` de Juan
+  Cruz. Últimos ingresos: Graciano 22-sep · Jorge 16-sep · Juan Cruz 16-sep · Yeison 15-sep ·
+  Sebastián 11-ago · Cristian 4-ago. **Los 4 que dictan academia pueden cerrar**, que es lo que
+  sostiene el cierre derivado del planeador.
 
 ## ⏱️ Turnos del personal (en construcción · bloque 1 hecho el 26-ago-2026)
 Registro de entrada y salida por horas para quien se paga así: **Camila Arboleda** (cafetería, figura
@@ -1591,8 +1609,8 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 - Rotar tokens expuestos en chat: PAT de Supabase y access_key de Siigo (Laura debe regenerarlos).
 - **Apuntar el SMTP de Supabase a Resend** → habilita enlace de "olvidé mi contraseña" y confirmación
   al cambiar de correo. Hoy ambos flujos van por el SA.
-- **Cargar los correos reales de los 9 profesores** y darles su contraseña (ver Perfil y acceso).
-  Hoy el único con correo de mentira es **Juan Cruz** (`test@gmail.com`); Laura lo carga.
+- ✅ **Correos de los profesores: LISTO** (verificado 22-sep-2026). Todos tienen el suyo y todos han
+  iniciado sesión al menos una vez, Juan Cruz incluido.
 - ✅ **Reglas de pago de Yeison Bedoya — APLICADAS** el 16-sep-2026 (ver su tabla de franjas arriba).
   Con esto **los 9 entrenadores activos tienen reglas**; ya no queda nadie liquidándose en $0 por no
   estar configurado.
