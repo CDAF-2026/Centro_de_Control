@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { NIVEL_LABEL } from "../../academias/ocupacion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import { Hermanos, type Miembro } from "./hermanos";
 import { NotaRapida } from "@/app/(app)/notas/nota-rapida";
 import { NotaCard } from "@/app/(app)/notas/nota-card";
 import { listarNotas } from "@/lib/notas";
-import { staffDirectorio } from "@/lib/staff";
+import { staffDirectorio, mapaNombresStaff } from "@/lib/staff";
 import { documentoLegible } from "../documento";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -78,7 +77,7 @@ export default async function ClienteDetallePage({
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
-    .select("id, academia_id, miembro_id, grupo_id, descuento_pct, fecha_inscripcion")
+    .select("id, academia_id, miembro_id, descuento_pct, fecha_inscripcion")
     .eq("cliente_id", Number(id))
     .eq("activa", true);
   const acaIds = (inscripciones ?? []).map((i) => i.academia_id);
@@ -87,52 +86,45 @@ export default async function ClienteDetallePage({
     : { data: [] as { id: number; nombre: string }[] };
   const acaById = new Map((acaData ?? []).map((a) => [a.id, a.nombre]));
 
-  // El horario es del GRUPO y el niño se apunta a las franjas que le sirven,
-  // así que se llega por inscripcion_franja → grupo_franja.
+  // Cuándo viene: las clases del planeador a las que está apuntado. La academia
+  // (recreativa/competencia) NO decide el horario — decide cómo se le cobra.
   const inscIds = (inscripciones ?? []).map((i) => i.id);
-  const grupoIds = [...new Set((inscripciones ?? []).map((i) => i.grupo_id).filter((g): g is number => g != null))];
-  const [{ data: gruposData }, { data: enlaces }] = await Promise.all([
-    grupoIds.length
-      ? supabase.from("academia_grupo").select("id, nombre, nivel").in("id", grupoIds)
-      : Promise.resolve({ data: [] as { id: number; nombre: string; nivel: string }[] }),
-    inscIds.length
-      ? supabase.from("inscripcion_franja").select("inscripcion_id, franja_id").in("inscripcion_id", inscIds)
-      : Promise.resolve({ data: [] as { inscripcion_id: number; franja_id: number }[] }),
-  ]);
-  const grupoById = new Map((gruposData ?? []).map((g) => [g.id, g]));
-  const franjaIds = [...new Set((enlaces ?? []).map((e) => e.franja_id))];
-  const { data: franjasData } = franjaIds.length
+  const { data: enlaces } = inscIds.length
     ? await supabase
-        .from("grupo_franja")
-        .select("id, dia_semana, hora_inicio, hora_fin, cancha")
-        .in("id", franjaIds)
-        .order("dia_semana")
-        .order("hora_inicio")
+        .from("inscripcion_clase")
+        .select("inscripcion_id, clase_semanal(id, dia_semana, hora_inicio, duracion_min, cancha, profesor_id)")
+        .in("inscripcion_id", inscIds)
     : { data: [] };
-  const franjaById = new Map((franjasData ?? []).map((f) => [f.id, f]));
 
-  const inscripcionesView = (inscripciones ?? []).map((i) => {
-    const g = i.grupo_id != null ? grupoById.get(i.grupo_id) : undefined;
-    return {
-      id: i.id,
-      grupo: g?.nombre ?? null,
-      nivel: g ? NIVEL_LABEL[g.nivel] ?? g.nivel : null,
-      descuento_pct: i.descuento_pct,
-      academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
-      miembro: conMiembro(i.miembro_id),
-      horarios: (enlaces ?? [])
-        .filter((e) => e.inscripcion_id === i.id)
-        .map((e) => franjaById.get(e.franja_id))
-        .filter((f): f is NonNullable<typeof f> => !!f)
-        .sort((a, b) => a.dia_semana - b.dia_semana || a.hora_inicio.localeCompare(b.hora_inicio))
-        .map((f) => ({
-          dia: f.dia_semana,
-          inicio: f.hora_inicio.slice(0, 5),
-          fin: f.hora_fin.slice(0, 5),
-          cancha: f.cancha,
-        })),
-    };
-  });
+  const nombresStaff = await mapaNombresStaff();
+  const finDeClase = (hora: string, min: number) => {
+    const [h, m] = hora.slice(0, 5).split(":").map(Number);
+    const t = h * 60 + m + min;
+    return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  };
+
+  const inscripcionesView = (inscripciones ?? []).map((i) => ({
+    id: i.id,
+    descuento_pct: i.descuento_pct,
+    academiaNombre: acaById.get(i.academia_id) ?? `Academia #${i.academia_id}`,
+    miembro: conMiembro(i.miembro_id),
+    horarios: (enlaces ?? [])
+      .filter((e) => e.inscripcion_id === i.id)
+      .map((e) => e.clase_semanal as unknown as {
+        id: number; dia_semana: number; hora_inicio: string; duracion_min: number;
+        cancha: string | null; profesor_id: string;
+      } | null)
+      .filter((c): c is NonNullable<typeof c> => !!c)
+      .sort((a, b) => a.dia_semana - b.dia_semana || a.hora_inicio.localeCompare(b.hora_inicio))
+      .map((c) => ({
+        claseId: c.id,
+        dia: c.dia_semana,
+        inicio: c.hora_inicio.slice(0, 5),
+        fin: finDeClase(c.hora_inicio, c.duracion_min),
+        cancha: c.cancha,
+        profesor: nombresStaff.get(c.profesor_id) ?? null,
+      })),
+  }));
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")

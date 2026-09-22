@@ -19,6 +19,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | **Migraciones** | `npm run db:apply` (Management API/HTTPS con PAT en .env). ⚠️ `db:push` NO sirve desde el agente (Postgres directo es IPv6-only) |
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
 | **Refrescar solo el catálogo de productos** | `npm run sync:productos` (`-- --dry` para simulacro). Úsalo cuando el club renombre un grupo en Siigo: el sync completo solo refresca este caché si encuentra facturas nuevas, y con el rezago de ~1 día puede pasar medio día sin hacerlo |
+| **Importar el planeador de academias** | `npm run import:planeador -- "ruta/PLANEADOR BASE.xlsx"` (simulacro; `--apply` para escribir). Lee la hoja **BASE DE DATOS**, NO las rejillas por profesor |
 | Backfill cédulas por nombre | `npm run match:siigo -- --apply` |
 | Sync clientes EasyCancha | `npm run sync:clientes` (nuevos entran ya con cédula/tipo/nacimiento) |
 | Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
@@ -581,7 +582,7 @@ CLI — mantener ambas en sintonía). pg_cron la invoca: **cada 20 min** (increm
 chart-area, chart-barras-semana, chart-donut, radial-gauge) · `/ingresos` y `/cartera` detalle paginado
 (20/pág, filtro por servicio; ingresos también por periodo) · `/pagos` cola de conciliación (SOLO
 asignar cliente por NIT; "mostrador" no aparece. **Atar a un evento NO se hace aquí** — ver P&G de
-eventos) · `/clientes` (paginado 30, autocomplete) · `/academias`
+eventos) · `/clientes` (paginado 30, autocomplete) · `/academias` (el **planeador** por profesor + la matrícula por academia)
 · `/paquetes` · `/eventos` (P&G por evento + cierre + atar sus facturas; el dashboard solo ve la
 utilidad de los cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
@@ -769,133 +770,135 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 - Academia: cobro por sesión asistida (excusa médica no se cobra) + matrícula UNA por deporte, SEMESTRAL.
 - Historia de datos arranca el **1-jun-2026**: comparativas "Mes vs anterior" serán completas desde agosto.
 
-## 🔄 Rediseño de Academias (decidido con el club el 29-jul-2026 · en construcción)
-**Ya hecho** (migración 0053): `academias.categoria` (recreativa|competencia, CHECK) +
-`academias.servicio_id` → `servicios`. Existen las **4 fijas** (`ACA-2026-TEN-REC/TEN-COM/PAD-REC/
-PAD-COM`) atadas a su grupo de producto de Siigo, y se borraron las 11 viejas (cascada se llevó sus 46
-clases y 1 inscripción; 0 asistencias, nada que perder). Formularios de nueva/editar academia
-simplificados: solo nombre, deporte, categoría, servicio de Siigo y precio/matrícula **de referencia**.
-`dias_semana`/`hora_inicio`/`hora_fin`/`cancha`/`profesor_id`/`nivel` **siguen en la tabla pero SIN
-USO** (bajan al horario de cada inscrito, que aún no existe) — no borrarlas todavía.
-**Horarios por inscrito** (migraciones 0054–0056): `inscripciones.nivel` (nivel del NIÑO, lista cerrada
-`NIVELES` en validations/academia.ts: Bola Roja/Naranja/Verde/Amarilla + Principiantes/Iniciados/
-Intermedio) + tabla **`inscripcion_horarios`** (inscripcion_id, dia_semana, hora_inicio, hora_fin,
-profesor_id, cancha). Una fila = una venida a la semana, con SU profesor y SU cancha: así se
-representa "mar+jue 16:30 con Jorge y sáb 12:00 con Graciano", que era imposible antes.
-- **La frecuencia se cuenta, no se declara**: 3 horarios = 3×sem. `plan_frecuencia` y `dias[]` quedan
-  EN DESUSO (0055 le quitó el NOT NULL a `plan_frecuencia`, que obligaba a inventar un valor).
-- **Trigger `inscripcion_un_deporte`**: un niño no puede estar en recreativa Y competencia del mismo
-  deporte (sí puede tenis + pádel). No se puede con índice único porque el deporte vive en la academia.
-  Verificado con prueba revertida: bloquea el 2º deporte igual y el horario duplicado, deja pasar el
-  otro deporte y los 3 horarios del mismo niño.
-- ⚠️ 0056 corrigió las políticas RLS de 0054, que usaban subconsulta a `profiles` (choca con la regla 9)
-  y un SELECT `using(true)`. Ahora usan **`private.user_role()`** y los mismos roles que `inscripciones`
-  — al escribir políticas nuevas, seguir ese patrón.
-- UI: `horario-fila.tsx` (una venida; campos como arreglos paralelos `h_dia`/`h_hora`/`h_dur`/
-  `h_profesor`/`h_cancha` que el servidor lee con `getAll`) · `inscrito-row.tsx` (inscrito con sus
-  horarios, agregar/quitar día, retirar) · `inscribir-form.tsx` (niño + nivel + N filas).
-  La ficha del cliente también muestra los horarios en vez del `plan_frecuencia`.
+## 🎾 Academias: EL PLANEADOR manda (22-sep-2026 · migraciones 0078–0079 de academia)
+El club pasó su Excel **"PLANEADOR BASE"** y con él se rehízo el módulo entero. Todo es TENIS: pádel
+sigue sin cargar y las dos academias de pádel están vacías a propósito.
 
-**Grupos visibles** (migración `20260824180000`, ago-2026) — **revierte** el "no existe entidad
-grupo" de julio: el club volvió con una definición que sí se puede modelar.
-`academia_grupo` (academia + **nombre editable** + nivel + rango de edad) → `grupo_franja`
-(día, hora, profesor, cancha, cupo) → `inscripcion_franja` (a qué franjas va cada niño).
-Niveles nuevos: enum **`academia_nivel`** = iniciacion|intermedio|avanzado.
-- ⚠️ **Los rangos de edad los pone el club por grupo y PUEDEN SOLAPARSE.** No hay bandas
-  globales, y no es pereza: medido sobre los 107 niños reales, cualquier banda parte entre 16 y
-  33 de las 60 franjas que el club ya dicta (Jorge tiene mar 15:30 con niños de 9, 9 y 10).
-- ⚠️ **El cupo (Iniciación 6 · Intermedio 5 · Avanzado 4) NO bloquea, avisa** (decisión de Laura).
-  `grupo_franja.cupo` null = el del nivel; se llena solo para excepciones. `cupo_nivel(nivel)`.
-- Sí bloquean por trigger: iniciación en academia de **competencia**, nombre de grupo repetido
-  en la misma academia, rango de edad al revés y franja duplicada.
-- **Cargado el 24-ago-2026**: 9 grupos (Disney en recreativa, tenistas en competencia), 64
-  franjas, 100 niños, vía `scripts/import-grupos-academias.py` (simulacro por defecto,
-  `--apply` para escribir, idempotente). **No se pisa con `import-ninos-academias.py`**, que
-  carga las PERSONAS desde el archivo ancho; este solo arma la matrícula encima y salta al
-  niño que no exista en vez de inventarlo.
-- ⚠️ El importador cruza al niño **por los dígitos del documento** (el Excel pega el tipo:
-  "CE1209531"; la plataforma guarda tipo y número aparte) y, si falla, **por nombre solo si es
-  inequívoco** (hay niños sin documento que viven en la ficha de un padre). Los cruzados por
-  nombre se reportan aparte. Los profesores casan exacto y luego por prefijo, también solo si
-  es inequívoco: el staff se renombró a nombres completos ("Jorge Pérez") y el Excel trae los
-  cortos ("Jorge") — sin eso, 73 filas daban falso "profesor no encontrado".
-- 📌 **Pendientes con el club** (nombres en `docs/academias-tenis-datos-a-revisar.md`): 3
-  documentos compartidos por 2 niños distintos (6 niños sin cargar), Sara Salazar que no
-  existe, 3 niños que ningún grupo cubre, y 2 tipos de documento extranjero.
-- ✅ **Interfaz de grupos completa** (ago-2026): `/academias/[id]/grupos/nuevo` y `.../editar`
-  (nombre + nivel + rango de edad, con sugerencias Disney/tenistas que se pueden ignorar) y
-  `.../franjas` (agregar/editar/borrar franjas del grupo). En la ficha del grupo cada niño tiene
-  **Días** (reabre el formulario de inscripción en modo edición, `?miembro=`, que es idempotente) y
-  **Retirar**.
-  ⚠️ **Borrar un GRUPO se rechaza si tiene niños** (habría que moverlos primero), pero borrar una
-  FRANJA sí se deja: el niño no pierde la inscripción, solo ese día — y aparece en el bloque ámbar
-  de "sin franja asignada". Son dos cosas distintas a propósito.
-- 🎾 **La clase de academia nace del bloqueo con academia → GRUPO → profesor** (migración 0073,
-  `clases.grupo_id`). El modal de `/clases` propone las **franjas del grupo que caen dentro del
-  bloqueo** (mismo día de la semana + hora dentro del rango) y crea **una clase por franja**, con su
-  hora real: un bloqueo de 15:00–18:00 sobre un grupo con franjas de 15:30 y 16:30 son dos clases,
-  sin teclear horarios. Si el grupo no tiene franja a esa hora (clase extra, reposición) se cae al
-  corte manual del bloque, avisándolo.
-  · El **profesor de cada franja** se usa por defecto y el select del modal es un **override que
-    aplica a todas** (sirve para el suplente de hoy). Solo se pre-llena si TODAS las franjas del
-    bloque coinciden en profesor: con dos profes distintos, sugerir uno sería mentira para la otra
-    clase.
-- 🔒 **`inscripciones.grupo_id` es NOT NULL** desde la limpieza (0074): del grupo salen el horario,
-  el cupo y a quién se espera al cerrar. Una inscripción sin grupo no alimentaba nada y desaparecía
-  de todas las pantallas sin dejar rastro.
-- 🗑️ **Limpieza aplicada** (migración 0074, medida antes de borrar: todo en cero). Se fueron la
-  tabla `inscripcion_horarios`, los 4 RPCs del tablero viejo (`academia_rendimiento_franja`,
-  `academia_rendimiento_nino`, `academia_clases_periodo`, `academia_asistencia_clase`), las columnas
-  `inscripciones.dias/plan_frecuencia/nivel` y diez columnas muertas de `academias`
-  (`nivel, profesor_id, cancha, horario, dias_semana, hora_inicio, hora_fin, valor_alumno,
-  periodo_inicio, periodo_fin`). En el código: `esperadoAcademiasCliente`/`esperadoAcademia`/
-  `mesesCorridos` de finanzas.ts, `inscribirEnAcademia` de clientes/actions.ts, los `NIVELES` de bola
-  y **`scripts/seed-demo.mjs`** (borraba TODOS los datos de dominio con `delete().gte("id",0)` y ya
-  escribía a columnas inexistentes: con 100 niños reales cargados era una bomba, no un seeder).
-- ✅ **Retirar a un niño y cambiarle los días**: en la ficha del grupo, cada inscrito tiene
-  **Días** (reabre el formulario de inscripción con `?miembro=`, que es idempotente) y **Retirar**.
-- **Falta**: **academias de pádel**, que Laura dejó explícitamente para después, y el cruce
-  asistencia vs facturas de Siigo (bloqueado por conciliación, ver más abajo).
+**El modelo, en una línea: la clase es `profesor + día + hora + duración`.**
 
-**Rendimiento por franja: APARCADO** (25-ago-2026). Existe el RPC
-`academia_ocupacion_franja(p_academia, p_desde, p_hasta)` (migración 0075) y está verificado, pero
-**ninguna pantalla lo llama**. Se probaron dos sitios y los dos se quitaron: la tabla en la ficha de
-la academia (48 filas casi todas en cero, ilegible) y los avisos en el acordeón del grupo.
-- 🎯 **La regla que zanjó el asunto: un aviso donde no está la acción es solo carga.** Desde la ficha
-  del grupo no se puede cerrar una clase ni registrar un bloqueo. De las tres señales, dos no
-  deciden nada ahí — *falta cerrar* se arregla en **`/cierre`** (que ya lista las pendientes y marca
-  las de +24 h con badge rojo) y *no se dictó* en **`/clases`**. La tercera —*el grupo se está
-  vaciando*— sí sería gestión de academias, pero necesita historia de asistencia que aún no existe.
-  O sea que la pantalla mostraba **solo las dos que no le tocaban**.
-- ✅ **Lo que SÍ se quedó: la asistencia POR NIÑO dentro de la franja.** Ahí decide algo —¿le cambio
-  el día?, ¿lo retiro?— y está al lado de esos botones. Por eso el `PeriodoToggle` del grupo sigue
-  vivo: alimenta ese dato, no un tablero.
-- La ficha del grupo y la de la academia quedan de **matrícula**: quién está inscrito, en qué franja,
-  dónde hay cupo. Marcadores de la academia = Grupos · Niños · Cupos libres · Franjas sobre cupo.
-- 📅 **Cuándo retomarlo — las DOS condiciones, no una**: que haya 6 semanas de clases registradas Y
-  que **el coordinador pregunte** por la tendencia de una franja. Si la pregunta sale de él, la
-  pantalla se gana su sitio; si sale de nosotros, es una pantalla que nadie abre. El diseño ya está
-  hecho: tres bocetos y el porqué largo en **`design/README.md`** (la buena es la Opción C).
-- ⚠️ **El cuello de botella no era la pantalla: en agosto se registraron 2 clases de academia de las
-  ~250 que tocaban.** Cualquier tablero montado hoy muestra rayas. Lo que rinde es quitarle fricción
-  a registrar el bloqueo como clase (registro en lote desde el calendario), no pulir el informe.
-- Detalles del RPC que hay que conservar si se retoma (todos costaron medirlos): la clase se pega a
-  la franja **más cercana** de su día con tolerancia de **±20 min**; `desde_efectivo` = la primera
-  clase que registró ESA academia, y desde ahí se cuenta lo que "tocaba" (sin eso reprochaba 16+48
-  franjas por clases anteriores a que el club empezara a usar el flujo); **HOY no se reprocha**;
-  `clases_por_venir` separa la programada-a-futuro de la vencida; y en "Otras horas" el conteo va con
-  `count(distinct clase_id)`, porque ahí se une con `asistencias` y una clase aparece una vez POR
-  ASISTENTE. `ocurrenciasDeDia()` estaba verificada por fuerza bruta (6.090/6.090) y se borró con el
-  resto del helper — queda en el historial de git.
-- ⚠️ Agregar una columna de salida a un RPC obliga a **DROP + CREATE**: `create or replace` lo
-  rechaza con "cannot change return type of existing function".
+```
+clase_semanal      ← una celda del planeador. NO cuelga de una academia: cuelga del PROFESOR.
+   └─ inscripcion_clase   ← a qué clases viene cada niño
+        └─ inscripciones  ← el niño en Recreativa o Competencia (aquí vive el COBRO)
+             └─ academias ← las 4, atadas a su servicio de Siigo
+```
 
-- **Dónde va el filtro** (decisión de UX): el **periodo** va DENTRO de cada academia, con el mismo
-  `PeriodoToggle` del dashboard/ingresos. NO se hizo un reporte general con selector de academia
-  porque (a) la academia ya es el filtro —se llega haciéndole clic, y son 4— y (b) mezclar las 4 en
-  una tabla invita a comparar cifras no comparables: un grupo de competencia con 3 niños al 94% está
-  sano, uno de recreativa con 3 se muere. La lista general solo lleva el **titular** por academia
-  (inscritos + "N franjas en riesgo") para saber a cuál entrar.
+### ⚠️⚠️ Lo que obligó el cambio: la academia es del NIÑO, no de la clase
+En el planeador, el **lunes 17:30 de Graciano es UNA celda con 4 niños**: Samuel Echeverry es de
+competencia y los otros tres de recreativa. Se repite el miércoles a la misma hora. O sea que
+"Recreativa/Competencia" **no describe la clase, describe cómo se le cobra a cada niño**. Atar la
+clase a una academia partiría en dos lo que en la cancha es una sola clase.
+Se comprobó por el otro lado antes de tocar nada: las 64 franjas del modelo viejo colapsaban en
+**49 clases reales**, y **14 de ellas las compartían 2 o 3 "grupos"** distintos (jue 15:00 cancha 3
+con Graciano = Bambi + Dumbo + Pluto, que en la cancha son 5 niños y una clase).
+
+### Qué se fue, y por qué
+- **`academia_grupo`** (nombre Disney/tenistas + nivel + rango de edad): **no existe en el Excel**.
+  Ni un "Dumbo", ni un "Federer", ni un nivel. Laura confirmó quitarlos (22-sep-2026).
+- **El CUPO, entero** (`grupo_franja.cupo`, `cupo_nivel()`, `franja_cupo()`, el semáforo
+  verde/ámbar/rojo y el aviso de "franjas sobre cupo"). Decisión de Laura: **sin tope, solo se
+  muestra cuántos van**. El club no lleva cupo y las 64 franjas lo tenían todas en null.
+- El enum **`academia_nivel`**, el trigger `grupo_nivel_valido` y los RPCs `academia_grupos_resumen`,
+  `grupo_franjas`, `grupo_inscritos_por_franja` y `academia_ocupacion_franja` (el tablero aparcado).
+- `inscripciones.grupo_id` y `clases.grupo_id`.
+
+### Qué se conserva
+- Las **4 academias** con su `servicio_id` → grupo de producto de Siigo. **La plata sigue saliendo de
+  Siigo**, nunca de `precio`/`matricula` (que son referencia y están en $0).
+- El trigger **`inscripcion_un_deporte`**: un niño va a UNA academia por deporte. Verificado contra el
+  Excel — **0 niños están en recreativa y competencia a la vez**, así que el candado no estorba.
+- La asistencia por niño al cerrar (`/cierre`) y toda la liquidación, que no se tocaron.
+
+### 🔑 Retirar NO borra (`inscripciones.retirada_el`)
+`quitarInscripcion` hacía `DELETE`. Con asistencia de por medio eso **borra la explicación** de lo que
+se dictó y se cobró. Ahora `retirarDeAcademia` apaga `activa`, sella `retirada_el` y le quita sus
+clases; la ficha de la academia lista a los retirados con su fecha. Volver a entrar **reactiva la
+misma fila**, no crea otra.
+
+### Las pantallas
+| Ruta | Qué contesta |
+|---|---|
+| `/academias` | **El planeador**: una fila por profesor × los 6 días, cada celda con sus clases y cuántos niños vienen. Reemplaza las 5 pestañas del Excel |
+| `/academias/profesor/[id]` | Su semana: clases, cupos y **horas de cancha** |
+| `/academias/clase/[id]` | La clase y su roster. Aquí pasa TODA la operación: agregar niño · quitar de este día · **mover a otro horario** · cambiar de academia · retirar |
+| `/academias/[id]` | La **matrícula** de Recreativa o Competencia: quién está, desde cuándo, a qué clases. El lado del dinero |
+| `/academias/clase/nueva` · `.../editar` | Crear y editar una clase del planeador |
+
+- **Agregar un niño matricula de una** si todavía no estaba: en el mostrador son un solo gesto, y
+  partirlas en dos pantallas es lo que dejaba niños inscritos sin ningún día.
+- **Mover de clase va en un paso** (`moverDeClase`), no retirando y volviendo a inscribir.
+- Cada niño muestra **cuántos días MÁS tiene a la semana**, para no retirarlo creyendo que era el
+  único. Y la ficha de la academia grita cuántos están **"sin ningún día"** (hoy: 0).
+- ⚠️ **Un profesor sin clases SE MUESTRA** (Yeison Bedoya, por pedido de Laura). Esconderlo dejaría
+  al profesor nuevo sin forma de recibir su primera clase — el mismo criterio que `opcionesParaDeporte`.
+- ⚠️ `/academias/profesor/[id]` **no exige que siga siendo docente activo**: si le dan de baja a
+  alguien, sus clases tienen que seguir siendo alcanzables para reasignarlas. Solo es 404 si el id no
+  es nadie Y además no dicta nada.
+
+### El cierre dejó de adivinar
+`clases.clase_semanal_id` guarda de qué celda del planeador salió la clase, así que el roster es una
+lectura directa. Antes se cruzaba día + hora **±20 min** contra las franjas del grupo, y eso repartía
+mal justo a los grupos que compartían cancha y hora. Las 3 clases de agosto no tienen
+`clase_semanal_id` (son del modelo viejo): se caen a la lista de toda la academia y la pantalla lo
+dice. Hay prueba de los dos caminos.
+
+### 📥 El importador: `npm run import:planeador` (scripts/import-planeador.py)
+Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 22-sep-2026: 52 clases ·
+106 niños · 170 enlaces · 0 niños sin día.**
+- ⚠️⚠️ **Se lee "BASE DE DATOS", NO las rejillas por profesor.** Cada bloque de 30 min de la rejilla
+  tiene sitio para 4 nombres y el 5º se cae a la fila de abajo, donde **parece una clase nueva**:
+  medidos **13 bloques fantasma** (la "clase de Jorge martes 17:00" con Ismael, Josué y Nicolás son
+  en realidad los niños 5, 6 y 7 de la de las 16:30, que en BASE DE DATOS sale con 7). Importar la
+  rejilla en crudo inventaría 13 clases.
+- ⚠️ **El documento se cruza JUNTO CON EL NOMBRE.** El Excel le da el mismo documento a dos hermanos
+  en 3 casos (Clemente/Valentín Ramírez Arango · Elena/Matías Restrepo · Luciana Osorio/Ema Hoyos);
+  cruzar solo por documento le metería la matrícula de uno al otro. Cuando el documento lo reclama un
+  solo niño sí basta, aunque el nombre venga escrito distinto ("SIMON VÉLEZ" / "Simon Velez").
+- ⚠️ **La llave de la clase NO incluye la duración.** Krystal García hace 60 min dentro de la clase de
+  90 de Graciano (lun y vie 16:00): meterla en la llave partiría esa clase en dos. Se toma la duración
+  predominante y la mezcla se reporta.
+- **Monte Luna y Montessori se excluyen**: son colegios, no academias (60 filas). Curiosamente son las
+  ÚNICAS con la columna ASIST. llena — el club quiso llevar asistencia en el planeador y no lo logró.
+  Eso es exactamente lo que hace `/cierre`.
+- **4 niños no cruzan** y son los pendientes ya conocidos de `docs/academias-tenis-datos-a-revisar.md`:
+  Sara Salazar (no existe) + los 3 hermanos del documento compartido.
+- ⚠️ **Maximiliano Pimienta tiene ficha DUPLICADA** en la plataforma (ids 269 y 499). Se toma la más
+  antigua y se avisa; hay que fusionarlas.
+
+### 🧮 El planeador del club cuenta MAL la ocupación, y nosotros no
+Su panel cuenta **una fila de niño = media hora de profesor**, así que una clase de 4 le sale como 2
+horas: el martes de Graciano marcaba **175% de ocupación** sobre 6 horas disponibles. Verificado
+exacto (13 filas × 0,5 + 8 de colegio × 0,5 = las 10,5 h que muestra). Encima su total global (87,5 h)
+no cuadra con la suma de sus días (40,5 h). Aquí **las horas son de CLASE y los niños se cuentan
+aparte**: 52 clases · 58,5 h · 170 cupos. Hay una prueba que lo fija.
+
+### Lo que el Excel NO trae, y hay que saberlo
+**Cancha** (queda opcional, solo para reconocer el bloqueo de EasyCancha) · **cupo** · **nivel** ·
+**periodo/semestre** · **plata**. Si algún día el club piensa en semestres o planes de pago, hoy no
+hay dónde ponerlos.
+
+### El modal de `/clases` ahora escoge PROFESOR
+Un bloqueo se registra eligiendo al profesor dueño del planeador; se marcan solas sus clases que caen
+dentro del bloqueo y se crea una clase por cada una, con su hora real. Si **ninguna** de sus clases
+cae ahí es una reposición: se le pide de cuál de sus clases es, para que el roster del cierre siga
+siendo exacto. El selector "¿la dicta otro hoy?" es el suplente y **es a quien se le liquida**.
+
+### Estado y pendientes de academias
+- **Cargado**: 52 clases · 106 niños · 170 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
+  Cristian 10/29 · Sebastián Niño 9/24 · Yeison 0.
+- ⚠️ **Sebastián Niño Mora es `coord_admin`, no profesor**, y dicta las 9 clases de competencia. Sale
+  en los selectores porque `staff_docentes` entra por REGLAS DE PAGO activas, no por el rol.
+- ⚠️ **Marlon Marín NO se cargó** (decisión de Laura, 22-sep-2026): tiene pestaña en el Excel pero
+  vacía, y no existe en la plataforma. Si entra, hay que crearle **perfil, alias de EasyCancha Y
+  reglas de pago** — las tres fallan en silencio y cada una por su lado.
+- La programación cargada es la de la **semana del 14-sep-2026**, confirmada vigente por Laura.
+- **Falta**: pádel · el cruce asistencia vs facturas de Siigo (bloqueado por conciliación: de 224
+  líneas de Academia Recreativa Tenis solo 36 tienen `cliente_id`, 95 son mostrador — sin saber de
+  quién es la factura no se puede decir "a Pepito no le cobraron") · y decidir cómo tratar a los
+  hermanos, porque la factura va a la familia (`cliente`) y el alumno es un `miembro`.
+- 💡 **El cuello de botella sigue siendo registrar la clase**: en agosto se registraron 2 de ~250. Con
+  el planeador como modelo, ahora se puede **generar la semana sola** (52 clases) y que el profesor
+  solo cierre. Es lo siguiente que rinde.
 
 ⚠️⚠️ **Una escritura rechazada por RLS NO lanza error: no escribe y sigue de largo.** Es el mismo veneno que "leer devuelve 0 filas sin error", pero al revés y peor, porque se pierde un dato. Mordió el 4-sep-2026: al cerrar una clase de paquete, el descuento del saldo era un `update` directo a `paquetes_cliente`, cuya política de escritura solo cubre **SA/CA/recepción** — así que cuando cerraba el **coord. deportivo o un profesor (los que más cierran)** el saldo no bajaba y nadie se enteraba. Daniela Parra mostraba **8/8 disponibles con 2 clases ya dictadas**; correlación 100% con el rol de quien cerró (el único paquete correcto lo había cerrado el SA). **Ampliar la política no era la salida**: le daría al profesor la tabla entera (num_clases, descuentos, borrar) — una política de UPDATE **no puede limitar por columna**. Se resolvió con el RPC **`paquete_consumir(p_clase, p_delta)`** (SECURITY DEFINER; valida por dentro con el mismo criterio que cerrar: coordinación/recepción o el profesor dueño; toca solo el saldo y es atómico), y `cerrarClase`/`reabrirCierre` **sí miran el error**. Mismo patrón que `evento_atar_facturas`. **Regla: toda escritura que dependa de una tabla que el rol que ejecuta no puede escribir va por RPC, y SIEMPRE se mira el `error`.** La asistencia se blindó igual (su política sí cubre al profesor dueño, pero un rechazo dejaría la clase cerrada sin asistencia, que es lo que se liquida).
 
@@ -1160,68 +1163,6 @@ así que ponerlo allá habría dejado a quien comete el error sin forma de arreg
 - ⚠️ **No hay tabla de liquidación** (se calcula al vuelo), así que NO se puede saber por código si
   una quincena ya se pagó. El plazo de 24 h es el sustituto de ese candado: si algún día se persiste
   la liquidación, el guardia correcto pasa a ser "¿el periodo ya se liquidó?".
-
-**Falta**: importador del Excel y cruce asistencia vs facturas de Siigo.
-✅ **Modal de `/clases`**: la academia y el profesor se escogen SIEMPRE a mano — adivinarlos sube el
-margen de error (decisión de Laura). Ya se quitó la lógica muerta de "candidatas"
-(`academiasEnBloque`, `CandidataAcademia`, `numeroCancha` en clases/types.ts + la rama del checklist):
-nunca casaba, porque las 4 academias no tienen horario. `franjasDeBloque` SÍ se sigue usando, para
-partir un bloque largo en varias clases.
-✅ **Reporte por niño** (migración 0059, RPC `academia_rendimiento_nino`): por inscrito, cuántas clases
-de SUS franjas se dictaron y a cuántas asistió. ⚠️ "Esperadas" son las clases **realmente dictadas**
-(estado `realizada`) en sus franjas, NO las semanas del calendario: no se le reprocha a un niño faltar
-a una clase que nunca se dio — eso sale en el tablero por franja. El % **descuenta las excusas
-médicas**, que no se cobran ni son desenganche.
-⚠️ El cruce con Siigo está **bloqueado por conciliación, no por código**: de 224 líneas de Academia
-Recreativa Tenis solo **36 tienen `cliente_id`** (95 son mostrador). Sin saber de quién es la factura
-no se puede decir "a Pepito no le cobraron". Y falta decidir cómo tratar a los hermanos: la factura va
-a la familia (`cliente`) y el alumno es un `miembro`, así que dos hermanos en la misma academia
-comparten una sola factura.
-
-El modelo actual de `academias` mezcla tres cosas y por eso se llenó de "grupitos" (Esteban tenía 11
-academias, Jorge 9, para lo que en realidad son 2 servicios). Lo decidido:
-- **4 academias fijas**: Recreativa/Competencia × tenis/pádel. Cada una apunta a su **servicio de
-  Siigo** (`Academia de Tenis`, `Alto rendimiento tenis`, `Academia de Padel`, `Academia Alto
-  Rendimiento Padel`) — no a un precio interno.
-- **NO existe entidad "grupo"**. Decisión de Laura: mostrarlo confunde. Lo que se guarda es la lista
-  de inscritos de cada academia, y por inscrito sus **horarios por día** (día, hora, duración,
-  profesor, cancha) + nivel. El "grupo" es un cálculo invisible (agrupar por día+hora+profesor), usado
-  solo para pre-marcar la asistencia y para el reporte de ocupación.
-- **Inscripción única por niño y por deporte** (un niño no está en recreativa y competencia a la vez;
-  sí puede hacer tenis y pádel). El alumno es un **`cliente_miembros`**, no la ficha familiar.
-- **Nivel** = progresión de tenis (Bola Roja/Naranja/Verde/Amarilla) + Principiantes/Iniciados/
-  Intermedio, en lista cerrada (si cada uno escribe libre, el reporte por nivel no sirve).
-- ✅ **`precio`/`matricula` YA NO son cálculo** (la plata sale de Siigo). `LineaLiq.valorFacturado` pasó
-  a `number | null` y en academia va **null** → la liquidación muestra "—", no "$ 0" (que se leería
-  como "no se le cobró"). Antes estimaba `precio ÷ (días×4) × alumnos`, un número inventado al lado de
-  la plata real. Impacto verificado: $0 — las 3 reglas de academia son `fijo_por_clase` y no miran el
-  facturado, y no hay ninguna clase de academia `realizada`. Efecto secundario BUENO: a quien le falte
-  regla de academia ahora le sale $0 (visible) en vez de un % sobre una cifra ficticia (invisible).
-  Control correcto = cruzar **quién asistió** vs **a quién le facturó Siigo**, por personas, no por precio.
-- **El club deja de hacer bloqueos largos**: una reserva de EasyCancha = una clase (instrucción de
-  Laura al club, jul-2026). El usuario BLOQUEOS ACADEMIAS es EXCLUSIVO de academias.
-- **Formato del comentario**: "Academia Recreativa Esteban". ⚠️ Pero **no se depende de él**: en el
-  modal la academia se escoge SIEMPRE a mano (arranca vacía, sin pre-seleccionar) porque define a
-  quién se le cobra; el **profesor** sí viene sugerido del comentario y se **confirma al cerrar la
-  clase** (obligatorio: hoy una clase sin `profesor_id` desaparece de la liquidación en silencio).
-- ✅ **Cierre** (hecho): la lista trae SOLO a los del GRUPO DE LA CLASE apuntados a esa franja
-  (`clases.grupo_id` → `grupo_franja` → `inscripcion_franja`, día + hora ±20 min, misma tolerancia
-  que el tablero). Medido con datos reales: de 100 inscritos de la academia y 28 del grupo, la lista
-  del lunes 17:30 trae **5**. ⚠️ Antes filtraba por `inscripciones.dias`,
-  que quedó en desuso y hoy está siempre vacío, así que la condición `dias.length === 0` dejaba pasar
-  a TODOS los inscritos de la academia — Laura lo detectó viendo a una niña de lunes/miércoles en una
-  clase de jueves. Los demás inscritos van en una sección **plegada** ("¿vino alguien más?") con
-  default **"No vino"**, solo para registrar una reposición; en la acción, `"no"` no inserta y borra
-  el registro previo si lo hubiera (ojo: `estadoAsis` cae a "presente" ante un valor desconocido, por
-  eso hay un `noVino()` aparte que también excluye del correo de notificación). Y antes de guardar sale
-  el conteo en vivo: "vas a registrar N presentes de M que se esperaban".
-- ✅ **YA SE QUITÓ** de `/academias` la programación: `generarProgramacion`, `reprogramarClase`,
-  `cancelarClase` + los componentes `programar-form.tsx` y `clase-academia-row.tsx`. La ficha no dice
-  nada sobre clases (se probó una tarjeta explicativa y Laura la mandó quitar: la ficha es de
-  inscritos). **El botón "+ Nueva academia" se dejó a propósito** (Laura necesita crear academias de
-  prueba); se quita cuando existan las 4 fijas.
-- Las 11 academias actuales NO se migran (tenían 1 sola inscripción): se archivan y se arranca desde
-  un Excel que llena el club (una fila por niño y por día).
 
 ## 👤 Perfil y acceso a la plataforma (migración 0060, jul-2026)
 **Dos sitios distintos a propósito**: `/perfil` = "mis datos" (cualquier rol) · `/empleados/[id]` =
@@ -1595,6 +1536,11 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
+- **Fusionar las dos fichas de Maximiliano Pimienta** (`cliente_miembros` 269 y 499): el importador
+  del planeador toma la más antigua y avisa, pero el duplicado sigue ahí.
+- **Los 4 niños del planeador que no cruzan**: Sara Salazar (no existe en la plataforma) y los tres
+  hermanos a los que el Excel les repite el documento (Valentín Ramírez Arango, Matías Restrepo,
+  Ema Hoyos). Detalle en `docs/academias-tenis-datos-a-revisar.md`.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el

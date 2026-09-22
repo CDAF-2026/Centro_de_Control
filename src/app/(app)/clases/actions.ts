@@ -643,86 +643,78 @@ export async function asignarProfesorClase(
 // Registrar un bloqueo de academia de EasyCancha como clase(s)
 // ─────────────────────────────────────────────────────────────
 
-export type FranjaOpcion = {
+/** Una clase del planeador del profesor, para proponerla dentro del bloqueo. */
+export type ClasePlaneada = {
   id: number;
   dia: number;
-  hora: string;   // "16:30"
-  horaFin: string;
-  profesorId: string | null;
+  hora: string;
+  duracionMin: number;
   cancha: string | null;
+  ninos: number;
 };
 
-export type GrupoOpcion = {
-  id: number;
-  academiaId: number;
+export type ProfesorConClases = {
+  id: string;
   nombre: string;
-  nivel: string;
-  edadMin: number;
-  edadMax: number;
-  franjas: FranjaOpcion[];
+  clases: ClasePlaneada[];
 };
-
-export type AcademiaOpcion = { id: number; nombre: string; deporte: string | null };
 
 export type PrepararAcademia = {
-  academias: AcademiaOpcion[];
-  grupos: GrupoOpcion[];
-  profesores: { id: string; nombre: string }[];
+  profesores: ProfesorConClases[];
 };
 
 /**
- * Academias activas con SUS GRUPOS y las franjas de cada grupo, más los
- * profesores. Todo de una vez: son 4 academias, 9 grupos y 64 franjas, y el
- * modal las necesita todas para proponer qué clases crear dentro del bloqueo.
+ * Lo que el modal necesita para convertir un bloqueo en clases de academia.
+ *
+ * Se escoge el PROFESOR, no la academia: en el planeador del club una misma
+ * clase mezcla niños de recreativa y de competencia, así que la academia no es
+ * una propiedad de la clase. Quien identifica lo que pasa en la cancha a esa
+ * hora es el profesor.
  */
 export async function prepararAcademia(): Promise<PrepararAcademia> {
   await requireRole(WRITE);
   const supabase = await createClient();
 
-  const profesores = (await profesoresActivos()).map((p) => ({ id: p.id, nombre: p.nombre ?? "—" }));
-  const [{ data: acas }, { data: grupos }, { data: franjas }] = await Promise.all([
-    supabase.from("academias").select("id, nombre, deporte").eq("activa", true).order("nombre"),
-    supabase.from("academia_grupo").select("id, academia_id, nombre, nivel, edad_min, edad_max").eq("activo", true).order("nombre"),
-    supabase
-      .from("grupo_franja")
-      .select("id, grupo_id, dia_semana, hora_inicio, hora_fin, profesor_id, cancha")
-      .eq("activo", true)
-      .order("dia_semana")
-      .order("hora_inicio"),
+  const [docentes, { data: clases }] = await Promise.all([
+    profesoresActivos(),
+    supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
   ]);
 
   return {
-    academias: (acas ?? []).map((a) => ({ id: a.id, nombre: a.nombre, deporte: a.deporte })),
-    profesores,
-    grupos: (grupos ?? []).map((g) => ({
-      id: g.id,
-      academiaId: g.academia_id,
-      nombre: g.nombre,
-      nivel: g.nivel,
-      edadMin: g.edad_min,
-      edadMax: g.edad_max,
-      franjas: (franjas ?? [])
-        .filter((f) => f.grupo_id === g.id)
-        .map((f) => ({
-          id: f.id,
-          dia: f.dia_semana,
-          hora: f.hora_inicio.slice(0, 5),
-          horaFin: f.hora_fin.slice(0, 5),
-          profesorId: f.profesor_id,
-          cancha: f.cancha,
+    profesores: docentes.map((p) => ({
+      id: p.id,
+      nombre: p.nombre ?? "—",
+      clases: (clases ?? [])
+        .filter((c) => c.profesor_id === p.id)
+        .map((c) => ({
+          id: c.clase_id,
+          dia: c.dia_semana,
+          hora: c.hora_inicio.slice(0, 5),
+          duracionMin: c.duracion_min,
+          cancha: c.cancha,
+          ninos: c.ninos,
         })),
     })),
   };
 }
 
+/**
+ * Registra un bloqueo de EasyCancha como una o varias clases de academia.
+ *
+ * `clases` son ids de `clase_semanal` (las celdas del planeador que caen dentro
+ * del bloqueo). Cada una entra con su propia hora, y la clase registrada guarda
+ * de qué celda salió: con eso el roster de /cierre es exacto, sin adivinar.
+ *
+ * La academia NO se guarda en la clase: cada niño trae la suya en su matrícula.
+ */
 export async function materializarAcademia(input: {
   bookingId: string;
   fecha: string;
   deporte: "tenis" | "padel" | null;
   cancha: string;
-  /** Override: si viene, manda sobre el profesor de cada franja. */
+  /** Override: si viene, manda sobre el profesor de la clase (suplente de hoy). */
   profesorId: string;
-  clases: { grupoId: number; inicio: string; fin: string; profesorId: string | null }[];
+  clases: { claseSemanalId: number; inicio: string; fin: string }[];
 }): Promise<CierreLikeState> {
   await requireRole(WRITE);
   const supabase = await createClient();
@@ -737,23 +729,20 @@ export async function materializarAcademia(input: {
     .maybeSingle();
   if (existe) return { error: "Este bloqueo ya estaba registrado como clase." };
 
-  const ids = [...new Set(input.clases.map((c) => c.grupoId))];
-  const { data: grupos } = await supabase
-    .from("academia_grupo")
-    .select("id, nombre, academia_id")
+  const ids = [...new Set(input.clases.map((c) => c.claseSemanalId))];
+  const { data: planeadas } = await supabase
+    .from("clase_semanal")
+    .select("id, profesor_id")
     .in("id", ids);
-  const porId = new Map((grupos ?? []).map((g) => [g.id, g]));
-  if (ids.some((id) => !porId.has(id))) return { error: "Algún grupo ya no existe." };
+  const porId = new Map((planeadas ?? []).map((c) => [c.id, c]));
+  if (ids.some((id) => !porId.has(id))) return { error: "Alguna de esas clases ya no existe." };
 
   const filas = input.clases.map((c) => {
-    const g = porId.get(c.grupoId)!;
+    const p = porId.get(c.claseSemanalId)!;
     return {
       tipo: "academia" as const,
-      academia_id: g.academia_id,
-      grupo_id: g.id,
-      // Cada franja ya sabe quién la dicta; lo que se escoja en el modal manda
-      // (hoy puede estar cubriendo un suplente).
-      profesor_id: input.profesorId || c.profesorId || null,
+      clase_semanal_id: p.id,
+      profesor_id: input.profesorId || p.profesor_id,
       deporte: input.deporte,
       cancha: input.cancha || null,
       fecha: input.fecha,
@@ -772,15 +761,14 @@ export async function materializarAcademia(input: {
     action: "clase.academia",
     entity: "clases",
     entityId: input.bookingId,
-    after: { easycancha_booking_id: input.bookingId, clases: filas.length, grupos: ids },
+    after: { easycancha_booking_id: input.bookingId, clases: filas.length, clase_semanal: ids },
   });
   revalidatePath("/clases");
   revalidatePath("/cierre");
 
-  const nombres = [...new Set(ids.map((id) => porId.get(id)!.nombre))];
   return {
     ok: filas.length === 1
-      ? `Clase de ${nombres[0]} registrada. Ya aparece en clases por cerrar.`
-      : `${filas.length} clases registradas (${nombres.join(", ")}). Ya aparecen en clases por cerrar.`,
+      ? "Clase de academia registrada. Ya aparece en clases por cerrar."
+      : `${filas.length} clases de academia registradas. Ya aparecen en clases por cerrar.`,
   };
 }

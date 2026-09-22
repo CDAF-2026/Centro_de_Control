@@ -1,18 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { mapaNombresStaff } from "@/lib/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
-import { BarraOcupacion, ChipOcupacion, DIA_CORTO, NIVEL_LABEL } from "../ocupacion";
+import { DIA_CORTO } from "../ui";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
+/**
+ * La ficha de una academia = su MATRÍCULA. Quién está, desde cuándo y a qué
+ * clases viene. El horario no vive aquí: vive en el planeador, porque una misma
+ * clase mezcla niños de recreativa y de competencia.
+ */
 export default async function AcademiaDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
@@ -22,27 +27,35 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const [{ data: servicio }, { data: grupos }, { data: listaEspera }] = await Promise.all([
-    a.servicio_id
-      ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.rpc("academia_grupos_resumen", { p_academia: academiaId }),
-    supabase
-      .from("lista_espera")
-      .select("id, nombre, contacto, nivel, edad, disponibilidad")
-      .eq("academia_id", academiaId)
-      .order("created_at"),
-  ]);
+  const [{ data: servicio }, { data: matricula }, { data: listaEspera }, { data: retirados }, nombres] =
+    await Promise.all([
+      a.servicio_id
+        ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.rpc("academia_matricula", { p_academia: academiaId }),
+      supabase
+        .from("lista_espera")
+        .select("id, nombre, contacto, edad, disponibilidad")
+        .eq("academia_id", academiaId)
+        .order("created_at"),
+      supabase
+        .from("inscripciones")
+        .select("id, retirada_el, cliente_miembros(nombres, apellidos)")
+        .eq("academia_id", academiaId)
+        .eq("activa", false)
+        .order("retirada_el", { ascending: false })
+        .limit(20),
+      mapaNombresStaff(),
+    ]);
 
-  const gs = grupos ?? [];
-  const ninos = gs.reduce((n, g) => n + g.ninos, 0);
-  const cupo = gs.reduce((n, g) => n + g.cupo_total, 0);
-  const ocupados = gs.reduce((n, g) => n + g.ocupados, 0);
-  const sobre = gs.reduce((n, g) => n + g.franjas_sobre_cupo, 0);
-  const libres = Math.max(0, cupo - ocupados);
+  const ninos = matricula ?? [];
+  const venidas = ninos.reduce((n, x) => n + x.n_clases, 0);
+  // Un niño matriculado sin ningún día no viene a nada, y desde la matrícula no
+  // se ve solo: por eso se cuenta aparte en vez de esconderlo en la lista.
+  const sinDias = ninos.filter((x) => x.n_clases === 0);
 
   const puedeGestionar = can(profile.role, "academias", "edit");
-  const puedeInscribir = ["superadmin", "coord_admin", "coord_deportivo", "recepcion"].includes(profile.role);
+  const puedeInscribir = can(profile.role, "academias", "edit");
 
   return (
     <div className="space-y-6">
@@ -68,88 +81,72 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         </div>
       </div>
 
-      {/* Marcador: la pregunta del club es "¿dónde hay campo?" */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Grupos" valor={gs.length} />
-        <Kpi label="Niños inscritos" valor={ninos} />
-        <Kpi label="Cupos libres" valor={libres} tono={libres > 0 ? "ok" : undefined} />
-        <Kpi label="Franjas sobre cupo" valor={sobre} tono={sobre > 0 ? "mal" : undefined} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Kpi label="Niños matriculados" valor={ninos.length} />
+        <Kpi label="Venidas a la semana" valor={venidas} />
+        <Kpi label="Sin ningún día" valor={sinDias.length} tono={sinDias.length > 0 ? "mal" : undefined} />
       </div>
 
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="cdaf-title text-base">Grupos</h2>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              Un grupo es un nivel y un rango de edad. Cada uno tiene sus propias franjas.
-            </p>
-          </div>
-          {puedeGestionar && (
-            <Link href={`/academias/${a.id}/grupos/nuevo`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              + Nuevo grupo
-            </Link>
-          )}
-        </div>
+      {sinDias.length > 0 && (
+        <p className="border-warning/35 bg-warning/10 rounded-xl border px-4 py-3 text-sm text-[#6d4700]">
+          <strong>
+            {sinDias.length === 1 ? "Un niño está matriculado" : `${sinDias.length} niños están matriculados`} sin
+            venir a ninguna clase:
+          </strong>{" "}
+          {sinDias.map((n) => n.nombre).join(", ")}. Agrégalos a una clase desde el planeador o retíralos.
+        </p>
+      )}
 
-        {gs.length === 0 ? (
+      <section className="space-y-3">
+        <h2 className="cdaf-title text-base">Matrícula</h2>
+        {ninos.length === 0 ? (
           <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
-            Esta academia todavía no tiene grupos.
+            Esta academia todavía no tiene niños matriculados.
           </p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {gs.map((g) => (
-              <Link
-                key={g.grupo_id}
-                href={`/academias/${a.id}/grupos/${g.grupo_id}`}
-                className="hover:border-lime ring-foreground/[0.06] bg-card flex flex-col gap-3.5 rounded-xl p-4.5 shadow-sm ring-1 transition-all hover:-translate-y-0.5"
-              >
-                <div className="flex items-start justify-between gap-2.5">
-                  <div>
-                    <p className="cdaf-title text-lg">{g.nombre}</p>
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {NIVEL_LABEL[g.nivel] ?? g.nivel} · {g.edad_min}–{g.edad_max} años
-                    </p>
-                  </div>
-                  <ChipOcupacion ocupados={g.ocupados} cupo={g.cupo_total} />
-                </div>
-
-                <p className="flex items-baseline gap-1.5">
-                  <span className="font-heading text-[28px] font-bold tabular-nums">{g.ninos}</span>
-                  <span className="text-muted-foreground text-xs">
-                    niños · {g.franjas} {g.franjas === 1 ? "franja" : "franjas"}
-                  </span>
-                </p>
-
-                <div>
-                  <div className="text-muted-foreground mb-1.5 flex justify-between text-[11px]">
-                    <span>Ocupación</span>
-                    <span className="tabular-nums">
-                      {g.ocupados} de {g.cupo_total}
-                    </span>
-                  </div>
-                  <BarraOcupacion ocupados={g.ocupados} cupo={g.cupo_total} />
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {g.dias.map((d) => (
-                    <span key={d} className="border-border bg-card text-muted-foreground inline-flex h-5 items-center rounded-4xl border px-2 text-[11px]">
-                      {DIA_CORTO[d]}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            ))}
+          <div className="ring-foreground/[0.06] bg-card overflow-x-auto rounded-xl shadow-sm ring-1">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-border text-muted-foreground cdaf-eyebrow border-b text-[11px]">
+                  <th className="px-4 py-3 text-left">Niño</th>
+                  <th className="px-2 py-3 text-left">Edad</th>
+                  <th className="px-2 py-3 text-left">Viene</th>
+                  <th className="px-2 py-3 text-left">Desde</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ninos.map((n) => (
+                  <tr key={n.inscripcion_id} className="border-border/60 border-b last:border-0">
+                    <td className="px-4 py-2.5">
+                      <Link href={`/clientes/${n.cliente_id}`} className="font-medium hover:underline">
+                        {n.nombre}
+                      </Link>
+                    </td>
+                    <td className="text-muted-foreground px-2 py-2.5 tabular-nums">{n.edad ?? "—"}</td>
+                    <td className="px-2 py-2.5">
+                      {n.clases.length === 0 ? (
+                        <span className="text-warning-foreground text-xs">sin día</span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1">
+                          {n.clases.map((c) => (
+                            <Link
+                              key={c.id}
+                              href={`/academias/clase/${c.id}`}
+                              className="border-border hover:border-lime inline-flex h-5 items-center rounded-4xl border px-2 text-[11px] tabular-nums"
+                              title={c.profesorId ? nombres.get(c.profesorId) ?? "" : ""}
+                            >
+                              {DIA_CORTO[c.dia]} {c.hora}
+                            </Link>
+                          ))}
+                        </span>
+                      )}
+                    </td>
+                    <td className="text-muted-foreground px-2 py-2.5 tabular-nums">{n.desde}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-
-        {sobre > 0 && (
-          <p className="border-warning/35 bg-warning/10 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm text-[#6d4700]">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            <span>
-              {sobre === 1 ? "Una franja está" : `${sobre} franjas están`} por encima del cupo. Se puede
-              inscribir igual — esto es un aviso, no un bloqueo.
-            </span>
-          </p>
         )}
       </section>
 
@@ -169,6 +166,28 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         </CardContent>
       </Card>
 
+      {(retirados ?? []).length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Retirados</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {(retirados ?? []).map((r) => {
+                const m = r.cliente_miembros as unknown as { nombres: string; apellidos: string } | null;
+                return (
+                  <li key={r.id} className="flex justify-between py-2">
+                    <span>{m ? `${m.apellidos}, ${m.nombres}` : "—"}</span>
+                    <span className="text-muted-foreground tabular-nums">{r.retirada_el ?? "—"}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-muted-foreground mt-3 text-xs">
+              Retirar no borra: su asistencia y su cobro de los meses pasados tienen que poder explicarse.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle>Lista de espera ({listaEspera?.length ?? 0})</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -178,7 +197,7 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
                 <li key={l.id} className="py-2">
                   <span className="font-medium">{l.nombre}</span>{" "}
                   <span className="text-muted-foreground">
-                    {[l.nivel, l.edad ? `${l.edad} años` : null, l.disponibilidad, l.contacto].filter(Boolean).join(" · ")}
+                    {[l.edad ? `${l.edad} años` : null, l.disponibilidad, l.contacto].filter(Boolean).join(" · ")}
                   </span>
                 </li>
               ))}
@@ -197,12 +216,13 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   );
 }
 
-function Kpi({ label, valor, tono }: { label: string; valor: number; tono?: "ok" | "mal" }) {
-  const color = tono === "ok" ? "text-[#5b6300]" : tono === "mal" ? "text-destructive" : "";
+function Kpi({ label, valor, tono }: { label: string; valor: number; tono?: "mal" }) {
   return (
     <div className="ring-foreground/[0.06] bg-card rounded-xl px-4.5 py-4 shadow-sm ring-1">
       <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{label}</p>
-      <p className={`font-heading mt-1 text-[26px] font-bold tabular-nums ${color}`}>{valor}</p>
+      <p className={`font-heading mt-1 text-[26px] font-bold tabular-nums ${tono === "mal" ? "text-destructive" : ""}`}>
+        {valor}
+      </p>
     </div>
   );
 }

@@ -8,12 +8,6 @@ import { nombreStaff } from "@/lib/staff";
 import { valorPaquete } from "@/lib/finanzas";
 import { CierreForm } from "./cierre-form";
 
-/** "16:30:00" → 990 minutos. null si no parsea. */
-function aMinutos(t: string | null): number | null {
-  const m = /^(\d{1,2}):(\d{2})/.exec((t ?? "").trim());
-  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
-}
-
 export default async function CerrarClasePage({
   params,
 }: {
@@ -26,7 +20,7 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, grupo_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, clase_semanal_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
@@ -57,69 +51,45 @@ export default async function CerrarClasePage({
   // academia aparecen por separado y cada uno cuenta para cobro y liquidación.
   let deportistas: { id: number; nombre: string }[] = [];
   let otrosInscritos: { id: number; nombre: string }[] = [];
-  if (clase.tipo === "academia" && clase.academia_id) {
-    // Se espera SOLO a quien tenga ese día a esa hora en SU GRUPO. El horario ya
-    // no es del niño (`inscripcion_horarios`, retirada): es del grupo, y el niño
-    // se apunta a las franjas que le sirven (`inscripcion_franja`).
-    const diaClase = new Date(`${clase.fecha}T00:00:00`).getDay();
-    const horaClase = aMinutos(clase.hora_inicio);
+  if (clase.tipo === "academia") {
+    // El roster sale de la CLASE DEL PLANEADOR, que la clase registrada guarda
+    // al nacer. Antes había que adivinarlo cruzando día + hora ±20 min contra
+    // las franjas del grupo, y eso repartía mal a los grupos que comparten
+    // cancha y hora. Ahora es una lectura directa: quien está apuntado a esta
+    // clase, es a quien se espera.
+    const { data: roster } = clase.clase_semanal_id
+      ? await supabase.rpc("clase_semanal_roster", { p_clase: clase.clase_semanal_id })
+      : { data: null };
 
-    // Si la clase sabe de qué grupo es (lo guarda el modal al registrarla), solo
-    // se mira ese grupo. Las clases viejas no lo tienen: se cae a la academia.
-    let q = supabase
-      .from("inscripciones")
-      .select("id, miembro_id, grupo_id")
-      .eq("academia_id", clase.academia_id)
-      .eq("activa", true);
-    if (clase.grupo_id) q = q.eq("grupo_id", clase.grupo_id);
-    const { data: ins } = await q;
-    const insList = (ins ?? []).filter(
-      (i): i is { id: number; miembro_id: number; grupo_id: number } => i.miembro_id != null,
-    );
+    const esperados = (roster ?? []).map((n) => ({ id: n.miembro_id, nombre: n.nombre }));
+    const yaEstan = new Set(esperados.map((d) => d.id));
 
-    const gruposIds = [...new Set(insList.map((i) => i.grupo_id))];
-    const { data: franjas } = gruposIds.length
-      ? await supabase
-          .from("grupo_franja")
-          .select("id, dia_semana, hora_inicio")
-          .in("grupo_id", gruposIds)
-          .eq("activo", true)
-      : { data: [] };
-
-    // ±20 min de tolerancia, igual que el tablero de rendimiento: una clase
-    // registrada 16:05 sigue siendo la franja de las 16:00.
-    const franjasDeLaClase = (franjas ?? [])
-      .filter((f) => {
-        if (f.dia_semana !== diaClase) return false;
-        if (horaClase == null) return true; // clase sin hora: basta el día
-        const hh = aMinutos(f.hora_inicio);
-        return hh != null && Math.abs(hh - horaClase) <= 20;
-      })
-      .map((f) => f.id);
-
-    const { data: enlaces } = franjasDeLaClase.length
-      ? await supabase.from("inscripcion_franja").select("inscripcion_id").in("franja_id", franjasDeLaClase)
-      : { data: [] };
-    const esperadas = new Set((enlaces ?? []).map((e) => e.inscripcion_id));
-
-    const idsEsperados = insList.filter((i) => esperadas.has(i.id)).map((i) => i.miembro_id);
-    const idsOtros = insList.filter((i) => !esperadas.has(i.id)).map((i) => i.miembro_id);
-    const todos = [...idsEsperados, ...idsOtros];
-    if (todos.length) {
-      const { data: ms } = await supabase
-        .from("cliente_miembros")
-        .select("id, nombres, apellidos")
-        .in("id", todos)
-        .eq("activo", true);
-      const nombrePorId = new Map((ms ?? []).map((m) => [m.id, `${m.apellidos}, ${m.nombres}`]));
-      const arma = (ids: number[]) =>
-        ids
-          .filter((id) => nombrePorId.has(id))
-          .map((id) => ({ id, nombre: nombrePorId.get(id)! }))
-          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-      deportistas = arma(idsEsperados);
-      otrosInscritos = arma(idsOtros);
+    // Los demás matriculados en la misma academia van plegados, por si hay que
+    // registrar una reposición. Sin `clase_semanal_id` (clases viejas, o una
+    // registrada a mano) esta es la única lista que queda.
+    let otros: { id: number; nombre: string }[] = [];
+    if (clase.academia_id) {
+      const { data: ins } = await supabase
+        .from("inscripciones")
+        .select("miembro_id")
+        .eq("academia_id", clase.academia_id)
+        .eq("activa", true);
+      const ids = (ins ?? [])
+        .map((i) => i.miembro_id)
+        .filter((id): id is number => id != null && !yaEstan.has(id));
+      if (ids.length) {
+        const { data: ms } = await supabase
+          .from("cliente_miembros")
+          .select("id, nombres, apellidos")
+          .in("id", ids)
+          .eq("activo", true);
+        otros = (ms ?? []).map((m) => ({ id: m.id, nombre: `${m.apellidos}, ${m.nombres}` }));
+      }
     }
+
+    const porNombre = (a: { nombre: string }, b: { nombre: string }) => a.nombre.localeCompare(b.nombre, "es");
+    deportistas = esperados.sort(porNombre);
+    otrosInscritos = otros.sort(porNombre);
   } else if (clase.miembro_id) {
     const { data: m } = await supabase.from("cliente_miembros").select("id, nombres, apellidos").eq("id", clase.miembro_id).single();
     if (m) deportistas = [{ id: m.id, nombre: `${m.apellidos}, ${m.nombres}` }];

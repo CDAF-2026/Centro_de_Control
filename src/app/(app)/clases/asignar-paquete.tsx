@@ -8,28 +8,35 @@ import {
   materializarAcademia,
   type PrepararAsignacion,
   type PrepararAcademia,
-  type GrupoOpcion,
+  type ClasePlaneada,
+  type ProfesorConClases,
 } from "./actions";
 import { Button } from "@/components/ui/button";
-import { aMinutos, franjasDeBloque, type CalEvento } from "./types";
+import { aMinutos, type CalEvento } from "./types";
 
 type Modo = "paquete" | "particular" | "academia";
 const SELECT = "border-input bg-background mt-1 h-9 w-full rounded-md border px-2 text-sm";
 const DIA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+/** "15:00" + 90 → "16:30". */
+function finDe(hora: string, min: number) {
+  const t = (aMinutos(hora) ?? 0) + min;
+  return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+}
+
 /**
- * Franjas del grupo que caen DENTRO del bloqueo: mismo día de la semana y hora
- * dentro del rango reservado. Es lo que evita teclear horarios a mano — un
- * bloqueo de 15:00 a 18:00 donde el grupo tiene 15:30 y 16:30 son dos clases.
+ * Clases del planeador de ese profesor que caen DENTRO del bloqueo: mismo día de
+ * la semana y hora dentro del rango reservado. Es lo que evita teclear horarios
+ * a mano — un bloqueo de 15:00 a 18:00 con clases de 15:30 y 16:30 son dos.
  */
-function franjasDelGrupoEnBloque(g: GrupoOpcion | null, ev: CalEvento) {
-  if (!g) return [];
+function clasesEnBloque(p: ProfesorConClases | null, ev: CalEvento): ClasePlaneada[] {
+  if (!p) return [];
   const bi = aMinutos(ev.hora), bf = aMinutos(ev.horaFin);
   if (bi === null || bf === null) return [];
   const dow = new Date(`${ev.fecha}T00:00:00`).getDay();
-  return g.franjas.filter((f) => {
-    if (f.dia !== dow) return false;
-    const h = aMinutos(f.hora);
+  return p.clases.filter((c) => {
+    if (c.dia !== dow) return false;
+    const h = aMinutos(c.hora);
     return h !== null && h >= bi && h < bf;
   });
 }
@@ -52,10 +59,9 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   const [personas, setPersonas] = useState("1");
   // Alquiler de cancha: los botones salen escondidos y esto los destapa.
   const [forzarClase, setForzarClase] = useState(false);
-  const [academiaId, setAcademiaId] = useState("");
-  const [grupoId, setGrupoId] = useState("");
-  const [franjasElegidas, setFranjasElegidas] = useState<Set<number>>(new Set());
-  const [duracion, setDuracion] = useState(0); // 0 = el bloque entero como una clase
+  /** Profesor DUEÑO del planeador que se está registrando (no el suplente). */
+  const [duenoId, setDuenoId] = useState("");
+  const [elegidas, setElegidas] = useState<Set<number>>(new Set());
 
   const largoBloque = (() => {
     const i = aMinutos(ev.hora), f = aMinutos(ev.horaFin);
@@ -87,42 +93,31 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
     });
   }
 
-  /** Cambiar de academia limpia el grupo: los grupos son de una academia. */
-  function cambiarAcademia(id: string) {
-    setAcademiaId(id);
-    setGrupoId("");
-    setFranjasElegidas(new Set());
+  /** Al escoger profesor se marcan solas sus clases que caen dentro del bloqueo. */
+  function cambiarDueno(id: string) {
+    setDuenoId(id);
+    const p = aca?.profesores.find((x) => x.id === id) ?? null;
+    setElegidas(new Set(clasesEnBloque(p, ev).map((c) => c.id)));
+    setProfesorId("");
   }
 
-  /** Al escoger grupo se marcan solas sus franjas que caen dentro del bloqueo. */
-  function cambiarGrupo(id: string) {
-    setGrupoId(id);
-    const g = aca?.grupos.find((x) => String(x.id) === id) ?? null;
-    const dentro = franjasDelGrupoEnBloque(g, ev);
-    setFranjasElegidas(new Set(dentro.map((f) => f.id)));
-    // Se sugiere el profesor SOLO si todas las franjas coinciden en uno: con dos
-    // profes distintos dentro del bloque, cualquier sugerencia sería mentira
-    // para una de las dos clases. Ahí se deja vacío y cada clase toma el suyo.
-    const profes = new Set(dentro.map((f) => f.profesorId ?? ""));
-    if (!profesorId && profes.size === 1 && dentro[0]?.profesorId) setProfesorId(dentro[0].profesorId);
-    setDuracion(0);
-  }
+  const dueno = aca?.profesores.find((p) => p.id === duenoId) ?? null;
+  const enBloque = clasesEnBloque(dueno, ev);
+  // Ninguna de sus clases cae aquí: es una reposición o una clase extra. Se le
+  // deja escoger DE CUÁL de sus clases es, para que el roster del cierre siga
+  // siendo exacto — registrarla suelta dejaría una clase sin a quién esperar.
+  const esReposicion = !!dueno && enBloque.length === 0;
+  const candidatas = esReposicion ? dueno!.clases : enBloque;
 
-  const grupo = aca?.grupos.find((g) => String(g.id) === grupoId) ?? null;
-  const gruposDeAcademia = (aca?.grupos ?? []).filter((g) => String(g.academiaId) === academiaId);
-  const enBloque = franjasDelGrupoEnBloque(grupo, ev);
-  const franjas = franjasDeBloque(ev.hora, ev.horaFin, duracion);
-
-  // Con franjas del grupo dentro del bloqueo se usan esas (cada una es una clase
-  // con su hora real). Si el grupo no tiene ninguna a esa hora —una clase extra,
-  // una reposición— se cae al corte manual del bloque.
-  const clasesAEnviar = !grupo
+  const clasesAEnviar = !dueno
     ? []
-    : enBloque.length > 0
-      ? enBloque
-          .filter((f) => franjasElegidas.has(f.id))
-          .map((f) => ({ grupoId: grupo.id, inicio: f.hora, fin: f.horaFin, profesorId: f.profesorId }))
-      : franjas.map((f) => ({ grupoId: grupo.id, inicio: f.inicio, fin: f.fin, profesorId: null }));
+    : esReposicion
+      ? dueno.clases
+          .filter((c) => elegidas.has(c.id))
+          .map((c) => ({ claseSemanalId: c.id, inicio: ev.hora, fin: ev.horaFin }))
+      : enBloque
+          .filter((c) => elegidas.has(c.id))
+          .map((c) => ({ claseSemanalId: c.id, inicio: c.hora, fin: finDe(c.hora, c.duracionMin) }));
 
   function confirmar() {
     setErr(null);
@@ -228,84 +223,66 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
 
       {modo === "academia" && aca && (
         <div className="space-y-2">
-          {aca.academias.length === 0 ? (
+          {aca.profesores.length === 0 ? (
             <p className="text-sm">
-              No hay academias activas. Crea una en <a className="underline" href="/academias">Academias</a>.
+              No hay profesores activos. Revísalos en <a className="underline" href="/empleados">Empleados</a>.
             </p>
           ) : (
             <>
+              {/* Se escoge el PROFESOR, no la academia: en el planeador del club una
+                  misma clase mezcla niños de recreativa y de competencia, así que la
+                  academia no es del bloqueo — es de cada niño. */}
               <label className="block text-xs">
-                Academia
-                <select value={academiaId} onChange={(e) => cambiarAcademia(e.target.value)} className={SELECT}>
-                  <option value="">— Escoge una —</option>
-                  {aca.academias.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                Profesor del planeador
+                <select value={duenoId} onChange={(e) => cambiarDueno(e.target.value)} className={SELECT}>
+                  <option value="">— Escoge uno —</option>
+                  {aca.profesores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}{p.clases.length === 0 ? " (sin clases)" : ""}
+                    </option>
+                  ))}
                 </select>
+                {ec.comentario && (
+                  <span className="text-muted-foreground mt-1 block">EasyCancha dice: “{ec.comentario}”.</span>
+                )}
               </label>
 
-              {academiaId && (
-                <label className="block text-xs">
-                  Grupo
-                  <select value={grupoId} onChange={(e) => cambiarGrupo(e.target.value)} className={SELECT}>
-                    <option value="">— Escoge uno —</option>
-                    {gruposDeAcademia.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.nombre} · {g.nivel} · {g.edadMin}–{g.edadMax} años
-                      </option>
-                    ))}
-                  </select>
-                  {gruposDeAcademia.length === 0 && (
-                    <span className="text-muted-foreground mt-1 block">
-                      Esta academia todavía no tiene grupos.
-                    </span>
-                  )}
-                </label>
+              {esReposicion && (
+                <p className="border-warning/35 bg-warning/10 rounded-md border px-3 py-2 text-xs text-[#6d4700]">
+                  Ninguna clase de {dueno!.nombre} cae este día a esta hora. Si es una reposición o una
+                  clase extra, escoge de cuál de sus clases es: así al cerrarla se sabe a quién esperar.
+                </p>
               )}
 
-              {grupo && (
-                <label className="block text-xs">
-                  Profesor
-                  <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)} className={SELECT}>
-                    <option value="">
-                      {enBloque.some((f) => f.profesorId) ? "— El de cada franja —" : "— Sin asignar —"}
-                    </option>
-                    {aca.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
-                  <span className="text-muted-foreground mt-1 block">
-                    Escoger uno lo aplica a TODAS las clases de este bloqueo (útil si hoy hay
-                    suplente).
-                    {ec.comentario && <> EasyCancha dice: “{ec.comentario}”.</>}
-                  </span>
-                </label>
-              )}
-
-              {/* Franjas del grupo que caen dentro del bloqueo: una clase por franja,
-                  con su hora real. Sin teclear horarios. */}
-              {grupo && enBloque.length > 0 && (
+              {dueno && candidatas.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-xs">
-                    Clases de {grupo.nombre} dentro de este bloqueo ({ev.hora}–{ev.horaFin}):
+                    {esReposicion
+                      ? `Clases de ${dueno.nombre}:`
+                      : `Sus clases dentro de este bloqueo (${ev.hora}–${ev.horaFin}):`}
                   </p>
                   <ul className="space-y-1">
-                    {enBloque.map((f) => (
-                      <li key={f.id}>
+                    {candidatas.map((c) => (
+                      <li key={c.id}>
                         <label className="flex items-start gap-2 text-xs">
                           <input
                             type="checkbox"
                             className="mt-0.5"
-                            checked={franjasElegidas.has(f.id)}
+                            checked={elegidas.has(c.id)}
                             onChange={(e) => {
-                              const s2 = new Set(franjasElegidas);
-                              if (e.target.checked) s2.add(f.id);
-                              else s2.delete(f.id);
-                              setFranjasElegidas(s2);
+                              const s2 = new Set(elegidas);
+                              if (e.target.checked) s2.add(c.id);
+                              else s2.delete(c.id);
+                              setElegidas(s2);
                             }}
                           />
                           <span>
-                            <span className="font-medium tabular-nums">{DIA[f.dia]} {f.hora}–{f.horaFin}</span>
+                            <span className="font-medium tabular-nums">
+                              {DIA[c.dia]} {c.hora}–{finDe(c.hora, c.duracionMin)}
+                            </span>
                             <span className="text-muted-foreground">
-                              {" · "}
-                              {aca.profesores.find((p) => p.id === (profesorId || f.profesorId))?.nombre ?? "sin profesor"}
-                              {f.cancha ? ` · cancha ${f.cancha}` : ""}
+                              {" · "}{c.ninos} {c.ninos === 1 ? "niño" : "niños"}
+                              {c.cancha ? ` · cancha ${c.cancha}` : ""}
                             </span>
                           </span>
                         </label>
@@ -315,30 +292,33 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
                 </div>
               )}
 
-              {/* Sin franjas a esa hora: el grupo no tiene clase ahí. Se registra
-                  igual (clase extra o reposición), partiendo el bloque a mano. */}
-              {grupo && enBloque.length === 0 && (
-                <>
-                  <p className="border-warning/35 bg-warning/10 rounded-md border px-3 py-2 text-xs text-[#6d4700]">
-                    {grupo.nombre} no tiene ninguna franja este día a esta hora. Se puede registrar igual
-                    —como clase extra o reposición— escogiendo cómo se parte el bloque.
-                  </p>
-                  {cortes.length > 0 && (
-                    <label className="block text-xs">
-                      Este bloque dura {Math.floor(largoBloque / 60)}h{largoBloque % 60 ? ` ${largoBloque % 60}m` : ""} · ¿cómo se registra?
-                      <select value={duracion} onChange={(e) => setDuracion(Number(e.target.value))} className={SELECT}>
-                        <option value={0}>Todo el bloque como UNA clase</option>
-                        {cortes.map((d) => <option key={d} value={d}>En clases de {d} min</option>)}
-                      </select>
-                    </label>
-                  )}
-                </>
+              {dueno && dueno.clases.length === 0 && (
+                <p className="border-warning/35 bg-warning/10 rounded-md border px-3 py-2 text-xs text-[#6d4700]">
+                  {dueno.nombre} no tiene ninguna clase en el planeador. Créale una en{" "}
+                  <a className="underline" href={`/academias/profesor/${dueno.id}`}>Academias</a> antes de
+                  registrar este bloqueo.
+                </p>
               )}
 
-              {grupo && (
+              {dueno && (
+                <label className="block text-xs">
+                  ¿La dicta otro hoy? (opcional)
+                  <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)} className={SELECT}>
+                    <option value="">— La dicta {dueno.nombre} —</option>
+                    {aca.profesores
+                      .filter((p) => p.id !== dueno.id)
+                      .map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                  </select>
+                  <span className="text-muted-foreground mt-1 block">
+                    Se aplica a TODAS las clases de este bloqueo, y es a quien se le liquida.
+                  </span>
+                </label>
+              )}
+
+              {dueno && clasesAEnviar.length > 0 && (
                 <p className="text-muted-foreground text-xs">
-                  Se {clasesAEnviar.length === 1 ? "creará 1 clase" : `crearán ${clasesAEnviar.length} clases`}
-                  {clasesAEnviar.length > 0 && `: ${clasesAEnviar.map((c) => `${c.inicio}–${c.fin}`).join(" · ")}`}.
+                  Se {clasesAEnviar.length === 1 ? "creará 1 clase" : `crearán ${clasesAEnviar.length} clases`}:{" "}
+                  {clasesAEnviar.map((c) => `${c.inicio}–${c.fin}`).join(" · ")}.
                 </p>
               )}
 

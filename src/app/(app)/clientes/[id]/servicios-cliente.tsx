@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { anularPaqueteCliente, asignarPaquete, editarPaqueteCliente, type ClienteFormState } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -7,16 +8,21 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Pencil } from "lucide-react";
 
-type InscHorario = { dia: number; inicio: string; fin: string; cancha: string | null };
+type InscHorario = {
+  claseId: number;
+  dia: number;
+  inicio: string;
+  fin: string;
+  cancha: string | null;
+  profesor: string | null;
+};
 type Insc = {
   id: number;
-  /** Grupo del niño dentro de la academia (nombre editable: Disney / tenistas). */
-  grupo: string | null;
-  nivel: string | null;
   descuento_pct: number;
+  /** Recreativa o competencia: decide cómo se le cobra, no a qué clase viene. */
   academiaNombre: string;
   miembro: string | null;
-  /** Cuándo viene: las franjas de su grupo a las que está apuntado. */
+  /** Cuándo viene: las clases del planeador a las que está apuntado. */
   horarios: InscHorario[];
 };
 type Pq = {
@@ -185,25 +191,33 @@ export function ServiciosCliente({
         {inscripciones.length > 0 ? (
           <ul className="divide-y text-sm">
             {inscripciones.map((i) => (
-              <li key={i.id} className="flex justify-between gap-3 py-2">
-                <span>
-                  {i.academiaNombre}
-                  {i.miembro && <span className="text-muted-foreground"> · {i.miembro}</span>}
-                  {i.grupo && <span className="text-muted-foreground"> · {i.grupo}</span>}
-                  {i.nivel && <span className="text-muted-foreground"> · {i.nivel}</span>}
-                </span>
-                <span className="text-muted-foreground text-right">
-                  {i.horarios.length > 0 ? (
-                    <>
-                      {i.horarios.map((h) => `${DIA_LABEL[h.dia]} ${h.inicio}`).join(" · ")}
-                      {" · "}
-                      {i.horarios.length}×sem
-                    </>
-                  ) : (
-                    "sin horario"
-                  )}
-                  {i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
-                </span>
+              <li key={i.id} className="py-2">
+                <div className="flex flex-wrap justify-between gap-3">
+                  <span>
+                    {i.academiaNombre}
+                    {i.miembro && <span className="text-muted-foreground"> · {i.miembro}</span>}
+                  </span>
+                  <span className="text-muted-foreground text-right">
+                    {i.horarios.length > 0
+                      ? `${i.horarios.length}×sem`
+                      : "sin ninguna clase asignada"}
+                    {i.descuento_pct > 0 ? ` · ${i.descuento_pct}% desc.` : ""}
+                  </span>
+                </div>
+                {i.horarios.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {i.horarios.map((h) => (
+                      <Link
+                        key={h.claseId}
+                        href={`/academias/clase/${h.claseId}`}
+                        className="border-border hover:border-lime text-muted-foreground inline-flex h-5 items-center rounded-4xl border px-2 text-[11px]"
+                      >
+                        <span className="tabular-nums">{DIA_LABEL[h.dia]} {h.inicio}</span>
+                        {h.profesor && <span> · {h.profesor}</span>}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -60,87 +60,149 @@ const P = <T,>(o: T) => Promise.resolve(o);
 const render = async (fn: any, props: any) => renderToStaticMarkup(await fn(props));
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
-/** Una academia y un grupo que existan de verdad, para no fijar ids a mano. */
-async function unaAcademiaConGrupo() {
+/** Una clase y una academia que existan de verdad, para no fijar ids a mano. */
+async function unaClase() {
   const { data } = await admin()
-    .from("academia_grupo")
-    .select("id, academia_id")
-    .eq("activo", true)
+    .from("clase_semanal")
+    .select("id, profesor_id")
+    .eq("activa", true)
     .order("id")
     .limit(1);
-  const g = data?.[0];
-  if (!g) throw new Error("No hay grupos cargados: esta prueba necesita datos.");
-  return { academiaId: String(g.academia_id), grupoId: String(g.id) };
+  const c = data?.[0];
+  if (!c) throw new Error("No hay clases en el planeador: esta prueba necesita datos.");
+  return { claseId: String(c.id), profesorId: String(c.profesor_id) };
+}
+
+async function unaAcademia() {
+  const { data } = await admin().from("academias").select("id").order("id").limit(1);
+  const a = data?.[0];
+  if (!a) throw new Error("No hay academias: esta prueba necesita datos.");
+  return String(a.id);
 }
 
 describe("las pantallas de academias se renderizan enteras", () => {
-  it("el listado", async () => {
+  it("el planeador de la semana", async () => {
     const { default: Page } = await import("../src/app/(app)/academias/page");
-    const html = await render(Page, {});
-    expect(texto(html)).toContain("Academias");
+    const html = await render(Page, { searchParams: P({}) });
+    const t = texto(html);
+    expect(t).toContain("Academias");
+    expect(t).toContain("Clases a la semana");
+    expect(t).toContain("Profesor");
   });
 
-  it("la ficha de una academia", async () => {
-    const { academiaId } = await unaAcademiaConGrupo();
+  it("el planeador acepta el aviso que le deja borrar una clase", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/page");
+    const html = await render(Page, { searchParams: P({ aviso: "Clase borrada." }) });
+    expect(texto(html)).toContain("Clase borrada.");
+  });
+
+  it("la semana de un profesor", async () => {
+    const { profesorId } = await unaClase();
+    const { default: Page } = await import("../src/app/(app)/academias/profesor/[id]/page");
+    const html = await render(Page, { params: P({ id: profesorId }) });
+    const t = texto(html);
+    expect(t).toContain("Clases a la semana");
+    expect(t).toContain("Horas de cancha");
+  });
+
+  it("la ficha de una clase, con su roster", async () => {
+    const { claseId } = await unaClase();
+    const { default: Page } = await import("../src/app/(app)/academias/clase/[id]/page");
+    const html = await render(Page, { params: P({ id: claseId }) });
+    const t = texto(html);
+    expect(t).toContain("Sin tope de cupo");
+    expect(t).toMatch(/\d+ niños?/);
+  });
+
+  it("la matrícula de una academia", async () => {
+    const academiaId = await unaAcademia();
     const { default: Page } = await import("../src/app/(app)/academias/[id]/page");
     const html = await render(Page, { params: P({ id: academiaId }) });
     const t = texto(html);
-    expect(t).toContain("Grupos");
-    // Esta pantalla es de MATRÍCULA: grupos, niños y cupo. Lo de si la clase se
-    // dictó o se cerró vive en /clases y /cierre, que es donde hay botón para
-    // arreglarlo (decisión de Laura, ago-2026).
-    expect(t).toContain("Cupos libres");
-    expect(t).toContain("Franjas sobre cupo");
-    expect(t).not.toContain("Cómo va el periodo");
-    expect(t).not.toContain("por revisar");
+    expect(t).toContain("Matrícula");
+    expect(t).toContain("Niños matriculados");
+    expect(t).toContain("Servicio en Siigo");
   });
 
-  it("la ficha de un grupo, con sus franjas desplegables", async () => {
-    const { academiaId, grupoId } = await unaAcademiaConGrupo();
-    const { default: Page } = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/page");
-    const t = texto(await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({}) }));
-    expect(t).toContain("Franjas");
-    // La asistencia se queda, pero POR NIÑO: es la que decide si se le cambia el
-    // día o se le retira, y está al lado de esos botones.
-    expect(t).not.toContain("sin clases en el periodo");
-    expect(t).not.toContain("no se registró");
+  it("crear clase, editar clase y editar academia", async () => {
+    const { claseId, profesorId } = await unaClase();
+    const academiaId = await unaAcademia();
+    const nueva = await import("../src/app/(app)/academias/clase/nueva/page");
+    const editarClase = await import("../src/app/(app)/academias/clase/[id]/editar/page");
+    const editarAca = await import("../src/app/(app)/academias/[id]/editar/page");
+    expect(texto(await render(nueva.default, { searchParams: P({ profesor: profesorId }) }))).toContain("Nueva clase");
+    expect(texto(await render(editarClase.default, { params: P({ id: claseId }) }))).toContain("Editar clase");
+    expect(texto(await render(editarAca.default, { params: P({ id: academiaId }) }))).toContain("academia");
   });
 
-  it("la ficha del grupo en los cuatro periodos", async () => {
-    const { academiaId, grupoId } = await unaAcademiaConGrupo();
-    const { default: Page } = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/page");
-    for (const periodo of ["semana", "mes", "3m"]) {
-      const html = await render(Page, { params: P({ id: academiaId, grupoId }), searchParams: P({ periodo }) });
-      expect(texto(html)).toContain("Franjas");
+  it("una clase que no existe da 404 en vez de reventar", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/clase/[id]/page");
+    await expect(render(Page, { params: P({ id: "999999" }) })).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("el planeador cuenta CLASES, no niños — el error del Excel del club", async () => {
+    // El Excel cuenta una fila de niño como media hora de profesor, así que una
+    // clase de 4 le sale como 2 horas y el martes de Graciano marcaba 175% de
+    // ocupación. Aquí las horas salen de la duración de la CLASE.
+    const { data } = await admin().rpc("planeador_semana", { p_deporte: "tenis" });
+    const horas = (data ?? []).reduce((n: number, c: any) => n + c.duracion_min, 0) / 60;
+    const ninos = (data ?? []).reduce((n: number, c: any) => n + c.ninos, 0);
+    expect(horas).toBeLessThan(ninos); // 48,5 h contra 170 cupos
+    expect(horas).toBeGreaterThan(0);
+  });
+
+  it("nadie queda matriculado sin ninguna clase", async () => {
+    // Un niño matriculado sin día no viene a nada y no se ve en el planeador:
+    // es el fallo callado que la ficha de la academia tiene que gritar.
+    const { data: insc } = await admin().from("inscripciones").select("id").eq("activa", true);
+    const { data: links } = await admin().from("inscripcion_clase").select("inscripcion_id");
+    const con = new Set((links ?? []).map((l) => l.inscripcion_id));
+    const sin = (insc ?? []).filter((i) => !con.has(i.id));
+    expect(sin.length).toBe(0);
+  });
+
+  it("el cierre de una clase de academia espera EXACTAMENTE a los de esa clase", async () => {
+    // Antes había que adivinar el roster cruzando día + hora ±20 min contra las
+    // franjas del grupo, y eso repartía mal a los grupos que compartían cancha.
+    // Ahora la clase registrada guarda de qué celda del planeador salió.
+    const { claseId, profesorId } = await unaClase();
+    const { data: esperados } = await admin().rpc("clase_semanal_roster", { p_clase: Number(claseId) });
+    const { data: nueva } = await admin()
+      .from("clases")
+      .insert({
+        tipo: "academia", clase_semanal_id: Number(claseId), profesor_id: profesorId,
+        deporte: "tenis", // Fecha pasada a propósito: una clase no se puede cerrar antes de empezar,
+        // y el formulario solo se pinta cuando ya arrancó.
+        fecha: "2026-09-01", hora_inicio: "16:00:00", hora_fin: "17:00:00",
+        precio: 0, estado: "programada",
+      })
+      .select("id")
+      .single();
+    try {
+      const { default: Page } = await import("../src/app/(app)/cierre/[id]/page");
+      const t = texto(await render(Page, { params: P({ id: String(nueva!.id) }) }));
+      expect(esperados?.length).toBeGreaterThan(0);
+      for (const n of esperados ?? []) expect(t).toContain(n.nombre);
+      expect(t).toContain("se esperaban");
+    } finally {
+      await admin().from("clases").delete().eq("id", nueva!.id);
     }
-    const custom = await render(Page, {
-      params: P({ id: academiaId, grupoId }),
-      searchParams: P({ periodo: "custom", desde: "2026-06-01", hasta: "2026-06-30" }),
-    });
-    expect(texto(custom)).toContain("Franjas");
   });
 
-  it("crear grupo, editar grupo y administrar franjas", async () => {
-    const { academiaId, grupoId } = await unaAcademiaConGrupo();
-    const nuevo = await import("../src/app/(app)/academias/[id]/grupos/nuevo/page");
-    const editar = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/editar/page");
-    const franjas = await import("../src/app/(app)/academias/[id]/grupos/[grupoId]/franjas/page");
-
-    expect(texto(await render(nuevo.default, { params: P({ id: academiaId }) }))).toContain("Nuevo grupo");
-    expect(texto(await render(editar.default, { params: P({ id: academiaId, grupoId }) }))).toContain("Editar grupo");
-    expect(texto(await render(franjas.default, { params: P({ id: academiaId, grupoId }) }))).toContain("Franjas de");
-  });
-
-  it("inscribir a un niño, y reabrirlo para cambiarle los días", async () => {
-    const { academiaId } = await unaAcademiaConGrupo();
-    const { default: Page } = await import("../src/app/(app)/academias/[id]/inscribir/page");
-    expect(texto(await render(Page, { params: P({ id: academiaId }), searchParams: P({}) }))).toContain("Inscribir un niño");
-
-    const { data } = await admin().from("inscripciones").select("miembro_id").eq("academia_id", Number(academiaId)).limit(1);
-    const miembro = data?.[0]?.miembro_id;
-    if (miembro) {
-      const edicion = await render(Page, { params: P({ id: academiaId }), searchParams: P({ miembro: String(miembro) }) });
-      expect(texto(edicion)).toContain("Cambiar los días");
-    }
+  it("una clase de academia vieja, sin celda del planeador, no revienta", async () => {
+    // Las 3 clases de agosto se registraron con el modelo viejo y no tienen
+    // `clase_semanal_id`. Tienen que seguir abriéndose: se cae a la lista de
+    // toda la academia en vez de dejar la pantalla en blanco.
+    const { data } = await admin()
+      .from("clases")
+      .select("id")
+      .eq("tipo", "academia")
+      .is("clase_semanal_id", null)
+      .limit(1);
+    if (!data?.[0]) return;
+    const { default: Page } = await import("../src/app/(app)/cierre/[id]/page");
+    const t = texto(await render(Page, { params: P({ id: String(data[0].id) }) }));
+    expect(t).toContain("no tiene a nadie apuntado");
+    expect(t).toContain("Vino de reposición");
   });
 });

@@ -43,7 +43,6 @@ export type Deporte = "tenis" | "padel";
 /** Las academias son 4 fijas: categoría × deporte. No es un enum de Postgres, es un CHECK. */
 export type AcademiaCategoria = "recreativa" | "competencia";
 /** Niveles nuevos de academia (ago-2026). Reemplazan a los de bola y a principiantes/iniciados. */
-export type AcademiaNivel = "iniciacion" | "intermedio" | "avanzado";
 export type ClaseTipo = "academia" | "individual";
 export type ClaseEstado = "programada" | "realizada" | "cancelada" | "no_show";
 export type PaqueteEstado = "activo" | "agotado" | "vencido" | "anulado";
@@ -515,66 +514,41 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["academias"]["Insert"]>;
         Relationships: [];
       };
-      academia_grupo: {
+      /** Una celda del planeador del club: profesor + día + hora + duración.
+       *  NO cuelga de una academia — recreativa/competencia es del NIÑO (ver
+       *  `inscripciones`), porque en el planeador una misma clase mezcla las dos. */
+      clase_semanal: {
         Row: {
           id: number;
-          academia_id: number;
-          /** Editable por el club: Disney en recreativa, tenistas en competencia. */
-          nombre: string;
-          nivel: AcademiaNivel;
-          edad_min: number;
-          edad_max: number;
-          activo: boolean;
+          profesor_id: string;
+          deporte: Deporte;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_min: number;
+          cancha: string | null;
+          activa: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: number;
-          academia_id: number;
-          nombre: string;
-          nivel: AcademiaNivel;
-          edad_min: number;
-          edad_max: number;
-          activo?: boolean;
+          profesor_id: string;
+          deporte?: Deporte;
+          dia_semana: number;
+          hora_inicio: string;
+          duracion_min: number;
+          cancha?: string | null;
+          activa?: boolean;
           created_at?: string;
           updated_at?: string;
         };
-        Update: Partial<Database["public"]["Tables"]["academia_grupo"]["Insert"]>;
+        Update: Partial<Database["public"]["Tables"]["clase_semanal"]["Insert"]>;
         Relationships: [];
       };
-      grupo_franja: {
-        Row: {
-          id: number;
-          grupo_id: number;
-          dia_semana: number;
-          hora_inicio: string;
-          hora_fin: string;
-          profesor_id: string | null;
-          cancha: string | null;
-          /** null = el tope del nivel (Iniciación 6 · Intermedio 5 · Avanzado 4). NO bloquea: avisa. */
-          cupo: number | null;
-          activo: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id?: number;
-          grupo_id: number;
-          dia_semana: number;
-          hora_inicio: string;
-          hora_fin: string;
-          profesor_id?: string | null;
-          cancha?: string | null;
-          cupo?: number | null;
-          activo?: boolean;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["grupo_franja"]["Insert"]>;
-        Relationships: [];
-      };
-      inscripcion_franja: {
-        Row: { id: number; inscripcion_id: number; franja_id: number; created_at: string };
-        Insert: { id?: number; inscripcion_id: number; franja_id: number; created_at?: string };
-        Update: Partial<Database["public"]["Tables"]["inscripcion_franja"]["Insert"]>;
+      inscripcion_clase: {
+        Row: { id: number; inscripcion_id: number; clase_id: number; desde: string; created_at: string };
+        Insert: { id?: number; inscripcion_id: number; clase_id: number; desde?: string; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["inscripcion_clase"]["Insert"]>;
         Relationships: [];
       };
       inscripciones: {
@@ -583,11 +557,12 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id: number | null;
-          /** Grupo al que pertenece. De él salen su horario, su cupo y el roster del cierre. */
-          grupo_id: number;
           descuento_pct: number;
           fecha_inscripcion: string;
           activa: boolean;
+          /** Cuándo se retiró. Retirar apaga `activa` y sella la fecha; NO borra,
+           *  porque la asistencia pasada tiene que poder explicarse. */
+          retirada_el: string | null;
           created_at: string;
         };
         Insert: {
@@ -595,10 +570,10 @@ export type Database = {
           academia_id: number;
           cliente_id: number;
           miembro_id?: number | null;
-          grupo_id: number;
           descuento_pct?: number;
           fecha_inscripcion?: string;
           activa?: boolean;
+          retirada_el?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["inscripciones"]["Insert"]>;
@@ -698,7 +673,8 @@ export type Database = {
           tipo: ClaseTipo;
           academia_id: number | null;
           /** Grupo de academia. Null en particulares y paquetes. */
-          grupo_id: number | null;
+          /** De qué celda del planeador salió. Con esto el roster de /cierre es exacto. */
+          clase_semanal_id: number | null;
           cliente_id: number | null;
           miembro_id: number | null;
           paquete_cliente_id: number | null;
@@ -724,7 +700,7 @@ export type Database = {
           id?: number;
           tipo: ClaseTipo;
           academia_id?: number | null;
-          grupo_id?: number | null;
+          clase_semanal_id?: number | null;
           cliente_id?: number | null;
           miembro_id?: number | null;
           paquete_cliente_id?: number | null;
@@ -1299,82 +1275,63 @@ export type Database = {
         Args: { p_solo_activos?: boolean };
         Returns: { id: string; nombre: string | null; role: AppRole; activo: boolean; deportes: Deporte[] }[];
       };
-      /** Rendimiento por franja de una academia. La franja en null = clases dictadas
-       *  a una hora que nadie tiene inscrita. Migración 0057. */
-      /** Una fila por grupo: franjas, inscritos, cupo y cuántas franjas van sobre el tope. */
-      academia_grupos_resumen: {
-        Args: { p_academia?: number | null };
+      /** La semana entera del club: una fila por clase del planeador. */
+      planeador_semana: {
+        Args: { p_deporte?: Deporte };
         Returns: {
-          grupo_id: number;
-          academia_id: number;
-          nombre: string;
-          nivel: AcademiaNivel;
-          edad_min: number;
-          edad_max: number;
-          activo: boolean;
-          franjas: number;
-          ninos: number;
-          cupo_total: number;
-          ocupados: number;
-          franjas_sobre_cupo: number;
-          dias: number[];
-        }[];
-      };
-      grupo_franjas: {
-        Args: { p_grupo: number };
-        Returns: {
-          franja_id: number;
+          clase_id: number;
+          profesor_id: string;
           dia_semana: number;
           hora_inicio: string;
-          hora_fin: string;
-          profesor_id: string | null;
+          duracion_min: number;
           cancha: string | null;
-          cupo: number;
-          inscritos: number;
+          ninos: number;
+          recreativa: number;
+          competencia: number;
         }[];
       };
-      /** Una fila por (franja, niño) con su asistencia EN ESA franja. franja_id null = sin franja. */
-      grupo_inscritos_por_franja: {
-        Args: { p_grupo: number; p_desde?: string | null; p_hasta?: string | null };
+      /** Quiénes vienen a una clase. `otras_clases` = cuántas MÁS tiene ese niño
+       *  a la semana, para no retirarlo creyendo que era su único día. */
+      clase_semanal_roster: {
+        Args: { p_clase: number };
         Returns: {
-          franja_id: number | null;
           inscripcion_id: number;
           miembro_id: number;
           cliente_id: number;
           nombre: string;
-          edad: number;
-          fuera_de_rango: boolean;
-          esperadas: number;
-          presentes: number;
-          ausentes: number;
-          excusas: number;
+          edad: number | null;
+          academia_id: number;
+          categoria: AcademiaCategoria;
+          otras_clases: number;
         }[];
       };
-      /** Ocupación y asistencia por franja en un periodo. franja_id null = "Otras horas". 0075. */
-      academia_ocupacion_franja: {
-        Args: { p_academia?: number | null; p_desde?: string | null; p_hasta?: string | null };
+      /** La matrícula de una academia, con las clases de cada niño en jsonb. */
+      academia_matricula: {
+        Args: { p_academia: number };
         Returns: {
+          inscripcion_id: number;
+          miembro_id: number;
+          cliente_id: number;
+          nombre: string;
+          edad: number | null;
+          desde: string;
+          n_clases: number;
+          clases: { id: number; dia: number; hora: string; profesorId: string | null }[];
+        }[];
+      };
+      /** Las clases de academia de un niño, para su ficha. */
+      miembro_clases_academia: {
+        Args: { p_miembro: number };
+        Returns: {
+          inscripcion_id: number;
           academia_id: number;
-          grupo_id: number | null;
-          grupo_nombre: string;
-          nivel: string;
-          franja_id: number | null;
+          academia: string;
+          categoria: AcademiaCategoria;
+          clase_id: number | null;
           dia_semana: number | null;
           hora_inicio: string | null;
-          hora_fin: string | null;
+          duracion_min: number | null;
           profesor_id: string | null;
-          cancha: string | null;
-          cupo: number | null;
-          inscritos: number;
-          clases: number;
-          clases_sin_cerrar: number;
-          clases_por_venir: number;
-          presentes: number;
-          ausentes: number;
-          excusas: number;
-          reposiciones: number;
-          /** Desde cuándo se le puede exigir clase a esta franja. null = la academia nunca registró ninguna. */
-          desde_efectivo: string | null;
         }[];
       };
       notas_listar: {

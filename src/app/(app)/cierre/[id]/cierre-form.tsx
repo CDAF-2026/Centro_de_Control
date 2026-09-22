@@ -23,9 +23,9 @@ export function CierreForm({
 }: {
   claseId: number;
   estadoActual: string;
-  /** Los del grupo apuntados a la franja de ESTE día a ESTA hora. */
+  /** Los apuntados a ESTA clase del planeador. */
   deportistas: Alumno[];
-  /** El resto de inscritos del grupo: solo para registrar una reposición. */
+  /** El resto de matriculados en la academia: solo para una reposición. */
   otrosInscritos?: Alumno[];
   estadoPorCliente: Record<number, string>;
   esAcademia: boolean;
@@ -76,7 +76,7 @@ export function CierreForm({
           <Label>Asistencia{esAcademia ? " de los alumnos" : ""}</Label>
           {esAcademia && (
             <p className="text-muted-foreground text-xs">
-              Solo los del grupo que están apuntados a esta franja.
+              Solo los que están apuntados a esta clase.
             </p>
           )}
           {deportistas.map((d) => (
@@ -108,13 +108,13 @@ export function CierreForm({
 
       {esAcademia && deportistas.length === 0 && (
         <p className="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-2 text-sm">
-          Ningún inscrito del grupo está apuntado a una franja este día a esta hora. Revisa las
-          franjas del grupo, o marca abajo a quien haya venido.
+          Esta clase no tiene a nadie apuntado. Si se registró sin decir de qué clase del
+          planeador salía, revísalo en Academias; mientras tanto, marca abajo a quien haya venido.
         </p>
       )}
 
       {/* Reposiciones: el que vino un día que no es el suyo. Va aparte y cerrado,
-          para que la lista principal siga siendo solo la gente de la franja. */}
+          para que la lista principal siga siendo solo la gente de esta clase. */}
       {esAcademia && otrosInscritos.length > 0 && (
         <div className="space-y-2">
           <button
@@ -127,8 +127,8 @@ export function CierreForm({
           {verOtros && (
             <>
               <p className="text-muted-foreground text-xs">
-                Inscritos de esta academia que NO tienen esta franja. Déjalos en &ldquo;No vino&rdquo;
-                salvo que hayan venido de reposición.
+                Matriculados en esta academia que NO vienen a esta clase. Déjalos en
+                &ldquo;No vino&rdquo; salvo que hayan venido de reposición.
               </p>
               {otrosInscritos.map((o) => (
                 <div key={o.id} className="flex items-center justify-between gap-3 rounded-md border border-dashed p-3">
