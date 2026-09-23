@@ -113,11 +113,15 @@ export function ReglasForm({
     setReglas((rs) =>
       rs.map((r) => {
         if (r.key !== key) return r;
-        if (concepto === "siigo") return { ...r, concepto, metodo: "pct_siigo_servicio" };
-        if (concepto === "salario") return { ...r, concepto, metodo: "salario_fijo" };
+        // El servicio significa cosas distintas según el concepto (de qué se saca
+        // el % en Siigo · a qué academia aplica): al cambiar de concepto se limpia,
+        // para que un servicio heredado no filtre en silencio.
+        const limpio = concepto === r.concepto ? r.servicioId : "";
+        if (concepto === "siigo") return { ...r, concepto, metodo: "pct_siigo_servicio", servicioId: limpio };
+        if (concepto === "salario") return { ...r, concepto, metodo: "salario_fijo", servicioId: "" };
         // Concepto de clase: si venía de siigo/salario, vuelve a un método de clase.
         const metodo = esClaseMetodo(r.metodo) ? r.metodo : "pct_facturado";
-        return { ...r, concepto, metodo };
+        return { ...r, concepto, metodo, servicioId: limpio };
       }),
     );
 
@@ -297,6 +301,24 @@ export function ReglasForm({
                   </div>
                   <p className="text-muted-foreground col-span-2 text-xs">
                     El salario cubre las primeras N clases del mes; desde la clase N+1 comisiona ese % de lo facturado. Cuenta el acumulado del mes (todas las clases).
+                  </p>
+                </div>
+              )}
+
+              {r.concepto === "academia" && conFiltro && (
+                <div className="space-y-1.5">
+                  <Label>¿Qué academia?</Label>
+                  <select className={SELECT} value={r.servicioId} onChange={(e) => patch(r.key, { servicioId: e.target.value })}>
+                    <option value="">Todas las academias</option>
+                    {servicios
+                      .filter((s) => /academia/i.test(s.nombre))
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                  </select>
+                  <p className="text-muted-foreground text-xs">
+                    Con una academia escogida, la regla solo paga las clases cuyos niños son todos de esa
+                    academia. Las clases mixtas o de colegio solo las pagan las reglas de "Todas".
                   </p>
                 </div>
               )}

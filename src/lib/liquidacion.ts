@@ -252,10 +252,10 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   // Solo el nombre: `precio` y `dias_semana` ya no se leen aquí. Se usaban para
   // estimar un "facturado" por clase que no existe — la academia se cobra por
   // mensualidad en Siigo.
-  const acaInfo = new Map<number, { nombre: string }>();
+  const acaInfo = new Map<number, { nombre: string; servicio_id: number | null }>();
   if (acaIds.length) {
-    const { data } = await supabase.from("academias").select("id, nombre").in("id", acaIds);
-    for (const a of data ?? []) acaInfo.set(a.id, { nombre: a.nombre });
+    const { data } = await supabase.from("academias").select("id, nombre, servicio_id").in("id", acaIds);
+    for (const a of data ?? []) acaInfo.set(a.id, { nombre: a.nombre, servicio_id: a.servicio_id });
   }
 
   const porProf = new Map<string, LiqProfesor>();
@@ -321,7 +321,15 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
       // equivocada sin que nadie se entere.
       const concepto = conceptoDeClase(c);
       const weekday = new Date(`${c.fecha}T00:00:00`).getDay();
-      const aplica = (r: ReglaRow) => reglaClaseAplica(r, concepto, weekday, c.hora_inicio);
+      // Una regla de ACADEMIA con servicio solo paga las clases de esa academia
+      // (24-sep-2026): Leo cobra $90.000 por clase de Recreativa Pádel y su clase
+      // de Competencia se paga con el 50% de Siigo, no con los $90.000. La
+      // academia de la clase la congela `clase_abrir_del_planeador` (null si la
+      // clase mezcla academias o no tiene niños → solo casan reglas sin servicio).
+      const servicioClase = c.academia_id != null ? acaInfo.get(c.academia_id)?.servicio_id ?? null : null;
+      const aplica = (r: ReglaRow) =>
+        reglaClaseAplica(r, concepto, weekday, c.hora_inicio) &&
+        !(r.concepto === "academia" && r.servicio_id != null && r.servicio_id !== servicioClase);
       const regla =
         reglas.find((r) => r.concepto === concepto && aplica(r)) ??
         reglas.find((r) => r.concepto === "clase" && aplica(r));

@@ -1061,10 +1061,30 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   de salir **Joaquín Della Mea**, que dejó las academias (sus reglas 7 y 8 están apagadas). La regla
   se lee con el cliente admin porque `profesor_regla` guarda sueldos; solo sale el id. Si entra un
   profesor nuevo de academia y no aparece, es que le falta su regla de academia.
-- ⚠️ **Nómina, sin tocar**: la regla "Academia Recreativa Pádel" ($90.000 `fijo_por_clase`) de Leo y
-  Juan es de concepto `academia` SIN filtro, así que también paga la clase de **competencia** de Leo
-  (que además cobra 25% de Siigo de competencia) y la de **Montessori** de Juan. Y Juan sigue con
-  25% de competencia aunque ya no dicta competencia. Decisión del club.
+- 💰 **Pagos de pádel (dictados por Laura el 24-sep-2026)**:
+  | Profesor | Recreativa | Competencia | Montessori |
+  |---|---|---|---|
+  | Leo | $90.000 por clase (regla 3) | **50% de lo facturado** en Siigo (regla 4); la clase en sí $0 con nombre (regla 56) | — |
+  | Juan | $70.000 por clase (regla 30) | — (su 25% se APAGÓ, regla 31) | $70.000 (regla 57) |
+  | Victor | $60.000 por clase (regla 55, sin academia = todas) | — | — |
+  El 50% de competencia era 25% Leo + 25% Juan; ahora es todo de Leo, que es quien la dicta.
+- 🎯 **Reglas de academia ATADAS A UNA ACADEMIA** (`profesor_regla.servicio_id` con concepto
+  `academia`; migración `20260924140000`). Hacía falta porque la clase de competencia de Leo cobraba
+  también los $90.000 de recreativa: la regla de academia no sabía de qué academia era la clase
+  (`clases.academia_id` quedaba null en todo lo del planeador). Ahora:
+  · `clase_abrir_del_planeador` **congela** `clases.academia_id` al abrir la clase: la academia si
+    TODOS sus niños son de la misma; null si se mezclan (lunes 17:30 de Graciano) o no hay niños
+    (Montessori). Congelado a propósito: mover un niño después no cambia cómo se pagó lo pasado.
+  · `liquidacion.ts`: una regla de academia con servicio solo casa si la academia de la clase apunta
+    a ese servicio; sin servicio = todas (así siguen las de tenis y la de Victor).
+  · En la ficha del empleado, la regla de academia tiene **"¿Qué academia?"** (Todas / una). Al
+    cambiar el concepto de una regla se limpia el servicio, para que no filtre heredado.
+  · ⚠️ Orden: la de Montessori de Juan NO tiene academia, así que casa con cualquier clase de academia
+    de Juan que no sea recreativa pura. Va DESPUÉS de la de recreativa (orden 3 vs 2). Si Juan dicta
+    algún día competencia o una clase mixta, se le pagaría como "Montessori": revisar.
+  · ⚠️ Las reglas pagan POR CLASE, no por hora: Montessori ($70.000 "la hora") y Victor ("clase de 1
+    hora") están bien porque sus clases son de 60 min.
+  · Prueba: `tests/liquidacion-academia.test.ts` (sin el arreglo, la competencia de Leo pagaba $90.000).
 - ⚠️⚠️ **El importador de TENIS retiraba a todo el que no estuviera en su Excel** — con pádel cargado
   habría retirado a los 31 niños y borrado sus clases. Se limitó a tenis (clases, matrículas y
   enlaces) el mismo día. **Cada importador toca SOLO su deporte.**
