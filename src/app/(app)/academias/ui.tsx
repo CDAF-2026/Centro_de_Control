@@ -40,7 +40,7 @@ export function ChipCategoria({ categoria }: { categoria: string | null }) {
 export const PALETA = [
   { c: "#2f6db5", s: "#e8f0fa" },
   { c: "#0e8a80", s: "#e2f4f2" },
-  { c: "#bd5a22", s: "#fbede4" },
+  { c: "#4d8a2a", s: "#edf5e6" }, // verde: el naranja no le gustó al club (23-sep-2026)
   { c: "#7350c2", s: "#f0ebfa" },
   { c: "#a8487a", s: "#f8e9f1" },
   { c: "#5f7079", s: "#eef1f2" },
