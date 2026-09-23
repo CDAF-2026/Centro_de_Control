@@ -18,6 +18,7 @@ export function CierreForm({
   otrosInscritos = [],
   estadoPorCliente,
   esAcademia,
+  colegio = null,
   noRegistrados,
   numAsistentes,
   valorFacturado,
@@ -30,6 +31,8 @@ export function CierreForm({
   otrosInscritos?: Alumno[];
   estadoPorCliente: Record<number, string>;
   esAcademia: boolean;
+  /** Clase de colegio: no lleva lista de niños, solo se dice si se dictó. */
+  colegio?: string | null;
   noRegistrados: string;
   numAsistentes: number;
   valorFacturado: number | null;
@@ -134,7 +137,14 @@ export function CierreForm({
         </div>
       )}
 
-      {esAcademia && deportistas.length === 0 && !noSeDicto && (
+      {colegio && !noSeDicto && (
+        <p className="bg-muted rounded-md px-3 py-2 text-sm">
+          Es la clase del colegio <strong>{colegio}</strong>: no lleva lista de niños. Solo di si se
+          dictó.
+        </p>
+      )}
+
+      {esAcademia && !colegio && deportistas.length === 0 && !noSeDicto && (
         <p className="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-2 text-sm">
           Esta clase no tiene a nadie apuntado. Si se registró sin decir de qué clase del
           planeador salía, revísalo en Academias; mientras tanto, marca abajo a quien haya venido.
@@ -200,7 +210,7 @@ export function CierreForm({
         </div>
       )}
 
-      {esAcademia && (
+      {esAcademia && !colegio && (
         <div className="space-y-1.5">
           <Label htmlFor="no_reg">Asistentes no inscritos (opcional)</Label>
           <textarea

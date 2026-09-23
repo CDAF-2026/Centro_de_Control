@@ -50,3 +50,10 @@ export function coloresDeProfesores(ids: { id: string; nombre: string }[]) {
   const orden = [...ids].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   return new Map(orden.map((p, i) => [p.id, PALETA[i % PALETA.length]]));
 }
+
+/** El deporte que llega por la URL (`?deporte=padel`). Cualquier otra cosa es tenis. */
+export type DeportePlaneador = "tenis" | "padel";
+export function deporteDe(v: string | null | undefined): DeportePlaneador {
+  return v === "padel" ? "padel" : "tenis";
+}
+export const DEPORTE_NOMBRE: Record<DeportePlaneador, string> = { tenis: "Tenis", padel: "Pádel" };

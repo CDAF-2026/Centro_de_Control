@@ -240,8 +240,12 @@ if not APPLY:
     sys.exit(0)
 
 # ── 7 · Escribir ─────────────────────────────────────────────────────────────
+# ⚠️ TODO lo que sigue se limita a TENIS. Desde que entró pádel (24-sep-2026) este
+# script retiraba a cualquiera que no estuviera en el Excel de tenis — o sea, a
+# todos los niños de pádel — y les borraba sus clases. Cada deporte tiene su
+# propio importador y ninguno toca al otro.
 ya = {(c["profesor_id"], c["dia_semana"], c["hora_inicio"][:5]): c["id"]
-      for c in get("clase_semanal?select=id,profesor_id,dia_semana,hora_inicio&activa=eq.true")}
+      for c in get("clase_semanal?select=id,profesor_id,dia_semana,hora_inicio&activa=eq.true&deporte=eq.tenis")}
 nuevas = [dict(profesor_id=prof_id[k[0]], deporte="tenis", dia_semana=k[1],
                hora_inicio=f"{k[2]}:00", duracion_min=d)
           for k, d in clases_plan.items()
@@ -250,7 +254,7 @@ for c in insert("clase_semanal", nuevas) if nuevas else []:
     ya[(c["profesor_id"], c["dia_semana"], c["hora_inicio"][:5])] = c["id"]
 print(f"clase_semanal: +{len(nuevas)} (total {len(ya)})")
 
-vivas = get("inscripciones?select=id,miembro_id,academia_id,activa")
+vivas = get("inscripciones?select=id,miembro_id,academia_id,activa&academia_id=in.(" + ",".join(str(v) for v in ACA.values()) + ")")
 insc_id = {}
 for i in vivas:
     if i["activa"] and i["miembro_id"]: insc_id[i["miembro_id"]] = i
@@ -274,7 +278,9 @@ for i in fuera:
     patch(f"inscripciones?id=eq.{i['id']}", {"activa": False, "retirada_el": datetime.date.today().isoformat()})
 print(f"inscripciones retiradas (ya no están en el planeador): {len(fuera)}")
 
-links_ya = {(l["inscripcion_id"], l["clase_id"]) for l in get("inscripcion_clase?select=inscripcion_id,clase_id&limit=5000")}
+clases_tenis = set(ya.values())
+links_ya = {(l["inscripcion_id"], l["clase_id"]) for l in get("inscripcion_clase?select=inscripcion_id,clase_id&limit=5000")
+            if l["clase_id"] in clases_tenis}
 quiero = set()
 for mid, k in quiere_link:
     i = insc_id.get(mid); c = ya.get((prof_id[k[0]], k[1], k[2]))

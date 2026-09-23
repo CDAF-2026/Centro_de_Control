@@ -15,7 +15,7 @@ export default async function EditarClasePage({ params }: { params: Promise<{ id
 
   const { data: c } = await supabase
     .from("clase_semanal")
-    .select("id, profesor_id, dia_semana, hora_inicio, duracion_min, cancha")
+    .select("id, profesor_id, deporte, dia_semana, hora_inicio, duracion_min, cancha, colegio")
     .eq("id", claseId)
     .maybeSingle();
   if (!c) notFound();
@@ -35,7 +35,8 @@ export default async function EditarClasePage({ params }: { params: Promise<{ id
       </div>
       <div className="ring-foreground/[0.06] bg-card rounded-2xl p-6 shadow-md ring-1">
         <ClaseForm
-          profesores={opcionesParaDeporte(docentes, "tenis")}
+          profesores={opcionesParaDeporte(docentes, c.deporte)}
+          deporte={c.deporte}
           valores={{
             id: c.id,
             profesorId: c.profesor_id,
@@ -43,6 +44,7 @@ export default async function EditarClasePage({ params }: { params: Promise<{ id
             hora: hhmm(c.hora_inicio),
             duracion: c.duracion_min,
             cancha: c.cancha,
+            colegio: c.colegio,
             ninos: count ?? 0,
           }}
         />

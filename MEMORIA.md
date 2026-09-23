@@ -20,6 +20,7 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
 | Sync facturas Siigo (manual) | `npm run sync:siigo` (`--full` reimporta desde 2026-06-01) |
 | **Refrescar solo el catálogo de productos** | `npm run sync:productos` (`-- --dry` para simulacro). Úsalo cuando el club renombre un grupo en Siigo: el sync completo solo refresca este caché si encuentra facturas nuevas, y con el rezago de ~1 día puede pasar medio día sin hacerlo |
 | **Importar el planeador de academias** | `npm run import:planeador -- "ruta/PLANEADOR BASE.xlsx"` (simulacro; `--apply` para escribir). Lee la hoja **BASE DE DATOS**, NO las rejillas por profesor |
+| **Importar el horario de pádel** | `npm run import:padel -- "ruta/HORARIO ACADEMIA DE PADEL LEO.xlsx"` (simulacro; `--apply`). Otro formato (una rejilla); cada importador toca SOLO su deporte |
 | Backfill cédulas por nombre | `npm run match:siigo -- --apply` |
 | Sync clientes EasyCancha | `npm run sync:clientes` (nuevos entran ya con cédula/tipo/nacimiento) |
 | Backfill documentos EasyCancha | `npm run sync:documentos` (simulacro; `-- --apply` para escribir). Rellena SOLO vacíos de fichas viejas |
@@ -771,8 +772,9 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 - Historia de datos arranca el **1-jun-2026**: comparativas "Mes vs anterior" serán completas desde agosto.
 
 ## 🎾 Academias: EL PLANEADOR manda (22-sep-2026 · migraciones 0078–0079 de academia)
-El club pasó su Excel **"PLANEADOR BASE"** y con él se rehízo el módulo entero. Todo es TENIS: pádel
-sigue sin cargar y las dos academias de pádel están vacías a propósito.
+El club pasó su Excel **"PLANEADOR BASE"** y con él se rehízo el módulo entero (tenis). **Pádel entró
+el 24-sep-2026** con la misma lógica (ver "🏓 Pádel" abajo); `/academias` tiene un selector
+**Tenis | Pádel** (`?deporte=padel`).
 
 **El modelo, en una línea: la clase es `profesor + día + hora + duración`.**
 
@@ -1019,6 +1021,38 @@ aparte**: 52 clases · 58,5 h · 170 cupos. Hay una prueba que lo fija.
 **Cancha** (queda opcional, solo para reconocer el bloqueo de EasyCancha) · **cupo** · **nivel** ·
 **periodo/semestre** · **plata**. Si algún día el club piensa en semestres o planes de pago, hoy no
 hay dónde ponerlos.
+
+### 🏓 Pádel (cargado el 24-sep-2026 · `scripts/import-planeador-padel.py`)
+**17 clases · 31 niños (27 recreativa + 4 competencia) · 57 enlaces**, vigentes desde el 1-oct.
+Profesores: Leo Ruíz, Juan Cruz y Victor Acosta. El Excel es UNA rejilla (fila = hora + profesor,
+celda = nombres separados por salto de línea o varios espacios), sin documentos: todo lo que no dice
+o dice mal va en listas explícitas del importador, con quién lo decidió.
+- **Competencia son SOLO 4 niños** (lun y mié 5–6:30 p. m. con Leo: Agustín Pérez, Matías García,
+  Emilio Olarte, Pedro Correa). Esa es la única clase de 90 min; todo lo demás, 60 (Laura).
+- **🏫 Clase de COLEGIO — `clase_semanal.colegio`** (migración `20260924120000`): Montessori, martes
+  3 p. m. con Juan. Es academia (sale en el cierre y cuenta para el pago) pero **no lleva niños**: al
+  cerrarla solo se dice si se dictó. Un trigger (`inscripcion_clase_no_colegio`) rechaza inscribir
+  niños en ella, y el planeador muestra el nombre del colegio en lugar del conteo.
+  ⚠️ En TENIS, Monte Luna y Montessori **siguen fuera** (Laura dijo el 22-sep que no son academias).
+  Si se quieren como en pádel, basta con crear la clase con el campo Colegio.
+- Isaak Salgado va el jueves 4 p. m. con **Leo** (el Excel lo ponía también con Juan). "Valentino
+  Gómez (Particular)" del lunes 5 p. m. es clase particular: no entra.
+- Creados como hermanos: **Ana Barbera** (ficha 58, de Armando Barbera) y **Jhontan Dulcey** (ficha
+  37, de Jhon Dulcey). Emparejados a mano: Nicole→Nicol Bustamante, Julia Vélez Jiménez→Julia Vélez,
+  Pedro Gómez Laserna→Pedro Gómez (ficha 412), Sofía Moreno→**Sophie** Moreno (hija de Pierre),
+  Salvador Olarte→ficha 466.
+- ⚠️ **Pendientes**: **Simón Mejía** y **Salomón Agudelo** no existen y no se cargaron (4 cupos).
+  **Victor Acosta NO tiene regla de academia** → sus 2 clases se liquidan en $0 hasta que se defina.
+  Salvador Olarte tiene una 2ª ficha (324, "Olarte Peláez") por revisar. Valentino Gómez tiene
+  nacimiento **4-oct-2026** (futuro). **Joaquín Della Mea** sale en el planeador de pádel "sin
+  clases" (dejó las academias pero sigue marcado de pádel).
+- ⚠️ **Nómina, sin tocar**: la regla "Academia Recreativa Pádel" ($90.000 `fijo_por_clase`) de Leo y
+  Juan es de concepto `academia` SIN filtro, así que también paga la clase de **competencia** de Leo
+  (que además cobra 25% de Siigo de competencia) y la de **Montessori** de Juan. Y Juan sigue con
+  25% de competencia aunque ya no dicta competencia. Decisión del club.
+- ⚠️⚠️ **El importador de TENIS retiraba a todo el que no estuviera en su Excel** — con pádel cargado
+  habría retirado a los 31 niños y borrado sus clases. Se limitó a tenis (clases, matrículas y
+  enlaces) el mismo día. **Cada importador toca SOLO su deporte.**
 
 ### Estado y pendientes de academias
 - **Cargado**: 52 clases · 109 niños · 175 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·

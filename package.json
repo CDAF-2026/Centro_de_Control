@@ -22,7 +22,8 @@
     "sync:productos": "node --env-file=.env scripts/sync-productos-siigo.mjs",
     "match:siigo": "node --env-file=.env scripts/match-siigo-clientes.mjs",
     "deploy:turnos-fn": "node --env-file=.env scripts/deploy-turnos-fn.mjs",
-    "cron:turnos": "node --env-file=.env scripts/schedule-turnos-cron.mjs"
+    "cron:turnos": "node --env-file=.env scripts/schedule-turnos-cron.mjs",
+    "import:padel": "python3 scripts/import-planeador-padel.py"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

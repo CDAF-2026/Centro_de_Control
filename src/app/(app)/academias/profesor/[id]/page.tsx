@@ -5,7 +5,7 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { docentesConDeporte, mapaNombresStaff, opcionesParaDeporte } from "@/lib/staff";
 import { buttonVariants } from "@/components/ui/button";
-import { DIA_LARGO, DIAS_SEMANA, hhmm, horaFin, coloresDeProfesores } from "../../ui";
+import { DIA_LARGO, DIAS_SEMANA, hhmm, horaFin, coloresDeProfesores, deporteDe, DEPORTE_NOMBRE } from "../../ui";
 
 const aMin = (t: string) => {
   const [h, m] = hhmm(t).split(":").map(Number);
@@ -22,14 +22,25 @@ const HORA_PX = 48;
  * (el martes de Graciano marcaba 175%). Aquí las horas son de CLASE y los niños
  * se cuentan aparte.
  */
-export default async function ProfesorSemanaPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProfesorSemanaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ deporte?: string }>;
+}) {
   const profile = await requireRole(rolesForModule("academias"));
   const { id } = await params;
+  const sp = (await searchParams) ?? {};
   const supabase = await createClient();
 
-  const [{ data: clases }, docentes, nombres] = await Promise.all([
-    supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
-    docentesConDeporte(),
+  const docentes = await docentesConDeporte();
+  // El deporte llega por la URL desde el planeador; si no, el que tenga marcado
+  // el profesor (un profe solo de pádel abre su semana de pádel).
+  const marcados = docentes.find((d) => d.id === id)?.deportes ?? [];
+  const deporte = deporteDe(sp.deporte ?? (marcados.includes("padel") && !marcados.includes("tenis") ? "padel" : "tenis"));
+  const [{ data: clases }, nombres] = await Promise.all([
+    supabase.rpc("planeador_semana", { p_deporte: deporte }),
     mapaNombresStaff(),
   ]);
 
@@ -41,7 +52,7 @@ export default async function ProfesorSemanaPage({ params }: { params: Promise<{
   const nombre = docente?.nombre ?? nombres.get(id) ?? "Profesor";
 
   // Mismo color que en el planeador: se calcula sobre la misma lista.
-  const lista = opcionesParaDeporte(docentes, "tenis").map((p) => ({ id: p.id, nombre: p.nombre }));
+  const lista = opcionesParaDeporte(docentes, deporte).map((p) => ({ id: p.id, nombre: p.nombre }));
   if (!lista.some((p) => p.id === id)) lista.push({ id, nombre });
   const col = coloresDeProfesores(lista).get(id)!;
 
@@ -57,17 +68,17 @@ export default async function ProfesorSemanaPage({ params }: { params: Promise<{
   return (
     <div className="space-y-5">
       <div>
-        <Link href="/academias" className="text-muted-foreground text-sm hover:underline">← Academias</Link>
+        <Link href={deporte === "padel" ? "/academias?deporte=padel" : "/academias"} className="text-muted-foreground text-sm hover:underline">← Academias de {DEPORTE_NOMBRE[deporte].toLowerCase()}</Link>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
           <div className="flex items-center gap-3">
             <span className="size-3.5 rounded-[4px]" style={{ background: col.c }} />
             <div>
               <h1 className="cdaf-headline">{nombre}</h1>
-              <p className="text-muted-foreground text-sm">Sus academias de la semana.</p>
+              <p className="text-muted-foreground text-sm">Sus academias de {DEPORTE_NOMBRE[deporte].toLowerCase()} de la semana.</p>
             </div>
           </div>
           {puedeEditar && (
-            <Link href={`/academias/clase/nueva?profesor=${id}`} className={buttonVariants({ size: "sm" })}>
+            <Link href={`/academias/clase/nueva?profesor=${id}&deporte=${deporte}`} className={buttonVariants({ size: "sm" })}>
               + Nueva clase
             </Link>
           )}
@@ -127,7 +138,7 @@ export default async function ProfesorSemanaPage({ params }: { params: Promise<{
                     <Link
                       key={c.clase_id}
                       href={`/academias/clase/${c.clase_id}`}
-                      title={`${hhmm(c.hora_inicio)}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}${c.competencia ? ` (${c.competencia} de competencia)` : ""}`}
+                      title={`${hhmm(c.hora_inicio)}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.colegio ? `colegio ${c.colegio}` : `${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}`}`}
                       className="absolute right-1 left-1 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-[11.5px] leading-tight transition-shadow hover:shadow-md"
                       style={{
                         top: ((aMin(c.hora_inicio) - desde) / 60) * HORA_PX + 1,
@@ -137,7 +148,7 @@ export default async function ProfesorSemanaPage({ params }: { params: Promise<{
                       }}
                     >
                       <span className="font-heading font-bold tabular-nums">{hhmm(c.hora_inicio)}</span>
-                      <span className="text-muted-foreground"> · {c.ninos} {c.ninos === 1 ? "niño" : "niños"}</span>
+                      <span className="text-muted-foreground"> · {c.colegio ?? `${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}`}</span>
                     </Link>
                   ))}
               </div>

@@ -13,6 +13,8 @@ import {
   hhmm,
   horaFin,
   coloresDeProfesores,
+  deporteDe,
+  DEPORTE_NOMBRE,
 } from "./ui";
 import { PausaAcademias } from "./pausa";
 
@@ -26,10 +28,12 @@ import { PausaAcademias } from "./pausa";
 export default async function AcademiasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ aviso?: string }>;
+  searchParams: Promise<{ aviso?: string; deporte?: string }>;
 }) {
   const profile = await requireRole(rolesForModule("academias"));
-  const { aviso } = await searchParams;
+  const { aviso, deporte: dep } = await searchParams;
+  const deporte = deporteDe(dep);
+  const q = deporte === "padel" ? "?deporte=padel" : "";
   const supabase = await createClient();
   const hoy = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Bogota",
@@ -42,7 +46,7 @@ export default async function AcademiasPage({
     pausa,
     { data: matriculados },
   ] = await Promise.all([
-    supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
+    supabase.rpc("planeador_semana", { p_deporte: deporte }),
     supabase
       .from("academias")
       .select("id, nombre, deporte, categoria, activa")
@@ -62,9 +66,9 @@ export default async function AcademiasPage({
     );
 
   const cs = clases ?? [];
-  // Todos los docentes de tenis, también los que aún no tienen clases: un
+  // Todos los docentes del deporte, también los que aún no tienen clases: un
   // profesor nuevo tiene que verse para poder asignarle la primera.
-  const profesores = opcionesParaDeporte(docentes, "tenis").map((p) => ({
+  const profesores = opcionesParaDeporte(docentes, deporte).map((p) => ({
     id: p.id,
     nombre: p.nombre,
   }));
@@ -96,11 +100,27 @@ export default async function AcademiasPage({
           </p>
         </div>
         {puedeEditar && (
-          <Link href="/academias/clase/nueva" className={buttonVariants()}>
+          <Link href={`/academias/clase/nueva?deporte=${deporte}`} className={buttonVariants()}>
             + Nueva clase
           </Link>
         )}
       </div>
+
+      {/* Un planeador por deporte: tenis y pádel no comparten profesores ni canchas. */}
+      <nav className="bg-card ring-foreground/[0.06] inline-flex rounded-lg p-1 shadow-sm ring-1">
+        {(["tenis", "padel"] as const).map((d) => (
+          <Link
+            key={d}
+            href={d === "padel" ? "/academias?deporte=padel" : "/academias"}
+            aria-current={d === deporte ? "page" : undefined}
+            className={`rounded-md px-4 py-1.5 text-sm font-semibold transition-colors ${
+              d === deporte ? "bg-stadium text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {DEPORTE_NOMBRE[d]}
+          </Link>
+        ))}
+      </nav>
 
       {aviso && (
         <p className="border-lime/50 bg-lime/10 rounded-xl border px-4 py-3 text-sm">
@@ -168,7 +188,7 @@ export default async function AcademiasPage({
               return (
                 <div key={p.id} className="contents">
                   <Link
-                    href={`/academias/profesor/${p.id}`}
+                    href={`/academias/profesor/${p.id}${q}`}
                     className="group flex items-center gap-3 border-t border-[#f0f3f3] px-4 py-3 transition-colors hover:bg-[#f7f9f8]"
                   >
                     <span
@@ -215,7 +235,7 @@ export default async function AcademiasPage({
                     <div className="text-muted-foreground col-span-6 flex items-center border-t border-l border-[#f0f3f3] px-4 text-xs">
                       {puedeEditar ? (
                         <Link
-                          href={`/academias/clase/nueva?profesor=${p.id}`}
+                          href={`/academias/clase/nueva?profesor=${p.id}&deporte=${deporte}`}
                           className="hover:text-foreground font-semibold underline-offset-2 hover:underline"
                         >
                           + Crearle su primera clase
@@ -248,7 +268,7 @@ export default async function AcademiasPage({
                             <Link
                               key={c.clase_id}
                               href={`/academias/clase/${c.clase_id}`}
-                              title={`${DIA_LARGO[d]} ${hhmm(c.hora_inicio)}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}`}
+                              title={`${DIA_LARGO[d]} ${hhmm(c.hora_inicio)}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.colegio ? `colegio ${c.colegio}` : `${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}`}`}
                               className="inline-flex h-6 items-center gap-1.5 rounded-md border-l-[3px] px-2 text-xs font-semibold tabular-nums transition-shadow hover:shadow-md"
                               style={{ background: col.s, borderLeftColor: col.c }}
                             >
@@ -257,7 +277,7 @@ export default async function AcademiasPage({
                                 className="font-heading font-bold"
                                 style={{ color: col.c }}
                               >
-                                {c.ninos}
+                                {c.colegio ?? c.ninos}
                               </span>
                             </Link>
                           ))}

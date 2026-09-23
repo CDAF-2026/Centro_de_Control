@@ -189,7 +189,7 @@ export default async function CierrePage({
               <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                 <div>
                   <p className="font-medium">
-                    Academia · {p.ninos} {p.ninos === 1 ? "niño" : "niños"}
+                    {p.colegio ? `Colegio ${p.colegio}` : `Academia${p.deporte === "padel" ? " de pádel" : ""} · ${p.ninos} ${p.ninos === 1 ? "niño" : "niños"}`}
                   </p>
                   <p className="text-muted-foreground text-sm">
                     {p.fecha} {p.hora_inicio.slice(0, 5)} · Profe:{" "}

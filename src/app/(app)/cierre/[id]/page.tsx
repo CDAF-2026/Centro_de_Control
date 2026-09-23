@@ -117,9 +117,19 @@ export default async function CerrarClasePage({
     const { data: a } = await supabase.from("academias").select("nombre").eq("id", clase.academia_id).single();
     academiaNombre = a?.nombre ?? null;
   }
+  // Clase de colegio (Montessori): no lleva lista, solo se dice si se dictó.
+  let colegio: string | null = null;
+  if (clase.clase_semanal_id) {
+    const { data: cs } = await supabase.from("clase_semanal").select("colegio").eq("id", clase.clase_semanal_id).maybeSingle();
+    colegio = cs?.colegio ?? null;
+  }
   const titulo =
     clase.tipo === "academia"
-      ? `Academia: ${academiaNombre ?? "—"}`
+      ? colegio
+        ? `Colegio ${colegio}`
+        : academiaNombre
+          ? `Academia: ${academiaNombre}`
+          : `Academia de ${clase.deporte === "padel" ? "pádel" : "tenis"}`
       : deportistas[0]?.nombre ?? "Sin deportista";
 
   // Una clase no se cierra antes de empezar (las sin hora, desde el inicio de su día).
@@ -156,6 +166,7 @@ export default async function CerrarClasePage({
           otrosInscritos={otrosInscritos}
           estadoPorCliente={estadoPorCliente}
           esAcademia={clase.tipo === "academia"}
+          colegio={colegio}
           noRegistrados={clase.asistentes_no_registrados ?? ""}
           numAsistentes={clase.num_asistentes ?? 1}
           valorFacturado={valorFacturado}

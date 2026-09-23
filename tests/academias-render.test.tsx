@@ -370,6 +370,66 @@ describe("las pantallas de academias se renderizan enteras", () => {
     }
   });
 
+  it("el planeador de pádel: sus clases y la de colegio Montessori, sin tocar tenis", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/page");
+    const html = await render(Page, { searchParams: P({ deporte: "padel" }) });
+    const t = texto(html);
+    const { count } = await admin()
+      .from("clase_semanal")
+      .select("id", { count: "exact", head: true })
+      .eq("activa", true)
+      .eq("deporte", "padel");
+    expect(count).toBeGreaterThan(0);
+    const enlaces = html.match(/href="\/academias\/clase\/\d+"/g) ?? [];
+    expect(enlaces.length).toBe(count);
+    expect(t).toContain("Montessori");
+    expect(html).toContain('href="/academias/clase/nueva?deporte=padel"');
+  });
+
+  it("una clase de colegio: sin lista en su ficha y se cierra sin asistencia", async () => {
+    const { data: cs } = await admin()
+      .from("clase_semanal")
+      .select("id, profesor_id")
+      .not("colegio", "is", null)
+      .limit(1)
+      .single();
+    expect(cs).toBeTruthy();
+
+    const { default: Ficha } = await import("../src/app/(app)/academias/clase/[id]/page");
+    const ficha = texto(await render(Ficha, { params: P({ id: String(cs!.id) }) }));
+    expect(ficha).toContain("no lleva niños inscritos");
+    expect(ficha).not.toContain("Agregar");
+
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const { data: c } = await admin()
+      .from("clases")
+      .insert({
+        tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id,
+        deporte: "padel", fecha: ayer.toISOString().slice(0, 10), hora_inicio: "06:10:00",
+        hora_fin: "07:10:00", precio: 0, estado: "programada",
+      })
+      .select("id")
+      .single();
+    try {
+      const { default: Cierre } = await import("../src/app/(app)/cierre/[id]/page");
+      const pc = texto(await render(Cierre, { params: P({ id: String(c!.id) }) }));
+      expect(pc).toContain("Colegio Montessori");
+      expect(pc).not.toContain("no tiene a nadie apuntado");
+
+      const { cerrarClase } = await import("../src/app/(app)/cierre/actions");
+      const fd = new FormData();
+      fd.set("claseId", String(c!.id));
+      fd.set("estado", "realizada");
+      await expect(cerrarClase({}, fd)).rejects.toThrow(/REDIRECT \/cierre/);
+      const { data: despues } = await admin().from("clases").select("estado").eq("id", c!.id).single();
+      expect(despues?.estado).toBe("realizada");
+    } finally {
+      await admin().from("asistencias").delete().eq("clase_id", c!.id);
+      await admin().from("clases").delete().eq("id", c!.id);
+    }
+  });
+
   it("el modal de /clases ya no ofrece registrar un bloqueo de academia", async () => {
     // Dejar el botón confundía a cafetería, que no tiene nada que hacer con las
     // academias desde que salen solas del planeador.

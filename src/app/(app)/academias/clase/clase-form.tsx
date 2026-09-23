@@ -18,6 +18,7 @@ export type ClaseValores = {
   hora: string;
   duracion: number;
   cancha: string | null;
+  colegio: string | null;
   ninos: number;
 };
 
@@ -29,10 +30,12 @@ export type ClaseValores = {
  */
 export function ClaseForm({
   profesores,
+  deporte,
   valores = null,
   profesorInicial = "",
 }: {
   profesores: OpcionProfesor[];
+  deporte: "tenis" | "padel";
   valores?: ClaseValores | null;
   profesorInicial?: string;
 }) {
@@ -45,6 +48,7 @@ export function ClaseForm({
     <div className="space-y-6">
       <form action={action} className="space-y-4">
         {valores && <input type="hidden" name="claseId" value={valores.id} />}
+        <input type="hidden" name="deporte" value={deporte} />
 
         <div className="space-y-1.5">
           <Label htmlFor="profesorId">Profesor</Label>
@@ -102,6 +106,22 @@ export function ClaseForm({
           <p className="text-muted-foreground text-xs">
             El planeador del club no la trae. Sirve para reconocer el bloqueo de EasyCancha al
             registrar la clase; no bloquea nada.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="colegio">Colegio (opcional)</Label>
+          <Input
+            id="colegio"
+            name="colegio"
+            defaultValue={valores?.colegio ?? ""}
+            placeholder="Montessori"
+            disabled={!!valores && valores.ninos > 0}
+          />
+          <p className="text-muted-foreground text-xs">
+            Solo si la clase es para un colegio. Esa clase no lleva niños inscritos: al cerrarla
+            solo se dice si se dictó.
+            {valores && valores.ninos > 0 && " Esta clase tiene niños, así que no puede ser de colegio."}
           </p>
         </div>
 

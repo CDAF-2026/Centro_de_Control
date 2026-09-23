@@ -182,6 +182,8 @@ export async function guardarClase(
   const hora = String(formData.get("hora") || "");
   const duracion = Number(formData.get("duracion"));
   const cancha = String(formData.get("cancha") || "").trim();
+  const colegio = String(formData.get("colegio") || "").trim();
+  const deporte = formData.get("deporte") === "padel" ? ("padel" as const) : ("tenis" as const);
 
   const fieldErrors: Record<string, string> = {};
   if (!profesorId) fieldErrors.profesorId = "Escoge el profesor.";
@@ -192,11 +194,14 @@ export async function guardarClase(
 
   const fila = {
     profesor_id: profesorId,
-    deporte: "tenis" as const,
+    deporte,
     dia_semana: dia,
     hora_inicio: `${hora}:00`,
     duracion_min: duracion,
     cancha: cancha || null,
+    // El campo va deshabilitado si la clase ya tiene niños, y un input
+    // deshabilitado no viaja: en ese caso no se toca.
+    ...(formData.has("colegio") ? { colegio: colegio || null } : {}),
   };
 
   const supabase = await createClient();

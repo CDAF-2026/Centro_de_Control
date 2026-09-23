@@ -526,6 +526,8 @@ export type Database = {
           hora_inicio: string;
           duracion_min: number;
           cancha: string | null;
+          /** Clase de colegio (p. ej. "Montessori"): sin niños inscritos. */
+          colegio: string | null;
           /** Desde qué fecha se le puede exigir esta clase (piso del cierre derivado). */
           vigente_desde: string;
           activa: boolean;
@@ -540,6 +542,7 @@ export type Database = {
           hora_inicio: string;
           duracion_min: number;
           cancha?: string | null;
+          colegio?: string | null;
           vigente_desde?: string;
           activa?: boolean;
           created_at?: string;
@@ -1303,6 +1306,7 @@ export type Database = {
           ninos: number;
           recreativa: number;
           competencia: number;
+          colegio: string | null;
         }[];
       };
       /** Quiénes vienen a una clase. `otras_clases` = cuántas MÁS tiene ese niño
@@ -1346,6 +1350,8 @@ export type Database = {
           duracion_min: number;
           cancha: string | null;
           ninos: number;
+          deporte: Deporte;
+          colegio: string | null;
         }[];
       };
       /** Crea la fila de `clases` de una celda del planeador en una fecha, y
