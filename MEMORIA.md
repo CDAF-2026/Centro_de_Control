@@ -912,6 +912,13 @@ aparece el caso de verdad, se construye con el caso a la vista.
   = la fila se borra (no tapó nada). Verificado con rollback: antes de la pausa 95 pendientes siguen,
   durante 0, al volver 42.
 - **Una sola pausa abierta a la vez** (índice único parcial `where hasta is null`).
+- 🔒 **Solo el SUPERADMINISTRADOR pausa y reactiva** (Laura, 23-sep-2026). A los demás no les sale el
+  botón, pero **sí el aviso** mientras dure la pausa (con "Solo el superadministrador puede
+  reactivarlas"). Tres capas: el botón y la acción beben de **`PUEDE_PAUSAR_ACADEMIAS`**
+  (`src/lib/academias.ts`, mismo patrón que `PUEDE_REABRIR_EVENTO`), y la política
+  `academia_pausa_write` (migración `20260923140000`) lo exige en la base, con sus dos mitades
+  (`using` y `with check`). Leer sigue abierto a todo el staff. Verificado con rollback simulando
+  sesión: el coord. deportivo queda bloqueado por RLS al insertar y el superadministrador pausa.
 - La fecha de inicio se puede poner **en el pasado** (oprimieron el 16 pero salieron el 15), **no en
   el futuro**: el aviso diría "en pausa" antes de empezar.
 - ⚠️ **El riesgo es olvidar reactivar**: nada falla, simplemente dejan de pedirse cierres. Por eso

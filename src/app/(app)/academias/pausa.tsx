@@ -12,12 +12,13 @@ import { Button } from "@/components/ui/button";
 export function PausaAcademias({
   pausaDesde,
   hoy,
-  puedeEditar,
+  puedePausar,
 }: {
   /** Texto ya formateado ("15 de dic") o null si están activas. */
   pausaDesde: string | null;
   hoy: string;
-  puedeEditar: boolean;
+  /** Solo el superadministrador (`PUEDE_PAUSAR_ACADEMIAS`). */
+  puedePausar: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [state, action, pending] = useActionState<AcademiaFormState, FormData>(pausarAcademias, {});
@@ -39,7 +40,7 @@ export function PausaAcademias({
             </p>
           </div>
         </div>
-        {puedeEditar && (
+        {puedePausar && (
           <Button
             type="button"
             disabled={reactivando}
@@ -53,6 +54,9 @@ export function PausaAcademias({
           >
             {reactivando ? "Reactivando…" : "Reactivar academias"}
           </Button>
+        )}
+        {!puedePausar && (
+          <p className="text-xs text-[#6d4700]">Solo el superadministrador puede reactivarlas.</p>
         )}
         {msg && <p className="w-full text-xs text-[#6d4700]">{msg}</p>}
       </div>
@@ -68,12 +72,12 @@ export function PausaAcademias({
           <p className="text-muted-foreground text-xs">Las clases del planeador llegan solas a Cierre de clases.</p>
         </div>
       </div>
-      {puedeEditar && (
+      {puedePausar && (
         <Button type="button" variant="outline" onClick={() => setAbierto((v) => !v)}>
           {abierto ? "Cancelar" : "Pausar academias"}
         </Button>
       )}
-      {puedeEditar && abierto && (
+      {puedePausar && abierto && (
         <form action={action} className="border-border flex w-full flex-wrap items-center gap-3 border-t border-dashed pt-3">
           <label htmlFor="desde" className="text-muted-foreground flex items-center gap-2 text-xs">
             Pausar desde

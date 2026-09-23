@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
-import { pausaActual, fechaCorta } from "@/lib/academias";
+import { pausaActual, fechaCorta, puedePausarAcademias } from "@/lib/academias";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DIA_LARGO, DIAS_SEMANA, hhmm, horaFin, coloresDeProfesores, nombreCorto } from "./ui";
@@ -107,7 +107,15 @@ export default async function AcademiasPage({
 
       {aviso && <p className="border-lime/50 bg-lime/10 rounded-xl border px-4 py-3 text-sm">{aviso}</p>}
 
-      <PausaAcademias pausaDesde={pausa ? fechaCorta(pausa.desde) : null} hoy={hoy} puedeEditar={puedeEditar} />
+      {/* Solo el superadministrador pausa y reactiva. A los demás no les sale el
+          botón, pero SÍ el aviso de pausa: es lo que avisa si alguien olvidó reactivar. */}
+      {(pausa || puedePausarAcademias(profile.role)) && (
+        <PausaAcademias
+          pausaDesde={pausa ? fechaCorta(pausa.desde) : null}
+          hoy={hoy}
+          puedePausar={puedePausarAcademias(profile.role)}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label="Clases a la semana" valor={total.clases} />

@@ -274,6 +274,37 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(texto(await render(plan.default, { searchParams: P({}) }))).toContain("Academias activas");
   });
 
+  it("solo el superadministrador ve el botón de pausar academias", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/page");
+    const rolReal = PERFIL.role;
+    try {
+      PERFIL.role = "coord_deportivo";
+      const t = texto(await render(Page, { searchParams: P({}) }));
+      expect(t).not.toContain("Pausar academias");
+      PERFIL.role = "superadmin";
+      expect(texto(await render(Page, { searchParams: P({}) }))).toContain("Pausar academias");
+    } finally {
+      PERFIL.role = rolReal;
+    }
+  });
+
+  it("la acción de pausar rechaza a quien no es superadministrador", async () => {
+    // El guardia de la pantalla no protege la acción: se prueba aparte.
+    const { pausarAcademias } = await import("../src/app/(app)/academias/actions");
+    const auth = await import("@/lib/auth");
+    // Pide la lista de roles que exige la acción: si incluyera a coordinación
+    // (como el resto del módulo), esta prueba no lanzaría.
+    const spy = vi.spyOn(auth, "requireRole").mockImplementation(async (roles: string[]) => {
+      if (!roles.includes("coord_deportivo")) throw new Error("REDIRECT sin permiso");
+      return PERFIL as never;
+    });
+    try {
+      await expect(pausarAcademias({}, new FormData())).rejects.toThrow("sin permiso");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("la matrícula muestra el reparto real y la tabla con buscador", async () => {
     const academiaId = await unaAcademia();
     const { default: Page } = await import("../src/app/(app)/academias/[id]/page");

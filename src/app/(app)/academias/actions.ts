@@ -7,7 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createAcademiaSchema } from "@/lib/validations/academia";
-import { fechaCorta } from "@/lib/academias";
+import { fechaCorta, PUEDE_PAUSAR_ACADEMIAS } from "@/lib/academias";
 import type { AppRole } from "@/lib/database.types";
 
 // Una sola puerta, derivada de la matriz. Inscribir a alguien ES editar la
@@ -462,7 +462,7 @@ export async function pausarAcademias(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  const profile = await requireRole(EDITA);
+  const profile = await requireRole([...PUEDE_PAUSAR_ACADEMIAS]);
   const hoy = hoyBogota();
   const desde = String(formData.get("desde") || hoy);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) return { error: "Escoge desde qué día." };
@@ -485,7 +485,7 @@ export async function pausarAcademias(
  * pausa queda guardada con sus dos fechas.
  */
 export async function reactivarAcademias(): Promise<AcademiaFormState> {
-  const profile = await requireRole(EDITA);
+  const profile = await requireRole([...PUEDE_PAUSAR_ACADEMIAS]);
   const supabase = await createClient();
   const { data: abierta } = await supabase
     .from("academia_pausa")
