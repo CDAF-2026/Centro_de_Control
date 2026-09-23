@@ -26,12 +26,11 @@ export default async function AcademiasPage({
   const supabase = await createClient();
   const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
-  const [{ data: clases }, { data: academias }, docentes, pausa, { data: festivos }] = await Promise.all([
+  const [{ data: clases }, { data: academias }, docentes, pausa] = await Promise.all([
     supabase.rpc("planeador_semana", { p_deporte: "tenis" }),
     supabase.from("academias").select("id, nombre, deporte, activa").order("deporte", { ascending: false }).order("categoria"),
     docentesConDeporte(),
     pausaActual(supabase),
-    supabase.from("festivo").select("fecha, nombre").gte("fecha", hoy).order("fecha").limit(4),
   ]);
 
   const cs = clases ?? [];
@@ -168,35 +167,21 @@ export default async function AcademiasPage({
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-        <section className="space-y-2">
-          <h2 className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">Matrícula por academia</h2>
-          <div className="flex flex-wrap gap-2">
-            {(academias ?? []).map((a) => (
-              <Link
-                key={a.id}
-                href={`/academias/${a.id}`}
-                className="hover:border-lime ring-foreground/[0.06] bg-card inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm shadow-sm ring-1"
-              >
-                {a.nombre}
-                {!a.activa && <Badge variant="outline">Inactiva</Badge>}
-              </Link>
-            ))}
-          </div>
-        </section>
-        {(festivos ?? []).length > 0 && (
-          <section className="space-y-2">
-            <h2 className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">Próximos festivos · sin academia</h2>
-            <div className="flex flex-wrap gap-1.5">
-              {(festivos ?? []).map((f) => (
-                <Badge key={f.fecha} variant="outline" className="font-normal">
-                  <span className="tabular-nums">{fechaCorta(f.fecha)}</span>&nbsp;· {f.nombre}
-                </Badge>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
+      <section className="space-y-2">
+        <h2 className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">Matrícula por academia</h2>
+        <div className="flex flex-wrap gap-2">
+          {(academias ?? []).map((a) => (
+            <Link
+              key={a.id}
+              href={`/academias/${a.id}`}
+              className="hover:border-lime ring-foreground/[0.06] bg-card inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm shadow-sm ring-1"
+            >
+              {a.nombre}
+              {!a.activa && <Badge variant="outline">Inactiva</Badge>}
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

@@ -36,7 +36,7 @@ export function PausaAcademias({
           <div>
             <p className="font-heading text-sm font-bold text-[#6d4700]">Academias en pausa desde el {pausaDesde}</p>
             <p className="text-xs text-[#6d4700]">
-              No se piden cierres de academia hasta reactivar. El planeador y los festivos no se tocan.
+              No se piden cierres de academia hasta reactivar.
             </p>
           </div>
         </div>
@@ -69,7 +69,6 @@ export function PausaAcademias({
         <span className="bg-lime ring-lime/25 size-2.5 shrink-0 rounded-full ring-4" />
         <div>
           <p className="font-heading text-sm font-bold">Academias activas</p>
-          <p className="text-muted-foreground text-xs">Las clases del planeador llegan solas a Cierre de clases.</p>
         </div>
       </div>
       {puedePausar && (
