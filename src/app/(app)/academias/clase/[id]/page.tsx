@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { DIA_LARGO, hhmm, horaFin, duracionTexto } from "../../ui";
+import { DIA_LARGO, hhmm, horaFin, duracionTexto, coloresDeProfesores } from "../../ui";
+import { docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { RosterClase, type NinoEnClase, type ClaseOpcion, type AcademiaOpcion } from "./roster";
 
 /**
@@ -27,11 +28,12 @@ export default async function ClasePage({ params }: { params: Promise<{ id: stri
     .maybeSingle();
   if (!clase) notFound();
 
-  const [{ data: roster }, { data: todas }, { data: academias }, nombres] = await Promise.all([
+  const [{ data: roster }, { data: todas }, { data: academias }, nombres, docentes] = await Promise.all([
     supabase.rpc("clase_semanal_roster", { p_clase: claseId }),
     supabase.rpc("planeador_semana", { p_deporte: clase.deporte }),
     supabase.from("academias").select("id, nombre, categoria, deporte").eq("deporte", clase.deporte).eq("activa", true).order("categoria"),
     mapaNombresStaff(),
+    docentesConDeporte(),
   ]);
 
   const ninos: NinoEnClase[] = (roster ?? []).map((n) => ({
@@ -63,6 +65,9 @@ export default async function ClasePage({ params }: { params: Promise<{ id: stri
 
   const puedeEditar = can(profile.role, "academias", "edit");
   const profesor = nombres.get(clase.profesor_id) ?? "—";
+  const lista = opcionesParaDeporte(docentes, "tenis").map((p) => ({ id: p.id, nombre: p.nombre }));
+  if (!lista.some((p) => p.id === clase.profesor_id)) lista.push({ id: clase.profesor_id, nombre: profesor });
+  const col = coloresDeProfesores(lista).get(clase.profesor_id)!;
 
   return (
     <div className="space-y-6">
@@ -76,7 +81,10 @@ export default async function ClasePage({ params }: { params: Promise<{ id: stri
               {DIA_LARGO[clase.dia_semana]} {hhmm(clase.hora_inicio)}
             </h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{profesor}</Badge>
+              <Badge variant="secondary" className="gap-1.5">
+                <span className="size-2 rounded-[2px]" style={{ background: col.c }} />
+                {profesor}
+              </Badge>
               <Badge variant="outline">
                 {hhmm(clase.hora_inicio)}–{horaFin(clase.hora_inicio, clase.duracion_min)} · {duracionTexto(clase.duracion_min)}
               </Badge>

@@ -28,3 +28,31 @@ export function ChipCategoria({ categoria }: { categoria: string | null }) {
   if (categoria === "competencia") return <Badge variant="secondary">Competencia</Badge>;
   return <Badge variant="outline">Recreativa</Badge>;
 }
+
+/**
+ * Un color por profesor, el MISMO en todas las pantallas del módulo.
+ *
+ * Se asigna por orden alfabético del nombre y no por cuántas clases tiene: si
+ * dependiera de la carga, darle una clase a alguien le cambiaría el color a
+ * todos y el club dejaría de reconocer a quién está mirando.
+ * La lima NO está en la lista: en CDAF la lima es acción y estado, nunca serie.
+ */
+export const PALETA = [
+  { c: "#2f6db5", s: "#e8f0fa" },
+  { c: "#0e8a80", s: "#e2f4f2" },
+  { c: "#bd5a22", s: "#fbede4" },
+  { c: "#7350c2", s: "#f0ebfa" },
+  { c: "#a8487a", s: "#f8e9f1" },
+  { c: "#5f7079", s: "#eef1f2" },
+] as const;
+
+export function coloresDeProfesores(ids: { id: string; nombre: string }[]) {
+  const orden = [...ids].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  return new Map(orden.map((p, i) => [p.id, PALETA[i % PALETA.length]]));
+}
+
+/** Primer nombre para chips estrechos ("Sebastian Niño Mora" → "Sebastián"). */
+export function nombreCorto(nombre: string) {
+  const n = nombre.split(" ")[0];
+  return n === "Sebastian" ? "Sebastián" : n;
+}

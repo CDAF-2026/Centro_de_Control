@@ -8,7 +8,7 @@ import pg from "pg";
  * Se prueban las tres reglas que el club dictó y que en pantalla se ven iguales
  * si se rompen:
  *   · en festivo la academia NO dicta → la clase ni se propone
- *   · en receso SÍ se propone, pero marcada, porque algunos niños van
+ *   · en una pausa de academias (vacaciones) la clase tampoco se propone
  *   · `vigente_desde` es el piso: sin él la cola iría hacia atrás sin fin
  *
  * ⚠️ Y la que de verdad importa: el PROFESOR no puede insertar en `clases`
@@ -77,23 +77,27 @@ describe("academia_pendientes · qué debió dictarse", () => {
     });
   });
 
-  it("en receso SÍ propone, pero marcado (algunos niños van)", async () => {
+  it("una pausa tapa SOLO sus días: ni lo de antes ni lo de después", async () => {
+    // Por eso la pausa guarda fechas y no un interruptor: con un booleano,
+    // pausar escondería lo anterior sin cerrar y reactivar resucitaría las
+    // ~177 clases de las vacaciones.
     await enTransaccion(async () => {
       await q("update public.clase_semanal set vigente_desde = '2026-01-01'");
-      const sinReceso = await q(
-        "select count(*)::int n from public.academia_pendientes('2026-10-19','2026-10-19') where en_receso",
-      );
-      expect(sinReceso[0].n).toBe(0);
+      await q("insert into public.academia_pausa (desde, hasta) values ('2026-12-15','2027-01-07')");
+      const [r] = await q(`select
+        (select count(*)::int from public.academia_pendientes('2026-12-01','2026-12-14')) antes,
+        (select count(*)::int from public.academia_pendientes('2026-12-15','2027-01-07')) durante,
+        (select count(*)::int from public.academia_pendientes('2027-01-08','2027-01-14')) despues`);
+      expect(r.antes).toBeGreaterThan(0);
+      expect(r.durante).toBe(0);
+      expect(r.despues).toBeGreaterThan(0);
+    });
+  });
 
-      await q(
-        "insert into public.academia_receso (desde, hasta, motivo) values ('2026-10-19','2026-10-23','Prueba')",
-      );
-      const conReceso = await q(
-        "select count(*)::int total, count(*) filter (where en_receso)::int marcadas from public.academia_pendientes('2026-10-19','2026-10-19')",
-      );
-      // Esconderlas dejaría sin registrar a los que sí fueron: se proponen igual.
-      expect(conReceso[0].total).toBeGreaterThan(0);
-      expect(conReceso[0].marcadas).toBe(conReceso[0].total);
+  it("solo puede haber una pausa abierta a la vez", async () => {
+    await enTransaccion(async () => {
+      await q("insert into public.academia_pausa (desde) values ('2026-12-15')");
+      await expect(q("insert into public.academia_pausa (desde) values ('2026-12-20')")).rejects.toThrow(/duplicate|unique/i);
     });
   });
 

@@ -253,14 +253,33 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(t).toContain("Clases vencidas");
   });
 
-  it("el calendario de la academia distingue festivo de receso", async () => {
-    const { default: Page } = await import("../src/app/(app)/academias/page");
-    const t = texto(await render(Page, { searchParams: P({}) }));
-    expect(t).toContain("Calendario");
-    // La diferencia entre los dos es lo que el club dictó, y si se borra de la
-    // pantalla nadie entiende por qué unos días no aparecen y otros sí.
-    expect(t).toContain("no dicta");
-    expect(t).toContain("no se reprocha");
+  it("pausar academias: el planeador y el cierre lo dicen, y al quitarla vuelve todo", async () => {
+    // Si alguien olvida reactivar, nada falla: solo dejan de pedirse cierres.
+    // Por eso las dos pantallas tienen que decirlo mientras dure.
+    const { data: yaHay } = await admin().from("academia_pausa").select("id").is("hasta", null).maybeSingle();
+    if (yaHay) return; // hay una pausa real corriendo: no se toca
+    const { data: p } = await admin().from("academia_pausa").insert({ desde: "2026-09-01" }).select("id").single();
+    try {
+      const plan = await import("../src/app/(app)/academias/page");
+      const t1 = texto(await render(plan.default, { searchParams: P({}) }));
+      expect(t1).toContain("Academias en pausa desde el 1 de sep");
+      expect(t1).toContain("Reactivar academias");
+      const cierre = await import("../src/app/(app)/cierre/page");
+      const t2 = texto(await render(cierre.default, { searchParams: P({}) }));
+      expect(t2).toContain("Academias en pausa desde el 1 de sep");
+    } finally {
+      await admin().from("academia_pausa").delete().eq("id", p!.id);
+    }
+    const plan = await import("../src/app/(app)/academias/page");
+    expect(texto(await render(plan.default, { searchParams: P({}) }))).toContain("Academias activas");
+  });
+
+  it("la matrícula muestra el reparto real y la tabla con buscador", async () => {
+    const academiaId = await unaAcademia();
+    const { default: Page } = await import("../src/app/(app)/academias/[id]/page");
+    const t = texto(await render(Page, { params: P({ id: academiaId }) }));
+    expect(t).toContain("Cuántas veces vienen a la semana");
+    expect(t).toContain("Por edad");
   });
 
   it("«no se dictó» exige motivo, y con él saca la clase de la cola", async () => {

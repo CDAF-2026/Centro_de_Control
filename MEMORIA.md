@@ -815,7 +815,18 @@ se dictó y se cobró. Ahora `retirarDeAcademia` apaga `activa`, sella `retirada
 clases; la ficha de la academia lista a los retirados con su fecha. Volver a entrar **reactiva la
 misma fila**, no crea otra.
 
-### Las pantallas
+### Las pantallas (rediseño del 23-sep-2026)
+Laura encontró el planeador "desordenado". Se hicieron 3 propuestas por pantalla (artifact "Rediseño
+de Academias") y se implementaron: **Planeador = A · parrilla por hora** (cada fila es una hora de
+inicio, así el martes 16:30 queda a la par del jueves 16:30 — la versión anterior apilaba las clases
+sin alinearlas), **Profesor = B · calendario con horas** (el alto es la duración: se ven los huecos),
+**Clase = A · acciones a la vista** (mover, quitar de este día y retirar sin un "Gestionar"; retirar
+pide confirmación en la misma fila) y **Matrícula = B · reparto real (1/2/3+ veces y por edad) + tabla
+con buscador**.
+- **Un color por profesor, el mismo en todo el módulo** (`coloresDeProfesores` en `ui.tsx`),
+  asignado por orden ALFABÉTICO, no por carga: si dependiera de cuántas clases tiene, darle una clase
+  a alguien le cambiaría el color a todos. La lima no está en la paleta (es acción/estado).
+
 | Ruta | Qué contesta |
 |---|---|
 | `/academias` | **El planeador**: una fila por profesor × los 6 días, cada celda con sus clases y cuántos niños vienen. Reemplaza las 5 pestañas del Excel |
@@ -886,25 +897,27 @@ del bloque: dejar una segunda puerta para lo mismo es lo que este proyecto ya pa
 planeador** (en festivo, o una reposición a otra hora). Laura confirmó que en festivo no dictan; si
 aparece el caso de verdad, se construye con el caso a la vista.
 
-### 📅 Festivo y receso NO son lo mismo, y la diferencia la dictó el club
+### ⏸️ Festivos y PAUSA de academias (23-sep-2026; la pausa reemplazó al receso)
 | | Qué pasa en la cola de cierre |
 |---|---|
-| **Festivo** | **La academia no dicta** → la clase ni se propone. Sale de la tabla `festivo`, ya cargada hasta 2032. El lunes 12-oct desaparece solo, con sus 10 clases |
-| **Receso** (`academia_receso`) | **Sí hay clase y no todos van** → se propone igual, marcada "Semana de receso", y **no se reprocha**: no entra en el conteo ni lleva el badge de +24 h |
+| **Festivo** | **La academia no dicta** → la clase ni se propone. Sale de la tabla `festivo`, cargada hasta 2032. El lunes 12-oct desaparece solo, con sus 10 clases |
+| **Pausa** (`academia_pausa`) | **Vacaciones.** Botón **"Pausar academias"** en `/academias` el día que salen y **"Reactivar academias"** el día que vuelven. Mientras dure, la clase **ni se propone** |
 
-- Se descartó **esconder el receso** (dejaría sin registrar a los que sí fueron) y
-  **tratarlo como semana normal** (llenaría la cola de ~100 clases que nadie va a cerrar,
-  y a la tercera semana nadie le cree al aviso de "falta cerrar" — la misma regla de
-  "un aviso donde no está la acción es solo carga").
-- Se administra desde el bloque **Calendario** de `/academias` (coord. deportivo y admin).
-- 💡 Una falta marcada en receso no debería contarle al niño. **No hace falta guardar
-  nada extra**: la clase lleva su fecha y el receso es un rango, así que cualquier
-  informe futuro la puede excluir.
-- 📌 **El receso de diciembre está pendiente de que Laura confirme las fechas.**
-- Pruebas: `tests/cierre-planeador.test.ts` (8, contra Postgres y revertidas). ⚠️ Cada
-  prueba de rechazo va con su **SAVEPOINT**, y la del futuro usa una fecha **en el día de
-  la semana de esa clase**: si no, saltaba antes el guardia del día y la prueba pasaba
-  sin haber probado nada.
+- Idea de los dueños del club: más simple que cargar recesos por fechas de antemano. Reemplazó a
+  `academia_receso`, que se borró (nunca tuvo una fila).
+- ⚠️⚠️ **Por dentro guarda FECHAS, no un interruptor.** Con un booleano leído al vuelo, pausar
+  escondería también las clases de ANTES sin cerrar, y reactivar resucitaría como pendientes todas
+  las de las vacaciones (medido: **177** entre el 15-dic y el 7-ene). Pausar inserta `desde`;
+  reactivar pone `hasta = ayer`, así las clases de hoy ya se piden. Pausada y reactivada el mismo día
+  = la fila se borra (no tapó nada). Verificado con rollback: antes de la pausa 95 pendientes siguen,
+  durante 0, al volver 42.
+- **Una sola pausa abierta a la vez** (índice único parcial `where hasta is null`).
+- La fecha de inicio se puede poner **en el pasado** (oprimieron el 16 pero salieron el 15), **no en
+  el futuro**: el aviso diría "en pausa" antes de empezar.
+- ⚠️ **El riesgo es olvidar reactivar**: nada falla, simplemente dejan de pedirse cierres. Por eso
+  el aviso ámbar sale en `/academias` **y en `/cierre`** (`pausaActual()` en `src/lib/academias.ts`).
+- Consecuencia aceptada por el club: durante la pausa, un niño que sí vaya no se puede registrar.
+- `clase_abrir_del_planeador` también rechaza un día en pausa, igual que un festivo.
 
 ### 🔁 El flujo, de punta a punta (medido el 22-sep-2026)
 | | Particular / paquete | **Academia** |
@@ -1014,7 +1027,7 @@ hay dónde ponerlos.
   hermanos, porque la factura va a la familia (`cliente`) y el alumno es un `miembro`.
 - ✅ **El cuello de botella (en agosto se registraron 2 clases de ~250) está resuelto**: ya no hay que
   registrar nada antes — `/cierre` deriva del planeador y la clase nace al cerrarla.
-- 📌 **Pendiente de Laura**: las fechas del **receso de diciembre**.
+- ✅ Vacaciones: ya no hay que cargar fechas; el club oprime **Pausar academias** el día que salen.
 
 ⚠️⚠️ **Una escritura rechazada por RLS NO lanza error: no escribe y sigue de largo.** Es el mismo veneno que "leer devuelve 0 filas sin error", pero al revés y peor, porque se pierde un dato. Mordió el 4-sep-2026: al cerrar una clase de paquete, el descuento del saldo era un `update` directo a `paquetes_cliente`, cuya política de escritura solo cubre **SA/CA/recepción** — así que cuando cerraba el **coord. deportivo o un profesor (los que más cierran)** el saldo no bajaba y nadie se enteraba. Daniela Parra mostraba **8/8 disponibles con 2 clases ya dictadas**; correlación 100% con el rol de quien cerró (el único paquete correcto lo había cerrado el SA). **Ampliar la política no era la salida**: le daría al profesor la tabla entera (num_clases, descuentos, borrar) — una política de UPDATE **no puede limitar por columna**. Se resolvió con el RPC **`paquete_consumir(p_clase, p_delta)`** (SECURITY DEFINER; valida por dentro con el mismo criterio que cerrar: coordinación/recepción o el profesor dueño; toca solo el saldo y es atómico), y `cerrarClase`/`reabrirCierre` **sí miran el error**. Mismo patrón que `evento_atar_facturas`. **Regla: toda escritura que dependa de una tabla que el rol que ejecuta no puede escribir va por RPC, y SIEMPRE se mira el `error`.** La asistencia se blindó igual (su política sí cubre al profesor dueño, pero un rechazo dejaría la clase cerrada sin asistencia, que es lo que se liquida).
 
@@ -1652,8 +1665,6 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
-- 📌 **Las fechas del receso de diciembre** (Laura las confirma). Se cargan desde el bloque
-  Calendario de `/academias`; sin ellas, esas semanas saldrán en la cola de cierre como normales.
 - ⚠️ **Sebastián Niño Mora no tiene regla de academia, y sus clases de academia cuentan para su
   tope de 140** (medido 23-sep-2026). Tiene salario fijo + "Comisión desde la clase 141"
   (`comision_umbral`, concepto `clase` = comodín), y el comodín **sí casa con academia**

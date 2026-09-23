@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { mapaNombresStaff } from "@/lib/staff";
+import { mapaNombresStaff, docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListaEsperaForm } from "./lista-espera-form";
 import { EliminarAcademiaButton } from "./eliminar-academia-button";
-import { DIA_CORTO } from "../ui";
+import { DIA_CORTO, DIA_LARGO, coloresDeProfesores } from "../ui";
+import { MatriculaTabla, type FilaMatricula } from "./matricula-tabla";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -47,12 +48,46 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         .limit(20),
       mapaNombresStaff(),
     ]);
+  const docentes = await docentesConDeporte();
 
   const ninos = matricula ?? [];
   const venidas = ninos.reduce((n, x) => n + x.n_clases, 0);
   // Un niño matriculado sin ningún día no viene a nada, y desde la matrícula no
   // se ve solo: por eso se cuenta aparte en vez de esconderlo en la lista.
   const sinDias = ninos.filter((x) => x.n_clases === 0);
+
+  const lista = opcionesParaDeporte(docentes, a.deporte).map((p) => ({ id: p.id, nombre: p.nombre }));
+  for (const n of ninos) for (const c of n.clases)
+    if (c.profesorId && !lista.some((p) => p.id === c.profesorId)) lista.push({ id: c.profesorId, nombre: nombres.get(c.profesorId) ?? "—" });
+  const color = coloresDeProfesores(lista);
+  const filas: FilaMatricula[] = ninos.map((n) => ({
+    inscripcionId: n.inscripcion_id,
+    clienteId: n.cliente_id,
+    nombre: n.nombre,
+    edad: n.edad,
+    desde: n.desde,
+    clases: n.clases.map((c) => {
+      const col = (c.profesorId && color.get(c.profesorId)) || { c: "#5f7079", s: "#eef1f2" };
+      return {
+        id: c.id,
+        etiqueta: `${DIA_CORTO[c.dia]} ${c.hora}`,
+        titulo: `${DIA_LARGO[c.dia]} ${c.hora} · ${c.profesorId ? nombres.get(c.profesorId) ?? "" : ""}`,
+        color: col.c,
+        fondo: col.s,
+      };
+    }),
+  }));
+  // Reparto REAL de la matrícula: cuántos vienen 1, 2 o 3+ veces, y por edades.
+  const porVeces = [
+    { etiqueta: "1 vez", valor: ninos.filter((n) => n.n_clases === 1).length },
+    { etiqueta: "2 veces", valor: ninos.filter((n) => n.n_clases === 2).length },
+    { etiqueta: "3 o más", valor: ninos.filter((n) => n.n_clases >= 3).length },
+  ];
+  const rangos: [string, number, number][] = [["3–6 años", 0, 6], ["7–9 años", 7, 9], ["10–12 años", 10, 12], ["13 años o más", 13, 99]];
+  const porEdad = [
+    ...rangos.map(([etiqueta, a, b]) => ({ etiqueta, valor: ninos.filter((n) => n.edad != null && n.edad >= a && n.edad <= b).length })),
+    { etiqueta: "Sin fecha de nacimiento", valor: ninos.filter((n) => n.edad == null).length },
+  ].filter((r) => r.valor > 0 || r.etiqueta !== "Sin fecha de nacimiento");
 
   const puedeGestionar = can(profile.role, "academias", "edit");
   const puedeInscribir = can(profile.role, "academias", "edit");
@@ -97,56 +132,19 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         </p>
       )}
 
+      <section className="ring-foreground/[0.06] bg-card grid gap-6 rounded-xl p-5 shadow-sm ring-1 md:grid-cols-2">
+        <Reparto titulo="Cuántas veces vienen a la semana" filas={porVeces} total={ninos.length} lima />
+        <Reparto titulo="Por edad" filas={porEdad} total={ninos.length} />
+      </section>
+
       <section className="space-y-3">
-        <h2 className="cdaf-title text-base">Matrícula</h2>
+        <h2 className="font-heading text-base font-bold uppercase">Matrícula</h2>
         {ninos.length === 0 ? (
           <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center text-sm">
             Esta academia todavía no tiene niños matriculados.
           </p>
         ) : (
-          <div className="ring-foreground/[0.06] bg-card overflow-x-auto rounded-xl shadow-sm ring-1">
-            <table className="w-full min-w-[640px] text-sm">
-              <thead>
-                <tr className="border-border text-muted-foreground cdaf-eyebrow border-b text-[11px]">
-                  <th className="px-4 py-3 text-left">Niño</th>
-                  <th className="px-2 py-3 text-left">Edad</th>
-                  <th className="px-2 py-3 text-left">Viene</th>
-                  <th className="px-2 py-3 text-left">Desde</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ninos.map((n) => (
-                  <tr key={n.inscripcion_id} className="border-border/60 border-b last:border-0">
-                    <td className="px-4 py-2.5">
-                      <Link href={`/clientes/${n.cliente_id}`} className="font-medium hover:underline">
-                        {n.nombre}
-                      </Link>
-                    </td>
-                    <td className="text-muted-foreground px-2 py-2.5 tabular-nums">{n.edad ?? "—"}</td>
-                    <td className="px-2 py-2.5">
-                      {n.clases.length === 0 ? (
-                        <span className="text-warning-foreground text-xs">sin día</span>
-                      ) : (
-                        <span className="flex flex-wrap gap-1">
-                          {n.clases.map((c) => (
-                            <Link
-                              key={c.id}
-                              href={`/academias/clase/${c.id}`}
-                              className="border-border hover:border-lime inline-flex h-5 items-center rounded-4xl border px-2 text-[11px] tabular-nums"
-                              title={c.profesorId ? nombres.get(c.profesorId) ?? "" : ""}
-                            >
-                              {DIA_CORTO[c.dia]} {c.hora}
-                            </Link>
-                          ))}
-                        </span>
-                      )}
-                    </td>
-                    <td className="text-muted-foreground px-2 py-2.5 tabular-nums">{n.desde}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MatriculaTabla filas={filas} />
         )}
       </section>
 
@@ -232,6 +230,36 @@ function Dato({ label, valor }: { label: string; valor: string | null }) {
     <div>
       <p className="text-muted-foreground">{label}</p>
       <p>{valor ?? "—"}</p>
+    </div>
+  );
+}
+
+function Reparto({
+  titulo,
+  filas,
+  total,
+  lima = false,
+}: {
+  titulo: string;
+  filas: { etiqueta: string; valor: number }[];
+  total: number;
+  lima?: boolean;
+}) {
+  return (
+    <div className="space-y-2.5">
+      <p className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">{titulo}</p>
+      {filas.map((f) => (
+        <div key={f.etiqueta} className="grid grid-cols-[minmax(92px,auto)_1fr_32px] items-center gap-3 text-[13px]">
+          <span>{f.etiqueta}</span>
+          <span className="bg-muted h-2.5 overflow-hidden rounded-full">
+            <span
+              className={`block h-full rounded-full ${lima ? "bg-lime" : "bg-[#37474f]"}`}
+              style={{ width: `${total ? (f.valor / total) * 100 : 0}%` }}
+            />
+          </span>
+          <span className="font-heading text-right font-bold tabular-nums">{f.valor}</span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createAcademiaSchema } from "@/lib/validations/academia";
+import { fechaCorta } from "@/lib/academias";
 import type { AppRole } from "@/lib/database.types";
 
 // Una sola puerta, derivada de la matriz. Inscribir a alguien ES editar la
@@ -440,54 +441,72 @@ export async function cambiarCategoria(inscripcionId: number, academiaId: number
 }
 
 // ─────────────────────────────────────────────────────────────
-// El calendario: festivos y recesos
+// Pausar academias (vacaciones)
 // ─────────────────────────────────────────────────────────────
 
+/** Hoy en Bogotá, como fecha ISO. El servidor corre en UTC y de noche ya sería mañana. */
+function hoyBogota() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
+}
+
 /**
- * Marca una semana (o un puente) de receso.
+ * Pausa las academias desde una fecha (por defecto hoy). Mientras dure, la cola
+ * de cierre no propone clases de academia.
  *
- * Un FESTIVO y un RECESO no son lo mismo, y la diferencia la dictó el club: en
- * festivo la academia NO dicta —la cola de cierre ni lo propone, sale solo de la
- * tabla `festivo`— pero en receso **sí hay clase y no todos van**. Por eso el
- * receso no esconde nada: la clase se sigue proponiendo, para poder cerrar a los
- * que fueron, y simplemente deja de reprocharse si nadie la cierra.
+ * Se guarda la FECHA de inicio, no un interruptor: así la pausa no esconde las
+ * clases de antes que nadie cerró. Se deja poner una fecha pasada para el caso
+ * de "salimos el 15 y lo oprimimos el 16"; una futura no, porque el aviso diría
+ * "en pausa" antes de que empiece.
  */
-export async function guardarReceso(
+export async function pausarAcademias(
   _prev: AcademiaFormState,
   formData: FormData,
 ): Promise<AcademiaFormState> {
-  await requireRole(EDITA);
-  const desde = String(formData.get("desde") || "");
-  const hasta = String(formData.get("hasta") || "");
-  const motivo = String(formData.get("motivo") || "").trim();
-
-  const fieldErrors: Record<string, string> = {};
-  const esFecha = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-  if (!esFecha(desde)) fieldErrors.desde = "Escoge la fecha de inicio.";
-  if (!esFecha(hasta)) fieldErrors.hasta = "Escoge la fecha de fin.";
-  if (!motivo) fieldErrors.motivo = "Ponle un nombre (ej. «Receso de diciembre»).";
-  if (!fieldErrors.desde && !fieldErrors.hasta && hasta < desde) {
-    fieldErrors.hasta = "La fecha de fin no puede ser anterior a la de inicio.";
-  }
-  if (Object.keys(fieldErrors).length) return { error: "Revisa los campos.", fieldErrors };
+  const profile = await requireRole(EDITA);
+  const hoy = hoyBogota();
+  const desde = String(formData.get("desde") || hoy);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde)) return { error: "Escoge desde qué día." };
+  if (desde > hoy) return { error: "La pausa empieza hoy o un día que ya pasó. Oprímela el día que salen." };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("academia_receso").insert({ desde, hasta, motivo });
-  if (error) return { error: error.message };
-
-  await logAudit({ action: "academia.receso_crear", entity: "academia_receso", entityId: desde, after: { desde, hasta, motivo } });
+  const { error } = await supabase.from("academia_pausa").insert({ desde, creada_por: profile.id });
+  if (error) {
+    return { error: /duplicate|unique/i.test(error.message) ? "Las academias ya están en pausa." : error.message };
+  }
+  await logAudit({ action: "academia.pausar", entity: "academia_pausa", entityId: desde, after: { desde } });
   refrescar();
   revalidatePath("/cierre", "layout");
-  return { ok: "Receso guardado." };
+  return { ok: `Academias en pausa desde el ${fechaCorta(desde)}.` };
 }
 
-export async function eliminarReceso(id: number): Promise<AcademiaFormState> {
-  await requireRole(EDITA);
+/**
+ * Reactiva las academias HOY: la pausa se cierra el día anterior, así las clases
+ * de hoy ya se piden. Las de las vacaciones no vuelven a aparecer, porque la
+ * pausa queda guardada con sus dos fechas.
+ */
+export async function reactivarAcademias(): Promise<AcademiaFormState> {
+  const profile = await requireRole(EDITA);
   const supabase = await createClient();
-  const { error } = await supabase.from("academia_receso").delete().eq("id", id);
+  const { data: abierta } = await supabase
+    .from("academia_pausa")
+    .select("id, desde")
+    .is("hasta", null)
+    .maybeSingle();
+  if (!abierta) return { error: "Las academias no están en pausa." };
+
+  const hoy = hoyBogota();
+  const ayer = new Date(`${hoy}T12:00:00`);
+  ayer.setDate(ayer.getDate() - 1);
+  const hasta = ayer.toISOString().slice(0, 10);
+
+  // Pausada y reactivada el mismo día: la pausa no tapó ningún día, se borra.
+  const { error } = hasta < abierta.desde
+    ? await supabase.from("academia_pausa").delete().eq("id", abierta.id)
+    : await supabase.from("academia_pausa").update({ hasta, reactivada_por: profile.id }).eq("id", abierta.id);
   if (error) return { error: error.message };
-  await logAudit({ action: "academia.receso_borrar", entity: "academia_receso", entityId: String(id) });
+
+  await logAudit({ action: "academia.reactivar", entity: "academia_pausa", entityId: String(abierta.id), after: { desde: abierta.desde, hasta } });
   refrescar();
   revalidatePath("/cierre", "layout");
-  return { ok: "Receso quitado." };
+  return { ok: "Academias activas otra vez. Desde hoy se piden los cierres." };
 }

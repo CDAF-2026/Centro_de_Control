@@ -548,12 +548,13 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["clase_semanal"]["Insert"]>;
         Relationships: [];
       };
-      /** Semana de receso: la clase SÍ se propone (algunos niños van) pero no se
-       *  reprocha si nadie la cierra. Distinto de un festivo, donde no hay clase. */
-      academia_receso: {
-        Row: { id: number; desde: string; hasta: string; motivo: string; created_at: string };
-        Insert: { id?: number; desde: string; hasta: string; motivo: string; created_at?: string };
-        Update: Partial<Database["public"]["Tables"]["academia_receso"]["Insert"]>;
+      /** Periodos en que las academias no dictan (vacaciones). `hasta` null = en pausa
+       *  ahora. Guarda FECHAS y no un booleano: pausar no esconde lo anterior y
+       *  reactivar no resucita las clases de las vacaciones. */
+      academia_pausa: {
+        Row: { id: number; desde: string; hasta: string | null; creada_por: string | null; reactivada_por: string | null; created_at: string };
+        Insert: { id?: number; desde: string; hasta?: string | null; creada_por?: string | null; reactivada_por?: string | null; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["academia_pausa"]["Insert"]>;
         Relationships: [];
       };
       inscripcion_clase: {
@@ -1333,8 +1334,8 @@ export type Database = {
           clases: { id: number; dia: number; hora: string; profesorId: string | null }[];
         }[];
       };
-      /** Lo que el planeador dice que debió dictarse y nadie ha cerrado. Los
-       *  festivos se saltan; los recesos salen marcados. */
+      /** Lo que el planeador dice que debió dictarse y nadie ha cerrado. Se saltan
+       *  los festivos y los días de una pausa de academias. */
       academia_pendientes: {
         Args: { p_desde: string; p_hasta: string; p_profesor?: string | null };
         Returns: {
@@ -1345,7 +1346,6 @@ export type Database = {
           duracion_min: number;
           cancha: string | null;
           ninos: number;
-          en_receso: boolean;
         }[];
       };
       /** Crea la fila de `clases` de una celda del planeador en una fecha, y

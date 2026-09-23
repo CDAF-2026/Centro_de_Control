@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ClienteAutocomplete } from "@/components/cliente-autocomplete";
 import { CierreToast } from "./cierre-toast";
 import { abrirClaseDelPlaneador } from "./actions";
+import { pausaActual, fechaCorta } from "@/lib/academias";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CalendarCheck } from "lucide-react";
 
@@ -107,14 +108,21 @@ export default async function CierrePage({
 
   const now = Date.now();
   const hayFiltro = !!profesorFilter || !!clienteFilter;
-  // En receso no se reprocha nada: si nadie la cierra, está bien. Por eso no
-  // entra en el conteo ni lleva el badge de vencida.
-  const enReceso = pendientesPlan.filter((p) => p.en_receso).length;
-  const nRecla = lista.length + pendientesPlan.length - enReceso;
+  const nRecla = lista.length + pendientesPlan.length;
+  // Si las academias están en pausa, la cola de academia sale vacía A PROPÓSITO.
+  // Hay que decirlo: si alguien olvida reactivar, nada falla, simplemente dejan
+  // de pedirse cierres — y quien abre esta pantalla es quien lo nota.
+  const pausa = await pausaActual(supabase);
 
   return (
     <div className="space-y-6">
       {sp.ok && <CierreToast estado={sp.ok} />}
+      {pausa && (
+        <p role="status" className="bg-warning/15 ring-warning/40 rounded-xl px-4 py-3 text-sm text-[#6d4700] ring-1">
+          <strong>Academias en pausa desde el {fechaCorta(pausa.desde)}.</strong> Por eso no aparecen clases de
+          academia para cerrar. Se reactivan desde Academias.
+        </p>
+      )}
       {sp.aviso && (
         <p className="border-destructive/40 bg-destructive/5 text-destructive rounded-xl border px-4 py-3 text-sm">
           {sp.aviso}
@@ -128,7 +136,6 @@ export default async function CierrePage({
           {nRecla > 0 && (
             <p className="text-muted-foreground mt-1.5 text-sm tabular-nums">
               {nRecla} {nRecla === 1 ? "pendiente" : "pendientes"}
-              {enReceso > 0 && ` · ${enReceso} más en semana de receso, que no se reprochan`}
             </p>
           )}
         </div>
@@ -177,8 +184,7 @@ export default async function CierrePage({
             </p>
           </div>
           {pendientesPlan.map((p) => {
-            const vencida =
-              !p.en_receso && now > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+            const vencida = now > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
             return (
               <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                 <div>
@@ -191,7 +197,6 @@ export default async function CierrePage({
                     {p.cancha ? ` · Cancha ${p.cancha}` : ""}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
-                    {p.en_receso && <Badge variant="outline">Semana de receso</Badge>}
                     {vencida && <Badge variant="destructive">+24 h sin cerrar</Badge>}
                   </div>
                 </div>

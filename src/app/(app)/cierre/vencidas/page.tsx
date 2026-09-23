@@ -41,7 +41,6 @@ export default async function ClasesVencidasPage() {
     p_profesor: null,
   });
   const planVencidas = (delPlan ?? [])
-    .filter((p) => !p.en_receso)
     .filter((p) => nowMs > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000)
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
     .slice(0, 300);
@@ -118,7 +117,7 @@ export default async function ClasesVencidasPage() {
             Academias · {planVencidas.length} sin cerrar
           </h2>
           <p className="text-muted-foreground text-xs">
-            Salen del planeador y no llegaron a registrarse. Las semanas de receso no se cuentan aquí.
+            Salen del planeador y no llegaron a registrarse. Los festivos y los días en pausa no se cuentan.
           </p>
           {planVencidas.map((p) => (
             <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
