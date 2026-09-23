@@ -3,6 +3,7 @@ import { CalendarDays, ChevronRight, GraduationCap, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { pausaActual, fechaCorta, puedePausarAcademias } from "@/lib/academias";
 import { buttonVariants } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export default async function AcademiasPage({
     docentes,
     pausa,
     { data: matriculados },
+    { data: reglasAcademia },
   ] = await Promise.all([
     supabase.rpc("planeador_semana", { p_deporte: deporte }),
     supabase
@@ -57,6 +59,14 @@ export default async function AcademiasPage({
     // Solo la columna academia_id de las inscripciones activas (~110 filas):
     // alcanza para contar por academia sin un RPC.
     supabase.from("inscripciones").select("academia_id").eq("activa", true),
+    // Quién DA academia aunque hoy no tenga clases: el que tiene regla de pago de
+    // academia activa. `profesor_regla` guarda sueldos y recepción no la puede
+    // leer, así que va con el cliente admin y solo sale el id.
+    createAdminClient()
+      .from("profesor_regla")
+      .select("profesor_id")
+      .eq("activo", true)
+      .eq("concepto", "academia"),
   ]);
   const ninosPorAcademia = new Map<number, number>();
   for (const i of matriculados ?? [])
@@ -66,9 +76,15 @@ export default async function AcademiasPage({
     );
 
   const cs = clases ?? [];
-  // Todos los docentes del deporte, también los que aún no tienen clases: un
-  // profesor nuevo tiene que verse para poder asignarle la primera.
-  const profesores = opcionesParaDeporte(docentes, deporte).map((p) => ({
+  // Los docentes del deporte que DAN academia: los que tienen clases, y también
+  // el que aún no tiene ninguna pero sí regla de academia (Yeison) — un profesor
+  // nuevo tiene que verse para poder asignarle la primera. El que dejó las
+  // academias (Joaquín: sus reglas de academia están apagadas) no sale.
+  const conClasesYa = new Set(cs.map((c) => c.profesor_id));
+  const danAcademia = new Set((reglasAcademia ?? []).map((r) => r.profesor_id));
+  const profesores = opcionesParaDeporte(docentes, deporte)
+    .filter((p) => conClasesYa.has(p.id) || danAcademia.has(p.id))
+    .map((p) => ({
     id: p.id,
     nombre: p.nombre,
   }));

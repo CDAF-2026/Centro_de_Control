@@ -1044,8 +1044,12 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
 - ⚠️ **Pendientes**: **Simón Mejía** y **Salomón Agudelo** no existen y no se cargaron (4 cupos).
   **Victor Acosta NO tiene regla de academia** → sus 2 clases se liquidan en $0 hasta que se defina.
   Salvador Olarte tiene una 2ª ficha (324, "Olarte Peláez") por revisar. Valentino Gómez tiene
-  nacimiento **4-oct-2026** (futuro). **Joaquín Della Mea** sale en el planeador de pádel "sin
-  clases" (dejó las academias pero sigue marcado de pádel).
+  nacimiento **4-oct-2026** (futuro).
+- 👤 **Quién sale en el planeador**: el docente del deporte que tenga clases **o** regla de pago de
+  academia activa (24-sep-2026). Así sigue saliendo Yeison sin clases (tiene su regla en $0) y deja
+  de salir **Joaquín Della Mea**, que dejó las academias (sus reglas 7 y 8 están apagadas). La regla
+  se lee con el cliente admin porque `profesor_regla` guarda sueldos; solo sale el id. Si entra un
+  profesor nuevo de academia y no aparece, es que le falta su regla de academia.
 - ⚠️ **Nómina, sin tocar**: la regla "Academia Recreativa Pádel" ($90.000 `fijo_por_clase`) de Leo y
   Juan es de concepto `academia` SIN filtro, así que también paga la clase de **competencia** de Leo
   (que además cobra 25% de Siigo de competencia) y la de **Montessori** de Juan. Y Juan sigue con

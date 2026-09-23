@@ -384,6 +384,9 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(enlaces.length).toBe(count);
     expect(t).toContain("Montessori");
     expect(html).toContain('href="/academias/clase/nueva?deporte=padel"');
+    // Joaquín dejó las academias (sus reglas de academia están apagadas): no sale.
+    const { data: joaquin } = await admin().from("profiles").select("id").ilike("nombre", "Joaqu%Della Mea").maybeSingle();
+    if (joaquin) expect(html).not.toContain(`/academias/profesor/${joaquin.id}`);
   });
 
   it("una clase de colegio: sin lista en su ficha y se cierra sin asistencia", async () => {
