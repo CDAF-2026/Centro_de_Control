@@ -1282,9 +1282,12 @@ clase** (420, 422, 427, 438, 443) y se borraron con rastro en `audit_log`.
   personalizada con Mauricio o Salamanca") y **426** ("clase victor") SÍ eran clases. Verificado
   contra los 6 casos que la dueña confirmó a mano: **6 de 6**. Pruebas en
   `tests/reserva-vs-clase.test.ts` (24), con las reservas y notas reales.
-- ⚠️ Queda un dato torcido: la clase **429 tiene `precio` en $0** (EasyCancha dice $105.000). Es el
-  rastro del bug del precio que arrancaba en cero, arreglado el mismo día. **Decidir a mano**: con una
-  regla `pct_facturado` ese profesor cobraría $0.
+- ✅ **La clase 429 se ELIMINÓ el 23-sep-2026**: Laura confirmó que **era un alquiler**, pese a la
+  nota "Clase personalizada con Mauricio o Salamanca". Lo borró ella con el botón nuevo de
+  `/cierre/[id]` (motivo "Es un alquiler de cancha"). Con eso se cierran su precio en $0 y su falta de
+  profesor. La reserva vuelve a salir sin registrar en `/clases` y, por la nota, el modal la sigue
+  ofreciendo como clase: **no volver a registrarla**. Ese día también borró las 3 academias viejas
+  de agosto (338, 339, 357).
 
 🎾 **Asignar el profesor a una clase que llegó SIN profesor** (15-sep-2026, migración 0089).
 El club crea reservas en EasyCancha sin profesor —el profe es nuevo y allá todavía no existe, o
