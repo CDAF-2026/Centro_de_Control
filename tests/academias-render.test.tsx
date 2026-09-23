@@ -98,6 +98,17 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(t).toContain("Academias");
     expect(t).toContain("Clases a la semana");
     expect(t).toContain("Profesor");
+    // Por profesor (opción C): cada clase del planeador sale UNA vez, aunque el
+    // profesor no aparezca en el directorio (con service_role salen sin nombre).
+    const { count } = await admin()
+      .from("clase_semanal")
+      .select("id", { count: "exact", head: true })
+      .eq("activa", true)
+      .eq("deporte", "tenis");
+    const enlaces = html.match(/href="\/academias\/clase\/\d+"/g) ?? [];
+    expect(enlaces.length).toBe(count);
+    // Sin marcas de competencia en el planeador (pedido de Laura, 23-sep-2026).
+    expect(t).not.toContain("COMP");
   });
 
   it("el planeador acepta el aviso que le deja borrar una clase", async () => {
@@ -235,7 +246,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
       const { data: pend } = await admin().rpc("academia_pendientes", {
         p_desde: fecha, p_hasta: fecha, p_profesor: profesorId,
       });
-      expect(pend?.some((p) => p.clase_id === cs!.id && p.fecha === fecha)).toBe(true);
+      expect(pend?.some((p: { clase_id: number; fecha: string }) => p.clase_id === cs!.id && p.fecha === fecha)).toBe(true);
 
       const { default: Page } = await import("../src/app/(app)/cierre/page");
       const t = texto(await render(Page, { searchParams: P({}) }));

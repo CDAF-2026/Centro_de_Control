@@ -13,16 +13,15 @@ import {
   hhmm,
   horaFin,
   coloresDeProfesores,
-  nombreCorto,
 } from "./ui";
 import { PausaAcademias } from "./pausa";
 
 /**
- * El planeador de la semana, como PARRILLA POR HORA (rediseño 23-sep-2026,
- * opción A). Cada fila es una hora de inicio y cada columna un día, así que el
- * martes 16:30 queda a la par del jueves 16:30 — lo que la versión anterior no
- * hacía: apilaba las clases de cada día sin alinearlas y se leía desordenado.
- * Cada profesor lleva su color en todas las pantallas del módulo.
+ * El planeador de la semana, POR PROFESOR (rediseño 23-sep-2026, opción C):
+ * una fila por profesor × los 6 días, cada casilla con sus horas y cuántos
+ * niños van. Reemplazó a la parrilla por hora, que con 13 filas de horas se
+ * estiraba y obligaba a hacer scroll. Cada profesor lleva su color en todas
+ * las pantallas del módulo.
  */
 export default async function AcademiasPage({
   searchParams,
@@ -82,61 +81,10 @@ export default async function AcademiasPage({
     horas: cs.reduce((n, c) => n + c.duracion_min, 0) / 60,
   };
   const conClases = new Set(cs.map((c) => c.profesor_id));
-  const horas = [...new Set(cs.map((c) => hhmm(c.hora_inicio)))].sort();
-  const manana = horas.filter((h) => h < "13:00");
-  const tarde = horas.filter((h) => h >= "13:00");
   const puedeEditar = can(profile.role, "academias", "edit");
-
-  const fila = (h: string) => (
-    <div key={h} className="contents">
-      <div className="font-heading text-muted-foreground border-t border-[#f0f3f3] px-3 py-2.5 text-xs font-semibold tabular-nums">
-        {h}
-      </div>
-      {DIAS_SEMANA.map((d) => (
-        <div
-          key={d}
-          className="flex min-h-10 flex-col gap-1 border-t border-l border-[#f0f3f3] p-1.5"
-        >
-          {cs
-            .filter((c) => c.dia_semana === d && hhmm(c.hora_inicio) === h)
-            .map((c) => {
-              const col = color.get(c.profesor_id)!;
-              const nombre = nombreDe.get(c.profesor_id) ?? "—";
-              return (
-                <Link
-                  key={c.clase_id}
-                  href={`/academias/clase/${c.clase_id}`}
-                  title={`${nombre} · ${DIA_LARGO[d]} ${h}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}${c.competencia ? ` (${c.competencia} de competencia)` : ""}`}
-                  className="flex items-center justify-between gap-1.5 rounded-md border-l-[3px] px-2 py-1.5 text-xs leading-tight transition-shadow hover:shadow-md"
-                  style={{ background: col.s, borderLeftColor: col.c }}
-                >
-                  <span className="truncate">
-                    {nombreCorto(nombre)}
-                    {c.competencia > 0 && (
-                      <span
-                        className="font-heading ml-1 text-[9.5px] font-bold tracking-wide"
-                        style={{ color: col.c }}
-                      >
-                        COMP
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-heading text-[13px] font-bold tabular-nums">
-                    {c.ninos}
-                  </span>
-                </Link>
-              );
-            })}
-        </div>
-      ))}
-    </div>
-  );
-
-  const separador = (t: string) => (
-    <div className="text-muted-foreground/80 col-span-full bg-[#f0f3f3] px-3 py-1.5 text-[10.5px] font-bold tracking-wider uppercase">
-      {t}
-    </div>
-  );
+  const filas = profesores
+    .filter((p) => p.nombre !== "—" || conClases.has(p.id))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
   return (
     <div className="space-y-5">
@@ -180,84 +128,18 @@ export default async function AcademiasPage({
         <Kpi label="Profesores con clases" valor={conClases.size} />
       </div>
 
-      {/* Profesores: además de leyenda del color, son la puerta a la semana de
-          cada uno. Por eso son tarjetas y no una fila de puntitos. */}
-      <section className="space-y-2.5">
-        <h2 className="font-heading text-sm font-bold uppercase">Profesores</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {profesores
-            .filter((p) => p.nombre !== "—")
-            .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
-            .map((p) => {
-              const col = color.get(p.id)!;
-              const suyas = cs.filter((c) => c.profesor_id === p.id);
-              const ninos = suyas.reduce((n, c) => n + c.ninos, 0);
-              const iniciales = p.nombre
-                .split(" ")
-                .slice(0, 2)
-                .map((x) => x[0])
-                .join("")
-                .toUpperCase();
-              return (
-                <Link
-                  key={p.id}
-                  href={`/academias/profesor/${p.id}`}
-                  className={`group flex items-center gap-3 rounded-xl p-3 transition-all hover:-translate-y-0.5 ${
-                    suyas.length
-                      ? "ring-foreground/[0.06] bg-card shadow-sm ring-1 hover:shadow-md"
-                      : "border-border border border-dashed"
-                  }`}
-                >
-                  <span
-                    className="font-heading flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                    style={{
-                      background: col.s,
-                      color: col.c,
-                      boxShadow: `inset 0 0 0 2px ${col.c}`,
-                    }}
-                  >
-                    {iniciales}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="font-heading block text-[15px] leading-snug font-semibold">
-                      {p.nombre}
-                    </span>
-                    {suyas.length ? (
-                      <span className="text-muted-foreground mt-0.5 flex items-center gap-3 text-xs whitespace-nowrap tabular-nums">
-                        <span className="inline-flex items-center gap-1">
-                          <CalendarDays
-                            className="size-3.5"
-                            style={{ color: col.c }}
-                          />
-                          {suyas.length} clases
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Users
-                            className="size-3.5"
-                            style={{ color: col.c }}
-                          />
-                          {ninos} niños
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground mt-0.5 block text-xs">
-                        Sin clases todavía
-                      </span>
-                    )}
-                  </span>
-                  <ChevronRight className="text-muted-foreground/60 size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              );
-            })}
-        </div>
-      </section>
-
+      {/* El planeador POR PROFESOR (rediseño 23-sep-2026, opción C): una fila
+          por profesor y en cada día sus horas. La parrilla por hora se estiraba
+          a ~930 px con scroll; así cabe entera, y la fila del profesor hace
+          también de leyenda del color y de puerta a su semana. */}
       <div className="relative">
         <div
           className={`ring-foreground/[0.06] bg-card overflow-x-auto rounded-xl shadow-sm ring-1 ${pausa ? "opacity-45 saturate-[.3]" : ""}`}
         >
-          <div className="grid min-w-[840px] grid-cols-[62px_repeat(6,minmax(122px,1fr))]">
-            <div className="border-border border-b" />
+          <div className="grid min-w-[960px] grid-cols-[260px_repeat(6,minmax(112px,1fr))]">
+            <div className="border-border text-muted-foreground border-b px-4 py-3 text-[11px] font-bold tracking-wider uppercase">
+              Profesor
+            </div>
             {DIAS_SEMANA.map((d) => {
               const delDia = cs.filter((c) => c.dia_semana === d);
               return (
@@ -272,10 +154,120 @@ export default async function AcademiasPage({
                 </div>
               );
             })}
-            {manana.length > 0 && separador("Mañana")}
-            {manana.map(fila)}
-            {tarde.length > 0 && separador("Tarde")}
-            {tarde.map(fila)}
+
+            {filas.map((p) => {
+              const col = color.get(p.id)!;
+              const suyas = cs.filter((c) => c.profesor_id === p.id);
+              const ninos = suyas.reduce((n, c) => n + c.ninos, 0);
+              const iniciales = p.nombre
+                .split(" ")
+                .slice(0, 2)
+                .map((x) => x[0])
+                .join("")
+                .toUpperCase();
+              return (
+                <div key={p.id} className="contents">
+                  <Link
+                    href={`/academias/profesor/${p.id}`}
+                    className="group flex items-center gap-3 border-t border-[#f0f3f3] px-4 py-3 transition-colors hover:bg-[#f7f9f8]"
+                  >
+                    <span
+                      className="font-heading flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                      style={{
+                        background: col.s,
+                        color: col.c,
+                        boxShadow: `inset 0 0 0 2px ${col.c}`,
+                      }}
+                    >
+                      {iniciales}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="font-heading block text-[14.5px] leading-snug font-semibold">
+                        {p.nombre}
+                      </span>
+                      {suyas.length ? (
+                        <span className="text-muted-foreground mt-0.5 flex items-center gap-3 text-xs whitespace-nowrap tabular-nums">
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarDays
+                              className="size-3.5"
+                              style={{ color: col.c }}
+                            />
+                            {suyas.length} clases
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Users
+                              className="size-3.5"
+                              style={{ color: col.c }}
+                            />
+                            {ninos} niños
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground mt-0.5 block text-xs">
+                          Sin clases todavía
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight className="text-muted-foreground/50 size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+
+                  {suyas.length === 0 ? (
+                    <div className="text-muted-foreground col-span-6 flex items-center border-t border-l border-[#f0f3f3] px-4 text-xs">
+                      {puedeEditar ? (
+                        <Link
+                          href={`/academias/clase/nueva?profesor=${p.id}`}
+                          className="hover:text-foreground font-semibold underline-offset-2 hover:underline"
+                        >
+                          + Crearle su primera clase
+                        </Link>
+                      ) : (
+                        "Aún no tiene clases en el planeador."
+                      )}
+                    </div>
+                  ) : (
+                    DIAS_SEMANA.map((d) => {
+                      const delDia = suyas
+                        .filter((c) => c.dia_semana === d)
+                        .sort((a, b) =>
+                          a.hora_inicio.localeCompare(b.hora_inicio),
+                        );
+                      return (
+                        <div
+                          key={d}
+                          className="flex flex-wrap content-start gap-1 border-t border-l border-[#f0f3f3] p-2"
+                          style={
+                            delDia.length
+                              ? undefined
+                              : {
+                                  background:
+                                    "repeating-linear-gradient(135deg, transparent 0 6px, #f7f9f8 6px 12px)",
+                                }
+                          }
+                        >
+                          {delDia.map((c) => (
+                            <Link
+                              key={c.clase_id}
+                              href={`/academias/clase/${c.clase_id}`}
+                              title={`${DIA_LARGO[d]} ${hhmm(c.hora_inicio)}–${horaFin(c.hora_inicio, c.duracion_min)} · ${c.ninos} ${c.ninos === 1 ? "niño" : "niños"}`}
+                              className="inline-flex h-6 items-center gap-1.5 rounded-md border-l-[3px] px-2 text-xs font-semibold tabular-nums transition-shadow hover:shadow-md"
+                              style={{ background: col.s, borderLeftColor: col.c }}
+                            >
+                              {hhmm(c.hora_inicio)}
+                              <span
+                                className="font-heading font-bold"
+                                style={{ color: col.c }}
+                              >
+                                {c.ninos}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         {pausa && (
@@ -286,9 +278,8 @@ export default async function AcademiasPage({
       </div>
 
       <p className="text-muted-foreground -mt-2 text-xs">
-        <span className="font-heading font-bold tracking-wide">COMP</span> = la
-        clase tiene niños de competencia. Toca una clase para ver quiénes
-        vienen.
+        Cada casilla es la hora de la clase y cuántos niños van. Toca una hora
+        para ver quiénes vienen, o el profesor para ver su semana.
       </p>
 
       {/* La matrícula es el lado del COBRO (cada academia apunta a su servicio de

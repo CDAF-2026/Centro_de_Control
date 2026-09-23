@@ -138,11 +138,6 @@ export default async function ProfesorSemanaPage({ params }: { params: Promise<{
                     >
                       <span className="font-heading font-bold tabular-nums">{hhmm(c.hora_inicio)}</span>
                       <span className="text-muted-foreground"> · {c.ninos} {c.ninos === 1 ? "niño" : "niños"}</span>
-                      {c.competencia > 0 && (
-                        <span className="font-heading block text-[9.5px] font-bold tracking-wide" style={{ color: col.c }}>
-                          {c.competencia} COMP
-                        </span>
-                      )}
                     </Link>
                   ))}
               </div>

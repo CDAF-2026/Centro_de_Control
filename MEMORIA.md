@@ -816,6 +816,7 @@ clases; la ficha de la academia lista a los retirados con su fecha. Volver a ent
 misma fila**, no crea otra.
 
 ### Las pantallas (rediseño del 23-sep-2026)
+⚠️ **El planeador ya NO es la parrilla por hora (23-sep-2026, opción C del artifact "Planeador compacto")**: con 13 filas de horas se estiraba a ~930 px y obligaba a scroll. Ahora es **una fila por profesor × los 6 días**, cada casilla con sus horas y cuántos niños van; la fila del profesor hace de leyenda del color y de puerta a su semana (reemplazó las tarjetas de profesores). **Sin marcas "COMP"** en ninguna pantalla (pedido de Laura): la academia es del niño y se ve en la ficha de la clase.
 Laura encontró el planeador "desordenado". Se hicieron 3 propuestas por pantalla (artifact "Rediseño
 de Academias") y se implementaron: **Planeador = A · parrilla por hora** (cada fila es una hora de
 inicio, así el martes 16:30 queda a la par del jueves 16:30 — la versión anterior apilaba las clases
@@ -829,7 +830,7 @@ con buscador**.
 
 | Ruta | Qué contesta |
 |---|---|
-| `/academias` | **El planeador**: una fila por profesor × los 6 días, cada celda con sus clases y cuántos niños vienen. Reemplaza las 5 pestañas del Excel |
+| `/academias` | **El planeador**: una fila por profesor × los 6 días, cada casilla con la hora y cuántos niños vienen. Reemplaza las 5 pestañas del Excel |
 | `/academias/profesor/[id]` | Su semana: clases, cupos y **horas de cancha** |
 | `/academias/clase/[id]` | La clase y su roster. Aquí pasa TODA la operación: agregar niño · quitar de este día · **mover a otro horario** · cambiar de academia · retirar |
 | `/academias/[id]` | La **matrícula** de Recreativa o Competencia: quién está, desde cuándo, a qué clases. El lado del dinero |

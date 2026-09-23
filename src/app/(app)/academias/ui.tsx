@@ -50,9 +50,3 @@ export function coloresDeProfesores(ids: { id: string; nombre: string }[]) {
   const orden = [...ids].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   return new Map(orden.map((p, i) => [p.id, PALETA[i % PALETA.length]]));
 }
-
-/** Primer nombre para chips estrechos ("Sebastian Niño Mora" → "Sebastián"). */
-export function nombreCorto(nombre: string) {
-  const n = nombre.split(" ")[0];
-  return n === "Sebastian" ? "Sebastián" : n;
-}
