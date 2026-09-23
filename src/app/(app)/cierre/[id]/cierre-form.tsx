@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { cerrarClase, type CierreState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 const SELECT = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -42,6 +43,13 @@ export function CierreForm({
     return inicial;
   });
   const [verOtros, setVerOtros] = useState(deportistas.length === 0 && otrosInscritos.length > 0);
+  // "No se dictó" saca la clase de la cola para siempre, así que tiene que decir
+  // POR QUÉ: un receso sin cargar y un olvido se ven iguales y se arreglan
+  // distinto (uno está bien, el otro hay que reponerlo).
+  const [estadoClase, setEstadoClase] = useState(
+    estadoActual === "programada" ? "realizada" : estadoActual,
+  );
+  const noSeDicto = estadoClase === "cancelada";
 
   const presentes = deportistas.filter((d) => estados[d.id] === "presente").length;
   const reposiciones = otrosInscritos.filter((o) => estados[o.id] && estados[o.id] !== "no").length;
@@ -62,16 +70,36 @@ export function CierreForm({
         <select
           id="estado"
           name="estado"
-          defaultValue={estadoActual === "programada" ? "realizada" : estadoActual}
+          value={estadoClase}
+          onChange={(e) => setEstadoClase(e.target.value)}
           className="border-input bg-background h-11 w-full rounded-md border px-3 text-base"
         >
-          <option value="realizada">Sí, se dictó (realizada)</option>
-          <option value="cancelada">Cancelada</option>
-          <option value="no_show">No-show (no asistió)</option>
+          <option value="realizada">Sí, se dictó</option>
+          <option value="cancelada">No se dictó este día</option>
+          {/* "No-show" es de la clase particular: el cliente no llegó. En academia
+              eso no existe — si no vino nadie, la clase no se dictó. */}
+          {!esAcademia && <option value="no_show">No-show (no asistió)</option>}
         </select>
       </div>
 
-      {deportistas.length > 0 && (
+      {noSeDicto && (
+        <div className="border-warning/35 bg-warning/10 space-y-2 rounded-md border px-3 py-3">
+          <Label htmlFor="motivo_cancelacion">¿Por qué no se dictó?</Label>
+          <Input
+            id="motivo_cancelacion"
+            name="motivo_cancelacion"
+            required
+            minLength={3}
+            placeholder="Semana de receso · profesor enfermo · lluvia · cancha ocupada"
+          />
+          <p className="text-muted-foreground text-xs">
+            La clase deja de pedirse y no cuenta para nada. Queda el registro de que ese día no
+            hubo, con el motivo.
+          </p>
+        </div>
+      )}
+
+      {deportistas.length > 0 && !noSeDicto && (
         <div className="space-y-2">
           <Label>Asistencia{esAcademia ? " de los alumnos" : ""}</Label>
           {esAcademia && (
@@ -106,7 +134,7 @@ export function CierreForm({
         </div>
       )}
 
-      {esAcademia && deportistas.length === 0 && (
+      {esAcademia && deportistas.length === 0 && !noSeDicto && (
         <p className="border-destructive/40 bg-destructive/10 rounded-md border px-3 py-2 text-sm">
           Esta clase no tiene a nadie apuntado. Si se registró sin decir de qué clase del
           planeador salía, revísalo en Academias; mientras tanto, marca abajo a quien haya venido.
@@ -115,7 +143,7 @@ export function CierreForm({
 
       {/* Reposiciones: el que vino un día que no es el suyo. Va aparte y cerrado,
           para que la lista principal siga siendo solo la gente de esta clase. */}
-      {esAcademia && otrosInscritos.length > 0 && (
+      {esAcademia && otrosInscritos.length > 0 && !noSeDicto && (
         <div className="space-y-2">
           <button
             type="button"
@@ -150,7 +178,7 @@ export function CierreForm({
         </div>
       )}
 
-      {!esAcademia && (
+      {!esAcademia && !noSeDicto && (
         <div className="space-y-1.5">
           <Label htmlFor="num_asistentes">¿Cuántas personas tomaron la clase?</Label>
           <select

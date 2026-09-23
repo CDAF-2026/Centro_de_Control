@@ -97,6 +97,31 @@ describe("academia_pendientes · qué debió dictarse", () => {
     });
   });
 
+  it("una clase marcada «no se dictó» deja de proponerse, igual que una cerrada", async () => {
+    // Es la salida para lo que el calendario no previó: un receso sin cargar,
+    // un profesor enfermo, lluvia. Sin ella la clase quedaría pendiente para
+    // siempre y la cola dejaría de significar algo.
+    await enTransaccion(async () => {
+      await q("update public.clase_semanal set vigente_desde = '2026-01-01'");
+      const [cs] = await q("select id, dia_semana from public.clase_semanal where activa order by id limit 1");
+      const [{ fecha }] = await q(
+        `select d::date fecha from generate_series('2026-10-05'::date,'2026-10-11'::date,'1 day') d
+          where extract(dow from d) = $1 limit 1`,
+        [cs.dia_semana],
+      );
+      await q(
+        `insert into public.clases (tipo, clase_semanal_id, fecha, precio, estado, motivo_cancelacion)
+         values ('academia', $1, $2, 0, 'cancelada', 'Semana de receso')`,
+        [cs.id, fecha],
+      );
+      const [{ n }] = await q(
+        "select count(*)::int n from public.academia_pendientes($1,$1) where clase_id = $2",
+        [fecha, cs.id],
+      );
+      expect(n).toBe(0);
+    });
+  });
+
   it("lo ya cerrado deja de proponerse", async () => {
     await enTransaccion(async () => {
       await q("update public.clase_semanal set vigente_desde = '2026-01-01'");

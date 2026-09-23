@@ -65,6 +65,14 @@ export async function cerrarClase(
     };
   }
 
+  // "No se dictó" tiene que decir POR QUÉ. Sin motivo obligatorio, una clase
+  // cancelada por receso y una cancelada por olvido se ven idénticas, y son
+  // cosas distintas: una está bien y la otra hay que reponerla.
+  const motivo = String(formData.get("motivo_cancelacion") || "").trim();
+  if (estado === "cancelada" && motivo.length < 3) {
+    return { error: "Escribe por qué no se dictó (ej. «semana de receso», «profesor enfermo», «lluvia»)." };
+  }
+
   const noRegistrados = String(formData.get("asistentes_no_registrados") || "").trim() || null;
   // Nº de personas de la clase particular (define el escalón de precio en la liquidación).
   const numRaw = formData.get("num_asistentes");
@@ -77,6 +85,7 @@ export async function cerrarClase(
     .update({
       estado,
       registrada_por: profile.id,
+      motivo_cancelacion: estado === "cancelada" ? motivo : null,
       asistentes_no_registrados: noRegistrados,
       ...(numAsistentes != null ? { num_asistentes: numAsistentes } : {}),
     })
@@ -229,7 +238,7 @@ export async function reabrirCierre(claseId: number): Promise<CierreState> {
   await supabase.from("asistencias").delete().eq("clase_id", claseId);
   const { error } = await supabase
     .from("clases")
-    .update({ estado: "programada", registrada_por: null })
+    .update({ estado: "programada", registrada_por: null, motivo_cancelacion: null })
     .eq("id", claseId);
   if (error) return { error: error.message };
 

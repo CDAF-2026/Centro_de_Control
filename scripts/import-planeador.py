@@ -82,8 +82,30 @@ COLEGIOS = {"MONTESSORI", "MONTELUNA", "MONTE LUNA"}
 #     plataforma tiene a "Emma Hoyos" (m425, doc 1035002652, nac 22-oct-2013 →
 #     12 años), que es justo la edad del Excel; y la propia rejilla del club la
 #     escribe "EMMA HOYOS". Verificado 22-sep-2026.
+#   · VALENTIN RAMIREZ ARANGO: en la plataforma es "Valentin Ramirez" (m92),
+#     TITULAR de la ficha 112, donde también está su hermano Clemente Ramírez
+#     Arango (m371). Laura confirmó que es el niño (23-sep-2026). OJO: su
+#     documento cargado es el de Clemente — ver pendientes en MEMORIA.
 ALIAS_NINO = {
     "EMA HOYOS": "EMMA HOYOS",
+    "VALENTIN RAMIREZ ARANGO": "VALENTIN RAMIREZ",
+}
+
+# Niños que están en el Excel pero NO deben cargarse. El planeador del club
+# tiene filas viejas; cada entrada lleva quién lo decidió y cuándo, para que
+# nadie la "arregle" creando a la persona.
+NO_CARGAR = {
+    "SARA SALAZAR": "no continúa en las academias (Laura, 23-sep-2026)",
+}
+
+# Duraciones que el Excel trae MAL y el club corrigió. La llave de la clase es
+# (profesor, día, hora) y se toma la duración predominante; esto la fija y
+# silencia el aviso de "duración mezclada", porque ya no es una duda.
+#   · Krystal García: el Excel dice 60 min dentro de la clase de 90 de Graciano,
+#     pero hace los 90 (Laura, 23-sep-2026).
+DURACION_CONFIRMADA = {
+    ("ESTEBAN GRACIANO", 1, "16:00"): 90,
+    ("ESTEBAN GRACIANO", 5, "16:00"): 90,
 }
 # El Excel escribe los nombres cortos; la plataforma los tiene completos.
 ALIAS_PROFESOR = {
@@ -106,10 +128,13 @@ for r in ws.iter_rows(min_row=3, values_only=True):
         continue
     if nm(nom) in COLEGIOS or nm(f"{nom} {ape}") in COLEGIOS:
         continue
+    if nm(f"{nom} {ape}") in NO_CARGAR:
+        continue
     filas.append(dict(nom=nom, ape=ape or "", doc=doc, edad=edad, academia=aca,
                       dia=DIA_NUM[nm(dia)[:3]], hora=str(hora)[:5], dur=int(float(dur)),
                       profesor=nm(prof)))
 print(f"Excel: {len(filas)} filas de academia (colegios excluidos)")
+for n, por in NO_CARGAR.items(): print(f"  · no se carga {n}: {por}")
 
 # ── 2 · Profesores ───────────────────────────────────────────────────────────
 staff = get("profiles?select=id,nombre,activo")
@@ -130,6 +155,9 @@ for f in filas: slots[(f["profesor"], f["dia"], f["hora"])].append(f)
 clases_plan, mezcla_dur = {}, []
 for k, fs in slots.items():
     durs = Counter(x["dur"] for x in fs)
+    if k in DURACION_CONFIRMADA:
+        clases_plan[k] = DURACION_CONFIRMADA[k]
+        continue
     dur = durs.most_common(1)[0][0]
     if len(durs) > 1: mezcla_dur.append((k, dict(durs)))
     clases_plan[k] = dur

@@ -4,49 +4,19 @@ import { useState, useTransition } from "react";
 import {
   prepararAsignacion,
   materializarReserva,
-  prepararAcademia,
-  materializarAcademia,
   type PrepararAsignacion,
-  type PrepararAcademia,
-  type ClasePlaneada,
-  type ProfesorConClases,
 } from "./actions";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { aMinutos, type CalEvento } from "./types";
+import { type CalEvento } from "./types";
 
-type Modo = "paquete" | "particular" | "academia";
+type Modo = "paquete" | "particular";
 const SELECT = "border-input bg-background mt-1 h-9 w-full rounded-md border px-2 text-sm";
-const DIA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-
-/** "15:00" + 90 → "16:30". */
-function finDe(hora: string, min: number) {
-  const t = (aMinutos(hora) ?? 0) + min;
-  return `${String(Math.floor(t / 60) % 24).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
-}
-
-/**
- * Clases del planeador de ese profesor que caen DENTRO del bloqueo: mismo día de
- * la semana y hora dentro del rango reservado. Es lo que evita teclear horarios
- * a mano — un bloqueo de 15:00 a 18:00 con clases de 15:30 y 16:30 son dos.
- */
-function clasesEnBloque(p: ProfesorConClases | null, ev: CalEvento): ClasePlaneada[] {
-  if (!p) return [];
-  const bi = aMinutos(ev.hora), bf = aMinutos(ev.horaFin);
-  if (bi === null || bf === null) return [];
-  const dow = new Date(`${ev.fecha}T00:00:00`).getDay();
-  return p.clases.filter((c) => {
-    if (c.dia !== dow) return false;
-    const h = aMinutos(c.hora);
-    return h !== null && h >= bi && h < bf;
-  });
-}
-
 export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   const ec = ev.ec!;
   const [pending, start] = useTransition();
   const [modo, setModo] = useState<Modo | null>(null);
   const [data, setData] = useState<PrepararAsignacion | null>(null);
-  const [aca, setAca] = useState<PrepararAcademia | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [paqueteId, setPaqueteId] = useState("");
@@ -59,26 +29,11 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
   const [personas, setPersonas] = useState("1");
   // Alquiler de cancha: los botones salen escondidos y esto los destapa.
   const [forzarClase, setForzarClase] = useState(false);
-  /** Profesor DUEÑO del planeador que se está registrando (no el suplente). */
-  const [duenoId, setDuenoId] = useState("");
-  const [elegidas, setElegidas] = useState<Set<number>>(new Set());
 
-  const largoBloque = (() => {
-    const i = aMinutos(ev.hora), f = aMinutos(ev.horaFin);
-    return i !== null && f !== null && f > i ? f - i : 0;
-  })();
 
   function abrir(m: Modo) {
     setErr(null);
     setModo(m);
-
-    if (m === "academia") {
-      if (aca) return;
-      start(async () => {
-        setAca(await prepararAcademia());
-      });
-      return;
-    }
 
     if (data) {
       if (m === "paquete") setPaqueteId(data.paquetes[0] ? String(data.paquetes[0].id) : "");
@@ -93,46 +48,10 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
     });
   }
 
-  /** Al escoger profesor se marcan solas sus clases que caen dentro del bloqueo. */
-  function cambiarDueno(id: string) {
-    setDuenoId(id);
-    const p = aca?.profesores.find((x) => x.id === id) ?? null;
-    setElegidas(new Set(clasesEnBloque(p, ev).map((c) => c.id)));
-    setProfesorId("");
-  }
-
-  const dueno = aca?.profesores.find((p) => p.id === duenoId) ?? null;
-  const enBloque = clasesEnBloque(dueno, ev);
-  // Ninguna de sus clases cae aquí: es una reposición o una clase extra. Se le
-  // deja escoger DE CUÁL de sus clases es, para que el roster del cierre siga
-  // siendo exacto — registrarla suelta dejaría una clase sin a quién esperar.
-  const esReposicion = !!dueno && enBloque.length === 0;
-  const candidatas = esReposicion ? dueno!.clases : enBloque;
-
-  const clasesAEnviar = !dueno
-    ? []
-    : esReposicion
-      ? dueno.clases
-          .filter((c) => elegidas.has(c.id))
-          .map((c) => ({ claseSemanalId: c.id, inicio: ev.hora, fin: ev.horaFin }))
-      : enBloque
-          .filter((c) => elegidas.has(c.id))
-          .map((c) => ({ claseSemanalId: c.id, inicio: c.hora, fin: finDe(c.hora, c.duracionMin) }));
-
   function confirmar() {
     setErr(null);
     start(async () => {
-      const r =
-        modo === "academia"
-          ? await materializarAcademia({
-              bookingId: ec.bookingId,
-              fecha: ev.fecha,
-              deporte: ev.deporte,
-              cancha: ev.cancha ?? "",
-              profesorId,
-              clases: clasesAEnviar,
-            })
-          : await materializarReserva({
+      const r = await materializarReserva({
               modo: modo as "paquete" | "particular",
               bookingId: ec.bookingId,
               email: ec.email,
@@ -161,14 +80,17 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
 
   const sinPaquetes = !!data && data.paquetes.length === 0;
 
-  // Opciones de corte para el caso manual (grupo sin franja a esta hora).
-  const cortes = [60, 90, 120].filter((d) => d < largoBloque);
 
   return (
     <div className="mt-3 space-y-2 border-t pt-3">
-      {/* Un alquiler no se registra ni se cierra: el título no puede pedirlo. */}
+      {/* Ni un alquiler ni un bloqueo de academia se registran aquí: el título
+          no puede pedirlo. */}
       <p className="text-sm font-medium">
-        {!ec.esBloqueo && !ec.pareceClase && !forzarClase ? "Reserva de cancha" : "Registrar para poder cerrarla"}
+        {ec.esBloqueo
+          ? "Bloqueo de academia"
+          : !ec.pareceClase && !forzarClase
+            ? "Reserva de cancha"
+            : "Registrar para poder cerrarla"}
       </p>
 
       {/* Alquiler de cancha: NO se ofrece convertirlo en clase.
@@ -178,7 +100,18 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
           de cierre. Se esconde, no se bloquea: hay clases reales sin nota (la
           del 23-ago de Esteban venía en blanco) y bloquear dejaría al club sin
           poder registrarlas. */}
-      {!ec.esBloqueo && !ec.pareceClase && !forzarClase ? (
+      {/* Las academias YA NO se registran desde aquí (22-sep-2026, pedido de
+          Laura). Salen solas del planeador y el profesor las cierra en /cierre;
+          dejar el botón solo confundía a cafetería, que no tiene nada que hacer
+          con ellas. Se explica en vez de callar: un bloqueo sin acción y sin
+          motivo se lee como que algo falta. */}
+      {ec.esBloqueo ? (
+        <p className="text-muted-foreground text-sm">
+          Las clases de academia no se registran aquí: salen solas del{" "}
+          <Link className="underline" href="/academias">planeador</Link> y el profesor las cierra en
+          Cierre de clases.
+        </p>
+      ) : !ec.pareceClase && !forzarClase ? (
         <div className="space-y-1.5">
           <p className="text-muted-foreground text-sm">
             <span className="font-medium">Alquiler de cancha</span>: no se registra ni se cierra.
@@ -198,139 +131,20 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
               Parece un alquiler: regístrala solo si se dictó clase.
             </p>
           )}
-          {/* Un bloqueo es cancha que el club se auto-reserva: no tiene cliente, así que
-              paquete/particular no aplican (crearían un cliente "BLOQUEOS ACADEMIAS"). */}
           <div className="flex gap-2">
-            {ec.esBloqueo ? (
-              <Button type="button" size="sm" variant={modo === "academia" ? "default" : "outline"} onClick={() => abrir("academia")} disabled={pending}>
-                Academia
-              </Button>
-            ) : (
-              <>
-                <Button type="button" size="sm" variant={modo === "paquete" ? "default" : "outline"} onClick={() => abrir("paquete")} disabled={pending}>
-                  A un paquete
-                </Button>
-                <Button type="button" size="sm" variant={modo === "particular" ? "default" : "outline"} onClick={() => abrir("particular")} disabled={pending}>
-                  Particular
-                </Button>
-              </>
-            )}
+            <Button type="button" size="sm" variant={modo === "paquete" ? "default" : "outline"} onClick={() => abrir("paquete")} disabled={pending}>
+              A un paquete
+            </Button>
+            <Button type="button" size="sm" variant={modo === "particular" ? "default" : "outline"} onClick={() => abrir("particular")} disabled={pending}>
+              Particular
+            </Button>
           </div>
         </>
       )}
 
       {err && <p className="text-destructive text-sm">{err}</p>}
 
-      {modo === "academia" && aca && (
-        <div className="space-y-2">
-          {aca.profesores.length === 0 ? (
-            <p className="text-sm">
-              No hay profesores activos. Revísalos en <a className="underline" href="/empleados">Empleados</a>.
-            </p>
-          ) : (
-            <>
-              {/* Se escoge el PROFESOR, no la academia: en el planeador del club una
-                  misma clase mezcla niños de recreativa y de competencia, así que la
-                  academia no es del bloqueo — es de cada niño. */}
-              <label className="block text-xs">
-                Profesor del planeador
-                <select value={duenoId} onChange={(e) => cambiarDueno(e.target.value)} className={SELECT}>
-                  <option value="">— Escoge uno —</option>
-                  {aca.profesores.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}{p.clases.length === 0 ? " (sin clases)" : ""}
-                    </option>
-                  ))}
-                </select>
-                {ec.comentario && (
-                  <span className="text-muted-foreground mt-1 block">EasyCancha dice: “{ec.comentario}”.</span>
-                )}
-              </label>
-
-              {esReposicion && (
-                <p className="border-warning/35 bg-warning/10 rounded-md border px-3 py-2 text-xs text-[#6d4700]">
-                  Ninguna clase de {dueno!.nombre} cae este día a esta hora. Si es una reposición o una
-                  clase extra, escoge de cuál de sus clases es: así al cerrarla se sabe a quién esperar.
-                </p>
-              )}
-
-              {dueno && candidatas.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs">
-                    {esReposicion
-                      ? `Clases de ${dueno.nombre}:`
-                      : `Sus clases dentro de este bloqueo (${ev.hora}–${ev.horaFin}):`}
-                  </p>
-                  <ul className="space-y-1">
-                    {candidatas.map((c) => (
-                      <li key={c.id}>
-                        <label className="flex items-start gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={elegidas.has(c.id)}
-                            onChange={(e) => {
-                              const s2 = new Set(elegidas);
-                              if (e.target.checked) s2.add(c.id);
-                              else s2.delete(c.id);
-                              setElegidas(s2);
-                            }}
-                          />
-                          <span>
-                            <span className="font-medium tabular-nums">
-                              {DIA[c.dia]} {c.hora}–{finDe(c.hora, c.duracionMin)}
-                            </span>
-                            <span className="text-muted-foreground">
-                              {" · "}{c.ninos} {c.ninos === 1 ? "niño" : "niños"}
-                              {c.cancha ? ` · cancha ${c.cancha}` : ""}
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {dueno && dueno.clases.length === 0 && (
-                <p className="border-warning/35 bg-warning/10 rounded-md border px-3 py-2 text-xs text-[#6d4700]">
-                  {dueno.nombre} no tiene ninguna clase en el planeador. Créale una en{" "}
-                  <a className="underline" href={`/academias/profesor/${dueno.id}`}>Academias</a> antes de
-                  registrar este bloqueo.
-                </p>
-              )}
-
-              {dueno && (
-                <label className="block text-xs">
-                  ¿La dicta otro hoy? (opcional)
-                  <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)} className={SELECT}>
-                    <option value="">— La dicta {dueno.nombre} —</option>
-                    {aca.profesores
-                      .filter((p) => p.id !== dueno.id)
-                      .map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
-                  <span className="text-muted-foreground mt-1 block">
-                    Se aplica a TODAS las clases de este bloqueo, y es a quien se le liquida.
-                  </span>
-                </label>
-              )}
-
-              {dueno && clasesAEnviar.length > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  Se {clasesAEnviar.length === 1 ? "creará 1 clase" : `crearán ${clasesAEnviar.length} clases`}:{" "}
-                  {clasesAEnviar.map((c) => `${c.inicio}–${c.fin}`).join(" · ")}.
-                </p>
-              )}
-
-              <Button type="button" size="sm" onClick={confirmar} disabled={pending || clasesAEnviar.length === 0}>
-                {pending ? "Guardando…" : clasesAEnviar.length === 1 ? "Confirmar clase de academia" : `Confirmar ${clasesAEnviar.length} clases`}
-              </Button>
-            </>
-          )}
-        </div>
-      )}
-
-      {modo && modo !== "academia" && data && (
+      {modo && data && (
         <div className="space-y-2">
           {data.clienteNombre ? (
             <p className="text-muted-foreground text-xs">Cliente: {data.clienteNombre}</p>

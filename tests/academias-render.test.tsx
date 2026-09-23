@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createClient as sbClient } from "@supabase/supabase-js";
 
@@ -50,7 +50,17 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-const PERFIL = { id: "00000000-0000-0000-0000-000000000000", role: "superadmin", nombre: "test", activo: true };
+// El id se rellena con un superadministrador REAL antes de correr: `cerrarClase`
+// escribe `clases.registrada_por`, que tiene FK a `profiles`, así que un uuid
+// inventado revienta con un error de llave foránea que no tiene nada que ver con
+// lo que se está probando. Se resuelve en tiempo de ejecución y no a mano para
+// no fijar un id que el club puede mover.
+const PERFIL = { id: "", role: "superadmin", nombre: "test", activo: true };
+beforeAll(async () => {
+  const { data } = await admin().from("profiles").select("id").eq("role", "superadmin").eq("activo", true).limit(1);
+  if (!data?.[0]) throw new Error("No hay superadministrador: esta prueba lo necesita.");
+  PERFIL.id = data[0].id;
+});
 const admin = () =>
   sbClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
@@ -251,5 +261,58 @@ describe("las pantallas de academias se renderizan enteras", () => {
     // pantalla nadie entiende por qué unos días no aparecen y otros sí.
     expect(t).toContain("no dicta");
     expect(t).toContain("no se reprocha");
+  });
+
+  it("«no se dictó» exige motivo, y con él saca la clase de la cola", async () => {
+    // Sin motivo obligatorio, una clase cancelada por receso y una cancelada por
+    // olvido se ven idénticas — y se arreglan distinto: una está bien y la otra
+    // hay que reponerla.
+    const { claseId, profesorId } = await unaClase();
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const fecha = ayer.toISOString().slice(0, 10);
+    const { data: c } = await admin()
+      .from("clases")
+      .insert({
+        tipo: "academia", clase_semanal_id: Number(claseId), profesor_id: profesorId,
+        deporte: "tenis", fecha, hora_inicio: "06:05:00", hora_fin: "07:05:00",
+        precio: 0, estado: "programada",
+      })
+      .select("id")
+      .single();
+    try {
+      const { cerrarClase } = await import("../src/app/(app)/cierre/actions");
+      const sinMotivo = new FormData();
+      sinMotivo.set("claseId", String(c!.id));
+      sinMotivo.set("estado", "cancelada");
+      const r1 = await cerrarClase({}, sinMotivo);
+      expect(r1.error).toMatch(/por qué no se dictó/i);
+
+      const conMotivo = new FormData();
+      conMotivo.set("claseId", String(c!.id));
+      conMotivo.set("estado", "cancelada");
+      conMotivo.set("motivo_cancelacion", "Semana de receso");
+      // Al cerrar bien, la acción redirige a la cola; el arnés convierte el
+      // redirect en excepción, así que es la señal de éxito.
+      await expect(cerrarClase({}, conMotivo)).rejects.toThrow("REDIRECT /cierre?ok=cancelada");
+
+      const { data: despues } = await admin()
+        .from("clases")
+        .select("estado, motivo_cancelacion")
+        .eq("id", c!.id)
+        .single();
+      expect(despues?.estado).toBe("cancelada");
+      expect(despues?.motivo_cancelacion).toBe("Semana de receso");
+    } finally {
+      await admin().from("clases").delete().eq("id", c!.id);
+    }
+  });
+
+  it("el modal de /clases ya no ofrece registrar un bloqueo de academia", async () => {
+    // Dejar el botón confundía a cafetería, que no tiene nada que hacer con las
+    // academias desde que salen solas del planeador.
+    const mod = await import("../src/app/(app)/clases/actions");
+    expect("prepararAcademia" in mod).toBe(false);
+    expect("materializarAcademia" in mod).toBe(false);
   });
 });

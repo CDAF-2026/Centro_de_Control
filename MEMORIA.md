@@ -861,10 +861,35 @@ La fila de `clases` **NACE CUANDO EL PROFESOR CIERRA**.
   agosto no apuntan a ninguna celda): es lo que impide que el cierre derivado y el
   registro desde `/clases` creen la misma clase por duplicado.
 
+### 🚫 "No se dictó este día", con motivo obligatorio (23-sep-2026, idea de Laura)
+Con el cierre derivado, lo que nadie cierre queda pendiente para siempre. Hacía falta una salida
+para lo que el calendario no previó: un receso sin cargar, un profesor enfermo, lluvia.
+- El estado `cancelada` ya existía y ya sacaba la clase de la cola; faltaba el **POR QUÉ**. Nueva
+  columna **`clases.motivo_cancelacion`**, obligatoria al cancelar (`cerrarClase` rechaza sin ella)
+  y limpiada al reabrir. Sin motivo, una clase cancelada por receso y una por olvido se ven iguales y
+  se arreglan distinto: una está bien, la otra hay que reponerla.
+- En el formulario la opción dice **"No se dictó este día"**; al escogerla desaparecen la asistencia y
+  el nº de personas y aparece el motivo. **"No-show" ya no se ofrece en academia**: es de la clase
+  particular (el cliente no llegó); en academia, si no vino nadie, la clase no se dictó.
+- Complementa al receso, no lo reemplaza: el receso evita marcar ~100 clases a mano; esto cubre el
+  caso suelto. `academia_pendientes` no necesitó cambios: cualquier fila de `clases` para esa celda
+  y fecha —cerrada o cancelada— la saca de la cola.
+
+### 🗑️ El botón "Academia" de `/clases` SE QUITÓ (23-sep-2026, pedido de Laura)
+Con el cierre derivado, cafetería no tiene nada que hacer con las academias, y el botón sobre
+"BLOQUEOS ACADEMIAS" solo la confundía. Ahora ese bloqueo muestra **"Bloqueo de academia · Las
+clases de academia no se registran aquí: salen solas del planeador y el profesor las cierra en
+Cierre de clases"** — se explica en vez de callar, porque un bloqueo sin acción y sin motivo se lee
+como que algo falta. Se borraron `prepararAcademia`/`materializarAcademia` y todo el corte manual
+del bloque: dejar una segunda puerta para lo mismo es lo que este proyecto ya pagó varias veces.
+⚠️ Consecuencia aceptada: **ya no hay forma de registrar una clase de academia fuera del
+planeador** (en festivo, o una reposición a otra hora). Laura confirmó que en festivo no dictan; si
+aparece el caso de verdad, se construye con el caso a la vista.
+
 ### 📅 Festivo y receso NO son lo mismo, y la diferencia la dictó el club
 | | Qué pasa en la cola de cierre |
 |---|---|
-| **Festivo** | **La academia no dicta** → la clase ni se propone. Sale de la tabla `festivo`, ya cargada hasta 2032. El lunes 12-oct desaparece solo, con sus 10 clases. Si un día excepcional sí dictan, se registra desde `/clases` como siempre |
+| **Festivo** | **La academia no dicta** → la clase ni se propone. Sale de la tabla `festivo`, ya cargada hasta 2032. El lunes 12-oct desaparece solo, con sus 10 clases |
 | **Receso** (`academia_receso`) | **Sí hay clase y no todos van** → se propone igual, marcada "Semana de receso", y **no se reprocha**: no entra en el conteo ni lleva el badge de +24 h |
 
 - Se descartó **esconder el receso** (dejaría sin registrar a los que sí fueron) y
@@ -907,8 +932,8 @@ mal justo a los grupos que compartían cancha y hora. Las 3 clases de agosto no 
 dice. Hay prueba de los dos caminos.
 
 ### 📥 El importador: `npm run import:planeador` (scripts/import-planeador.py)
-Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 22-sep-2026: 52 clases ·
-107 niños · 171 enlaces · 0 niños sin día.**
+Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 23-sep-2026: 52 clases ·
+109 niños · 175 enlaces · 0 niños sin día.**
 - ⚠️⚠️ **Se lee "BASE DE DATOS", NO las rejillas por profesor.** Cada bloque de 30 min de la rejilla
   tiene sitio para 4 nombres y el 5º se cae a la fila de abajo, donde **parece una clase nueva**:
   medidos **13 bloques fantasma** (la "clase de Jorge martes 17:00" con Ismael, Josué y Nicolás son
@@ -918,13 +943,20 @@ Simulacro por defecto, `--apply` para escribir, idempotente. **Cargado el 22-sep
   en 3 casos (Clemente/Valentín Ramírez Arango · Elena/Matías Restrepo · Luciana Osorio/Ema Hoyos);
   cruzar solo por documento le metería la matrícula de uno al otro. Cuando el documento lo reclama un
   solo niño sí basta, aunque el nombre venga escrito distinto ("SIMON VÉLEZ" / "Simon Velez").
-- ⚠️ **La llave de la clase NO incluye la duración.** Krystal García hace 60 min dentro de la clase de
-  90 de Graciano (lun y vie 16:00): meterla en la llave partiría esa clase en dos. Se toma la duración
-  predominante y la mezcla se reporta.
+- ⚠️ **La llave de la clase NO incluye la duración.** El Excel pone a Krystal García en 60 min dentro
+  de la clase de 90 de Graciano (lun y vie 16:00); meterla en la llave partiría esa clase en dos. Se
+  toma la duración predominante y la mezcla se reporta. (En el caso de Krystal **era un error del
+  Excel**: hace los 90, confirmado por Laura el 23-sep.)
 - **Monte Luna y Montessori se excluyen**: son colegios, no academias (60 filas). Curiosamente son las
   ÚNICAS con la columna ASIST. llena — el club quiso llevar asistencia en el planeador y no lo logró.
   Eso es exactamente lo que hace `/cierre`.
-- **3 niños no cruzan** (de 110). Revisados uno por uno el 22-sep-2026, y **son tres casos
+- ✅ **109 de 109 cruzan** desde el 23-sep-2026 (0 avisos). El importador lleva tres listas
+  EXPLÍCITAS, cada entrada con quién lo decidió y cuándo:
+  · `ALIAS_NINO` — Ema Hoyos → "Emma Hoyos"; Valentín Ramírez Arango → "Valentin Ramirez" (m92).
+  · `NO_CARGAR` — **Sara Salazar: no continúa en las academias** (Laura, 23-sep). No crearla.
+  · `DURACION_CONFIRMADA` — **Krystal García hace los 90 min**; el Excel dice 60 y está mal (Laura).
+  Historia de cómo se llegó ahí:
+- **3 niños no cruzaban** (de 110). Revisados uno por uno el 22-sep-2026, y **son tres casos
   distintos** — no uno solo:
   · **Ema Hoyos ya estaba resuelta y no hacía falta preguntar nada.** Existe (m425, doc
     **1035002652**, nac 22-oct-2013 → 12 años, la edad que dice el Excel); lo que está mal es el
@@ -967,14 +999,8 @@ aparte**: 52 clases · 58,5 h · 170 cupos. Hay una prueba que lo fija.
 **periodo/semestre** · **plata**. Si algún día el club piensa en semestres o planes de pago, hoy no
 hay dónde ponerlos.
 
-### El modal de `/clases` ahora escoge PROFESOR
-Un bloqueo se registra eligiendo al profesor dueño del planeador; se marcan solas sus clases que caen
-dentro del bloqueo y se crea una clase por cada una, con su hora real. Si **ninguna** de sus clases
-cae ahí es una reposición: se le pide de cuál de sus clases es, para que el roster del cierre siga
-siendo exacto. El selector "¿la dicta otro hoy?" es el suplente y **es a quien se le liquida**.
-
 ### Estado y pendientes de academias
-- **Cargado**: 52 clases · 107 niños · 171 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
+- **Cargado**: 52 clases · 109 niños · 175 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
   Cristian 10/29 · Sebastián Niño 9/24 · Yeison 0.
 - ⚠️ **Sebastián Niño Mora es `coord_admin`, no profesor**, y dicta las 9 clases de competencia. Sale
   en los selectores porque `staff_docentes` entra por REGLAS DE PAGO activas, no por el rol.
@@ -1628,10 +1654,22 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
 - 📌 **Las fechas del receso de diciembre** (Laura las confirma). Se cargan desde el bloque
   Calendario de `/academias`; sin ellas, esas semanas saldrán en la cola de cierre como normales.
-- 📌 **Tres datos que el club tiene que dar para cerrar la matrícula de academias**:
-  (a) **la cédula y la fecha de nacimiento de Valentín Ramírez Arango** — ya existe como titular de
-  la ficha 112, solo le falta eso; (b) **nombre completo, documento y nacimiento de Matías
-  Restrepo**, para crearlo como hermano en la ficha 430 de Elena; (c) **quién es Sara Salazar**.
+- ⚠️ **Sebastián Niño Mora no tiene regla de academia, y sus clases de academia cuentan para su
+  tope de 140** (medido 23-sep-2026). Tiene salario fijo + "Comisión desde la clase 141"
+  (`comision_umbral`, concepto `clase` = comodín), y el comodín **sí casa con academia**
+  (`liquidacion.ts`, `r.concepto !== "clase"`). Pagan $0 igual —la academia no tiene valor
+  facturado—, pero `comision_umbral` cuenta **TODAS** las clases realizadas del mes sin mirar el tipo,
+  así que sus ~38 de academia al mes le acercan el umbral a las particulares. **Hoy no mueve plata**:
+  38 de academia + ~7 particulares = ~45, lejos de 140. Decisión pendiente para cuando se retome
+  nómina: (a) darle la regla "Academia · cubierta por salario fijo" en $0 como a los otros tres, y
+  (b) decidir si la academia debe contar para el tope. La (a) sola NO arregla la (b).
+- ⚠️ **Dos niños quedaron con el DOCUMENTO DE SU HERMANO** (23-sep-2026), que es el error que traía
+  el Excel: **Valentín Ramírez (m92) tiene la TI `1037607268` de Clemente (m371)**, y **Matías
+  Restrepo (m584) la `1017204187` de Elena (m428)**. Un documento es de una sola persona: así, una
+  factura de Siigo o una reserva que llegue con ese número no sabe de cuál de los dos es. Hay que
+  pedir los documentos REALES. Además a Valentín le falta la fecha de nacimiento, y Matías (nacido
+  en 2022, 4 años) figura como TI cuando a esa edad en Colombia es RC — otra señal de que se copió.
+  Ya están matriculados igual: el importador cruza documento Y nombre.
 - **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
   Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el

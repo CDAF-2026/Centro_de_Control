@@ -701,6 +701,8 @@ export type Database = {
           descuento_pct: number;
           estado: ClaseEstado;
           registrada_por: string | null;
+          /** Por qué no se dictó. Obligatorio al cerrar como `cancelada`. */
+          motivo_cancelacion: string | null;
           asistentes_no_registrados: string | null;
           num_asistentes: number | null;
           easycancha_booking_id: string | null;
@@ -727,6 +729,7 @@ export type Database = {
           descuento_pct?: number;
           estado?: ClaseEstado;
           registrada_por?: string | null;
+          motivo_cancelacion?: string | null;
           asistentes_no_registrados?: string | null;
           num_asistentes?: number | null;
           easycancha_booking_id?: string | null;
