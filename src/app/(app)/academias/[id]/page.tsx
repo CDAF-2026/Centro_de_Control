@@ -12,7 +12,6 @@ import { EliminarAcademiaButton } from "./eliminar-academia-button";
 import { DIA_CORTO, DIA_LARGO, coloresDeProfesores } from "../ui";
 import { MatriculaTabla, type FilaMatricula } from "./matricula-tabla";
 
-const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 /**
  * La ficha de una academia = su MATRÍCULA. Quién está, desde cuándo y a qué
@@ -28,11 +27,8 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
   const { data: a } = await supabase.from("academias").select("*").eq("id", academiaId).single();
   if (!a) notFound();
 
-  const [{ data: servicio }, { data: matricula }, { data: listaEspera }, { data: retirados }, nombres] =
+  const [{ data: matricula }, { data: listaEspera }, { data: retirados }, nombres] =
     await Promise.all([
-      a.servicio_id
-        ? supabase.from("servicios").select("nombre, siigo_grupo").eq("id", a.servicio_id).maybeSingle()
-        : Promise.resolve({ data: null }),
       supabase.rpc("academia_matricula", { p_academia: academiaId }),
       supabase
         .from("lista_espera")
@@ -148,22 +144,6 @@ export default async function AcademiaDetallePage({ params }: { params: Promise<
         )}
       </section>
 
-      <Card>
-        <CardHeader><CardTitle>Información</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <Dato label="Servicio en Siigo" valor={servicio?.nombre ?? null} />
-          <Dato label="Grupo de producto" valor={servicio?.siigo_grupo ?? null} />
-          <Dato label="Precio de referencia" valor={COP.format(a.precio)} />
-          <Dato label="Matrícula de referencia" valor={COP.format(a.matricula)} />
-        </CardContent>
-        <CardContent className="pt-0">
-          <p className="text-muted-foreground text-xs">
-            El ingreso sale de las facturas de Siigo del servicio de arriba. Los valores de referencia
-            son solo para consulta, no se usan para calcular.
-          </p>
-        </CardContent>
-      </Card>
-
       {(retirados ?? []).length > 0 && (
         <Card>
           <CardHeader><CardTitle>Retirados</CardTitle></CardHeader>
@@ -221,15 +201,6 @@ function Kpi({ label, valor, tono }: { label: string; valor: number; tono?: "mal
       <p className={`font-heading mt-1 text-[26px] font-bold tabular-nums ${tono === "mal" ? "text-destructive" : ""}`}>
         {valor}
       </p>
-    </div>
-  );
-}
-
-function Dato({ label, valor }: { label: string; valor: string | null }) {
-  return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p>{valor ?? "—"}</p>
     </div>
   );
 }

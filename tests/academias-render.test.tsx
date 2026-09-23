@@ -142,7 +142,8 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const t = texto(html);
     expect(t).toContain("Matrícula");
     expect(t).toContain("Niños matriculados");
-    expect(t).toContain("Servicio en Siigo");
+    // El bloque "Información" (servicio de Siigo y precios de referencia en $0) se quitó: no aportaba.
+    expect(t).not.toContain("Servicio en Siigo");
   });
 
   it("crear clase, editar clase y editar academia", async () => {
