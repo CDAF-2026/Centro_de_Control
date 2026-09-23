@@ -1038,12 +1038,19 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   3 p. m. con Juan. Es academia (sale en el cierre y cuenta para el pago) pero **no lleva niños**: al
   cerrarla solo se dice si se dictó. Un trigger (`inscripcion_clase_no_colegio`) rechaza inscribir
   niños en ella, y el planeador muestra el nombre del colegio en lugar del conteo.
-  ⚠️ En TENIS, Monte Luna y Montessori **siguen fuera** (Laura dijo el 22-sep que no son academias).
-  Si se quieren como en pádel, basta con crear la clase con el campo Colegio.
+  ✅ En TENIS **también entraron** (24-sep-2026): 6 clases de colegio que solo están en la REJILLA de
+  cada profesor, no en BASE DE DATOS — el importador de tenis ahora las lee de ahí. Jorge (mar
+  14:30 Montessori, mié 14:30 Monte Luna, 60 min), Cristian (mar y mié 13:30, **120 min**) y
+  Graciano (mar 14:00 Montessori 60 min, **mié 14:30 Monte Luna 30 min**). Las duraciones son las del
+  Excel; las de 120 y 30 min conviene confirmarlas con el club.
+  💰 **Se pagan con la regla de academia de CADA profesor**, no con una tarifa de colegio como el
+  Montessori de Juan en pádel (Laura). Como la clase no tiene niños, no queda atada a ninguna
+  academia y casa con la regla de academia "de todas": hoy Jorge, Cristian y Graciano → $0,
+  cubierta por salario. Prueba en `tests/liquidacion-academia.test.ts`.
 - Isaak Salgado va el jueves 4 p. m. con **Leo** (el Excel lo ponía también con Juan). "Valentino
   Gómez (Particular)" del lunes 5 p. m. es clase particular: no entra.
-- Creados como hermanos: **Ana Barbera** (ficha 58, de Armando Barbera) y **Jhontan Dulcey** (ficha
-  37, de Jhon Dulcey). Emparejados a mano: Nicole→Nicol Bustamante, Julia Vélez Jiménez→Julia Vélez,
+- Creados como hermanos: **Ana Barbera** (ficha 58, de Armando Barbera) y **Jhonatan Dulcey** (ficha
+  37, de Jhon Dulcey; el Excel dice "Jhontan", se escribe Jhonatan — Laura). Emparejados a mano: Nicole→Nicol Bustamante, Julia Vélez Jiménez→Julia Vélez,
   Pedro Gómez Laserna→Pedro Gómez (ficha 412), Sofía Moreno→**Sophie** Moreno (hija de Pierre),
   Salvador Olarte→ficha 466.
 - ⚠️ **Fichas PROVISIONALES**: **Simón Mejía (ficha 571)** y **Salomón Agudelo (572)** no existían;
@@ -1054,7 +1061,12 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
 - 💰 **Victor Acosta: $60.000 por clase de academia** (regla 55, `academia`/`fijo_por_clase`, dictado
   por Laura el 24-sep-2026: "cada clase de la academia de 1 hora"). Hoy todas sus clases son de 1
   hora; la regla paga por clase, no por hora — si le dan una de 90 min, revisar.
-- Salvador Olarte tiene una 2ª ficha (324, "Olarte Peláez") por revisar. Valentino Gómez tiene
+- **Salvador Olarte Peláez (ficha 324) se FUSIONÓ en la 466** (24-sep, Laura: "elimina esta ficha").
+  ⚠️ No estaba vacía: tenía **3 clases particulares de pádel con Leo** (4-ago, 1-sep y 22-sep, $110.000
+  c/u) y 2 asistencias; se movieron a la 466 / miembro 474 ANTES de borrar. Su correo y celular
+  (`susana.pelaez.mejia@gmail.com`, +573006022850, probablemente la mamá) quedaron solo en `audit_log`
+  (`cliente.fusionar`): la 466 ya tiene de acudiente a Juan Olarte.
+- Valentino Gómez tiene
   nacimiento **4-oct-2026** (futuro).
 - 👤 **Quién sale en el planeador**: el docente del deporte que tenga clases **o** regla de pago de
   academia activa (24-sep-2026). Así sigue saliendo Yeison sin clases (tiene su regla en $0) y deja
@@ -1746,8 +1758,9 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 - ✅ **Reglas de pago de Yeison Bedoya — APLICADAS** el 16-sep-2026 (ver su tabla de franjas arriba).
   Con esto **los 9 entrenadores activos tienen reglas**; ya no queda nadie liquidándose en $0 por no
   estar configurado.
-  ⚠️ Quedan **dos preguntas abiertas** para el club, que hoy caen en su regla 54 y salen con nombre:
-  qué se le paga **después de las 9 p.m. entre semana** y **el domingo después de la 1 p.m.**
+  ✅ **Después de las 9 p. m. no dicta: el club cierra a las 9** (Laura, 24-sep-2026). No hace falta
+  banda; si algo cae ahí, la regla 54 lo muestra con nombre. Sigue abierto el **domingo después de
+  la 1 p. m.**
 - ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
@@ -1758,8 +1771,9 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
-- ⚠️ **Sebastián Niño Mora no tiene regla de academia, y sus clases de academia cuentan para su
-  tope de 140** (medido 23-sep-2026). Tiene salario fijo + "Comisión desde la clase 141"
+- ✅ **Sebastián Niño Mora: la academia va dentro de su salario** (Laura, 24-sep-2026) → regla
+  "Academia · cubierta por salario fijo" en $0. ⚠️ Sigue abierto si esas clases **cuentan para su tope
+  de 140** (medido 23-sep-2026). Tiene salario fijo + "Comisión desde la clase 141"
   (`comision_umbral`, concepto `clase` = comodín), y el comodín **sí casa con academia**
   (`liquidacion.ts`, `r.concepto !== "clase"`). Pagan $0 igual —la academia no tiene valor
   facturado—, pero `comision_umbral` cuenta **TODAS** las clases realizadas del mes sin mirar el tipo,
@@ -1774,8 +1788,9 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   pedir los documentos REALES. Además a Valentín le falta la fecha de nacimiento, y Matías (nacido
   en 2022, 4 años) figura como TI cuando a esa edad en Colombia es RC — otra señal de que se copió.
   Ya están matriculados igual: el importador cruza documento Y nombre.
-- **Preguntarle al club quién es "Mauricio"** (1 reserva de sep-2026 en "Entrenador  Mauricio -
-  Cancha 1", y la nota de la clase 429): no tiene perfil, así que no se le puede crear alias.
+- ✅ **"Mauricio" es Mauricio Calderón, profesor de tenis** (perfil creado por el club el 23-sep).
+  Se le marcó tenis y se le creó el alias de EasyCancha `mauricio` (ya son 11). ⚠️ **NO tiene reglas
+  de pago**: toda clase suya se liquida en $0 hasta que se definan.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
   `totalAmount` de su reserva de EasyCancha. Hasta ese día el precio arrancaba en "0" y se tecleaba a
   mano; la clase 400 ya salió mal ($50.000 contra $130.000). Cada peso de diferencia es la mitad de
