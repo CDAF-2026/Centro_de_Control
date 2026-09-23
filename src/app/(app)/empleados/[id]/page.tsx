@@ -64,7 +64,12 @@ export default async function EmpleadoDetallePage({
   let comp: Comp | null = null;
   let reglas: ReglaInicial[] = [];
   let serviciosSiigo: { id: number; nombre: string }[] = [];
-  if (emp.role === "profesor") {
+  // Las reglas se cargan para CUALQUIER rol, no solo "profesor": el rol dice qué
+  // ve la persona y las reglas cómo se le paga. Leo (coord. deportivo), Sebastián
+  // (coord. administrativo) y Willington dictan clases y tienen reglas que esta
+  // pantalla escondía por mirar el rol (24-sep-2026) — el mismo tropiezo que ya
+  // se arregló en liquidacion.ts con esDocente().
+  if (esAdmin) {
     const [{ data: c }, { data: rs }, { data: servs }] = await Promise.all([
       supabase
         .from("profesor_compensacion")
@@ -88,6 +93,7 @@ export default async function EmpleadoDetallePage({
     reglas = (rs ?? []).map((r) => ({ ...r, pct: Number(r.pct), valor: Number(r.valor) }));
     serviciosSiigo = servs ?? [];
   }
+  const esDocente = emp.role === "profesor" || reglas.length > 0 || !!comp;
   const compDefault: Comp = comp ?? {
     tipo: "por_clase",
     pct_clase: 0,
@@ -187,12 +193,13 @@ export default async function EmpleadoDetallePage({
         </Card>
       )}
 
-      {emp.role === "profesor" && (
+      {esDocente && (
         <Card>
           <CardHeader>
             <CardTitle>Compensación</CardTitle>
             <CardDescription>
-              Reglas de pago de este profesor. Cada regla dice, para un tipo de trabajo, cómo se le paga.
+              Reglas de pago{emp.role === "profesor" ? " de este profesor" : ""}. Cada regla dice, para un
+              tipo de trabajo, cómo se le paga.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -213,6 +220,19 @@ export default async function EmpleadoDetallePage({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Alguien que no es profesor pero empieza a dictar (como Willington o Leo):
+          sin esto no habría dónde ponerle sus reglas. */}
+      {!esDocente && esAdmin && emp.role !== "quiosco" && (
+        <details className="ring-foreground/[0.06] bg-card rounded-xl px-5 py-4 shadow-sm ring-1">
+          <summary className="cursor-pointer text-sm font-semibold">
+            ¿Dicta clases? Configurar reglas de pago
+          </summary>
+          <div className="mt-4">
+            <ReglasForm profesorId={emp.id} reglasIniciales={[]} servicios={serviciosSiigo} />
+          </div>
+        </details>
       )}
     </div>
   );

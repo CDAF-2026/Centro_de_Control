@@ -312,6 +312,11 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   · `liquidacion.ts` → `esDocente()`: entra quien tenga rol profesor **O** reglas activas **O**
     compensación vieja. Es **aditivo a propósito**: quien tenga rol profesor sin reglas sigue saliendo
     (en $0 visible) en vez de desaparecer.
+  · **ficha del empleado** (`/empleados/[id]`) → la tarjeta "Compensación" salía solo con
+    `role === "profesor"`, así que **las reglas de Leo, Sebastián y Willington no se veían ni se
+    podían editar** (Laura lo notó con Leo, 24-sep-2026). Ahora sale si es profesor **o** tiene
+    reglas **o** compensación vieja; a cualquier otro empleado se le ofrece plegado "¿Dicta clases?
+    Configurar reglas de pago". Prueba: `tests/empleados-render.test.tsx`.
   · pickers → RPC **`staff_docentes(p_solo_activos)`** (migración 0061), que usan `profesoresActivos`
     y `profesoresParaFiltrar`. Va como función NUEVA y no como parámetro de `staff_directorio` para no
     hacer DROP+CREATE de una firma que ya usan cinco pantallas. SECURITY DEFINER porque
