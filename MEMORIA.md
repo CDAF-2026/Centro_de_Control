@@ -1759,8 +1759,8 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   Con esto **los 9 entrenadores activos tienen reglas**; ya no queda nadie liquidándose en $0 por no
   estar configurado.
   ✅ **Después de las 9 p. m. no dicta: el club cierra a las 9** (Laura, 24-sep-2026). No hace falta
-  banda; si algo cae ahí, la regla 54 lo muestra con nombre. Sigue abierto el **domingo después de
-  la 1 p. m.**
+  banda; si algo cae ahí, la regla 54 lo muestra con nombre. **Los domingos tampoco dicta después de
+  la 1 p. m.** (Laura, 24-sep-2026): mismo criterio, sin banda; la 54 es la red.
 - ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
@@ -1772,8 +1772,9 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
 - ✅ **Sebastián Niño Mora: la academia va dentro de su salario** (Laura, 24-sep-2026) → regla
-  "Academia · cubierta por salario fijo" en $0. ⚠️ Sigue abierto si esas clases **cuentan para su tope
-  de 140** (medido 23-sep-2026). Tiene salario fijo + "Comisión desde la clase 141"
+  "Academia · cubierta por salario fijo" en $0. Y **SÍ cuentan para su tope de 140** (Laura,
+  24-sep-2026): es justo lo que ya hace `comision_umbral`, que cuenta todas las clases realizadas del
+  mes sin mirar el tipo. No cambiar ese conteo. Tiene salario fijo + "Comisión desde la clase 141"
   (`comision_umbral`, concepto `clase` = comodín), y el comodín **sí casa con academia**
   (`liquidacion.ts`, `r.concepto !== "clase"`). Pagan $0 igual —la academia no tiene valor
   facturado—, pero `comision_umbral` cuenta **TODAS** las clases realizadas del mes sin mirar el tipo,
@@ -1790,7 +1791,8 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   Ya están matriculados igual: el importador cruza documento Y nombre.
 - ✅ **"Mauricio" es Mauricio Calderón, profesor de tenis** (perfil creado por el club el 23-sep).
   Se le marcó tenis y se le creó el alias de EasyCancha `mauricio` (ya son 11). ⚠️ **NO tiene reglas
-  de pago**: toda clase suya se liquida en $0 hasta que se definan.
+  de pago**: toda clase suya se liquida en $0 hasta que se definan. Laura ya se las pidió al club
+  (24-sep-2026) y las pasará.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
   `totalAmount` de su reserva de EasyCancha. Hasta ese día el precio arrancaba en "0" y se tecleaba a
   mano; la clase 400 ya salió mal ($50.000 contra $130.000). Cada peso de diferencia es la mitad de
