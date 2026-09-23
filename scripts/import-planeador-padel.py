@@ -79,7 +79,7 @@ MIEMBRO = {
     "JULIA VELEZ JIMENEZ": 481,   # Julia Vélez; mamá María Paulina Jiménez (Laura)
     "PEDRO GOMEZ LASERNA": 408,   # Pedro Gómez; mamá Aleja Serna Gómez (Laura)
     "SOFIA MORENO": 477,          # Sophie Moreno, hija de Pierre Moreno (Laura)
-    "SALVADOR OLARTE": 474,       # hay dos fichas; esta tiene documento (la 324 queda por revisar)
+    "SALVADOR OLARTE": 474,       # la ficha 324 ("Olarte Peláez") era duplicada: se fusionó aquí (24-sep)
     # Fichas PROVISIONALES (571 y 572, acudiente "PENDIENTE"): no existían y el club
     # aún no pasa sus datos. Laura pidió crearlas y matricularlos ya (24-sep-2026).
     "SIMON MEJIA": 587,
@@ -89,7 +89,8 @@ MIEMBRO = {
 # Niños que no existían: se crean como hermanos dentro de la ficha de la familia.
 CREAR = {
     "ANA BARBERA": {"cliente_id": 58, "nombres": "Ana", "apellidos": "Barbera"},      # hermana de Armando Barbera (Laura)
-    "JHONTAN DULCEY": {"cliente_id": 37, "nombres": "Jhontan", "apellidos": "Dulcey"},  # hijo de Jhon Dulcey (Laura)
+    # El Excel dice "Jhontan"; se escribe JHONATAN (Laura, 24-sep-2026).
+    "JHONTAN DULCEY": {"cliente_id": 37, "nombres": "Jhonatan", "apellidos": "Dulcey"},  # hijo de Jhon Dulcey (Laura)
 }
 
 # Sin resolver todavía: NO se cargan y se reportan.

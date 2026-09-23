@@ -57,4 +57,33 @@ describe("liquidación de academia por academia", () => {
       await admin().from("clases").delete().in("id", ids);
     }
   }, 30000);
+
+  it("las clases de colegio de TENIS se pagan con la regla de academia de cada profesor", async () => {
+    // Laura (24-sep-2026): Monte Luna y Montessori de tenis NO se pagan como el
+    // Montessori de pádel de Juan; cada profesor cobra según su propia regla de
+    // academia (Jorge, Cristian y Graciano: cubierta por su salario).
+    const [jorge, seb] = await Promise.all([perfil("Jorge Pérez"), perfil("Sebastian Niño Mora")]);
+    const base = { tipo: "academia", deporte: "tenis", precio: 0, estado: "realizada", hora_fin: "16:00:00" };
+    const { data: cs } = await admin()
+      .from("clases")
+      .insert([
+        { ...base, profesor_id: jorge, academia_id: null, fecha: "2027-03-02", hora_inicio: "14:30:00" },
+        { ...base, profesor_id: seb, academia_id: 27, fecha: "2027-03-03", hora_inicio: "14:30:00" },
+      ])
+      .select("id");
+    const ids = (cs ?? []).map((c) => c.id);
+    try {
+      const { calcularLiquidacion } = await import("../src/lib/liquidacion");
+      const liq = await calcularLiquidacion("2027-03-01", "2027-03-07", 1);
+      const linea = (id: number) => liq.flatMap((p) => p.lineas).find((l) => l.claseId === id)!;
+      const [colegioJorge, acaSeb] = ids.map(linea);
+      expect(colegioJorge.valorProfesor).toBe(0);
+      expect(colegioJorge.tipoLabel).toMatch(/cubierta por salario/i);
+      // Sebastián: la academia va dentro de su salario (regla con nombre, no "sin regla").
+      expect(acaSeb.valorProfesor).toBe(0);
+      expect(acaSeb.tipoLabel).toMatch(/cubierta por salario/i);
+    } finally {
+      await admin().from("clases").delete().in("id", ids);
+    }
+  }, 30000);
 });

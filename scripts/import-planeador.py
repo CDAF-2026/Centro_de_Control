@@ -29,7 +29,9 @@ REGLAS DE SEGURIDAD
    dos hermanos comparten (Clemente/Valentín Ramírez Arango, Elena/Matías
    Restrepo, Luciana Osorio/Ema Hoyos): cruzar solo por documento le metería la
    matrícula de uno al otro.
- - Monte Luna y Montessori NO son academias (son colegios): se excluyen.
+ - Monte Luna y Montessori: al principio se excluyeron; desde el 24-sep-2026 entran como CLASES DE
+   COLEGIO (clase_semanal.colegio, sin niños). No están en BASE DE DATOS: se leen de la rejilla de
+   cada profesor. Se pagan con la regla de academia de CADA profesor (Laura).
  - El CUPO no existe (decisión de Laura, 22-sep-2026): solo se cuenta cuántos van.
 """
 import openpyxl, json, urllib.request, urllib.error, sys, os, unicodedata, re, warnings, datetime
@@ -162,6 +164,37 @@ for k, fs in slots.items():
     if len(durs) > 1: mezcla_dur.append((k, dict(durs)))
     clases_plan[k] = dur
 print(f"Clases del planeador: {len(clases_plan)}")
+
+# ── 3b · Clases de COLEGIO (Monte Luna, Montessori) ──────────────────────────
+# Solo aparecen en la rejilla de cada profesor, no en BASE DE DATOS. Cada fila
+# con hora abre un bloque de 30 min; una celda con el colegio en ese bloque =
+# el colegio ocupa esa media hora. Bloques seguidos = una clase.
+HOJA_PROFESOR = {
+    "PLANEADOR SEMANAL JORGE PEREZ": "JORGE",
+    "PLANEADOR SEMANAL CRISTIAN C": "CRISTIAN CASTRO",
+    "PLANEADOR SEMANAL GRACIANO": "ESTEBAN GRACIANO",
+    "PLANEADOR SEMANAL YEISON BEDOYA": "YEISON BEDOYA",
+}
+COL_DIA = {"B": 1, "E": 2, "H": 3, "K": 4, "N": 5, "Q": 6, "T": 0}
+NOMBRE_COLEGIO = {"MONTESSORI": "Montessori", "MONTELUNA": "Monte Luna", "MONTE LUNA": "Monte Luna"}
+colegios_plan = {}  # (profesor, dia, hora) -> (duracion, colegio)
+for hoja, clave in HOJA_PROFESOR.items():
+    if hoja not in wb.sheetnames: continue
+    g = wb[hoja]; bloque = None; vistos_b = defaultdict(set)
+    for r in range(7, g.max_row + 1):
+        a = g[f"A{r}"].value
+        if a and re.match(r"\d\d:\d\d", str(a)): bloque = str(a)[:5]
+        for col, dia in COL_DIA.items():
+            v = nm(g[f"{col}{r}"].value)
+            if v in NOMBRE_COLEGIO and bloque: vistos_b[(dia, NOMBRE_COLEGIO[v])].add(bloque)
+    for (dia, col), bl in vistos_b.items():
+        bl = sorted(bl)
+        colegios_plan[(clave, dia, bl[0])] = (30 * len(bl), col)
+for k, (d, col) in sorted(colegios_plan.items()):
+    print(f"  colegio {col}: {k[0]} día {k[1]} {k[2]} · {d} min")
+    if k[0] not in prof_id:
+        p = por_nombre.get(nm(ALIAS_PROFESOR.get(k[0], k[0])))
+        if p: prof_id[k[0]] = p["id"]
 for k, d in mezcla_dur:
     print(f"  ⚠️  duración mezclada en {k}: {d} → se usa {clases_plan[k]} min")
 
@@ -233,7 +266,7 @@ for f in filas:
     quiere_insc[m["id"]] = academia_de(f["academia"])
     quiere_link.add((m["id"], (f["profesor"], f["dia"], f["hora"])))
 
-print(f"\nA escribir: {len(clases_plan)} clases · {len(quiere_insc)} inscripciones · {len(quiere_link)} enlaces niño-clase")
+print(f"\nA escribir: {len(clases_plan)} clases + {len(colegios_plan)} de colegio · {len(quiere_insc)} inscripciones · {len(quiere_link)} enlaces niño-clase")
 
 if not APPLY:
     print("\n(simulacro — nada se escribió. Agrega --apply para aplicar)")
@@ -250,6 +283,10 @@ nuevas = [dict(profesor_id=prof_id[k[0]], deporte="tenis", dia_semana=k[1],
                hora_inicio=f"{k[2]}:00", duracion_min=d)
           for k, d in clases_plan.items()
           if (prof_id[k[0]], k[1], k[2]) not in ya]
+nuevas += [dict(profesor_id=prof_id[k[0]], deporte="tenis", dia_semana=k[1], hora_inicio=f"{k[2]}:00",
+                duracion_min=d, colegio=col, vigente_desde="2026-10-01")
+           for k, (d, col) in colegios_plan.items()
+           if (prof_id[k[0]], k[1], k[2]) not in ya]
 for c in insert("clase_semanal", nuevas) if nuevas else []:
     ya[(c["profesor_id"], c["dia_semana"], c["hora_inicio"][:5])] = c["id"]
 print(f"clase_semanal: +{len(nuevas)} (total {len(ya)})")
