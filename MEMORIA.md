@@ -1041,9 +1041,15 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   37, de Jhon Dulcey). Emparejados a mano: Nicole→Nicol Bustamante, Julia Vélez Jiménez→Julia Vélez,
   Pedro Gómez Laserna→Pedro Gómez (ficha 412), Sofía Moreno→**Sophie** Moreno (hija de Pierre),
   Salvador Olarte→ficha 466.
-- ⚠️ **Pendientes**: **Simón Mejía** y **Salomón Agudelo** no existen y no se cargaron (4 cupos).
-  **Victor Acosta NO tiene regla de academia** → sus 2 clases se liquidan en $0 hasta que se defina.
-  Salvador Olarte tiene una 2ª ficha (324, "Olarte Peláez") por revisar. Valentino Gómez tiene
+- ⚠️ **Fichas PROVISIONALES**: **Simón Mejía (ficha 571)** y **Salomón Agudelo (572)** no existían;
+  Laura pidió crearlas y matricularlos ya, con datos de prueba mientras el club pasa los reales. Su
+  acudiente se llama **"PENDIENTE · acudiente de …"** (la base exige acudiente a un menor) y NO
+  tienen correo, a propósito: así el cierre no le manda confirmaciones a nadie inventado. Al llegar
+  los datos reales, **corregir esas fichas, no crear otras**.
+- 💰 **Victor Acosta: $60.000 por clase de academia** (regla 55, `academia`/`fijo_por_clase`, dictado
+  por Laura el 24-sep-2026: "cada clase de la academia de 1 hora"). Hoy todas sus clases son de 1
+  hora; la regla paga por clase, no por hora — si le dan una de 90 min, revisar.
+- Salvador Olarte tiene una 2ª ficha (324, "Olarte Peláez") por revisar. Valentino Gómez tiene
   nacimiento **4-oct-2026** (futuro).
 - 👤 **Quién sale en el planeador**: el docente del deporte que tenga clases **o** regla de pago de
   academia activa (24-sep-2026). Así sigue saliendo Yeison sin clases (tiene su regla en $0) y deja

@@ -80,6 +80,10 @@ MIEMBRO = {
     "PEDRO GOMEZ LASERNA": 408,   # Pedro Gómez; mamá Aleja Serna Gómez (Laura)
     "SOFIA MORENO": 477,          # Sophie Moreno, hija de Pierre Moreno (Laura)
     "SALVADOR OLARTE": 474,       # hay dos fichas; esta tiene documento (la 324 queda por revisar)
+    # Fichas PROVISIONALES (571 y 572, acudiente "PENDIENTE"): no existían y el club
+    # aún no pasa sus datos. Laura pidió crearlas y matricularlos ya (24-sep-2026).
+    "SIMON MEJIA": 587,
+    "SALOMON AGUDELO": 588,
 }
 
 # Niños que no existían: se crean como hermanos dentro de la ficha de la familia.
@@ -89,7 +93,7 @@ CREAR = {
 }
 
 # Sin resolver todavía: NO se cargan y se reportan.
-PENDIENTES = {"SIMON MEJIA", "SALOMON AGUDELO"}
+PENDIENTES: set[str] = set()
 
 DIAS = {"LUNES": 1, "MARTES": 2, "MIERCOLES": 3, "JUEVES": 4, "VIERNES": 5, "SABADO": 6}
 
