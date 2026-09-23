@@ -1111,6 +1111,19 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
 ⏳ **Paquete VENCIDO** (4-sep-2026): el estado `vencido` estaba en el enum pero **nadie lo ponía nunca**, así que al pasar `vence_el` el paquete se seguía ofreciendo. Ahora hay **dos capas**: (1) el job de pg_cron **`paquetes_marcar_vencidos()`** (06:15 UTC = 1:15 a. m. Bogotá) marca `activo → vencido` por fecha, para que toda consulta que filtre `estado='activo'` quede bien sola; y (2) los sitios que OFRECEN paquetes (lista de clase nueva, modal del calendario y la validación del servidor en `materializarReserva`) exigen además **`vence_el >= hoy`**, porque entre que vence y corre el job habría una ventana. En `paquete_consumir`, **`vencido` y `anulado` son terminales**: cerrar una clase vieja ya no resucita un paquete muerto. Al agregar un sitio nuevo que ofrezca paquetes, filtrar por las DOS cosas.
 ⚠️ **Corolario**: al marcar vencidos apareció un hueco — `editarPaqueteCliente` cambiaba `vence_el` pero no el estado, así que extenderle la fecha a un vencido no lo revivía. Ahora esa acción **recalcula el estado** desde vigencia y saldo (sin saldo → agotado · fecha pasada → vencido · si no → activo; `anulado` nunca revive). Botón **"Extender vigencia"** (solo superadministrador, solo si está vencido y le queda saldo) en la fila del paquete de la ficha. **Regla: quien cambie `vence_el` tiene que recalcular `estado`, o el paquete queda vivo en la fecha y muerto en el estado.**
 
+🗑️ **Eliminar una clase PENDIENTE — solo el superadministrador** (24-sep-2026, pedido de Laura).
+Botón "Eliminar esta clase" dentro de `/cierre/[id]` (`eliminar-clase.tsx` → `eliminarClasePendiente`),
+para cualquier tipo (particular, paquete, academia). Sirve para limpiar la cola de lo que nunca debió
+estar ahí (las 3 academias de agosto del modelo viejo, una particular registrada por error).
+- Solo si sigue **`programada`**: cerrada ya marcó asistencia, movió saldo y cuenta para la
+  liquidación — eso se REABRE, no se borra. El paquete no pierde nada: el saldo baja al cerrar.
+- ⚠️ Una clase del **planeador** (`clase_semanal_id`) NO se borra: la cola es derivada y el planeador
+  la volvería a pedir al instante. Queda `cancelada` con motivo "Eliminada por el superadministrador".
+- Rastro en `audit_log` (`clase.eliminar_pendiente`) con la fila entera. Si venía de una reserva de
+  EasyCancha, esa reserva vuelve a salir sin registrar en `/clases`.
+- Las opciones de asistencia dicen ahora **Asistió / No asistió / No asistió con excusa médica**
+  (Laura); los valores guardados (`presente`/`ausente`/`excusa_medica`) no cambiaron.
+
 **Cierre — dos puertas** (`cierre/actions.ts`, validadas en el SERVIDOR, no solo en la pantalla):
 - **Piso**: no se puede cerrar una clase ANTES de que empiece (`fecha + hora_inicio`; las clases sin
   hora quedan disponibles todo su día). Sin esto se marcaba asistencia por la mañana de una clase de

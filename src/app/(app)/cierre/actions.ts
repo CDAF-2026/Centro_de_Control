@@ -284,3 +284,60 @@ export async function abrirClaseDelPlaneador(formData: FormData): Promise<void> 
   });
   redirect(`/cierre/${data}`);
 }
+
+/**
+ * Elimina una clase PENDIENTE por cerrar. Solo el superadministrador (Laura,
+ * 24-sep-2026): sirve para limpiar la cola de lo que nunca debió estar ahí —
+ * las academias de agosto del modelo viejo, una particular registrada por error.
+ * Vale para particular, paquete y academia.
+ *
+ * Solo si sigue `programada`: una clase cerrada ya marcó asistencia, movió el
+ * saldo del paquete y cuenta para la liquidación — eso se reabre, no se borra.
+ * Un paquete no pierde nada: el saldo se descuenta al CERRAR, no al registrar.
+ *
+ * ⚠️ Una clase que salió del PLANEADOR no se borra: si se borrara la fila, el
+ * planeador la volvería a pedir al instante (la cola es derivada). Se deja como
+ * "no se dictó" con el motivo, que es lo que de verdad saca la fecha de la cola.
+ */
+export async function eliminarClasePendiente(claseId: number, motivo: string): Promise<CierreState> {
+  const profile = await requireRole(["superadmin"]);
+  const supabase = await createClient();
+  const { data: clase } = await supabase
+    .from("clases")
+    .select("id, tipo, fecha, hora_inicio, estado, profesor_id, cliente_id, miembro_id, paquete_cliente_id, academia_id, clase_semanal_id, easycancha_booking_id, precio")
+    .eq("id", claseId)
+    .maybeSingle();
+  if (!clase) return { error: "Esa clase ya no existe." };
+  if (clase.estado !== "programada") {
+    return { error: "Solo se eliminan clases pendientes. Esta ya está cerrada: si hay que corregirla, reábrela." };
+  }
+  const razon = motivo.trim();
+
+  if (clase.clase_semanal_id) {
+    const { error } = await supabase
+      .from("clases")
+      .update({
+        estado: "cancelada",
+        motivo_cancelacion: `Eliminada por el superadministrador${razon ? `: ${razon}` : ""}`,
+        registrada_por: profile.id,
+      })
+      .eq("id", claseId)
+      .eq("estado", "programada");
+    if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  } else {
+    const { error } = await supabase.from("clases").delete().eq("id", claseId).eq("estado", "programada");
+    if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  }
+
+  await logAudit({
+    action: "clase.eliminar_pendiente",
+    entity: "clases",
+    entityId: String(claseId),
+    before: clase,
+    after: { motivo: razon || null, como: clase.clase_semanal_id ? "cancelada (sale del planeador)" : "borrada" },
+  });
+  revalidatePath("/cierre");
+  revalidatePath("/clases");
+  redirect(`/cierre?aviso=${encodeURIComponent("Clase eliminada.")}`);
+}
+

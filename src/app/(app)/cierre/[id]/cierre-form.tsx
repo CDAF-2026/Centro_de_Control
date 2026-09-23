@@ -120,17 +120,17 @@ export function CierreForm({
                 onChange={(e) => setEstados((s) => ({ ...s, [d.id]: e.target.value }))}
                 className={SELECT}
               >
-                <option value="presente">Presente</option>
-                <option value="excusa_medica">Falta con excusa médica</option>
-                <option value="ausente">Falta (sin excusa)</option>
+                <option value="presente">Asistió</option>
+                <option value="ausente">No asistió</option>
+                <option value="excusa_medica">No asistió con excusa médica</option>
               </select>
             </div>
           ))}
           {/* Conteo explícito antes de guardar: un olvido tiene que saltar a la vista,
               porque en academia se cobra por sesión asistida. */}
           <p className="bg-muted/40 rounded-md border px-3 py-2 text-sm">
-            Vas a registrar <strong>{presentes}</strong>{" "}
-            {presentes === 1 ? "presente" : "presentes"} de{" "}
+            Vas a registrar que <strong>{presentes}</strong>{" "}
+            {presentes === 1 ? "asistió" : "asistieron"} de{" "}
             <strong>{deportistas.length}</strong> que se esperaban
             {reposiciones > 0 && <> · más {reposiciones} de reposición</>}.
           </p>

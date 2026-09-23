@@ -433,6 +433,85 @@ describe("las pantallas de academias se renderizan enteras", () => {
     }
   });
 
+  it("el cierre de academia muestra a los niños de ESA clase con asistió / no asistió / excusa médica", async () => {
+    const { data: cs } = await admin()
+      .from("clase_semanal").select("id, profesor_id").eq("deporte", "padel").is("colegio", null).limit(1).single();
+    const { data: roster } = await admin().rpc("clase_semanal_roster", { p_clase: cs!.id });
+    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    const { data: c } = await admin().from("clases").insert({
+      tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id, deporte: "padel",
+      fecha: ayer.toISOString().slice(0, 10), hora_inicio: "06:20:00", hora_fin: "07:20:00", precio: 0, estado: "programada",
+    }).select("id").single();
+    try {
+      const { default: Cierre } = await import("../src/app/(app)/cierre/[id]/page");
+      const html = await render(Cierre, { params: P({ id: String(c!.id) }) });
+      const t = texto(html);
+      for (const n of roster ?? []) expect(t).toContain(n.nombre);
+      expect(html.match(/<option value="presente"[^>]*>Asistió<\/option>/g)?.length).toBe(roster!.length);
+      expect(t).toContain("No asistió con excusa médica");
+      expect(t).toContain("No asistió");
+    } finally {
+      await admin().from("clases").delete().eq("id", c!.id);
+    }
+  });
+
+  it("eliminar una clase pendiente: solo el superadministrador", async () => {
+    const { data: prof } = await admin().from("profiles").select("id").eq("role", "profesor").eq("activo", true).limit(1).single();
+    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    const fecha = ayer.toISOString().slice(0, 10);
+    const { data: c } = await admin().from("clases").insert({
+      tipo: "individual", profesor_id: prof!.id, deporte: "tenis", fecha,
+      hora_inicio: "06:25:00", hora_fin: "07:25:00", precio: 100000, estado: "programada",
+    }).select("id").single();
+    const { default: Cierre } = await import("../src/app/(app)/cierre/[id]/page");
+    const { eliminarClasePendiente } = await import("../src/app/(app)/cierre/actions");
+    const auth = await import("@/lib/auth");
+    try {
+      // El superadministrador ve el botón…
+      expect(texto(await render(Cierre, { params: P({ id: String(c!.id) }) }))).toContain("Eliminar esta clase");
+      // …el profesor no, y la acción lo rechaza aunque la llame directo.
+      const rolAntes = PERFIL.role;
+      PERFIL.role = "profesor";
+      try {
+        expect(texto(await render(Cierre, { params: P({ id: String(c!.id) }) }))).not.toContain("Eliminar esta clase");
+      } finally {
+        PERFIL.role = rolAntes;
+      }
+      const spy = vi.spyOn(auth, "requireRole").mockImplementation(async (roles: string[]) => {
+        if (!roles.includes("profesor")) throw new Error("REDIRECT sin permiso");
+        return PERFIL as never;
+      });
+      try {
+        await expect(eliminarClasePendiente(c!.id, "")).rejects.toThrow("sin permiso");
+      } finally {
+        spy.mockRestore();
+      }
+
+      await expect(eliminarClasePendiente(c!.id, "prueba")).rejects.toThrow(/REDIRECT \/cierre\?aviso=/);
+      const { data: ya } = await admin().from("clases").select("id").eq("id", c!.id).maybeSingle();
+      expect(ya).toBeNull();
+    } finally {
+      await admin().from("clases").delete().eq("id", c!.id);
+    }
+  });
+
+  it("eliminar una clase del planeador la deja como «no se dictó» (si no, el planeador la vuelve a pedir)", async () => {
+    const { data: cs } = await admin().from("clase_semanal").select("id, profesor_id").eq("deporte", "padel").limit(1).single();
+    const { data: c } = await admin().from("clases").insert({
+      tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id, deporte: "padel",
+      fecha: "2026-01-05", hora_inicio: "06:30:00", hora_fin: "07:30:00", precio: 0, estado: "programada",
+    }).select("id").single();
+    try {
+      const { eliminarClasePendiente } = await import("../src/app/(app)/cierre/actions");
+      await expect(eliminarClasePendiente(c!.id, "")).rejects.toThrow(/REDIRECT/);
+      const { data: d } = await admin().from("clases").select("estado, motivo_cancelacion").eq("id", c!.id).single();
+      expect(d?.estado).toBe("cancelada");
+      expect(d?.motivo_cancelacion).toMatch(/superadministrador/);
+    } finally {
+      await admin().from("clases").delete().eq("id", c!.id);
+    }
+  });
+
   it("el modal de /clases ya no ofrece registrar un bloqueo de academia", async () => {
     // Dejar el botón confundía a cafetería, que no tiene nada que hacer con las
     // academias desde que salen solas del planeador.

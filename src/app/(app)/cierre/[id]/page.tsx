@@ -6,6 +6,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
 import { valorPaquete } from "@/lib/finanzas";
+import { EliminarClase } from "./eliminar-clase";
 import { CierreForm } from "./cierre-form";
 
 export default async function CerrarClasePage({
@@ -13,7 +14,7 @@ export default async function CerrarClasePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireRole(rolesForModule("cierre_clase"));
+  const profile = await requireRole(rolesForModule("cierre_clase"));
   const { id } = await params;
   const claseId = Number(id);
   const supabase = await createClient();
@@ -128,7 +129,7 @@ export default async function CerrarClasePage({
       ? colegio
         ? `Colegio ${colegio}`
         : academiaNombre
-          ? `Academia: ${academiaNombre}`
+          ? academiaNombre
           : `Academia de ${clase.deporte === "padel" ? "pádel" : "tenis"}`
       : deportistas[0]?.nombre ?? "Sin deportista";
 
@@ -146,7 +147,7 @@ export default async function CerrarClasePage({
         <p className="text-muted-foreground text-sm">
           {clase.fecha} {clase.hora_inicio?.slice(0, 5) ?? ""} ·{" "}
           {clase.tipo === "academia" ? "Academia" : "Individual"}
-          {clase.deporte ? ` · ${clase.deporte}` : ""} · Profe: {profesorNombre ?? "—"}
+          {clase.deporte ? ` · ${clase.deporte === "padel" ? "Pádel" : "Tenis"}` : ""} · Profe: {profesorNombre ?? "—"}
         </p>
       </div>
       {noEmpezo ? (
@@ -171,6 +172,11 @@ export default async function CerrarClasePage({
           numAsistentes={clase.num_asistentes ?? 1}
           valorFacturado={valorFacturado}
         />
+      )}
+
+      {/* Solo el superadministrador, y solo mientras siga pendiente (Laura, 24-sep-2026). */}
+      {profile.role === "superadmin" && clase.estado === "programada" && (
+        <EliminarClase claseId={claseId} dePlaneador={clase.clase_semanal_id != null} />
       )}
     </div>
   );
