@@ -1471,7 +1471,7 @@ administrativa sin darle también la creación de usuarios.
 ## ⏱️ Turnos del personal (en construcción · bloque 1 hecho el 26-ago-2026)
 Registro de entrada y salida por horas para quien se paga así: **Camila Arboleda** (cafetería, figura
 como recepción), **Juan Fernando Gaviria** (coord. admin), **Santiago Montoya** (recepción) y
-**Carlos** (vigilante, cuenta pendiente de crear). **Los profesores NO marcan** (decisión de Laura).
+**Carlos Florez** (vigilante, empleado directo del club). **Los profesores NO marcan** (decisión de Laura).
 
 **Reglas del cálculo** (acordadas con Laura el 25-ago-2026, verificadas contra la norma vigente):
 - Semana **lunes a domingo**; máximo **42 h** (Ley 2101 de 2021, desde el 15-jul-2026). Jornada de
@@ -1492,8 +1492,12 @@ como recepción), **Juan Fernando Gaviria** (coord. admin), **Santiago Montoya**
   acumulan si además es de noche.
 - ⚠️ **Carlos hace 12 h diarias** = 11 trabajadas = 4 extras al día. Seis días son ~66 h contra un tope
   de 42, y 24 h extra semanales contra un tope legal de 12. **El reporte lo va a marcar en rojo todas
-  las semanas y está bien que lo haga.** Falta confirmar si entra por empresa de vigilancia (entonces
-  los recargos no los debe el club) o como empleado directo.
+  las semanas y está bien que lo haga.**
+  ✅ **Carlos (Carlos Florez, rol `seguridad`) es EMPLEADO DIRECTO del club, no de una empresa de
+  vigilancia** (Laura, 24-sep-2026). O sea que **las horas extra y los recargos los debe el club** y el
+  reporte de `/horas` es la base para pagárselos. Medido del 24-ago al 24-sep (22 turnos): la semana del
+  31-ago hizo 56,9 h con **24,8 h extra** (más del doble del tope legal de 12 semanales); las demás,
+  entre 4,8 y 8,6 h extra. Aún no ha marcado ningún domingo.
 
 **Cómo se marca**: dos puertas, **una sola implementación** (`private.turno_marcar`) — el celular de
 cada quien (`turno_marcar`) y el PC de recepción (`quiosco_marcar`, con PIN de 4 dígitos). Foto de la
