@@ -1790,9 +1790,12 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   en 2022, 4 años) figura como TI cuando a esa edad en Colombia es RC — otra señal de que se copió.
   Ya están matriculados igual: el importador cruza documento Y nombre.
 - ✅ **"Mauricio" es Mauricio Calderón, profesor de tenis** (perfil creado por el club el 23-sep).
-  Se le marcó tenis y se le creó el alias de EasyCancha `mauricio` (ya son 11). ⚠️ **NO tiene reglas
-  de pago**: toda clase suya se liquida en $0 hasta que se definan. Laura ya se las pidió al club
-  (24-sep-2026) y las pasará.
+  Se le marcó tenis y se le creó el alias de EasyCancha `mauricio` (ya son 11).
+  💼 **Reglas de pago: SALARIO FIJO PURO de $5.000.000 mensuales, todo incluido** (Laura,
+  24-sep-2026): ninguna comisión, ni por clase ni por academia. Mismo esquema que Cristian Castro:
+  "Salario fijo" (id 62) + "Academia · cubierta por salario fijo" $0 (id 63) + "Clases · cubiertas
+  por salario fijo" $0 (id 64, comodín `clase`), para tapar los dos frentes. Insertadas por SQL con
+  rastro en `audit_log` (id 1769). Al cargarlas no tenía ninguna clase registrada.
 - **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
   `totalAmount` de su reserva de EasyCancha. Hasta ese día el precio arrancaba en "0" y se tecleaba a
   mano; la clase 400 ya salió mal ($50.000 contra $130.000). Cada peso de diferencia es la mitad de
