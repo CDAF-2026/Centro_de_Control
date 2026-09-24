@@ -426,10 +426,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   (`before: null`, `after: {"reglas": 6}`) **no permite reconstruir qué había antes**: se vio que el
   sueldo había cambiado solo porque se sabía de memoria qué se había insertado. **Un cambio de
   salario hecho desde la app hoy no deja rastro de su cifra anterior.**
-  💡 Dos cosas que arreglar el día que se retome nómina: (a) que el audit de reglas guarde el
-  `before` completo, porque son SUELDOS y hoy no hay forma de auditar un cambio; (b) que los ids de
-  las reglas no se puedan citar como estables en ningún sitio — este archivo ya tuvo que
-  reescribirlos una vez.
+  ✅ **Laura decidió NO arreglarlo** (24-sep-2026): las reglas quedaron actualizadas y fijas, lo
+  anterior no importa, y el club se comprometió a avisar cualquier cambio futuro. No proponer guardar
+  el `before` del audit de reglas. (Sigue valiendo: los ids de las reglas no son estables — no
+  citarlos como si lo fueran.)
   Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
   ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000) y **NO tiene
   regla de paquetes**. Se le preguntó a Laura el 16-sep-2026 y decidió **"de momento dejémoslo así"**,
@@ -574,8 +574,9 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   insert de `createEmpleado`, la acción `updateValorClase` y el componente **`valor-form.tsx`**, que
   encima estaba **huérfano** (nadie lo importaba; ojo, se llama `ValorClaseForm` igual que el de
   `/clases`, que sí está vivo y es otro).
-  ⚠️ **Queda pendiente**: el formulario de crear empleado NO pide las reglas de pago, así que todo
-  profesor nuevo nace sin forma de cobrar. Falta un aviso de "este profesor no tiene regla".
+  💡 El formulario de crear empleado NO pide las reglas de pago, y **así se queda** (Laura,
+  24-sep-2026): el club le avisa cuando entra alguien y ella misma le construye las reglas desde su
+  ficha. No proponer el aviso de "profesor sin regla".
 
 ## Sincronización Siigo (automática)
 Edge Function **`siigo-sync`** (fuente: `supabase/functions/siigo-sync/index.ts`, misma lógica que el
@@ -1110,10 +1111,11 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   vacía, y no existe en la plataforma. Si entra, hay que crearle **perfil, alias de EasyCancha Y
   reglas de pago** — las tres fallan en silencio y cada una por su lado.
 - La programación cargada es la de la **semana del 14-sep-2026**, confirmada vigente por Laura.
-- **Falta**: pádel · el cruce asistencia vs facturas de Siigo (bloqueado por conciliación: de 224
-  líneas de Academia Recreativa Tenis solo 36 tienen `cliente_id`, 95 son mostrador — sin saber de
-  quién es la factura no se puede decir "a Pepito no le cobraron") · y decidir cómo tratar a los
-  hermanos, porque la factura va a la familia (`cliente`) y el alumno es un `miembro`.
+- 🚫 **El cruce asistencia vs facturas de Siigo NO se va a hacer** (Laura, 24-sep-2026: "sería
+  demasiado enredado"). El módulo de academias sirve para la **asistencia y la composición de los
+  grupos** (quién va, cuántos niños, a qué clases), no para controlar cobros. No reproponerlo. (Además
+  estaba bloqueado por conciliación: de 224 líneas de Academia Recreativa Tenis solo 36 tenían
+  `cliente_id`.)
 - ✅ **El cuello de botella (en agosto se registraron 2 clases de ~250) está resuelto**: ya no hay que
   registrar nada antes — `/cierre` deriva del planeador y la clase nace al cerrarla.
 - ✅ Vacaciones: ya no hay que cargar fechas; el club oprime **Pausar academias** el día que salen.
@@ -1257,14 +1259,9 @@ $150.000, y una Karent fantasma.
   ⚠️ Le queda el **correo `test@gmail.com`**: no puede entrar a la plataforma hasta que Laura le
   cargue el real desde `/empleados/[id]/editar`.
   ✅ La clase 400 (7-sep, 9 a.m.) ya quedó asignada a Juan Cruz, por el selector del modal.
-  ⚠️ **Pero su precio está en $50.000 y EasyCancha dice $130.000** (reserva 29907546, Carolina
-  Gutiérrez — y $130.000 es justo la tarifa de 1 persona del club). Se registró el **7-sep**, o sea
-  **antes** del arreglo del 15-sep que pre-llena el precio con el monto de EasyCancha: hasta ese día
-  el campo arrancaba en "0" y había que teclearlo. Con su regla de 50%, a Juan le salen **$25.000
-  donde iban $65.000**. Lo corrige el SA con "Editar" en el modal (pasadas 24 h, solo él).
-  💡 **Esto mide el valor del pre-llenado**: el fallo que arregló no era teórico, ya había dejado al
-  menos una clase mal cobrada. Vale la pena barrer las particulares anteriores al 15-sep comparando
-  `precio` contra el `totalAmount` de su reserva.
+  ✅ **Su precio de $50.000 ES CORRECTO** aunque EasyCancha diga $130.000: fue un precio especial
+  (Laura, 24-sep-2026). No "corregirlo". Y **las particulares anteriores al 15-sep ya las revisó el
+  club y están bien**: no hace falta barrerlas.
 - Pruebas: `tests/cliente-match.test.ts` (8), con el correo y la cédula reales del caso.
 
 🏟️ **Un ALQUILER de cancha no se registra como clase** (15-sep-2026). En cafetería pulsaron
@@ -1800,10 +1797,6 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   "Salario fijo" (id 62) + "Academia · cubierta por salario fijo" $0 (id 63) + "Clases · cubiertas
   por salario fijo" $0 (id 64, comodín `clase`), para tapar los dos frentes. Insertadas por SQL con
   rastro en `audit_log` (id 1769). Al cargarlas no tenía ninguna clase registrada.
-- **Barrer las particulares anteriores al 15-sep-2026** comparando `clases.precio` contra el
-  `totalAmount` de su reserva de EasyCancha. Hasta ese día el precio arrancaba en "0" y se tecleaba a
-  mano; la clase 400 ya salió mal ($50.000 contra $130.000). Cada peso de diferencia es la mitad de
-  menos en el pago del profesor.
 - D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
 - Retirar `profesor_valor_clase` / `profesor_compensacion` cuando se confirme que nadie vuelve al
   modelo viejo de pagos a profesores (hoy TODOS los entrenadores están migrados a reglas).
