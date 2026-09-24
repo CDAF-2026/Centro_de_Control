@@ -177,6 +177,9 @@ HOJA_PROFESOR = {
 }
 COL_DIA = {"B": 1, "E": 2, "H": 3, "K": 4, "N": 5, "Q": 6, "T": 0}
 NOMBRE_COLEGIO = {"MONTESSORI": "Montessori", "MONTELUNA": "Monte Luna", "MONTE LUNA": "Monte Luna"}
+# TODA clase de colegio (Monte Luna y Montessori) dura 1 hora (Laura, 24-sep-2026). La rejilla
+# decía 120 min para las de Cristian y 30 para la de Graciano en Monte Luna: estaba mal.
+DURACION_COLEGIO = 60
 colegios_plan = {}  # (profesor, dia, hora) -> (duracion, colegio)
 for hoja, clave in HOJA_PROFESOR.items():
     if hoja not in wb.sheetnames: continue
@@ -189,7 +192,9 @@ for hoja, clave in HOJA_PROFESOR.items():
             if v in NOMBRE_COLEGIO and bloque: vistos_b[(dia, NOMBRE_COLEGIO[v])].add(bloque)
     for (dia, col), bl in vistos_b.items():
         bl = sorted(bl)
-        colegios_plan[(clave, dia, bl[0])] = (30 * len(bl), col)
+        if 30 * len(bl) != DURACION_COLEGIO:
+            print(f"  ⚠️  {clave} día {dia} {col}: el Excel ocupa {30 * len(bl)} min → se usa {DURACION_COLEGIO}")
+        colegios_plan[(clave, dia, bl[0])] = (DURACION_COLEGIO, col)
 for k, (d, col) in sorted(colegios_plan.items()):
     print(f"  colegio {col}: {k[0]} día {k[1]} {k[2]} · {d} min")
     if k[0] not in prof_id:

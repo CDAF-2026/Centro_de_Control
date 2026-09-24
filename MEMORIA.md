@@ -1041,9 +1041,13 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   niños en ella, y el planeador muestra el nombre del colegio en lugar del conteo.
   ✅ En TENIS **también entraron** (24-sep-2026): 6 clases de colegio que solo están en la REJILLA de
   cada profesor, no en BASE DE DATOS — el importador de tenis ahora las lee de ahí. Jorge (mar
-  14:30 Montessori, mié 14:30 Monte Luna, 60 min), Cristian (mar y mié 13:30, **120 min**) y
-  Graciano (mar 14:00 Montessori 60 min, **mié 14:30 Monte Luna 30 min**). Las duraciones son las del
-  Excel; las de 120 y 30 min conviene confirmarlas con el club.
+  14:30 Montessori, mié 14:30 Monte Luna), Cristian (mar 13:30 Montessori, mié 13:30 Monte Luna) y
+  Graciano (mar 14:00 Montessori, mié 14:30 Monte Luna).
+  🕐 **TODA clase de colegio dura 1 HORA**, Monte Luna y Montessori, tenis y pádel (Laura,
+  24-sep-2026; ella avisa si cambia). La rejilla del Excel decía 120 min para las dos de Cristian y
+  30 para la de Graciano en Monte Luna: **estaba mal**, y se corrigieron a 60 (clases 100, 101 y 103,
+  con rastro en `audit_log`). Los dos importadores fijan ahora `DURACION_COLEGIO = 60` para que un
+  reimporte no lo deshaga.
   💰 **Se pagan con la regla de academia de CADA profesor**, no con una tarifa de colegio como el
   Montessori de Juan en pádel (Laura). Como la clase no tiene niños, no queda atada a ninguna
   academia y casa con la regla de academia "de todas": hoy Jorge, Cristian y Graciano → $0,

@@ -59,6 +59,8 @@ PROFESOR = {"LEO": "Leo Ruíz", "JUAN": "Juan Cruz", "VICTOR": "Victor Acosta"}
 
 # Clases de colegio: van como clase, SIN niños (Laura, 24-sep-2026).
 COLEGIOS = {"MONTESSORI": "Montessori"}
+# TODA clase de colegio dura 1 hora (Laura, 24-sep-2026), diga lo que diga la rejilla.
+DURACION_COLEGIO = 60
 
 # Dos nombres pegados en una misma línea del Excel.
 PARTIR = {"SALVADOR OLARTE JHONTAN DULCEY": ["SALVADOR OLARTE", "JHONTAN DULCEY"]}
@@ -148,6 +150,8 @@ for row in ws.iter_rows(min_row=3, values_only=True):
 # tampoco una celda que solo traía una particular (lunes 5 p. m. de Juan).
 for k in [k for k, c in clases.items() if not c["ninos"] and not c["colegio"]]:
     del clases[k]
+for c in clases.values():
+    if c["colegio"]: c["dur"] = DURACION_COLEGIO
 print(f"Clases en el Excel: {len(clases)}")
 for (p, d, h), c in sorted(clases.items(), key=lambda kv: (kv[0][1], kv[0][2], kv[0][0])):
     print(f"  {['','Lun','Mar','Mié','Jue','Vie','Sáb'][d]} {h} {PROFESOR[p]:14} {c['dur']:>3} min · "
