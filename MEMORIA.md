@@ -238,6 +238,14 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   `academias.servicio_id` y `profesor_regla.servicio_id` (la comisión del 25% de Joaquín y Leo, que
   habría empezado a liquidar $0). Aviso permanente en **`/config`**: lista los grupos de Siigo que
   ningún servicio reclama, con su nº de productos.
+- 🏫 **"Alianzas colegios" reemplazó a "Convenios colegios"** (migración `20260925100000`,
+  25-sep-2026, decisión de Laura). El 22-sep el club creó en Siigo el grupo **"Alianzas colegios"**
+  (ALI-001 MONTELUNA TENIS · ALI-002 MONTESSORI TENIS · ALI-003 MONTESSORI PADEL) y su primera venta
+  (FV-3-18606, $4.020.000) salió como **"Sin categoría"** en el dashboard — otra vez el fallo del
+  grupo nuevo o renombrado. Se actualizó el servicio 14 (clave `convenios_colegios` se conserva),
+  y el producto viejo **AF683 "Convenio"** (grupo CONVENIOS COLEGIOS, **0 ventas en toda la
+  historia**) se reclama por código para que no quede huérfano. ⚠️ Esa factura salió a
+  **consumidor final (222222222222)**, no al NIT del colegio: queda como mostrador, sin cliente.
 - **Dinero (Siigo)**: `siigo_facturas` (siigo_id único, total, saldo=deuda, cliente_id, evento_id,
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`
