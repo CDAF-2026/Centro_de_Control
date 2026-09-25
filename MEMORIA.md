@@ -1765,6 +1765,34 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
 ## Pendientes conocidos
+
+### 📌 Lista vigente (revisada con Laura el 24-sep-2026 — ESTA es la lista; lo de abajo es historia)
+**Datos que tiene que pasar el club**
+1. **Matías y Elena Restrepo** comparten el documento 1017204187 (fichas m584 / m428, ficha 430):
+   de quién es, y el real del otro. Matías (4 años) debería ser RC, no TI.
+2. **Valentín Ramírez** (m92) tiene la TI de su hermano Clemente (1037607268) y no tiene nacimiento.
+3. **Salomón Agudelo** (ficha 572): faltan su documento y su fecha de nacimiento.
+4. **9 fichas con nombre repetido** sin nada en común (Andrés Zapata, Daniel Uribe, Diego Chalarca,
+   Enrique Mateus, Isaak Ruiz, Jorge Moreno, Laura Restrepo, Manuel Mejía, Santiago Correa).
+5. **8 cédulas de adultos en conflicto** con EasyCancha (`docs/cedulas-en-conflicto.md`).
+
+**Decisiones / tareas de Laura**
+6. **Catálogo estándar de paquetes** (Laura levanta la info con el club).
+7. **Rotar las claves** de Supabase (PAT) y Siigo (access_key) que se compartieron en el chat.
+8. **Respaldo al minuto (PITR)** de Supabase: hoy es diario; se paga aparte. Decidir.
+
+**Construir / revisar (agente)**
+9. **Correo de "olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend.
+10. **Facturas de torneo fuera de la ventana**: revisar con los torneos ya corridos si hace falta el
+    buscador por número de factura en la ficha del evento.
+11. (Limpieza técnica, sin prisa) retirar `profesor_valor_clase` / `profesor_compensacion`.
+
+**Cerrados el 24-sep-2026 (no reabrir):** reglas de Mauricio · Carlos es empleado directo · colegios
+de 1 hora · clase 400 a $50.000 es correcta · particulares anteriores al 15-sep revisadas · audit de
+reglas · aviso de profesor sin reglas (lo hace Laura) · cruce academia–Siigo (descartado) · vigencia
+de las reglas · formulario de cliente (facturación + acudiente) · datos de Simón Mejía Cadavid.
+
+### Historia de los pendientes
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya
   corrido.** Se aplazó a propósito para medir el comportamiento real en vez de construir a ciegas.
   Dos preguntas: (a) ¿la ventana −5/+10 capturó todas las facturas del torneo?, (b) ¿hace falta el
