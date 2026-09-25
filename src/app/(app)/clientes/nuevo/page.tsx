@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
-import { ClienteForm } from "./cliente-form";
+import { createClient } from "@/lib/supabase/server";
+import { ClienteForm } from "../cliente-form";
 
 export default async function NuevoClientePage() {
   await requireRole(rolesForModule("clientes", "edit"));
+
+  // Identidades de facturación que ya existen en Siigo (autocompletar del campo).
+  const supabase = await createClient();
+  const { data: identidades } = await supabase.rpc("siigo_clientes_facturacion");
 
   return (
     <div className="max-w-xl space-y-6">
@@ -14,7 +19,7 @@ export default async function NuevoClientePage() {
         </Link>
         <h1 className="cdaf-headline mt-1">Nuevo cliente</h1>
       </div>
-      <ClienteForm />
+      <ClienteForm identidadesSiigo={identidades ?? []} />
     </div>
   );
 }

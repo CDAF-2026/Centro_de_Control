@@ -112,6 +112,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   `fecha_nacimiento`; documento/tipo/nacimiento vienen de EasyCancha `userFoidNumber`/`userFoidType`/
   `userBirthDate`, cruce por correo, ver `documentoDeBooking()` en easycancha/client.ts), `acudientes`,
   `cliente_documentos` (Storage). Ficha: situación financiera = `siigo_resumen_cliente(id)`.
+- 📝 **Crear y editar la ficha usan UN SOLO formulario** (`clientes/cliente-form.tsx`, 24-sep-2026).
+  Eran dos copias y la de crear se quedó sin el bloque de **Facturación** y sin la casilla de "mismos
+  datos": recepción tenía que guardar, volver a entrar a Editar y llenarlos ahí (video del club,
+  23-sep-2026). Sin `cliente` = crear. `createCliente` ya guarda los campos de facturación, valida
+  que el NIT no sea de otro cliente (`choqueNitFacturacion`, compartido con editar, y ANTES de crear el
+  acudiente para no dejarlo huérfano) y ata las facturas libres de ese NIT (`reatribuirFacturas`).
+  · La casilla **va en el bloque del ACUDIENTE y copia el CONTACTO DE EMERGENCIA** (antes vivía en la
+    emergencia y copiaba al revés, aunque el acudiente sale DESPUÉS en el formulario). Así lo pidió
+    Laura: se llena la emergencia y el acudiente la toma. Copia nombre, teléfono y parentesco; el
+    **documento del acudiente se escribe aparte** porque la emergencia no lo tiene. El bloque del
+    acudiente sale apenas la fecha de nacimiento dice menor, y va justo debajo de la emergencia.
+  · Prueba: `tests/clientes-form.test.tsx`.
 - 👤 **El nombre del deportista NUNCA se lee de `clientes`** (ago-2026, `src/lib/deportistas.ts`).
   El **profesor** no tiene el módulo de clientes y `clientes_select` lo excluye, así que esa consulta
   con su sesión devuelve **0 filas sin error** (medido: ve 0 de 320 en `clientes` y 276 en

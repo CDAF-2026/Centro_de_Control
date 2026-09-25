@@ -103,6 +103,39 @@ export type ClienteFormState = {
   fieldErrors?: Record<string, string>;
 };
 
+/** "A nombre de quién se factura": no pasa por el schema; se lee directo del form. */
+function leerFacturacion(formData: FormData) {
+  return {
+    facturaANombre: String(formData.get("facturaANombre") ?? "").trim() || null,
+    facturaANit: String(formData.get("facturaANit") ?? "").replace(/\D/g, "") || null,
+  };
+}
+
+/**
+ * Guard: ese NIT de facturación no puede pertenecer ya a otro cliente (evita atribuir la plata
+ * dos veces). Lo usan crear y editar: una sola copia de la regla. Devuelve el error o null.
+ */
+async function choqueNitFacturacion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  facturaANit: string | null,
+  excluirId?: number,
+): Promise<ClienteFormState | null> {
+  if (!facturaANit) return null;
+  let q = supabase
+    .from("clientes")
+    .select("id, nombres, apellidos, documento")
+    .or(`documento.eq.${facturaANit},factura_a_nit.eq.${facturaANit}`);
+  if (excluirId) q = q.neq("id", excluirId);
+  const { data: choque } = await q.limit(1);
+  const otro = choque?.[0];
+  if (!otro) return null;
+  const motivo = otro.documento === facturaANit ? "es la cédula/NIT" : "ya es el NIT de facturación";
+  return {
+    error: `Ese NIT ${motivo} de ${otro.nombres} ${otro.apellidos}. Sus facturas le pertenecen a ese cliente.`,
+    fieldErrors: { facturaANit: "NIT ya usado por otro cliente" },
+  };
+}
+
 export async function createCliente(
   _prev: ClienteFormState,
   formData: FormData,
@@ -130,6 +163,11 @@ export async function createCliente(
   }
 
   const supabase = await createClient();
+
+  // Se valida ANTES de crear el acudiente, para no dejar uno huérfano si el NIT choca.
+  const { facturaANombre, facturaANit } = leerFacturacion(formData);
+  const choque = await choqueNitFacturacion(supabase, facturaANit);
+  if (choque) return choque;
 
   let acudienteId: number | null = null;
   if (menor) {
@@ -163,12 +201,19 @@ export async function createCliente(
       emergencia_nombre: d.emergenciaNombre || null,
       emergencia_celular: d.emergenciaCelular || null,
       emergencia_parentesco: d.emergenciaParentesco || null,
+      factura_a_nombre: facturaANombre,
+      factura_a_nit: facturaANit,
+      factura_tipo: leerFacturaTipo(formData),
+      factura_email: texto(formData, "facturaEmail"),
       deportes: leerDeportes(formData),
       acudiente_id: acudienteId,
     })
     .select("id")
     .single();
   if (error || !cli) return { error: error?.message ?? "No se pudo guardar el cliente." };
+
+  // Igual que al editar: las facturas sin dueño de su cédula o de su NIT de facturación se le atan.
+  if (facturaANit) await reatribuirFacturas(supabase, cli.id, d.documento || null, facturaANit);
 
   // La fila de titular en `cliente_miembros` (de la que cuelga toda la
   // operación) ya no se crea aquí: la pone el trigger `clientes_crear_titular`
@@ -286,27 +331,9 @@ export async function updateCliente(
     }
   }
 
-  // "A nombre de quién se factura": no pasa por el schema; se lee directo del form.
-  const facturaANombre = String(formData.get("facturaANombre") ?? "").trim() || null;
-  const facturaANit = String(formData.get("facturaANit") ?? "").replace(/\D/g, "") || null;
-
-  // Guard: ese NIT no puede pertenecer ya a otro cliente (evita atribuir la plata dos veces).
-  if (facturaANit) {
-    const { data: choque } = await supabase
-      .from("clientes")
-      .select("id, nombres, apellidos, documento")
-      .or(`documento.eq.${facturaANit},factura_a_nit.eq.${facturaANit}`)
-      .neq("id", id)
-      .limit(1);
-    const otro = choque?.[0];
-    if (otro) {
-      const motivo = otro.documento === facturaANit ? "es la cédula/NIT" : "ya es el NIT de facturación";
-      return {
-        error: `Ese NIT ${motivo} de ${otro.nombres} ${otro.apellidos}. Sus facturas le pertenecen a ese cliente.`,
-        fieldErrors: { facturaANit: "NIT ya usado por otro cliente" },
-      };
-    }
-  }
+  const { facturaANombre, facturaANit } = leerFacturacion(formData);
+  const choque = await choqueNitFacturacion(supabase, facturaANit, id);
+  if (choque) return choque;
 
   // Datos que el titular comparte con su fila de miembro (se guardan en ambas).
   const propios = {

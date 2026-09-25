@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { EditarClienteForm } from "../editar-form";
+import { ClienteForm } from "../../cliente-form";
 
 export default async function EditarClientePage({ params }: { params: Promise<{ id: string }> }) {
   await requireRole(rolesForModule("clientes", "edit"));
@@ -38,7 +38,7 @@ export default async function EditarClientePage({ params }: { params: Promise<{ 
         </Link>
         <h1 className="cdaf-headline mt-1">Editar cliente</h1>
       </div>
-      <EditarClienteForm cliente={cliente} acudiente={acudiente} identidadesSiigo={identidades ?? []} />
+      <ClienteForm cliente={cliente} acudiente={acudiente} identidadesSiigo={identidades ?? []} />
     </div>
   );
 }

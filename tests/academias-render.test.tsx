@@ -69,6 +69,11 @@ const admin = () =>
 const P = <T,>(o: T) => Promise.resolve(o);
 const render = async (fn: any, props: any) => renderToStaticMarkup(await fn(props));
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+// Fecha LOCAL, la misma que usa `getDay()`. Con toISOString (UTC), después de las 7 p. m. en
+// Bogotá la fecha ya es la de mañana y no casa con el día de la semana: las pruebas fallaban
+// según la hora a la que se corrieran.
+const fechaLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** Una clase y una academia que existan de verdad, para no fijar ids a mano. */
 async function unaClase() {
@@ -234,7 +239,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const { profesorId } = await unaClase();
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
-    const fecha = ayer.toISOString().slice(0, 10);
+    const fecha = fechaLocal(ayer);
     const { data: cs } = await admin()
       .from("clase_semanal")
       .insert({
@@ -332,7 +337,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const { claseId, profesorId } = await unaClase();
     const ayer = new Date();
     ayer.setDate(ayer.getDate() - 1);
-    const fecha = ayer.toISOString().slice(0, 10);
+    const fecha = fechaLocal(ayer);
     const { data: c } = await admin()
       .from("clases")
       .insert({
@@ -409,7 +414,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
       .from("clases")
       .insert({
         tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id,
-        deporte: "padel", fecha: ayer.toISOString().slice(0, 10), hora_inicio: "06:10:00",
+        deporte: "padel", fecha: fechaLocal(ayer), hora_inicio: "06:10:00",
         hora_fin: "07:10:00", precio: 0, estado: "programada",
       })
       .select("id")
@@ -440,7 +445,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
     const { data: c } = await admin().from("clases").insert({
       tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id, deporte: "padel",
-      fecha: ayer.toISOString().slice(0, 10), hora_inicio: "06:20:00", hora_fin: "07:20:00", precio: 0, estado: "programada",
+      fecha: fechaLocal(ayer), hora_inicio: "06:20:00", hora_fin: "07:20:00", precio: 0, estado: "programada",
     }).select("id").single();
     try {
       const { default: Cierre } = await import("../src/app/(app)/cierre/[id]/page");
@@ -458,7 +463,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
   it("eliminar una clase pendiente: solo el superadministrador", async () => {
     const { data: prof } = await admin().from("profiles").select("id").eq("role", "profesor").eq("activo", true).limit(1).single();
     const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
-    const fecha = ayer.toISOString().slice(0, 10);
+    const fecha = fechaLocal(ayer);
     const { data: c } = await admin().from("clases").insert({
       tipo: "individual", profesor_id: prof!.id, deporte: "tenis", fecha,
       hora_inicio: "06:25:00", hora_fin: "07:25:00", precio: 100000, estado: "programada",

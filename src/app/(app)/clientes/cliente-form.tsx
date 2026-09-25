@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { updateCliente, type ClienteFormState } from "../actions";
-import { DocumentoField } from "../documento-field";
-import { RH_VALORES } from "../documento";
+import { createCliente, updateCliente, type ClienteFormState } from "./actions";
+import { DocumentoField } from "./documento-field";
+import { RH_VALORES } from "./documento";
 import { edadDesde } from "@/lib/validations/cliente";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,85 +69,91 @@ function Field({
   );
 }
 
-export function EditarClienteForm({
+/**
+ * Un solo formulario para CREAR y EDITAR la ficha. Eran dos copias y la de crear se quedó sin la
+ * casilla de "mismos datos" ni el bloque de facturación: recepción tenía que guardar, volver a
+ * entrar a editar y llenarlos ahí (lo reportó el club en video, 23-sep-2026). Sin `cliente` = crear.
+ */
+export function ClienteForm({
   cliente,
-  acudiente,
+  acudiente = null,
   identidadesSiigo = [],
 }: {
-  cliente: ClienteEditable;
-  acudiente: AcudienteEditable;
+  cliente?: ClienteEditable;
+  acudiente?: AcudienteEditable;
   identidadesSiigo?: IdentidadSiigo[];
 }) {
-  const [state, action, pending] = useActionState(updateCliente, initial);
-  const [fecha, setFecha] = useState(cliente.fecha_nacimiento ?? "");
+  const [state, action, pending] = useActionState(cliente ? updateCliente : createCliente, initial);
+  const [fecha, setFecha] = useState(cliente?.fecha_nacimiento ?? "");
   const fe = state.fieldErrors ?? {};
   const edad = edadDesde(fecha);
   const menor = edad != null && edad < 18;
 
-  // Acudiente y emergencia controlados: así la casilla "mismos datos" puede espejar en vivo.
+  // Emergencia y acudiente controlados: así la casilla "mismos datos" puede espejar en vivo.
+  const [emer, setEmer] = useState({
+    nombre: cliente?.emergencia_nombre ?? "",
+    celular: cliente?.emergencia_celular ?? "",
+    parentesco: cliente?.emergencia_parentesco ?? "",
+  });
   const [acu, setAcu] = useState({
     nombre: acudiente?.nombre ?? "",
     documento: acudiente?.documento ?? "",
     telefono: acudiente?.telefono ?? "",
     parentesco: acudiente?.parentesco ?? "",
   });
-  const [emer, setEmer] = useState({
-    nombre: cliente.emergencia_nombre ?? "",
-    celular: cliente.emergencia_celular ?? "",
-    parentesco: cliente.emergencia_parentesco ?? "",
-  });
-  // Arranca marcada si la emergencia guardada ya coincide con el acudiente.
+  // Arranca marcada si el acudiente guardado ya coincide con la emergencia.
   const yaCoinciden =
-    (acudiente?.nombre ?? "") !== "" &&
-    (cliente.emergencia_nombre ?? "") === (acudiente?.nombre ?? "") &&
-    (cliente.emergencia_celular ?? "") === (acudiente?.telefono ?? "") &&
-    (cliente.emergencia_parentesco ?? "") === (acudiente?.parentesco ?? "");
+    (cliente?.emergencia_nombre ?? "") !== "" &&
+    (cliente?.emergencia_nombre ?? "") === (acudiente?.nombre ?? "") &&
+    (cliente?.emergencia_celular ?? "") === (acudiente?.telefono ?? "") &&
+    (cliente?.emergencia_parentesco ?? "") === (acudiente?.parentesco ?? "");
   const [mismos, setMismos] = useState(yaCoinciden);
 
   // Facturación: al elegir un nombre conocido de Siigo, se autocompleta su NIT.
   const [fact, setFact] = useState({
-    nombre: cliente.factura_a_nombre ?? "",
-    nit: cliente.factura_a_nit ?? "",
+    nombre: cliente?.factura_a_nombre ?? "",
+    nit: cliente?.factura_a_nit ?? "",
   });
   const elegirNombreFact = (v: string) => {
     const match = identidadesSiigo.find((i) => i.nombre.trim().toLowerCase() === v.trim().toLowerCase());
     setFact((s) => ({ nombre: v, nit: match ? match.nit : s.nit }));
   };
 
-  // Espejo activo solo mientras sea menor (si pasa a mayor, la emergencia vuelve a ser editable).
+  // El contacto de emergencia se llena primero; el acudiente lo copia. El documento no se copia
+  // porque la emergencia no lo tiene: se sigue escribiendo aparte.
   const espejo = mismos && menor;
-  const emerNombre = espejo ? acu.nombre : emer.nombre;
-  const emerCelular = espejo ? acu.telefono : emer.celular;
-  const emerParentesco = espejo ? acu.parentesco : emer.parentesco;
+  const acuNombre = espejo ? emer.nombre : acu.nombre;
+  const acuTelefono = espejo ? emer.celular : acu.telefono;
+  const acuParentesco = espejo ? emer.parentesco : acu.parentesco;
 
   return (
     <form action={action} className="space-y-4">
-      <input type="hidden" name="id" value={cliente.id} />
+      {cliente && <input type="hidden" name="id" value={cliente.id} />}
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Nombres" name="nombres" error={fe.nombres} required defaultValue={cliente.nombres} />
-        <Field label="Apellidos" name="apellidos" error={fe.apellidos} required defaultValue={cliente.apellidos} />
+        <Field label="Nombres" name="nombres" error={fe.nombres} required defaultValue={cliente?.nombres ?? ""} />
+        <Field label="Apellidos" name="apellidos" error={fe.apellidos} required defaultValue={cliente?.apellidos ?? ""} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <DocumentoField
-          tipo={cliente.tipo_documento ?? ""}
-          numero={cliente.documento ?? ""}
+          tipo={cliente?.tipo_documento ?? ""}
+          numero={cliente?.documento ?? ""}
           error={fe.documento}
         />
-        <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" error={fe.fechaNacimiento} defaultValue={cliente.fecha_nacimiento ?? ""} onChange={setFecha} />
+        <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" error={fe.fechaNacimiento} defaultValue={cliente?.fecha_nacimiento ?? ""} onChange={setFecha} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Celular" name="celular" error={fe.celular} defaultValue={cliente.celular ?? ""} />
-        <Field label="Correo" name="email" type="email" error={fe.email} defaultValue={cliente.email ?? ""} />
+        <Field label="Celular" name="celular" error={fe.celular} defaultValue={cliente?.celular ?? ""} />
+        <Field label="Correo" name="email" type="email" error={fe.email} defaultValue={cliente?.email ?? ""} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="EPS" name="eps" error={fe.eps} defaultValue={cliente.eps ?? ""} />
+        <Field label="EPS" name="eps" error={fe.eps} defaultValue={cliente?.eps ?? ""} />
         <div className="space-y-1.5">
           <Label htmlFor="rh">RH (grupo sanguíneo)</Label>
           <select
             id="rh"
             name="rh"
-            defaultValue={cliente.rh ?? ""}
+            defaultValue={cliente?.rh ?? ""}
             className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
           >
             <option value="">—</option>
@@ -160,24 +166,41 @@ export function EditarClienteForm({
 
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Contacto de emergencia</legend>
-        {menor && (
-          <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors">
-            <input type="checkbox" checked={mismos} onChange={(e) => setMismos(e.target.checked)} className="accent-lime size-4" />
-            Usar los mismos datos del acudiente
-          </label>
-        )}
         <Field label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre}
-          value={emerNombre} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, nombre: v }))} />
+          value={emer.nombre} onChange={(v) => setEmer((s) => ({ ...s, nombre: v }))} />
         <div className="grid grid-cols-2 gap-4">
           <Field label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular}
-            value={emerCelular} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, celular: v }))} />
+            value={emer.celular} onChange={(v) => setEmer((s) => ({ ...s, celular: v }))} />
           <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}
-            value={emerParentesco} readOnly={espejo} onChange={(v) => setEmer((s) => ({ ...s, parentesco: v }))} />
+            value={emer.parentesco} onChange={(v) => setEmer((s) => ({ ...s, parentesco: v }))} />
         </div>
-        {espejo && (
-          <p className="text-muted-foreground text-xs">Se guardarán los mismos datos del acudiente. Desmarca la casilla para editarlos aparte.</p>
-        )}
       </fieldset>
+
+      {menor && (
+        <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">
+          <legend className="cdaf-eyebrow px-1">Acudiente (obligatorio · {edad} años)</legend>
+          <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors">
+            <input type="checkbox" checked={mismos} onChange={(e) => setMismos(e.target.checked)} className="accent-lime size-4" />
+            Usar los mismos datos del contacto de emergencia
+          </label>
+          <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required
+            value={acuNombre} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, nombre: v }))} />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Documento" name="acudienteDocumento"
+              value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
+            <Field label="Teléfono" name="acudienteTelefono"
+              value={acuTelefono} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
+          </div>
+          <Field label="Parentesco" name="acudienteParentesco"
+            value={acuParentesco} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
+          {espejo && (
+            <p className="text-muted-foreground text-xs">
+              Se guardarán el nombre, el teléfono y el parentesco del contacto de emergencia. El documento del
+              acudiente se escribe aparte. Desmarca la casilla para editarlos por separado.
+            </p>
+          )}
+        </fieldset>
+      )}
 
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Facturación</legend>
@@ -211,7 +234,7 @@ export function EditarClienteForm({
             <select
               id="facturaTipo"
               name="facturaTipo"
-              defaultValue={cliente.factura_tipo ?? ""}
+              defaultValue={cliente?.factura_tipo ?? ""}
               className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
             >
               <option value="">—</option>
@@ -219,38 +242,24 @@ export function EditarClienteForm({
               <option value="juridica">Persona jurídica</option>
             </select>
           </div>
-          <Field label="Correo de facturación" name="facturaEmail" type="email" error={fe.facturaEmail} defaultValue={cliente.factura_email ?? ""} />
+          <Field label="Correo de facturación" name="facturaEmail" type="email" error={fe.facturaEmail} defaultValue={cliente?.factura_email ?? ""} />
         </div>
       </fieldset>
 
       <fieldset className="space-y-2 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Deportes</legend>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="deportes" value="tenis" defaultChecked={cliente.deportes.includes("tenis")} className="size-4" /> Tenis
+          <input type="checkbox" name="deportes" value="tenis" defaultChecked={cliente?.deportes.includes("tenis")} className="size-4" /> Tenis
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="deportes" value="padel" defaultChecked={cliente.deportes.includes("padel")} className="size-4" /> Pádel
+          <input type="checkbox" name="deportes" value="padel" defaultChecked={cliente?.deportes.includes("padel")} className="size-4" /> Pádel
         </label>
       </fieldset>
 
-      {menor && (
-        <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">
-          <legend className="cdaf-eyebrow px-1">Acudiente (obligatorio · {edad} años)</legend>
-          <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required
-            value={acu.nombre} onChange={(v) => setAcu((s) => ({ ...s, nombre: v }))} />
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Documento" name="acudienteDocumento"
-              value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
-            <Field label="Teléfono" name="acudienteTelefono"
-              value={acu.telefono} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
-          </div>
-          <Field label="Parentesco" name="acudienteParentesco"
-            value={acu.parentesco} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
-        </fieldset>
-      )}
-
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-      <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar cambios"}</Button>
+      <Button type="submit" disabled={pending}>
+        {pending ? "Guardando…" : cliente ? "Guardar cambios" : "Guardar cliente"}
+      </Button>
     </form>
   );
 }
