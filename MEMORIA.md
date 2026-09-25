@@ -1070,11 +1070,14 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   37, de Jhon Dulcey; el Excel dice "Jhontan", se escribe Jhonatan — Laura). Emparejados a mano: Nicole→Nicol Bustamante, Julia Vélez Jiménez→Julia Vélez,
   Pedro Gómez Laserna→Pedro Gómez (ficha 412), Sofía Moreno→**Sophie** Moreno (hija de Pierre),
   Salvador Olarte→ficha 466.
-- ⚠️ **Fichas PROVISIONALES**: **Simón Mejía (ficha 571)** y **Salomón Agudelo (572)** no existían;
-  Laura pidió crearlas y matricularlos ya, con datos de prueba mientras el club pasa los reales. Su
-  acudiente se llama **"PENDIENTE · acudiente de …"** (la base exige acudiente a un menor) y NO
-  tienen correo, a propósito: así el cierre no le manda confirmaciones a nadie inventado. Al llegar
-  los datos reales, **corregir esas fichas, no crear otras**.
+- ✅ **Simón Mejía Cadavid (ficha 571) ya tiene sus datos REALES** (Laura, 24-sep-2026): TI
+  1040877829, nacido 20-mar-2010. Acudiente **Faver Mejía, el papá** (CC 15440344, 3003192800,
+  faver1000@gmail.com), que es también el celular y el correo de la ficha — así que **desde ahora sí
+  le llegan los correos de confirmación del cierre**.
+- ⚠️ **Salomón Agudelo (ficha 572) sigue PROVISIONAL a medias**: ya tiene acudiente real, **Felipe
+  Agudelo, el papá** (3112133394, también celular de la ficha), pero **faltan su documento y su fecha
+  de nacimiento** (Laura los pasará). Sin correo todavía. Al llegar, **corregir esa ficha, no crear
+  otra**.
 - 💰 **Victor Acosta: $60.000 por clase de academia** (regla 55, `academia`/`fijo_por_clase`, dictado
   por Laura el 24-sep-2026: "cada clase de la academia de 1 hora"). Hoy todas sus clases son de 1
   hora; la regla paga por clase, no por hora — si le dan una de 90 min, revisar.
