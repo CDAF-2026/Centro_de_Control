@@ -20,6 +20,7 @@ import { EmpleadoDocumentos, type EmpDocItem } from "./empleado-documentos";
 import { AccesoForm } from "./acceso-form";
 import { TurnosForm } from "./turnos-form";
 import { correoVisible } from "@/lib/empleado";
+import { mesActual } from "@/lib/fecha";
 
 export default async function EmpleadoDetallePage({
   params,
@@ -64,13 +65,14 @@ export default async function EmpleadoDetallePage({
   let comp: Comp | null = null;
   let reglas: ReglaInicial[] = [];
   let serviciosSiigo: { id: number; nombre: string }[] = [];
+  let anteriores: ReglaAnterior[] = [];
   // Las reglas se cargan para CUALQUIER rol, no solo "profesor": el rol dice qué
   // ve la persona y las reglas cómo se le paga. Leo (coord. deportivo), Sebastián
   // (coord. administrativo) y Willington dictan clases y tienen reglas que esta
   // pantalla escondía por mirar el rol (24-sep-2026) — el mismo tropiezo que ya
   // se arregló en liquidacion.ts con esDocente().
   if (esAdmin) {
-    const [{ data: c }, { data: rs }, { data: servs }] = await Promise.all([
+    const [{ data: c }, { data: rs }, { data: servs }, { data: viejas }] = await Promise.all([
       supabase
         .from("profesor_compensacion")
         .select("tipo, pct_clase, salario_fijo, pago_asistencia, comision_quincenal, valor_alumno_academia")
@@ -78,18 +80,29 @@ export default async function EmpleadoDetallePage({
         .maybeSingle(),
       supabase
         .from("profesor_regla")
-        .select("nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral")
+        .select("nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral, vigente_desde")
         .eq("profesor_id", id)
         .eq("activo", true)
-        .order("orden"),
+        .order("orden")
+        .order("id"),
       supabase
         .from("servicios")
         .select("id, nombre")
         .not("siigo_grupo", "is", null)
         .eq("activo", true)
         .order("orden"),
+      // Versiones que ya se reemplazaron: siguen pagando los meses que cubrieron.
+      supabase
+        .from("profesor_regla")
+        .select("id, nombre, metodo, pct, valor, umbral, vigente_desde, vigente_hasta")
+        .eq("profesor_id", id)
+        .eq("activo", false)
+        .not("vigente_hasta", "is", null)
+        .order("vigente_hasta", { ascending: false })
+        .order("orden"),
     ]);
     comp = c ?? null;
+    anteriores = (viejas ?? []) as ReglaAnterior[];
     reglas = (rs ?? []).map((r) => ({ ...r, pct: Number(r.pct), valor: Number(r.valor) }));
     serviciosSiigo = servs ?? [];
   }
@@ -205,7 +218,8 @@ export default async function EmpleadoDetallePage({
           <CardContent className="space-y-6">
             {esAdmin ? (
               <>
-                <ReglasForm profesorId={emp.id} reglasIniciales={reglas} servicios={serviciosSiigo} />
+                <ReglasForm profesorId={emp.id} reglasIniciales={reglas} servicios={serviciosSiigo} mesActual={mesActual()} />
+                {anteriores.length > 0 && <ReglasAnteriores reglas={anteriores} />}
                 {reglas.length === 0 && comp && (
                   <div className="space-y-3 border-t pt-4">
                     <p className="text-muted-foreground text-xs">
@@ -230,10 +244,77 @@ export default async function EmpleadoDetallePage({
             ¿Dicta clases? Configurar reglas de pago
           </summary>
           <div className="mt-4">
-            <ReglasForm profesorId={emp.id} reglasIniciales={[]} servicios={serviciosSiigo} />
+            <ReglasForm profesorId={emp.id} reglasIniciales={[]} servicios={serviciosSiigo} mesActual={mesActual()} />
           </div>
         </details>
       )}
     </div>
+  );
+}
+
+type ReglaAnterior = {
+  id: number;
+  nombre: string;
+  metodo: string;
+  pct: number;
+  valor: number;
+  umbral: number | null;
+  vigente_desde: string;
+  vigente_hasta: string;
+};
+
+const pesos = (n: number) => `$${Number(n).toLocaleString("es-CO")}`;
+const fechaCorta = (f: string) => {
+  const [y, m, d] = f.split("-").map(Number);
+  return `${d} ${["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][m - 1]} ${y}`;
+};
+
+/** Cuánto pagaba, en una frase corta. */
+function resumenRegla(r: ReglaAnterior): string {
+  switch (r.metodo) {
+    case "salario_fijo":
+      return `${pesos(r.valor)} al mes`;
+    case "fijo_por_clase":
+      return `${pesos(r.valor)} por clase`;
+    case "por_alumno":
+      return `${pesos(r.valor)} por alumno`;
+    case "pct_facturado":
+    case "pct_siigo_servicio":
+      return `${Number(r.pct)}%`;
+    case "comision_umbral":
+      return `${Number(r.pct)}% desde la clase ${(r.umbral ?? 0) + 1}`;
+    case "escalonado_asistentes":
+      return "escalonado por personas";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Reglas que se reemplazaron. No se editan: son la explicación de cómo se liquidaron los
+ * meses que cubrieron, y la liquidación las sigue usando para esos meses.
+ */
+function ReglasAnteriores({ reglas }: { reglas: ReglaAnterior[] }) {
+  return (
+    <details className="border-t pt-4">
+      <summary className="text-muted-foreground cursor-pointer text-sm font-medium">
+        Reglas anteriores ({reglas.length})
+      </summary>
+      <p className="text-muted-foreground mt-2 text-xs">
+        Ya se reemplazaron, pero la liquidación las sigue usando para los meses que cubrieron.
+      </p>
+      <ul className="mt-2 divide-y text-sm">
+        {reglas.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-baseline justify-between gap-x-3 py-1.5">
+            <span>
+              {r.nombre} <span className="text-muted-foreground">· {resumenRegla(r)}</span>
+            </span>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {fechaCorta(r.vigente_desde)} – {fechaCorta(r.vigente_hasta)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

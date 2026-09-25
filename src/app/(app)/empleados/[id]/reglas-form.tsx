@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { mesLargo } from "@/lib/fecha";
 import type { ReglaConcepto, ReglaMetodo } from "@/lib/database.types";
 
 const init: EmpleadoFormState = {};
@@ -57,6 +58,8 @@ type EditRegla = {
   horaDesde: string;
   horaHasta: string;
   umbral: string;
+  /** Desde cuándo paga (solo las ya guardadas; una nueva arranca en el mes elegido). */
+  vigenteDesde: string | null;
 };
 
 export type ReglaInicial = {
@@ -71,6 +74,7 @@ export type ReglaInicial = {
   hora_desde: string | null;
   hora_hasta: string | null;
   umbral: number | null;
+  vigente_desde?: string;
 };
 
 const nuevaKey = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
@@ -90,6 +94,7 @@ function aEdit(r: ReglaInicial): EditRegla {
     horaDesde: hhmm(r.hora_desde),
     horaHasta: hhmm(r.hora_hasta),
     umbral: r.umbral != null ? String(r.umbral) : "",
+    vigenteDesde: r.vigente_desde ?? null,
   };
 }
 
@@ -98,13 +103,17 @@ export function ReglasForm({
   profesorId,
   reglasIniciales,
   servicios,
+  mesActual,
 }: {
   profesorId: string;
   reglasIniciales: ReglaInicial[];
   servicios: { id: number; nombre: string }[];
+  /** "2026-09", calculado en el servidor (Bogotá) para que servidor y navegador coincidan. */
+  mesActual: string;
 }) {
   const [state, action, pending] = useActionState(guardarReglas, init);
   const [reglas, setReglas] = useState<EditRegla[]>(reglasIniciales.map(aEdit));
+  const [aplicaDesde, setAplicaDesde] = useState(mesActual);
 
   const patch = (key: string, campo: Partial<EditRegla>) =>
     setReglas((rs) => rs.map((r) => (r.key === key ? { ...r, ...campo } : r)));
@@ -157,6 +166,7 @@ export function ReglasForm({
         horaDesde: "",
         horaHasta: "",
         umbral: "",
+        vigenteDesde: null,
       },
     ]);
 
@@ -228,6 +238,9 @@ export function ReglasForm({
                     onChange={(e) => patch(r.key, { nombre: e.target.value })}
                     placeholder="Ej: Comisión clases 7 a.m."
                   />
+                  {r.vigenteDesde && r.vigenteDesde > "2026-06-01" && (
+                    <p className="text-muted-foreground text-xs">Paga desde el 1 de {mesLargo(r.vigenteDesde.slice(0, 7))}</p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -404,7 +417,31 @@ export function ReglasForm({
         <Plus className="size-4" /> Agregar regla
       </Button>
 
-      <div className="flex items-center gap-3 border-t pt-4">
+      <div className="space-y-1.5 border-t pt-4">
+        <Label htmlFor={`aplicaDesde-${profesorId}`}>¿Desde qué mes aplican los cambios?</Label>
+        <Input
+          id={`aplicaDesde-${profesorId}`}
+          name="aplicaDesde"
+          type="month"
+          min="2026-06"
+          required
+          className="w-48"
+          value={aplicaDesde}
+          onChange={(e) => setAplicaDesde(e.target.value)}
+        />
+        <p className="text-muted-foreground text-xs">
+          Lo que cambies paga desde el día 1 de ese mes. Los meses anteriores se siguen liquidando con las reglas
+          que tenían, y las reglas que no toques quedan igual.
+        </p>
+        {aplicaDesde && aplicaDesde < mesActual && (
+          <p className="text-amber-700 dark:text-amber-400 text-xs font-medium">
+            Elegiste un mes que ya pasó: la liquidación de {mesLargo(aplicaDesde)} en adelante va a cambiar. Úsalo
+            solo para corregir un error.
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar compensación"}</Button>
         {state.error && <span className="text-destructive text-sm">{state.error}</span>}
         {state.ok && <span className="text-primary text-sm">{state.ok}</span>}

@@ -15,6 +15,8 @@ import {
 } from "@/lib/validations/empleado";
 import { asignarPasswordSchema } from "@/lib/validations/perfil";
 import type { Deporte, EmpleadoDocumentoTipo } from "@/lib/database.types";
+import { planGuardarReglas, planVacio, primerDia, type ReglaGuardada } from "@/lib/reglas-vigencia";
+import { mesLargo } from "@/lib/fecha";
 
 /** Deportes que puede dictar alguien. Lista cerrada: alimenta el selector del calendario. */
 const DEPORTES: readonly Deporte[] = ["tenis", "padel"];
@@ -144,8 +146,11 @@ export async function guardarCompensacion(
 }
 
 /**
- * Guarda el conjunto de reglas de compensación de un profesor (modelo flexible).
- * Reemplaza todas sus reglas por el set recibido; un set vacío lo devuelve al modelo viejo.
+ * Guarda el conjunto de reglas de pago de un profesor con efecto desde el día 1 del mes
+ * elegido (`aplicaDesde`, YYYY-MM). Ya NO borra y reescribe: lo que cambia se cierra el
+ * último día del mes anterior y entra de nuevo desde el mes elegido, así los meses que ya
+ * se liquidaron siguen mostrando lo que se pagó (ver src/lib/reglas-vigencia.ts). Las reglas
+ * que no cambian se quedan quietas.
  */
 export async function guardarReglas(
   _prev: EmpleadoFormState,
@@ -155,6 +160,12 @@ export async function guardarReglas(
 
   const profesorId = String(formData.get("profesorId") || "");
   if (!profesorId) return { error: "Falta el profesor." };
+  const aplicaDesde = String(formData.get("aplicaDesde") || "");
+  // La historia del club arranca en junio de 2026: antes no hay nada que liquidar.
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(aplicaDesde) || aplicaDesde < "2026-06") {
+    return { error: "Elige desde qué mes aplican las reglas." };
+  }
+  const efectivo = primerDia(aplicaDesde);
 
   let payload: unknown;
   try {
@@ -169,41 +180,68 @@ export async function guardarReglas(
 
   const esClaseMetodo = (m: string) =>
     ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno"].includes(m);
-  const rows = parsed.data.map((r, i) => ({
-    profesor_id: profesorId,
+  const nuevas = parsed.data.map((r) => ({
     nombre: r.nombre,
     concepto: r.concepto,
     metodo: r.metodo,
     pct: r.metodo === "pct_facturado" || r.metodo === "pct_siigo_servicio" || r.metodo === "comision_umbral" ? r.pct : 0,
     valor: r.metodo === "fijo_por_clase" || r.metodo === "por_alumno" || r.metodo === "salario_fijo" ? r.valor : 0,
-    servicio_id: r.metodo === "pct_siigo_servicio" ? r.servicio_id : null,
+    // El servicio sirve para dos cosas: de qué servicio se saca el % de Siigo, y a qué
+    // academia aplica una regla de academia ("¿Qué academia?"). Antes solo se guardaba en
+    // el primer caso y al guardar desde la ficha se BORRABA el segundo: la regla de
+    // Recreativa de Leo habría vuelto a pagar también sus clases de Competencia.
+    servicio_id:
+      r.metodo === "pct_siigo_servicio" || (r.concepto === "academia" && esClaseMetodo(r.metodo)) ? r.servicio_id : null,
     escalones: r.metodo === "escalonado_asistentes" ? r.escalones : null,
     // Filtro día/hora: solo para reglas de clase con franja (no aplica al tope mensual).
-    dias: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" && r.dias && r.dias.length ? r.dias : null,
-    hora_desde: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" ? r.hora_desde : null,
-    hora_hasta: esClaseMetodo(r.metodo) && r.metodo !== "comision_umbral" ? r.hora_hasta : null,
+    dias: esClaseMetodo(r.metodo) && r.dias && r.dias.length ? r.dias : null,
+    hora_desde: esClaseMetodo(r.metodo) ? r.hora_desde : null,
+    hora_hasta: esClaseMetodo(r.metodo) ? r.hora_hasta : null,
     umbral: r.metodo === "comision_umbral" ? r.umbral : null,
-    orden: i,
-    activo: true,
   }));
 
   const supabase = await createClient();
-  // Reemplaza el set completo (borra + inserta): simple y correcto para pocas reglas.
-  const { error: delErr } = await supabase.from("profesor_regla").delete().eq("profesor_id", profesorId);
-  if (delErr) return { error: delErr.message };
-  if (rows.length) {
-    const { error: insErr } = await supabase.from("profesor_regla").insert(rows);
-    if (insErr) return { error: insErr.message };
-  }
+  const { data: guardadas, error: selErr } = await supabase
+    .from("profesor_regla")
+    .select("id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral, orden, activo, vigente_desde, vigente_hasta")
+    .eq("profesor_id", profesorId);
+  if (selErr) return { error: selErr.message };
 
+  const plan = planGuardarReglas(
+    (guardadas ?? []).map((g) => ({ ...g, pct: Number(g.pct), valor: Number(g.valor) })) as ReglaGuardada[],
+    nuevas,
+    efectivo,
+  );
+  if (planVacio(plan)) return { ok: "No había cambios que guardar." };
+
+  const { error } = await supabase.rpc("profesor_reglas_aplicar", {
+    p_profesor: profesorId,
+    p_cerrar: plan.cerrar,
+    p_borrar: plan.borrar,
+    p_insertar: plan.insertar,
+  });
+  if (error) return { error: error.message };
+
+  // El rastro guarda el ANTES completo: son sueldos, y la versión vieja de este guardado no
+  // dejaba ver qué cifra había antes de un cambio (pasó con Yeison, 16-sep-2026).
+  const porId = new Map((guardadas ?? []).map((g) => [g.id, g]));
   await logAudit({
     action: "reglas.update",
     entity: "profesor_regla",
     entityId: profesorId,
-    after: { reglas: rows.length },
+    before: JSON.parse(
+      JSON.stringify({
+        cerradas: plan.cerrar.map((c) => ({ ...porId.get(c.id), cierra_el: c.vigente_hasta })),
+        borradas: plan.borrar.map((id) => porId.get(id) ?? { id }),
+      }),
+    ),
+    after: JSON.parse(JSON.stringify({ aplica_desde: efectivo, nuevas: plan.insertar, sin_cambio: plan.mantener.length })),
   });
   revalidatePath(`/empleados/${profesorId}`);
-  return { ok: rows.length ? "Reglas guardadas." : "Reglas eliminadas (vuelve al modelo anterior)." };
+  revalidatePath("/liquidacion");
+  return {
+    ok: `Reglas guardadas. Pagan desde el 1 de ${mesLargo(aplicaDesde)}; los meses anteriores siguen con las reglas que tenían.`,
+  };
 }
 
 /** Edita datos del empleado (nombre, correo, documento, teléfono). Solo superadministrador. */

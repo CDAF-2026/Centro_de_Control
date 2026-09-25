@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { valorPaquete } from "@/lib/finanzas";
 import type { ReglaConcepto, ReglaEscalon, ReglaMetodo } from "@/lib/database.types";
+import { cuentaEnLiquidacion, solapa, vigenteEl } from "@/lib/reglas-vigencia";
 
 const TIPO_LABEL: Record<string, string> = {
   por_clase: "Por clase",
@@ -66,6 +67,8 @@ type ReglaRow = {
   hora_hasta: string | null;
   umbral: number | null;
   activo: boolean;
+  vigente_desde: string;
+  vigente_hasta: string | null;
 };
 
 const METODOS_CLASE: ReglaMetodo[] = ["pct_facturado", "fijo_por_clase", "escalonado_asistentes", "por_alumno", "comision_umbral"];
@@ -139,9 +142,14 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     supabase.from("profesor_compensacion").select("*"),
     supabase
       .from("profesor_regla")
-      .select("id, profesor_id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral, activo, orden")
-      .eq("activo", true)
-      .order("orden"),
+      .select("id, profesor_id, nombre, concepto, metodo, pct, valor, servicio_id, escalones, dias, hora_desde, hora_hasta, umbral, activo, orden, vigente_desde, vigente_hasta")
+      // Las del juego actual Y las versiones viejas: cada clase se paga con la regla
+      // vigente EL DÍA de la clase (ver reglas-vigencia.ts). Sin esto, cambiar una
+      // regla reescribía en pantalla los meses ya pagados.
+      .or("activo.eq.true,vigente_hasta.not.is.null")
+      .lte("vigente_desde", hasta)
+      .order("orden")
+      .order("id"),
     supabase
       .from("clases")
       .select("id, profesor_id, tipo, paquete_cliente_id, cliente_id, miembro_id, academia_id, fecha, hora_inicio, precio, valor_facturado, num_asistentes")
@@ -151,12 +159,26 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   ]);
 
   const compById = new Map((comps ?? []).map((c) => [c.profesor_id, c]));
+  // Quién se liquida por el MODELO DE REGLAS: el que tenga (o haya tenido) reglas. No
+  // depende del periodo: si no, un mes sin reglas vigentes lo devolvería en silencio al
+  // modelo viejo de `profesor_compensacion`.
+  const conReglas = new Set<string>();
+  // Las reglas que pagan en ALGÚN día de este periodo. Cada clase filtra después por su
+  // fecha exacta (`vigenteEl`).
   const reglasByProf = new Map<string, ReglaRow[]>();
-  for (const r of reglasRaw ?? []) {
-    const arr = reglasByProf.get(r.profesor_id) ?? [];
-    arr.push(r as ReglaRow);
-    reglasByProf.set(r.profesor_id, arr);
+  for (const raw of reglasRaw ?? []) {
+    const r = raw as ReglaRow;
+    if (!cuentaEnLiquidacion(r)) continue;
+    conReglas.add(raw.profesor_id);
+    if (!solapa(r, desde, hasta)) continue;
+    const arr = reglasByProf.get(raw.profesor_id) ?? [];
+    arr.push(r);
+    reglasByProf.set(raw.profesor_id, arr);
   }
+  // Salario y % de Siigo se liquidan por PERIODO, no por clase: se toma la regla vigente el
+  // primer día. Los cambios arrancan siempre un día 1 y el periodo nunca cruza de mes, así
+  // que es la misma que la de cualquier otro día del periodo.
+  const vigentesAlInicio = (rs: ReglaRow[]) => rs.filter((r) => vigenteEl(r, desde));
   const clases = clasesRaw ?? [];
 
   /**
@@ -261,7 +283,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   const porProf = new Map<string, LiqProfesor>();
   for (const p of docentes) {
     const comp = compById.get(p.id);
-    const tieneReglas = (reglasByProf.get(p.id)?.length ?? 0) > 0;
+    const tieneReglas = conReglas.has(p.id);
     porProf.set(p.id, {
       id: p.id,
       nombre: p.nombre ?? "—",
@@ -283,7 +305,8 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     const fila = porProf.get(c.profesor_id);
     if (!fila) continue;
     const comp = compById.get(c.profesor_id);
-    const reglas = reglasByProf.get(c.profesor_id) ?? [];
+    // Solo las reglas vigentes el día de ESTA clase.
+    const reglas = (reglasByProf.get(c.profesor_id) ?? []).filter((r) => vigenteEl(r, c.fecha));
     const alumnos = presentes.get(c.id) ?? 0;
     // Nº de personas de la clase particular (define el escalón). Cae a los presentes, o 1.
     const nPersonas = c.num_asistentes ?? Math.max(alumnos, 1);
@@ -313,7 +336,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
 
     // Valor a pagar al profesor.
     let valorProfesor: number;
-    if (reglas.length) {
+    if (conReglas.has(c.profesor_id)) {
       // Modelo nuevo: la primera regla (por orden) que aplique a esta clase, pero el
       // CONCEPTO EXACTO le gana al comodín `clase` sin importar el `orden`. Si no, una
       // comisión genérica ("50% de las clases de 7 a.m.") le tapa a la regla hecha para
@@ -362,7 +385,7 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
 
   // ───────── Reglas de Siigo (alto rendimiento): % de lo facturado en el periodo ─────────
   const siigoReglas = [...reglasByProf].flatMap(([pid, rs]) =>
-    rs.filter((r) => r.metodo === "pct_siigo_servicio").map((r) => ({ pid, r })),
+    vigentesAlInicio(rs).filter((r) => r.metodo === "pct_siigo_servicio").map((r) => ({ pid, r })),
   );
   if (siigoReglas.length) {
     const { data: ingreso } = await supabase.rpc("siigo_ingreso_servicio", { p_desde: desde, p_hasta: hasta });
@@ -416,8 +439,8 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
   }
 
   for (const fila of porProf.values()) {
-    const reglas = reglasByProf.get(fila.id) ?? [];
-    if (reglas.length) {
+    if (conReglas.has(fila.id)) {
+      const reglas = vigentesAlInicio(reglasByProf.get(fila.id) ?? []);
       // Salario fijo (regla): `valor` es MENSUAL → se prorratea por quincena (mes = 2 quincenas).
       const salMensual = reglas.filter((r) => r.metodo === "salario_fijo").reduce((s, r) => s + r.valor, 0);
       if (salMensual > 0) fila.fijo += Math.round((salMensual * quincenas) / 2);

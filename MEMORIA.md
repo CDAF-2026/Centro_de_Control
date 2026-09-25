@@ -438,10 +438,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   (`before: null`, `after: {"reglas": 6}`) **no permite reconstruir qué había antes**: se vio que el
   sueldo había cambiado solo porque se sabía de memoria qué se había insertado. **Un cambio de
   salario hecho desde la app hoy no deja rastro de su cifra anterior.**
-  ✅ **Laura decidió NO arreglarlo** (24-sep-2026): las reglas quedaron actualizadas y fijas, lo
-  anterior no importa, y el club se comprometió a avisar cualquier cambio futuro. No proponer guardar
-  el `before` del audit de reglas. (Sigue valiendo: los ids de las reglas no son estables — no
-  citarlos como si lo fueran.)
+  ✅ **Resuelto de rebote con la VIGENCIA de las reglas** (24-sep-2026, ver "📅 Vigencia de las
+  reglas" abajo): guardar ya no borra y reescribe, y el `audit_log` guarda el `before` completo de lo
+  que se cierra o se borra. (Sigue valiendo: los ids de las reglas no son estables — no citarlos como
+  si lo fueran.)
   Ojo con el nombre: Laura dice **"Jason"** y la persona es **Yeison Bedoya**.
   ⚠️ **Victor Acosta** tiene solo `clase_particular` (escalonado 1→$40.000, 2→$60.000) y **NO tiene
   regla de paquetes**. Se le preguntó a Laura el 16-sep-2026 y decidió **"de momento dejémoslo así"**,
@@ -1781,7 +1781,10 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   ✅ **Después de las 9 p. m. no dicta: el club cierra a las 9** (Laura, 24-sep-2026). No hace falta
   banda; si algo cae ahí, la regla 54 lo muestra con nombre. **Los domingos tampoco dicta después de
   la 1 p. m.** (Laura, 24-sep-2026): mismo criterio, sin banda; la 54 es la red.
-- ⚠️⚠️ **Cambiar una regla REESCRIBE el pasado en pantalla, y no hay nada que lo impida.** La
+- ✅ **RESUELTO el 24-sep-2026 con la VIGENCIA de las reglas** (ver "📅 Vigencia de las reglas"):
+  desde ese día, un cambio solo mueve la liquidación desde el mes elegido. Lo de abajo sigue siendo
+  cierto para los cambios ANTERIORES a esa fecha, que ya estaban aplicados:
+- ⚠️⚠️ **Cambiar una regla REESCRIBÍA el pasado en pantalla.** La
   liquidación se calcula al vuelo y **no se persiste** (ya está dicho más arriba a propósito de las
   24 h), así que tocar `profesor_regla` hoy cambia también lo que la pantalla muestra para meses ya
   pagados. Pasó el 16-sep-2026 con los tres cambios de nómina: a Graciano agosto le subió de
@@ -1791,6 +1794,45 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   está bien**. No "arreglar" esa diferencia ni proponer un backfill.
   💡 Es el argumento más fuerte a favor de **persistir la liquidación** el día que se retome: hoy no
   existe forma de saber por código qué se pagó de verdad, solo qué se pagaría con las reglas de hoy.
+- 📅 **Vigencia de las reglas de pago** (migraciones `20260924160000_reglas_vigencia` y
+  `20260924161000_reglas_orden_contiguo`, 24-sep-2026, pedido de Laura: *"si cambian las reglas,
+  que cuente desde el mes en que se aplicó el cambio"*).
+  · `profesor_regla.vigente_desde` / `vigente_hasta`. **Cada clase se paga con la regla vigente EL
+    DÍA de la clase**; salario y % de Siigo, con la vigente el primer día del periodo (los cambios
+    arrancan siempre un día 1 y el periodo nunca cruza de mes, así que da lo mismo).
+  · Qué significa cada fila: `activo` = juego ACTUAL (lo que se ve y edita; puede arrancar en un mes
+    futuro) · `activo=false` + `vigente_hasta` = versión VIEJA que sigue pagando los meses que cubrió
+    · `activo=false` sin `vigente_hasta` = apagada antes de existir la vigencia (Joaquín 7 y 8,
+    Cristian 11 y 12, Juan 31): **no cuenta en ningún mes**, igual que antes. Por eso "está activa"
+    ya NO es lo mismo que "paga": la liquidación filtra con `cuentaEnLiquidacion` + `vigenteEl`
+    (`src/lib/reglas-vigencia.ts`), y los demás lectores (`staff_docentes`, planeador, ficha) siguen
+    con `activo`, que es lo correcto para "¿qué reglas tiene hoy?".
+  · **Guardar desde la ficha ya no borra y reescribe.** Pide "¿Desde qué mes aplican los cambios?"
+    (por defecto el mes actual) y `planGuardarReglas` decide: lo idéntico se queda quieto (mismo id);
+    lo que cambia se CIERRA el último día del mes anterior y entra de nuevo desde el día 1; lo que
+    arrancaba ese mes o después se BORRA (nunca pagó antes). Se aplica en UNA transacción con el RPC
+    `profesor_reglas_aplicar` (SECURITY INVOKER: la RLS SA/CA decide) — antes eran dos llamadas y si
+    la segunda fallaba el profesor quedaba sin reglas.
+  · ⚠️ **El ORDEN cuenta como cambio**: reordenar cierra y vuelve a crear, porque el orden decide
+    cuál gana (el sábado de Graciano). Por eso la migración 20260924161000 dejó el `orden` sin
+    empates (0..n-1 por profesor; había empates en Graciano, Jorge y Sebastián, entre reglas que no
+    se pisan, así que no movió plata). La liquidación ordena por `orden, id`.
+  · **Mes pasado = corrección**: se puede elegir, la pantalla avisa en ámbar, y recorta también las
+    versiones viejas que se crucen para que nunca paguen dos reglas la misma clase.
+  · Las existentes arrancan el **1-jun-2026** (inicio de la historia), así **ninguna cifra ya mostrada
+    se movió** — verificado comparando la liquidación jun–oct (mes, q1 y q2) antes y después, línea
+    por línea. La única diferencia fue a propósito: **Mauricio Calderón** arranca el **1-sep-2026**
+    (entró en septiembre), así que ya no sale cobrando $5.000.000 en junio–agosto.
+  · La ficha muestra "Paga desde el 1 de …" en las reglas que no arrancan en junio, y un plegable
+    **"Reglas anteriores"** con las versiones cerradas y su rango de fechas (solo lectura).
+  · 🐛 **De paso, un error que ya existía**: `guardarReglas` solo guardaba `servicio_id` en las
+    reglas de % de Siigo, así que **guardar desde la ficha borraba el "¿Qué academia?"** (agregado
+    ese mismo día): la regla de Recreativa de Leo habría vuelto a pagar $90.000 también en sus clases
+    de Competencia. Ahora se guarda también en las reglas de academia.
+  · Prueba: `tests/reglas-vigencia.test.ts` — la lógica sola y un recorrido de punta a punta sobre
+    Dairon (profesor inactivo, sin clases): $1M desde agosto → $2M desde octubre → corrección a $3M
+    desde septiembre; agosto nunca se mueve y octubre nunca queda con dos salarios. Deja sus reglas
+    como estaban y lo comprueba.
 - ✅ **Sebastián Niño Mora: la academia va dentro de su salario** (Laura, 24-sep-2026) → regla
   "Academia · cubierta por salario fijo" en $0. Y **SÍ cuentan para su tope de 140** (Laura,
   24-sep-2026): es justo lo que ya hace `comision_umbral`, que cuenta todas las clases realizadas del

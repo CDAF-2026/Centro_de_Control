@@ -233,6 +233,10 @@ export type Database = {
           umbral: number | null;
           orden: number;
           activo: boolean;
+          /** Primer día en que paga (ver 20260924160000_reglas_vigencia.sql). */
+          vigente_desde: string;
+          /** Último día en que paga; null = sigue vigente. */
+          vigente_hasta: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -252,6 +256,8 @@ export type Database = {
           umbral?: number | null;
           orden?: number;
           activo?: boolean;
+          vigente_desde?: string;
+          vigente_hasta?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1288,6 +1294,11 @@ export type Database = {
       siigo_cartera_antiguedad: {
         Args: { p_servicio?: number | null };
         Returns: { tramo: string; n: number; total: number; desde: string | null; hasta: string | null }[];
+      };
+      /** Aplica en una transacción el plan de `planGuardarReglas` (reglas-vigencia.ts). */
+      profesor_reglas_aplicar: {
+        Args: { p_profesor: string; p_cerrar: Json; p_borrar: number[]; p_insertar: Json };
+        Returns: undefined;
       };
       staff_docentes: {
         Args: { p_solo_activos?: boolean };

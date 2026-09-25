@@ -155,3 +155,19 @@ export function diaIso(iso: string): string {
   const p = partes(iso);
   return `${p.year}-${p.month}-${p.day}`;
 }
+
+const MESES_LARGOS = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+/** "2026-10" → "octubre de 2026". Armado a mano por lo mismo que `fechaHoraCorta`. */
+export function mesLargo(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MESES_LARGOS[m - 1]} de ${y}`;
+}
+
+/** Mes actual en Bogotá, "2026-09". */
+export function mesActual(): string {
+  return diaIso(new Date().toISOString()).slice(0, 7);
+}
