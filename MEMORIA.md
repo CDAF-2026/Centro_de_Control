@@ -246,6 +246,32 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   y el producto viejo **AF683 "Convenio"** (grupo CONVENIOS COLEGIOS, **0 ventas en toda la
   historia**) se reclama por código para que no quede huérfano. ⚠️ Esa factura salió a
   **consumidor final (222222222222)**, no al NIT del colegio: queda como mostrador, sin cliente.
+- 🤖 **Los grupos de Siigo se reconocen SOLOS** (migraciones `20260925110000` y `…111000`,
+  25-sep-2026, pedido de Laura). El emparejamiento por NOMBRE falló dos veces en silencio (renombre
+  del 30-jul, grupo nuevo del 22-sep). Ahora:
+  · **`servicios.siigo_grupo_id`** = el número del grupo en Siigo, que no cambia al renombrar. Es la
+    llave; `siigo_grupo` guarda el nombre actual. `siigo_productos.account_group_id` también.
+  · **Una sola regla, en SQL: `siigo_catalogo_aplicar(p_productos, p_simulacro)`** (solo
+    service_role). La llaman los TRES que leen el catálogo: el sync de consola, la Edge Function y
+    `sync:productos` — antes cada uno tenía su copia y la de `sync:productos` ya había perdido la
+    regla de los códigos de matrícula. Orden: **código → número de grupo → nombre** (respaldo).
+  · **Grupo RENOMBRADO en Siigo → el servicio toma el nombre nuevo solo** (decisión de Laura: que
+    cambie automático). **Grupo NUEVO con productos → se crea su servicio** (clave `siigo_<id>`,
+    nombre de Siigo, **sin color** = gris por defecto hasta asignarle uno con el validador).
+    No se crea si todos sus productos ya los reclama alguien por código (CONVENIOS COLEGIOS).
+  · En los dos casos: rastro en `audit_log` y **nota "Aviso automático"** a los superadministradores
+    activos. Para eso `notas.autor_id` ahora admite **NULL = sistema**; `notas_listar` hace LEFT JOIN
+    del autor, y el candado `notas_solo_autor_edita` pasó de `<>` a `is distinct from` (con `<>`, una
+    nota sin autor la habría podido editar cualquiera).
+  · Además re-categoriza las líneas que entraron con `servicio_id` NULL (nunca toca las que ya tienen
+    categoría: pueden traer corrección manual).
+  · ⚠️ La Edge Function solo lee el catálogo cuando hay facturas nuevas (o en el refresh nocturno),
+    así que un grupo nuevo se detecta cuando llega su primera venta — que es cuando importa.
+  · ⚠️ Si el grupo nuevo es en realidad un servicio existente con otro nombre, la función crea uno
+    aparte: unirlos es a mano (mover `siigo_grupo_id` y re-categorizar), como se hizo con Alianzas.
+  · `--dry` / `p_simulacro`: la función calcula, **revierte con una excepción `SIMULACRO`** y
+    devuelve el resultado en el `details`. Pruebas: `tests/siigo-catalogo.test.ts` (todo en
+    simulacro). Cazó un fallo real: un producto repetido en el catálogo tumbaba el sync entero.
 - **Dinero (Siigo)**: `siigo_facturas` (siigo_id único, total, saldo=deuda, cliente_id, evento_id,
   estado_conciliacion: auto|pendiente|mostrador|conciliada), `siigo_factura_lineas` (servicio_id, monto),
   `siigo_productos` (caché código→grupo→servicio), `siigo_sync` (cursor). Catálogo `servicios`

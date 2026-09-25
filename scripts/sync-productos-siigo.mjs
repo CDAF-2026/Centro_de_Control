@@ -38,63 +38,63 @@ async function sg(path) {
   return r.json();
 }
 
-// Mismo emparejamiento que el sync: trim + lowercase sobre el nombre del grupo.
-const { data: servicios } = await s.from("servicios").select("id, nombre, siigo_grupo");
-const porGrupo = new Map();
-for (const sv of servicios ?? []) if (sv.siigo_grupo) porGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv);
-const servicioDeGrupo = (g) => (g ? porGrupo.get(String(g).trim().toLowerCase()) ?? null : null);
-
 await auth();
 
-const filas = [];
+const catalogo = [];
 for (let page = 1; ; page++) {
   const r = await sg(`/v1/products?page=${page}&page_size=100`);
   const res = r.results ?? [];
   for (const p of res) {
-    const grupo = p.account_group?.name ?? null;
-    filas.push({
-      codigo: p.code,
-      nombre: p.name,
-      account_group: grupo,
-      servicio_id: servicioDeGrupo(grupo)?.id ?? null,
-      updated_at: new Date().toISOString(),
-    });
+    catalogo.push({ codigo: p.code, nombre: p.name, grupo_id: p.account_group?.id ?? null, grupo: p.account_group?.name ?? null });
   }
   if (res.length < 100) break;
 }
 
-// Qué cambia respecto de lo que hay guardado
-const { data: antes } = await s.from("siigo_productos").select("codigo, account_group, servicio_id");
+// La regla es la MISMA del sync, porque es la misma función de SQL (`siigo_catalogo_aplicar`):
+// código primero, luego número de grupo, y crea el servicio de un grupo nuevo. Con --dry la
+// función calcula todo y lo revierte, y devuelve lo que habría pasado en el detalle del error.
+const { data: antes } = await s.from("siigo_productos").select("codigo, account_group, servicio_id").limit(10000);
+
+let cat;
+{
+  const { data, error } = await s.rpc("siigo_catalogo_aplicar", { p_productos: catalogo, p_simulacro: dry });
+  if (dry) {
+    if (error?.message !== "SIMULACRO") throw new Error(error?.message ?? "el simulacro no se revirtió");
+    cat = JSON.parse(error.details);
+  } else {
+    if (error) throw new Error(error.message);
+    cat = data;
+  }
+}
+
 const antesPorCodigo = new Map((antes ?? []).map((p) => [p.codigo, p]));
-const cambios = filas.filter((f) => {
+const cambios = catalogo.filter((f) => {
   const a = antesPorCodigo.get(f.codigo);
-  return !a || a.account_group !== f.account_group || a.servicio_id !== f.servicio_id;
+  return !a || a.account_group !== f.grupo || a.servicio_id !== cat.servicio_por_codigo[f.codigo];
 });
 
-console.log(`productos en Siigo: ${filas.length} · cambian: ${cambios.length}`);
+console.log(`productos en Siigo: ${catalogo.length} · cambian: ${cambios.length}`);
 for (const c of cambios.slice(0, 30)) {
   const a = antesPorCodigo.get(c.codigo);
   const de = a ? `${JSON.stringify(a.account_group)} → servicio ${a.servicio_id ?? "null"}` : "(nuevo)";
-  console.log(`  ${c.codigo.padEnd(14)} ${de}  ⇒  ${JSON.stringify(c.account_group)} → servicio ${c.servicio_id ?? "null"}`);
+  console.log(`  ${c.codigo.padEnd(14)} ${de}  ⇒  ${JSON.stringify(c.grupo)} → servicio ${cat.servicio_por_codigo[c.codigo] ?? "null"}`);
 }
 if (cambios.length > 30) console.log(`  … y ${cambios.length - 30} más`);
 
-// Grupos que ningún servicio reclama: es la plata que entraría sin categoría.
+for (const c of cat.creados) console.log(`🆕 grupo nuevo en Siigo → servicio ${dry ? "que se crearía" : "creado"}: ${c.nombre}`);
+for (const r of cat.renombrados) console.log(`✏️  grupo renombrado en Siigo: ${r.antes} → ${r.ahora}`);
+if (cat.lineas_recategorizadas) console.log(`líneas sin categoría que ${dry ? "se categorizarían" : "se categorizaron"}: ${cat.lineas_recategorizadas}`);
+
+// Productos que siguen sin servicio (grupo vacío o ya cubierto a medias por códigos).
 const huerfanos = new Map();
-for (const f of filas) if (f.account_group && !f.servicio_id) huerfanos.set(f.account_group, (huerfanos.get(f.account_group) ?? 0) + 1);
+for (const f of catalogo) {
+  if (f.grupo && cat.servicio_por_codigo[f.codigo] == null) huerfanos.set(f.grupo, (huerfanos.get(f.grupo) ?? 0) + 1);
+}
 if (huerfanos.size) {
-  console.log("\n⚠️  grupos de Siigo SIN servicio asignado (su facturación entraría sin categoría):");
+  console.log("\n⚠️  productos de Siigo SIN servicio (su facturación entraría sin categoría):");
   for (const [g, n] of huerfanos) console.log(`   ${JSON.stringify(g)} · ${n} producto(s)`);
 } else {
-  console.log("\n✅ todos los grupos de Siigo tienen servicio asignado.");
+  console.log("\n✅ todos los productos de Siigo tienen servicio asignado.");
 }
 
-if (dry) {
-  console.log("\n(simulacro: no se escribió nada)");
-} else {
-  for (let i = 0; i < filas.length; i += 500) {
-    const { error } = await s.from("siigo_productos").upsert(filas.slice(i, i + 500), { onConflict: "codigo" });
-    if (error) throw new Error(error.message);
-  }
-  console.log(`\n✅ caché actualizado (${filas.length} productos).`);
-}
+console.log(dry ? "\n(simulacro: no se escribió nada)" : `\n✅ caché actualizado (${catalogo.length} productos).`);

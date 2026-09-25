@@ -781,6 +781,8 @@ export type Database = {
           color: string | null;
           categoria_saldo: ServicioCategoriaSaldo | null;
           siigo_grupo: string | null;
+          /** Id del grupo en Siigo: la llave del emparejamiento, no cambia al renombrar (migración 20260925110000). */
+          siigo_grupo_id: number | null;
           /** Códigos de producto de Siigo que este servicio reclama por encima del grupo (migración 0072). */
           siigo_codigos: string[] | null;
           activo: boolean;
@@ -794,6 +796,7 @@ export type Database = {
           color?: string | null;
           categoria_saldo?: ServicioCategoriaSaldo | null;
           siigo_grupo?: string | null;
+          siigo_grupo_id?: number | null;
           siigo_codigos?: string[] | null;
           activo?: boolean;
           orden?: number;
@@ -993,6 +996,7 @@ export type Database = {
           codigo: string;
           nombre: string | null;
           account_group: string | null;
+          account_group_id: number | null;
           servicio_id: number | null;
           updated_at: string;
         };
@@ -1000,6 +1004,7 @@ export type Database = {
           codigo: string;
           nombre?: string | null;
           account_group?: string | null;
+          account_group_id?: number | null;
           servicio_id?: number | null;
           updated_at?: string;
         };
@@ -1049,7 +1054,8 @@ export type Database = {
         Row: {
           id: number;
           texto: string;
-          autor_id: string;
+          /** null = aviso automático del sistema (migración 20260925110000). */
+          autor_id: string | null;
           prioridad: NotaPrioridad;
           estado: NotaEstado;
           para_todos: boolean;
@@ -1065,7 +1071,7 @@ export type Database = {
         Insert: {
           id?: number;
           texto: string;
-          autor_id: string;
+          autor_id?: string | null;
           prioridad?: NotaPrioridad;
           estado?: NotaEstado;
           para_todos?: boolean;
@@ -1392,7 +1398,7 @@ export type Database = {
         Returns: {
           id: number;
           texto: string;
-          autor_id: string;
+          autor_id: string | null;
           autor_nombre: string | null;
           prioridad: NotaPrioridad;
           estado: NotaEstado;
@@ -1546,6 +1552,18 @@ export type Database = {
       siigo_clientes_facturacion: {
         Args: Record<string, never>;
         Returns: { nit: string; nombre: string }[];
+      };
+      siigo_catalogo_aplicar: {
+        Args: {
+          p_productos: { codigo: string; nombre: string; grupo_id: number | null; grupo: string | null }[];
+          p_simulacro?: boolean;
+        };
+        Returns: {
+          servicio_por_codigo: Record<string, number | null>;
+          creados: { servicio_id: number; nombre: string; siigo_grupo_id: number }[];
+          renombrados: { servicio_id: number; antes: string; ahora: string }[];
+          lineas_recategorizadas: number;
+        };
       };
       siigo_set_notas_credito: {
         Args: { p: { siigo_id: string; monto: number; numeros: string }[] };

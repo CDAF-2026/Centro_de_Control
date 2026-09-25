@@ -10,7 +10,7 @@ export default async function ConfigPage() {
   const supabase = await createClient();
   const { data: servicios } = await supabase
     .from("servicios")
-    .select("id, clave, nombre, color, categoria_saldo, siigo_grupo, siigo_codigos, activo, orden, created_at")
+    .select("id, clave, nombre, color, categoria_saldo, siigo_grupo, siigo_grupo_id, siigo_codigos, activo, orden, created_at")
     .order("orden");
 
   // Aviso: grupos de producto de Siigo que ningún servicio reclama.

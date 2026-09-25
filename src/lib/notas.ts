@@ -29,7 +29,7 @@ export type NotaEnlace = { label: string; href: string };
 export type NotaVista = {
   id: number;
   texto: string;
-  autorId: string;
+  autorId: string | null;
   autorNombre: string;
   prioridad: NotaPrioridad;
   estado: NotaEstado;

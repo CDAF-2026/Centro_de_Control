@@ -99,37 +99,27 @@ async function main() {
   if (!SIIGO_USER || !SIIGO_KEY) throw new Error("Faltan SIIGO_USERNAME / SIIGO_ACCESS_KEY en .env");
   await auth();
 
-  // 1) Mapa grupo de Siigo → servicio.
-  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo, siigo_codigos");
-  const servicioByGrupo = new Map();
-  const servicioByCodigo = new Map();
-  for (const sv of servicios ?? []) {
-    if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
-    for (const c of sv.siigo_codigos ?? []) servicioByCodigo.set(String(c).trim().toUpperCase(), sv.id);
-  }
-  const servicioDeGrupo = (g) => (g ? servicioByGrupo.get(String(g).trim().toLowerCase()) ?? null : null);
-  // El CÓDIGO le gana al GRUPO: matrícula y mensualidad comparten grupo en Siigo, así que
-  // el grupo solo no alcanza para separarlas (migración 0072). Es la excepción, no la regla.
-  const servicioDeProducto = (codigo, grupo) =>
-    (codigo ? servicioByCodigo.get(String(codigo).trim().toUpperCase()) ?? null : null) ?? servicioDeGrupo(grupo);
-
-  // 2) Catálogo de productos (code → servicio) + refresco de caché.
+  // 1-2) Catálogo de productos → servicio. La regla vive en SQL (`siigo_catalogo_aplicar`,
+  //      migración 20260925110000) y la comparten este script, la Edge Function y
+  //      `sync:productos`: casa por código, luego por NÚMERO de grupo (no se rompe si el club
+  //      renombra un grupo) y crea el servicio de un grupo nuevo, avisando por nota.
   console.log("• Productos…");
-  const prodByCode = new Map();
+  const catalogo = [];
   for (let page = 1; ; page++) {
     const r = await sg(`/v1/products?page=${page}&page_size=100`);
     const results = r.results ?? [];
     for (const p of results) {
-      const grupo = p.account_group?.name ?? null;
-      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeProducto(p.code, grupo) });
+      catalogo.push({ codigo: p.code, nombre: p.name, grupo_id: p.account_group?.id ?? null, grupo: p.account_group?.name ?? null });
     }
     if (results.length < 100) break;
   }
-  const prodRows = [...prodByCode.entries()].map(([codigo, v]) => ({
-    codigo, nombre: v.nombre, account_group: v.account_group, servicio_id: v.servicio_id, updated_at: new Date().toISOString(),
-  }));
-  for (let i = 0; i < prodRows.length; i += 500) await s.from("siigo_productos").upsert(prodRows.slice(i, i + 500), { onConflict: "codigo" });
-  console.log("  productos en caché:", prodRows.length);
+  const { data: cat, error: catErr } = await s.rpc("siigo_catalogo_aplicar", { p_productos: catalogo });
+  if (catErr) throw new Error("catálogo de productos: " + catErr.message);
+  const prodByCode = new Map(Object.entries(cat.servicio_por_codigo).map(([c, sv]) => [c, { servicio_id: sv }]));
+  console.log("  productos en caché:", catalogo.length);
+  for (const c of cat.creados) console.log(`  🆕 grupo nuevo en Siigo → servicio creado: ${c.nombre}`);
+  for (const r of cat.renombrados) console.log(`  ✏️  grupo renombrado en Siigo: ${r.antes} → ${r.ahora}`);
+  if (cat.lineas_recategorizadas) console.log("  líneas que estaban sin categoría y ya la tienen:", cat.lineas_recategorizadas);
 
   // 3) Clientes (documento → id) para auto-match. Además, NIT de facturación:
   //    un cliente puede recibir sus facturas bajo otro NIT (empresa/familiar).

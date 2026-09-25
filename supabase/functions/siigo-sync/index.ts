@@ -170,38 +170,26 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
     return `sin facturas nuevas (${desde} → ${todayIso}) · saldos actualizados ${abiertasAct} · ${ncAnuladas} anuladas por NC`;
   }
 
-  // 2) Grupo de Siigo → servicio del catálogo.
-  const { data: servicios } = await s.from("servicios").select("id, siigo_grupo, siigo_codigos");
-  const servicioByGrupo = new Map<string, number>();
-  const servicioByCodigo = new Map<string, number>();
-  for (const sv of servicios ?? []) {
-    if (sv.siigo_grupo) servicioByGrupo.set(sv.siigo_grupo.trim().toLowerCase(), sv.id);
-    for (const c of (sv.siigo_codigos ?? []) as string[]) servicioByCodigo.set(String(c).trim().toUpperCase(), sv.id);
-  }
-  const servicioDeGrupo = (g: string | null) => (g ? servicioByGrupo.get(g.trim().toLowerCase()) ?? null : null);
-  // El CÓDIGO le gana al GRUPO: matrícula y mensualidad comparten grupo en Siigo, así que
-  // el grupo solo no alcanza para separarlas (migración 0072). Es la excepción, no la regla.
-  const servicioDeProducto = (codigo: string | null, grupo: string | null) =>
-    (codigo ? servicioByCodigo.get(String(codigo).trim().toUpperCase()) ?? null : null) ?? servicioDeGrupo(grupo);
-
-  // 3) Productos (code → servicio) + refresco de caché.
-  const prodByCode = new Map<string, { nombre: string; account_group: string | null; servicio_id: number | null }>();
+  // 2-3) Catálogo de productos → servicio. La regla vive en SQL (`siigo_catalogo_aplicar`,
+  //      migración 20260925110000) y la comparten esta función, el sync de consola y
+  //      `sync:productos`: casa por código, luego por NÚMERO de grupo (no se rompe si el club
+  //      renombra un grupo) y crea el servicio de un grupo nuevo, avisando por nota.
+  const catalogo: { codigo: string; nombre: string; grupo_id: number | null; grupo: string | null }[] = [];
   for (let page = 1; ; page++) {
     const r = await sg(`/v1/products?page=${page}&page_size=100`);
     const results = r.results ?? [];
     for (const p of results) {
-      const grupo = p.account_group?.name ?? null;
-      prodByCode.set(p.code, { nombre: p.name, account_group: grupo, servicio_id: servicioDeProducto(p.code, grupo) });
+      catalogo.push({ codigo: p.code, nombre: p.name, grupo_id: p.account_group?.id ?? null, grupo: p.account_group?.name ?? null });
     }
     if (results.length < 100) break;
   }
-  const nowIso = new Date().toISOString();
-  const prodRows = [...prodByCode.entries()].map(([codigo, v]) => ({
-    codigo, nombre: v.nombre, account_group: v.account_group, servicio_id: v.servicio_id, updated_at: nowIso,
-  }));
-  for (let i = 0; i < prodRows.length; i += 500) {
-    await s.from("siigo_productos").upsert(prodRows.slice(i, i + 500), { onConflict: "codigo" });
-  }
+  const { data: cat, error: catErr } = await s.rpc("siigo_catalogo_aplicar", { p_productos: catalogo });
+  if (catErr) throw new Error("catálogo de productos: " + catErr.message);
+  const prodByCode = new Map<string, { servicio_id: number | null }>(
+    Object.entries(cat.servicio_por_codigo as Record<string, number | null>).map(([c, sv]) => [c, { servicio_id: sv }]),
+  );
+  for (const c of cat.creados ?? []) console.log("🆕 grupo nuevo en Siigo → servicio creado:", c.nombre);
+  for (const r of cat.renombrados ?? []) console.log("✏️ grupo renombrado en Siigo:", r.antes, "→", r.ahora);
 
   // 4) Clientes de Siigo (NIT → nombre) y nuestros clientes (documento → id).
   const nombrePorNit = new Map<string, string>();
