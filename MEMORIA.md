@@ -1233,10 +1233,15 @@ con el precio anterior).
 - **Leen el precio de la asignación**: `liquidacion.ts` (valor por clase de paquete), `/cierre/[id]`
   (valor que ve el profesor al cerrar) y la ficha del cliente. `valorPaquete()` y `precioFinal()` se
   borraron. `paquetes_catalogo.precio`, `paquetes_catalogo.descuento_pct` y `paquetes_cliente.descuento_pct`
-  quedaron **OBSOLETAS pero sin borrar** (comentadas en SQL y en `database.types.ts`): borrarlas antes del
-  despliegue rompía `/paquetes` y la liquidación del código viejo. ⏳ **Pendiente post-despliegue**: una
-  migración que las borre y ponga `check (precio > 0)` sin default a `paquetes_cliente.precio` (hoy la regla
-  "nunca cero" la aplica la app; un paquete que quedara en 0 sale en rojo "Sin precio" en la ficha).
+  quedaron obsoletas sin borrar hasta el despliegue (borrarlas antes rompía `/paquetes` y la liquidación del
+  código viejo). ✅ **Borradas en `20260930150000_paquetes_limpieza_precio`** (mismo día, tras el push):
+  `paquetes_cliente.precio` quedó **sin default y con `check (precio > 0)` en la base** (verificado: un
+  insert en 0 lo rechaza). 💡 La ventana entre migración y despliegue existió de verdad: en ese lapso nació
+  UN paquete en $0 con el código viejo (id 43, una prueba de Laura, anulado, 0 clases); la migración le puso
+  el precio del catálogo antes del check (`audit_log` `paquete.corregir_precio`) y después **se borró a
+  pedido de Laura** (`paquete.eliminar_prueba`, con la fila entera en `before`). Regla que queda: **al
+  aplicar una migración que cambia el esquema antes del despliegue, mirar qué escribió el código viejo en
+  medio.**
 - **Catálogo limpiado en la misma migración** (Laura, 30-sep): nombres solo con deporte + clases + personas
   ("Pádel 8 clases · 1 persona"; "personas" = cuántos alumnos van a la clase, sí es parte del paquete y va
   en el nombre, sin campo propio por ahora). El de 5 clases estaba como tenis con nombre de pádel → **pádel**.

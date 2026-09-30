@@ -636,10 +636,6 @@ export type Database = {
           nombre: string;
           deporte: Deporte | null;
           num_clases: number;
-          /** OBSOLETO (2026-09-30): el precio va en paquetes_cliente.precio. */
-          precio: number;
-          /** OBSOLETO (2026-09-30): sin uso. */
-          descuento_pct: number;
           activo: boolean;
           created_at: string;
         };
@@ -648,8 +644,6 @@ export type Database = {
           nombre: string;
           deporte?: Deporte | null;
           num_clases: number;
-          precio?: number;
-          descuento_pct?: number;
           activo?: boolean;
           created_at?: string;
         };
@@ -664,10 +658,8 @@ export type Database = {
           catalogo_id: number | null;
           num_clases: number;
           clases_consumidas: number;
-          /** Valor total que ESTE cliente paga por ESTE paquete (COP). La app exige > 0. */
+          /** Valor total que ESTE cliente paga por ESTE paquete (COP). Siempre > 0 (check en la base). */
           precio: number;
-          /** OBSOLETO (2026-09-30): el precio final va en `precio`. */
-          descuento_pct: number;
           estado: PaqueteEstado;
           inicia_el: string;
           vence_el: string | null;
@@ -682,8 +674,7 @@ export type Database = {
           catalogo_id?: number | null;
           num_clases: number;
           clases_consumidas?: number;
-          precio?: number;
-          descuento_pct?: number;
+          precio: number;
           estado?: PaqueteEstado;
           inicia_el?: string;
           vence_el?: string | null;
