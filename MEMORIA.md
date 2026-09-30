@@ -1155,9 +1155,48 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
   habría retirado a los 31 niños y borrado sus clases. Se limitó a tenis (clases, matrículas y
   enlaces) el mismo día. **Cada importador toca SOLO su deporte.**
 
+### 🔄 Segunda carga de tenis: "HORARIOS ENTRENADORES.xlsx" (30-sep-2026 · `scripts/import-horarios-tenis.py`)
+El club mandó un archivo nuevo, **con otro formato**: una pestaña por entrenador (Cristian, Graciano, Jorge,
+Yeison), fila = hora, columna = día, celda = niños separados por coma. **No trae** duración, documento, fecha
+de nacimiento ni pestaña de Sebastián ni colegios. Cruce completo en `docs/cruce-horarios-tenis-2026-09-30.md`.
+- **Decisiones de Laura (30-sep):** "la información de profesores y clases es la que hay en el archivo nuevo;
+  no debe aparecer nada de información vieja" → **Sebastián Niño se apagó entero** (9 clases, 7 niños de
+  competencia retirados) y toda clase con niños que no esté en el archivo se apaga (`activa=false`, no se
+  borra) · **colegios intactos** (no vienen en el archivo, siguen con su lógica) · duraciones: las que existen
+  conservan la suya, **las nuevas 60 min** · **"(PERSONALIZADA)" no es academia** (Evelyn Montilla, no se
+  carga) · las notas "no volvió" del Excel **se ignoran, manda la rejilla** · los niños que no existen se crean
+  con **datos demo** y Laura le pide al club los datos.
+- Yeison viernes: la rejilla dice 17:00 y la nota "5:30 PM A 6:30 PM". Se tomó la nota: **17:30, 60 min**.
+- **Resultado (verificado):** 52 clases activas (46 con niños + 6 de colegio) · 119 matrículas activas ·
+  184 enlaces · **0 niños sin día**. Se apagaron 13 clases (9 de Sebastián, Graciano mar/jue 17:30 y vie
+  17:30, Cristian lun 15:00), se crearon 7 (Cristian mar 16:30 y 17:30; Yeison lun 18:30, mar 18:00, mié
+  15:00, jue 18:00, vie 17:30), se retiraron 15 niños y entraron 25 (10 que ya existían + 15 demo).
+- ⚠️ **15 niños DEMO** (miembros 594–608, fichas 578–590): sin documento ni fecha y con un acudiente
+  "POR CONFIRMAR" (un menor exige acudiente por el check de `clientes`). Lista para el club en
+  `docs/ninos-por-confirmar-tenis-2026-09-30.md` (+ `.xlsx`). Si alguno resulta ser un niño que ya existía,
+  se fusiona (como Pimienta), no se duplica.
+- ⚠️ **3 nombres NO cargados** por venir solo con el nombre de pila y haber varias personas así: "EMMA"
+  (Cristian sáb 11:00), "LUCIANA" (Jorge mié 15:30), "JULIA" (Yeison mar/jue 18:00). Se agregan desde la
+  clase cuando el club diga el apellido. No adivinar.
+- El importador es **idempotente** (segunda corrida: 0 cambios) y lleva las listas explícitas `ALIAS`,
+  `NO_CARGAR`, `PENDIENTE`, `HORA_CORREGIDA`, `DEMO_FAMILIAS`. Las celdas "APOYO A …" y "OFERTAR" no son clases.
+- No hubo historial que proteger: el planeador arranca el 1-oct y **0 clases** habían nacido de él.
+- `npm test` desde este equipo: `academias-render` y `liquidacion-academia` en verde (26); `cierre-planeador`
+  no conecta (Postgres directo IPv6, ver handoff §1.5), no es de los datos.
+
 ### Estado y pendientes de academias
-- **Cargado**: 52 clases · 109 niños · 175 enlaces. Graciano 21 clases/65 cupos · Jorge 12/52 ·
-  Cristian 10/29 · Sebastián Niño 9/24 · Yeison 0.
+- ⏳ **PENDIENTE (desde el 30-sep-2026): completar los niños de tenis con datos demo, ambiguos e
+  incompletos.** Laura le mandó al club `docs/ninos-por-confirmar-tenis-2026-09-30.xlsx` para que lo
+  diligencien. Cuando vuelva lleno, en un solo paso: (1) reemplazar los datos demo de los **15 niños**
+  (miembros 594–608, fichas 578–590: documento, fecha de nacimiento, EPS, RH y el acudiente real en lugar
+  del "POR CONFIRMAR"; si alguno ya existía con otro nombre, **fusionar** la ficha demo con la real, no
+  duplicar); (2) agregar a sus clases a las **3 ambiguas** ("EMMA" Cristian sáb 11:00 · "LUCIANA" Jorge
+  mié 15:30 · "JULIA" Yeison mar/jue 18:00) cuando digan el apellido; (3) completar a **Simón Mosquera**
+  (documento y fecha), **Esteban Giraldo** (fecha) y **Valentín Ramírez** (su propio documento). Conviene
+  hacerlo con un script idempotente que lea ese Excel, simulacro primero, igual que los importadores.
+- **Cargado (30-sep-2026, segunda carga)**: 52 clases activas (46 con niños + 6 de colegio) · 119
+  matrículas · 184 enlaces. Sebastián Niño **ya no dicta** (apagado por el archivo nuevo); Yeison tiene 5
+  clases. (La primera carga del 23-sep era 52 · 109 · 175.)
 - ⚠️ **Sebastián Niño Mora es `coord_admin`, no profesor**, y dicta las 9 clases de competencia. Sale
   en los selectores porque `staff_docentes` entra por REGLAS DE PAGO activas, no por el rol.
 - ⚠️ **Marlon Marín NO se cargó** (decisión de Laura, 22-sep-2026): tiene pestaña en el Excel pero
@@ -1177,6 +1216,36 @@ o dice mal va en listas explícitas del importador, con quién lo decidió.
 
 ⏳ **Paquete VENCIDO** (4-sep-2026): el estado `vencido` estaba en el enum pero **nadie lo ponía nunca**, así que al pasar `vence_el` el paquete se seguía ofreciendo. Ahora hay **dos capas**: (1) el job de pg_cron **`paquetes_marcar_vencidos()`** (06:15 UTC = 1:15 a. m. Bogotá) marca `activo → vencido` por fecha, para que toda consulta que filtre `estado='activo'` quede bien sola; y (2) los sitios que OFRECEN paquetes (lista de clase nueva, modal del calendario y la validación del servidor en `materializarReserva`) exigen además **`vence_el >= hoy`**, porque entre que vence y corre el job habría una ventana. En `paquete_consumir`, **`vencido` y `anulado` son terminales**: cerrar una clase vieja ya no resucita un paquete muerto. Al agregar un sitio nuevo que ofrezca paquetes, filtrar por las DOS cosas.
 ⚠️ **Corolario**: al marcar vencidos apareció un hueco — `editarPaqueteCliente` cambiaba `vence_el` pero no el estado, así que extenderle la fecha a un vencido no lo revivía. Ahora esa acción **recalcula el estado** desde vigencia y saldo (sin saldo → agotado · fecha pasada → vencido · si no → activo; `anulado` nunca revive). Botón **"Extender vigencia"** (solo superadministrador, solo si está vencido y le queda saldo) en la fila del paquete de la ficha. **Regla: quien cambie `vence_el` tiene que recalcular `estado`, o el paquete queda vivo en la fecha y muerto en el estado.**
+
+💰 **El precio del paquete es de CADA CLIENTE, no del catálogo** (30-sep-2026, pedido del club). El mismo
+paquete (pádel · 8 clases · 1 persona) se cobra distinto según quién lo compra, así que con el precio en el
+catálogo tocaba crear un paquete por precio y la lista se llenaba de repetidos (había 12, con profesor y
+precio en el nombre; 2 eran el mismo paquete dos veces). **Decisiones de Laura:** el catálogo **no lleva
+precio, ni sugerido** ("es muy variable y genera más errores") · al asignar, el precio arranca **vacío y es
+obligatorio y > 0** (la acción rechaza vacío y cero con mensaje) · **se quitó el "Descuento %"** de la
+asignación (con precio libre sobra; 0 de 15 asignaciones lo usaban) · corregir el precio después es **solo
+del superadministrador**, con aviso en pantalla si el paquete ya tiene clases cerradas, porque la nómina lee
+`precio ÷ num_clases` EN VIVO y un cambio mueve lo ya liquidado (queda en `audit_log`, `paquete.editar`,
+con el precio anterior).
+- Migración `20260930120000_paquete_precio_por_cliente`: `paquetes_cliente.precio` (integer, NOT NULL,
+  DEFAULT 0), rellenado para los 15 asignados con el valor que heredaban del catálogo (verificado uno a uno
+  por API: 880.000 / 1.199.989 / 720.000 / 1.800.000 / 1.161.600) → la nómina no se movió.
+- **Leen el precio de la asignación**: `liquidacion.ts` (valor por clase de paquete), `/cierre/[id]`
+  (valor que ve el profesor al cerrar) y la ficha del cliente. `valorPaquete()` y `precioFinal()` se
+  borraron. `paquetes_catalogo.precio`, `paquetes_catalogo.descuento_pct` y `paquetes_cliente.descuento_pct`
+  quedaron **OBSOLETAS pero sin borrar** (comentadas en SQL y en `database.types.ts`): borrarlas antes del
+  despliegue rompía `/paquetes` y la liquidación del código viejo. ⏳ **Pendiente post-despliegue**: una
+  migración que las borre y ponga `check (precio > 0)` sin default a `paquetes_cliente.precio` (hoy la regla
+  "nunca cero" la aplica la app; un paquete que quedara en 0 sale en rojo "Sin precio" en la ficha).
+- **Catálogo limpiado en la misma migración** (Laura, 30-sep): nombres solo con deporte + clases + personas
+  ("Pádel 8 clases · 1 persona"; "personas" = cuántos alumnos van a la clase, sí es parte del paquete y va
+  en el nombre, sin campo propio por ahora). El de 5 clases estaba como tenis con nombre de pádel → **pádel**.
+  Los repetidos **16** ("8 Padel 1persona Leo", 2 clientes) y **19** ("8 Padel 2 personas", 0 clientes) se
+  **desactivaron, no se borraron**, para que sus clientes conserven el nombre en la ficha. Quedan 10 activos.
+  El selector de la ficha ya no repite "(8 clases)" si el nombre lo trae (`etiquetaCatalogo`).
+- ⚠️ Dato visto de paso, no tocado: las asignaciones 17, 19 y 21 tienen `num_clases = 9` sobre el catálogo
+  14 (hoy 8 clases): el catálogo se editó después de asignarlas. La asignación copia `num_clases` al nacer,
+  así que no las afecta.
 
 🗑️ **Eliminar una clase PENDIENTE — solo el superadministrador** (24-sep-2026, pedido de Laura).
 Botón "Eliminar esta clase" dentro de `/cierre/[id]` (`eliminar-clase.tsx` → `eliminarClasePendiente`),
