@@ -1890,6 +1890,10 @@ Se revisa y se evacúa punto por punto a medida que avancemos (Laura, 30-sep-202
 tacharlo aquí con la fecha; al abrir uno nuevo, agregarlo aquí y no en otro sitio.
 
 **Datos que tiene que entregar el club**
+📎 **Los puntos 1–5 van en UN solo Excel para el club:** `docs/CDAF-datos-pendientes-ninos-academias-2026-09-30.xlsx`
+(3 hojas: datos por completar · confirmar quién es · corregir datos; celdas amarillas = las llena el club; una fila
+de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna"). Reemplaza al
+`ninos-por-confirmar-tenis-2026-09-30.xlsx` del mismo día. Cuando vuelva lleno, se carga con script en simulacro.
 1. **15 niños de tenis con datos demo** (miembros 594–608, fichas 578–590): documento, nacimiento, EPS, RH
    y acudiente real en vez de "POR CONFIRMAR". Laura les mandó `docs/ninos-por-confirmar-tenis-2026-09-30.xlsx`
    el 30-sep. Al volver: script idempotente, simulacro primero; si alguno ya existía, fusionar, no duplicar.
@@ -1899,7 +1903,8 @@ tacharlo aquí con la fecha; al abrir uno nuevo, agregarlo aquí y no en otro si
    (m92: su propio documento; hoy tiene la TI 1037607268 de su hermano Clemente).
 4. **Matías y Elena Restrepo** comparten el documento 1017204187 (m584 / m428, ficha 430): de quién es y el
    real del otro. Matías (4 años) debería ser RC, no TI.
-5. **Salomón Agudelo** (ficha 572): documento y fecha de nacimiento.
+5. ~~Salomón Agudelo (ficha 572): documento y fecha~~ → **ya cargados** (TI 1035002915, 05-dic-2012; visto el
+   30-sep al armar el consolidado).
 6. **9 fichas con nombre repetido** sin nada en común (Andrés Zapata, Daniel Uribe, Diego Chalarca, Enrique
    Mateus, Isaak Ruiz, Jorge Moreno, Laura Restrepo, Manuel Mejía, Santiago Correa). No fusionar sin preguntar.
 7. **8 cédulas de adultos en conflicto** con EasyCancha (`docs/cedulas-en-conflicto.md`).
