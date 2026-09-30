@@ -128,20 +128,20 @@ export default async function ClienteDetallePage({
 
   const { data: pqCli } = await supabase
     .from("paquetes_cliente")
-    .select("id, catalogo_id, miembro_id, num_clases, clases_consumidas, estado, descuento_pct, inicia_el, vence_el")
+    .select("id, catalogo_id, miembro_id, num_clases, clases_consumidas, estado, precio, inicia_el, vence_el")
     .eq("cliente_id", Number(id))
     .order("created_at", { ascending: false });
   const catIds = (pqCli ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null);
   const { data: catNames } = catIds.length
-    ? await supabase.from("paquetes_catalogo").select("id, nombre, precio, descuento_pct").in("id", catIds)
-    : { data: [] as { id: number; nombre: string; precio: number; descuento_pct: number }[] };
+    ? await supabase.from("paquetes_catalogo").select("id, nombre").in("id", catIds)
+    : { data: [] as { id: number; nombre: string }[] };
   const catNameById = new Map((catNames ?? []).map((c) => [c.id, c.nombre]));
   const paquetesView = (pqCli ?? []).map((p) => ({
     id: p.id,
     num_clases: p.num_clases,
     clases_consumidas: p.clases_consumidas,
     estado: p.estado,
-    descuento_pct: p.descuento_pct,
+    precio: p.precio,
     nombre: p.catalogo_id ? catNameById.get(p.catalogo_id) ?? "Paquete" : "Paquete",
     inicia: p.inicia_el,
     vence: p.vence_el,

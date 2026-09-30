@@ -3,17 +3,6 @@
  * Fuente única de verdad para que los saldos coincidan en toda la app.
  */
 
-/** Valor de un paquete asignado = precio final del catálogo (con su descuento)
- *  menos el descuento de la asignación. */
-export function valorPaquete(
-  catalogoPrecio: number,
-  catalogoDescPct: number,
-  asignacionDescPct: number,
-): number {
-  const base = Math.round((catalogoPrecio || 0) * (1 - (catalogoDescPct || 0) / 100));
-  return Math.round(base * (1 - (asignacionDescPct || 0) / 100));
-}
-
 /** Imputabilidad de un pago a un servicio que genera saldo (academia/paquete).
  *  Se basa en la etiqueta de texto del servicio (respaldo histórico). El catálogo
  *  de servicios (categoria_saldo) es la fuente nueva; esto cubre filas antiguas. */

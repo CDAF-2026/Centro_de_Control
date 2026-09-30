@@ -32,8 +32,6 @@ export async function createCatalogo(
     nombre: d.nombre,
     deporte: d.deporte || null,
     num_clases: d.numClases,
-    precio: d.precio,
-    descuento_pct: d.descuento,
   });
   if (error) return { error: error.message };
 
@@ -64,28 +62,28 @@ export async function updateCatalogo(
       nombre: d.nombre,
       deporte: d.deporte || null,
       num_clases: d.numClases,
-      precio: d.precio,
-      descuento_pct: d.descuento,
       activo,
     })
     .eq("id", d.id);
   if (error) return { error: error.message };
 
-  await logAudit({ action: "paquete.catalogo.update", entity: "paquetes_catalogo", entityId: String(d.id), after: { nombre: d.nombre, precio: d.precio, descuento_pct: d.descuento, activo } });
+  await logAudit({ action: "paquete.catalogo.update", entity: "paquetes_catalogo", entityId: String(d.id), after: { nombre: d.nombre, num_clases: d.numClases, activo } });
   revalidatePath("/paquetes");
   return { ok: "Paquete actualizado." };
 }
 
 /**
- * Elimina un paquete del catálogo. Solo SA/CA.
- * Se bloquea si ya está asignado a clientes (preserva su historial); en ese caso
- * conviene desactivarlo en vez de borrarlo.
+ * Elimina un paquete del catálogo. SOLO superadministrador (Laura, 30-sep-2026):
+ * es la forma de limpiar los que ya no sirven sin que se acumulen inactivos.
+ * Se bloquea si ya está asignado a algún cliente (aunque esté anulado o vencido),
+ * porque esos clientes conservan el nombre del paquete en su ficha; en ese caso
+ * se desactiva en vez de borrarse.
  */
 export async function deleteCatalogo(
   _prev: PaqueteFormState,
   formData: FormData,
 ): Promise<PaqueteFormState> {
-  await requireRole(rolesForModule("paquetes", "edit"));
+  await requireRole(["superadmin"]);
   const id = Number(formData.get("id"));
   if (!id) return { error: "Paquete inválido." };
 
@@ -96,7 +94,7 @@ export async function deleteCatalogo(
     .eq("catalogo_id", id);
   if ((count ?? 0) > 0) {
     return {
-      error: `No se puede eliminar: está asignado a ${count} cliente(s). Desactívalo en su lugar.`,
+      error: `No se puede eliminar: está asignado a ${count} cliente(s) y su historial lo necesita. Déjalo inactivo.`,
     };
   }
 

@@ -1,26 +1,22 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { createCatalogo, type PaqueteFormState } from "./actions";
-import { precioFinal } from "@/lib/validations/paquete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initial: PaqueteFormState = {};
-const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
 export function CatalogoForm() {
   const [state, action, pending] = useActionState(createCatalogo, initial);
   const fe = state.fieldErrors ?? {};
-  const [precio, setPrecio] = useState("");
-  const [descuento, setDescuento] = useState("");
 
   return (
     <form action={action} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="nombre">Nombre</Label>
-        <Input id="nombre" name="nombre" placeholder="Bono 8 clases" required />
+        <Input id="nombre" name="nombre" placeholder="Pádel 8 clases · 1 persona" required />
         {fe.nombre && <p className="text-destructive text-sm">{fe.nombre}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -38,20 +34,6 @@ export function CatalogoForm() {
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="precio">Precio total (COP)</Label>
-          <Input id="precio" name="precio" type="number" min={0} value={precio} onChange={(e) => setPrecio(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="descuento">Descuento %</Label>
-          <Input id="descuento" name="descuento" type="number" min={0} max={100} value={descuento} onChange={(e) => setDescuento(e.target.value)} />
-        </div>
-      </div>
-      <p className="text-sm">
-        Precio final: <strong>{COP.format(precioFinal(Number(precio) || 0, Number(descuento) || 0))}</strong>
-        {Number(descuento) > 0 && <span className="text-muted-foreground"> ({descuento}% de descuento)</span>}
-      </p>
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       {state.ok && <p className="text-primary text-sm">{state.ok}</p>}
       <Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Agregar paquete"}</Button>

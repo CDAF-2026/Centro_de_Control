@@ -1243,6 +1243,17 @@ con el precio anterior).
   Los repetidos **16** ("8 Padel 1persona Leo", 2 clientes) y **19** ("8 Padel 2 personas", 0 clientes) se
   **desactivaron, no se borraron**, para que sus clientes conserven el nombre en la ficha. Quedan 10 activos.
   El selector de la ficha ya no repite "(8 clases)" si el nombre lo trae (`etiquetaCatalogo`).
+- **Segundo paso (mismo día):** como el precio ya no depende del catálogo, los 2 clientes del repetido 16 se
+  **movieron al 8** (migración `20260930130000`, con rastro en `audit_log` `paquete.catalogo.mover`); los
+  repetidos 16 y 19 quedaron sin clientes, listos para **eliminar desde el módulo**. Regla: un catálogo
+  repetido se resuelve moviendo sus asignaciones al bueno (mismo deporte, clases y personas), nunca borrando.
+- **Eliminar del catálogo es SOLO superadministrador** (Laura, 30-sep) y solo si ningún cliente lo tiene,
+  ni vencido ni anulado (la ficha muestra el nombre del catálogo). Si tiene clientes → inactivo.
+- **Rediseño de `/paquetes`** (Laura, 30-sep): secciones **Pádel / Tenis** (y "Ambos deportes" solo si
+  hay alguno sin deporte), **inactivos al final** en gris, borde punteado y candado; tarjetas estilo
+  marcador (clases y personas en grande; las personas se leen del nombre con `personasDe`); formulario
+  "Nuevo paquete" en tarjeta fija a la derecha. Pruebas: `tests/paquete-precio.test.tsx` y
+  `tests/paquetes-render.test.tsx`.
 - ⚠️ Dato visto de paso, no tocado: las asignaciones 17, 19 y 21 tienen `num_clases = 9` sobre el catálogo
   14 (hoy 8 clases): el catálogo se editó después de asignarlas. La asignación copia `num_clases` al nacer,
   así que no las afecta.
@@ -1880,7 +1891,7 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 5. **8 cédulas de adultos en conflicto** con EasyCancha (`docs/cedulas-en-conflicto.md`).
 
 **Decisiones / tareas de Laura**
-6. **Catálogo estándar de paquetes** (Laura levanta la info con el club).
+6. ~~**Catálogo estándar de paquetes**~~ → hecho el 30-sep-2026: precio por cliente, catálogo sin precio.
 7. **Rotar las claves** de Supabase (PAT) y Siigo (access_key) que se compartieron en el chat.
 8. **Respaldo al minuto (PITR)** de Supabase: hoy es diario; se paga aparte. Decidir.
 
@@ -1989,6 +2000,6 @@ de las reglas · formulario de cliente (facturación + acudiente) · datos de Si
   "Salario fijo" (id 62) + "Academia · cubierta por salario fijo" $0 (id 63) + "Clases · cubiertas
   por salario fijo" $0 (id 64, comodín `clase`), para tapar los dos frentes. Insertadas por SQL con
   rastro en `audit_log` (id 1769). Al cargarlas no tenía ninguna clase registrada.
-- D3 · catálogo estándar de paquetes (Laura levanta info con el centro).
+- ~~D3 · catálogo estándar de paquetes~~ → hecho el 30-sep-2026 (precio por cliente + catálogo limpio, ver Paquetes).
 - Retirar `profesor_valor_clase` / `profesor_compensacion` cuando se confirme que nadie vuelve al
   modelo viejo de pagos a profesores (hoy TODOS los entrenadores están migrados a reglas).

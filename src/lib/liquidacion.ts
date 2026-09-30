@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { valorPaquete } from "@/lib/finanzas";
 import type { ReglaConcepto, ReglaEscalon, ReglaMetodo } from "@/lib/database.types";
 import { cuentaEnLiquidacion, solapa, vigenteEl } from "@/lib/reglas-vigencia";
 
@@ -237,20 +236,15 @@ export async function calcularLiquidacion(desde: string, hasta: string, quincena
     }
   }
 
-  // Valor por clase de cada paquete.
+  // Valor por clase de cada paquete = lo que ESE cliente pagó ÷ sus clases.
+  // Desde el 30-sep-2026 el precio vive en la asignación (paquetes_cliente.precio),
+  // no en el catálogo: el mismo paquete se cobra distinto según el cliente.
   const valorClasePq = new Map<number, number>();
   const pqIds = [...new Set(clases.map((c) => c.paquete_cliente_id).filter((x): x is number => x != null))];
   if (pqIds.length) {
-    const { data: pcs } = await supabase.from("paquetes_cliente").select("id, catalogo_id, num_clases, descuento_pct").in("id", pqIds);
-    const catIds = [...new Set((pcs ?? []).map((p) => p.catalogo_id).filter((x): x is number => x != null))];
-    const cats = catIds.length
-      ? (await supabase.from("paquetes_catalogo").select("id, precio, descuento_pct").in("id", catIds)).data ?? []
-      : [];
-    const catMap = new Map(cats.map((c) => [c.id, c]));
+    const { data: pcs } = await supabase.from("paquetes_cliente").select("id, num_clases, precio").in("id", pqIds);
     for (const p of pcs ?? []) {
-      const cat = p.catalogo_id ? catMap.get(p.catalogo_id) : null;
-      const base = cat ? valorPaquete(cat.precio, Number(cat.descuento_pct), Number(p.descuento_pct)) : 0;
-      valorClasePq.set(p.id, p.num_clases > 0 ? Math.round(base / p.num_clases) : 0);
+      valorClasePq.set(p.id, p.num_clases > 0 ? Math.round((p.precio ?? 0) / p.num_clases) : 0);
     }
   }
 

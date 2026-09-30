@@ -5,7 +5,6 @@ import { instanteClase } from "@/lib/fecha";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
-import { valorPaquete } from "@/lib/finanzas";
 import { EliminarClase } from "./eliminar-clase";
 import { CierreForm } from "./cierre-form";
 
@@ -31,17 +30,14 @@ export default async function CerrarClasePage({
   let valorFacturado: number | null = null;
   if (clase.tipo !== "academia") {
     if (clase.paquete_cliente_id) {
+      // El precio es el de la asignación (lo que ese cliente pagó), no el del catálogo.
       const { data: pc } = await supabase
         .from("paquetes_cliente")
-        .select("catalogo_id, num_clases, descuento_pct")
+        .select("num_clases, precio")
         .eq("id", clase.paquete_cliente_id)
         .single();
       if (pc) {
-        const { data: cat } = pc.catalogo_id
-          ? await supabase.from("paquetes_catalogo").select("precio, descuento_pct").eq("id", pc.catalogo_id).single()
-          : { data: null };
-        const base = cat ? valorPaquete(cat.precio, Number(cat.descuento_pct), Number(pc.descuento_pct)) : 0;
-        valorFacturado = clase.valor_facturado ?? (pc.num_clases > 0 ? Math.round(base / pc.num_clases) : 0);
+        valorFacturado = clase.valor_facturado ?? (pc.num_clases > 0 ? Math.round((pc.precio ?? 0) / pc.num_clases) : 0);
       }
     } else {
       valorFacturado = clase.valor_facturado ?? clase.precio ?? 0;

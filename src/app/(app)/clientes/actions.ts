@@ -7,6 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
+import { precioAsignacionSchema } from "@/lib/validations/paquete";
 import { getBookings, documentoDeBooking, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
 import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
@@ -492,8 +493,10 @@ export async function quitarHermano(formData: FormData): Promise<void> {
 }
 
 /**
- * Corrige la vigencia y el descuento de un paquete YA asignado. Solo SA:
- * asignar es del día a día (recepción), corregir lo asignado no.
+ * Corrige la vigencia y el precio de un paquete YA asignado. Solo SA:
+ * asignar es del día a día (recepción), corregir lo asignado no. Cambiar el
+ * precio mueve la nómina de las clases ya cerradas de ese paquete (la
+ * liquidación lee precio ÷ clases en vivo), por eso queda en auditoría.
  * A propósito NO toca las clases del paquete ni las consumidas: ese contador lo
  * lleva el cierre de clases y a mano dejaría de cuadrar con la asistencia real.
  */
@@ -506,20 +509,22 @@ export async function editarPaqueteCliente(
   const clienteId = Number(formData.get("clienteId"));
   const inicia = String(formData.get("inicia_el") ?? "").trim();
   const vence = String(formData.get("vence_el") ?? "").trim() || null;
-  const descuento = Number(formData.get("descuento") ?? 0);
   if (!paqueteId || !clienteId) return { error: "Paquete inválido." };
   if (!inicia) return { error: "La fecha de inicio es obligatoria.", fieldErrors: { inicia_el: "Requerido" } };
   if (vence && vence < inicia) {
     return { error: "El paquete no puede vencer antes de empezar.", fieldErrors: { vence_el: "Anterior al inicio" } };
   }
-  if (!Number.isFinite(descuento) || descuento < 0 || descuento > 100) {
-    return { error: "El descuento va de 0 a 100.", fieldErrors: { descuento: "Fuera de rango" } };
+  const precioParsed = precioAsignacionSchema.safeParse(formData.get("precio"));
+  if (!precioParsed.success) {
+    const msg = precioParsed.error.issues[0]?.message ?? "Escribe el precio del paquete.";
+    return { error: msg, fieldErrors: { precio: msg } };
   }
+  const precio = precioParsed.data;
 
   const supabase = await createClient();
   const { data: pq } = await supabase
     .from("paquetes_cliente")
-    .select("estado, num_clases, clases_consumidas")
+    .select("estado, num_clases, clases_consumidas, precio")
     .eq("id", paqueteId)
     .eq("cliente_id", clienteId)
     .maybeSingle();
@@ -537,7 +542,7 @@ export async function editarPaqueteCliente(
 
   const { error } = await supabase
     .from("paquetes_cliente")
-    .update({ inicia_el: inicia, vence_el: vence, descuento_pct: descuento, estado })
+    .update({ inicia_el: inicia, vence_el: vence, precio, estado })
     .eq("id", paqueteId);
   if (error) return { error: error.message };
 
@@ -545,8 +550,8 @@ export async function editarPaqueteCliente(
     action: "paquete.editar",
     entity: "paquetes_cliente",
     entityId: String(paqueteId),
-    before: { estado: pq.estado },
-    after: { inicia_el: inicia, vence_el: vence, descuento_pct: descuento, estado },
+    before: { estado: pq.estado, precio: pq.precio },
+    after: { inicia_el: inicia, vence_el: vence, precio, estado, clases_consumidas: pq.clases_consumidas },
   });
   revalidatePath(`/clientes/${clienteId}`);
   return {
@@ -699,10 +704,17 @@ export async function asignarPaquete(
   await requireRole(rolesForModule("paquetes", "edit"));
   const clienteId = Number(formData.get("clienteId"));
   const catalogoId = Number(formData.get("catalogoId"));
-  const descuento = Number(formData.get("descuento") || 0);
   const inicia = String(formData.get("inicia_el") || "") || new Date().toISOString().slice(0, 10);
   const vence = String(formData.get("vence_el") || "") || null;
   if (!catalogoId) return { error: "Selecciona un paquete." };
+  // El precio es de ESTE cliente, no del catálogo, y nunca puede quedar en cero:
+  // la nómina paga precio ÷ clases, así que un cero le pagaría $0 al profesor.
+  const precioParsed = precioAsignacionSchema.safeParse(formData.get("precio"));
+  if (!precioParsed.success) {
+    const msg = precioParsed.error.issues[0]?.message ?? "Escribe el precio del paquete.";
+    return { error: msg, fieldErrors: { precio: msg } };
+  }
+  const precio = precioParsed.data;
 
   const supabase = await createClient();
   const miembroId = await resolverMiembro(supabase, clienteId, Number(formData.get("miembroId")) || null);
@@ -718,7 +730,7 @@ export async function asignarPaquete(
     miembro_id: miembroId,
     catalogo_id: catalogoId,
     num_clases: cat.num_clases,
-    descuento_pct: descuento,
+    precio,
     estado: "activo",
     inicia_el: inicia,
     vence_el: vence,
@@ -737,7 +749,7 @@ export async function asignarPaquete(
     action: "paquete.asignar",
     entity: "paquetes_cliente",
     entityId: String(clienteId),
-    after: { catalogo_id: catalogoId, num_clases: cat.num_clases, descuento_pct: descuento, inicia_el: inicia, vence_el: vence },
+    after: { catalogo_id: catalogoId, num_clases: cat.num_clases, precio, inicia_el: inicia, vence_el: vence },
   });
   revalidatePath(`/clientes/${clienteId}`);
   return { ok: "Paquete asignado." };

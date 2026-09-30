@@ -96,6 +96,9 @@ Esta lista existe porque **cada punto ya causó un daño real**. No son hipótes
     la fecha y muerto en el estado.
 11. **El saldo de un paquete se mueve al CERRAR la clase, nunca al registrarla.** Tocar el
     saldo a mano con la clase aún `programada` produce **doble descuento** cuando se cierre.
+12. **El precio de un paquete vive en `paquetes_cliente.precio`, NO en el catálogo.** El mismo
+    paquete se cobra distinto según el cliente. `paquetes_catalogo.precio` y los dos
+    `descuento_pct` están obsoletos: no los leas. La nómina paga `precio ÷ num_clases`.
 
 ### Permisos
 
@@ -308,8 +311,8 @@ La fuente de verdad del esquema son las **migraciones**. `src/lib/database.types
   `inscripcion_franja`.
 - `inscripciones` (`grupo_id` **NOT NULL**), `clases` (tipo academia|individual,
   `paquete_cliente_id`, `valor_facturado`, `num_asistentes`, `grupo_id`), `asistencias`.
-- `paquetes_catalogo`, `paquetes_cliente` (`inicia_el`/`vence_el`, estado
-  activo|agotado|vencido|anulado).
+- `paquetes_catalogo` (sin precio), `paquetes_cliente` (`precio` de ESE cliente,
+  `inicia_el`/`vence_el`, estado activo|agotado|vencido|anulado).
 - `eventos` + `evento_participantes` + `evento_profesores` + `evento_gastos`.
 
 **Dinero (Siigo)**

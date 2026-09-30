@@ -30,7 +30,8 @@ type Pq = {
   num_clases: number;
   clases_consumidas: number;
   estado: string;
-  descuento_pct: number;
+  /** Lo que ESTE cliente paga por el paquete. 0 = quedó sin precio (corregir). */
+  precio: number;
   nombre: string;
   inicia: string;
   vence: string | null;
@@ -39,11 +40,16 @@ type Pq = {
 
 const empty: ClienteFormState = {};
 const selectCls = "border-input bg-background h-9 rounded-md border px-2 text-sm";
+const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+/** El nombre del catálogo ya suele decir cuántas clases son ("Pádel 8 clases · 1 persona");
+ *  solo se agrega el número cuando el nombre no lo trae. */
+const etiquetaCatalogo = (c: { nombre: string; num_clases: number }) =>
+  new RegExp(`\\b${c.num_clases}\\b`).test(c.nombre) ? c.nombre : `${c.nombre} (${c.num_clases} clases)`;
 const DIA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 /**
  * Un paquete ya asignado. El superadministrador puede corregirle la vigencia y
- * el descuento, o anularlo si se asignó por error. Las clases del paquete y las
+ * el precio, o anularlo si se asignó por error. Las clases del paquete y las
  * consumidas NO se editan: ese contador lo lleva el cierre de clases.
  */
 function PaqueteFila({
@@ -90,6 +96,12 @@ function PaqueteFila({
               para cobrarle clases.
             </p>
           )}
+          {p.clases_consumidas > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Ya tiene {p.clases_consumidas} {p.clases_consumidas === 1 ? "clase cerrada" : "clases cerradas"}:
+              si cambias el precio, cambia lo que se le liquida al profesor por esas clases.
+            </p>
+          )}
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <span className="text-muted-foreground block text-xs">Inicio</span>
@@ -100,8 +112,8 @@ function PaqueteFila({
               <input type="date" name="vence_el" defaultValue={p.vence ?? ""} className={selectCls} />
             </div>
             <div className="space-y-1">
-              <span className="text-muted-foreground block text-xs">Descuento %</span>
-              <Input name="descuento" type="number" min={0} max={100} defaultValue={String(p.descuento_pct)} className="w-20" />
+              <span className="text-muted-foreground block text-xs">Precio (COP)</span>
+              <Input name="precio" type="number" min={1} step={1} defaultValue={p.precio > 0 ? String(p.precio) : ""} required className="w-32" />
             </div>
             <Button type="submit" size="sm" disabled={edPending}>{edPending ? "Guardando…" : "Guardar"}</Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setEditando(false)}>Cancelar</Button>
@@ -116,7 +128,12 @@ function PaqueteFila({
     <li className="py-2">
       <div className="flex items-center justify-between gap-3">
         <span className={anulado ? "text-muted-foreground" : undefined}>
-          {p.nombre}{p.descuento_pct > 0 ? ` · ${p.descuento_pct}% desc.` : ""}
+          {p.nombre}
+          {p.precio > 0 ? (
+            <span className="text-muted-foreground"> · {COP.format(p.precio)}</span>
+          ) : (
+            !anulado && <span className="text-destructive"> · Sin precio</span>
+          )}
           {p.miembro && <span className="text-muted-foreground"> · {p.miembro}</span>}
           {p.vence && <span className="text-muted-foreground"> · vence {p.vence}</span>}
           {vencido && <span className="text-destructive"> · Vencido</span>}
@@ -149,7 +166,7 @@ function PaqueteFila({
                   Extender vigencia
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="icon-sm" title="Corregir vigencia o descuento" onClick={() => setEditando(true)}>
+              <Button type="button" variant="ghost" size="icon-sm" title="Corregir vigencia o precio" onClick={() => setEditando(true)}>
                 <Pencil className="size-4" />
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmando(true)}>Anular</Button>
@@ -251,10 +268,24 @@ export function ServiciosCliente({
             <select name="catalogoId" required className={selectCls}>
               <option value="">Paquete…</option>
               {catalogo.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre} ({c.num_clases} clases)</option>
+                <option key={c.id} value={c.id}>{etiquetaCatalogo(c)}</option>
               ))}
             </select>
-            <Input name="descuento" type="number" min={0} max={100} defaultValue={0} className="w-20" />
+            <div className="space-y-1">
+              <span className="text-muted-foreground block text-xs">Precio (COP)</span>
+              {/* Arranca vacío a propósito: el precio es de este cliente y no hay
+                  sugerido. La acción rechaza vacío y cero. */}
+              <Input
+                name="precio"
+                type="number"
+                min={1}
+                step={1}
+                placeholder="0"
+                required
+                aria-invalid={pqState.fieldErrors?.precio ? true : undefined}
+                className="w-32"
+              />
+            </div>
             <div className="space-y-1">
               <span className="text-muted-foreground block text-xs">Inicio</span>
               <input type="date" name="inicia_el" defaultValue={hoy} className={selectCls} />
