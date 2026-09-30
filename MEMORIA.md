@@ -640,7 +640,7 @@ eventos) · `/clientes` (paginado 30, autocomplete) · `/academias` (el **planea
 utilidad de los cerrados y avisa cuánto hay retenido en los abiertos) · `/clases` (calendario; academia = morado #8b7cf6) · `/cierre` (solo fecha ≤
 hoy; academia: asistencia por estado) · `/liquidacion` (facturado vs a pagar; periodo mes/q1/q2) ·
 `/empleados` (compensación + **acceso**: rol, dar/quitar entrada, asignar contraseña) · `/config`
-(catálogo de servicios, **solo lectura**) · `/agente` (aún lee modelo viejo — pendiente repuntar a Siigo)
+(catálogo de servicios, **solo lectura**) · `/agente` (lee los RPCs de Siigo desde 0077)
 · `/notas` bandeja de recados del staff (ver abajo) · `/perfil` "Mi perfil", cualquier rol (ver abajo).
 
 ## 🔐 Permisos por rol (revisado con Laura el 31-jul-2026)
@@ -1885,31 +1885,60 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
 
 ## Pendientes conocidos
 
-### 📌 Lista vigente (revisada con Laura el 24-sep-2026 — ESTA es la lista; lo de abajo es historia)
-**Datos que tiene que pasar el club**
-1. **Matías y Elena Restrepo** comparten el documento 1017204187 (fichas m584 / m428, ficha 430):
-   de quién es, y el real del otro. Matías (4 años) debería ser RC, no TI.
-2. **Valentín Ramírez** (m92) tiene la TI de su hermano Clemente (1037607268) y no tiene nacimiento.
-3. **Salomón Agudelo** (ficha 572): faltan su documento y su fecha de nacimiento.
-4. **9 fichas con nombre repetido** sin nada en común (Andrés Zapata, Daniel Uribe, Diego Chalarca,
-   Enrique Mateus, Isaak Ruiz, Jorge Moreno, Laura Restrepo, Manuel Mejía, Santiago Correa).
-5. **8 cédulas de adultos en conflicto** con EasyCancha (`docs/cedulas-en-conflicto.md`).
+### 📌 Lista vigente (revisada con Laura el 30-sep-2026 — ESTA es la lista; lo de abajo es historia)
+Se revisa y se evacúa punto por punto a medida que avancemos (Laura, 30-sep-2026). Al cerrar uno,
+tacharlo aquí con la fecha; al abrir uno nuevo, agregarlo aquí y no en otro sitio.
+
+**Datos que tiene que entregar el club**
+1. **15 niños de tenis con datos demo** (miembros 594–608, fichas 578–590): documento, nacimiento, EPS, RH
+   y acudiente real en vez de "POR CONFIRMAR". Laura les mandó `docs/ninos-por-confirmar-tenis-2026-09-30.xlsx`
+   el 30-sep. Al volver: script idempotente, simulacro primero; si alguno ya existía, fusionar, no duplicar.
+2. **3 niños ambiguos** sin cargar por venir solo con nombre de pila: "EMMA" (Cristian sáb 11:00), "LUCIANA"
+   (Jorge mié 15:30), "JULIA" (Yeison mar/jue 18:00). Se agregan desde la clase cuando digan el apellido.
+3. **3 niños incompletos**: Simón Mosquera (documento y fecha) · Esteban Giraldo (fecha) · Valentín Ramírez
+   (m92: su propio documento; hoy tiene la TI 1037607268 de su hermano Clemente).
+4. **Matías y Elena Restrepo** comparten el documento 1017204187 (m584 / m428, ficha 430): de quién es y el
+   real del otro. Matías (4 años) debería ser RC, no TI.
+5. **Salomón Agudelo** (ficha 572): documento y fecha de nacimiento.
+6. **9 fichas con nombre repetido** sin nada en común (Andrés Zapata, Daniel Uribe, Diego Chalarca, Enrique
+   Mateus, Isaak Ruiz, Jorge Moreno, Laura Restrepo, Manuel Mejía, Santiago Correa). No fusionar sin preguntar.
+7. **8 cédulas de adultos en conflicto** con EasyCancha (`docs/cedulas-en-conflicto.md`).
+8. **Juan Cruz sigue con `test@gmail.com`**: no puede entrar hasta que Laura le cargue el correo real desde
+   `/empleados/[id]/editar`.
 
 **Decisiones / tareas de Laura**
-6. ~~**Catálogo estándar de paquetes**~~ → hecho el 30-sep-2026: precio por cliente, catálogo sin precio.
-7. **Rotar las claves** de Supabase (PAT) y Siigo (access_key) que se compartieron en el chat.
-8. **Respaldo al minuto (PITR)** de Supabase: hoy es diario; se paga aparte. Decidir.
+9. **Rotar las claves** de Supabase (PAT) y Siigo (access_key) compartidas en el chat. Al rotarlas: `.env` y
+   los secretos de la Edge Function `siigo-sync`.
+10. **Respaldo al minuto (PITR)** de Supabase: hoy es diario (un borrado por error cuesta hasta un día). Se
+    paga aparte.
+11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
+    Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
+    cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
+12. **Registro y consentimiento digital por QR**: plan escrito, sin ejecutar
+    (`docs/plan-registro-y-consentimiento-digital.md`). Tiene **10 decisiones de Laura** en su §2. **No
+    tocar nada de eso hasta que ella lo diga** (30-sep-2026).
 
-**Construir / revisar (agente)**
-9. **Correo de "olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend.
-10. **Facturas de torneo fuera de la ventana**: revisar con los torneos ya corridos si hace falta el
+**Construir / revisar (agente), sin prisa**
+13. **"Olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend (depende del punto 11). Hoy la clave la
+    asigna el SA.
+14. **`www` → raíz en Vercel**: verificado el 30-sep que `www.alejandrofallacd.com` sigue sirviendo la app
+    aparte (200, sin redirect). Sesión distinta por host → parece que "lo sacó". Se arregla en el panel de
+    Vercel, sin código.
+15. **Facturas de torneo fuera de la ventana −5/+10**: revisar con los torneos ya corridos si hace falta un
     buscador por número de factura en la ficha del evento.
-11. (Limpieza técnica, sin prisa) retirar `profesor_valor_clase` / `profesor_compensacion`.
+16. (Limpieza técnica) retirar `profesor_valor_clase` / `profesor_compensacion`: todos los entrenadores están
+    en el modelo de reglas.
+17. **Campo propio de "personas"** en `paquetes_catalogo`, solo si algún día quieren filtrar o reportar por
+    eso. Hoy va en el nombre y `personasDe()` lo lee de ahí.
 
-**Cerrados el 24-sep-2026 (no reabrir):** reglas de Mauricio · Carlos es empleado directo · colegios
-de 1 hora · clase 400 a $50.000 es correcta · particulares anteriores al 15-sep revisadas · audit de
-reglas · aviso de profesor sin reglas (lo hace Laura) · cruce academia–Siigo (descartado) · vigencia
-de las reglas · formulario de cliente (facturación + acudiente) · datos de Simón Mejía Cadavid.
+**Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
+aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
+academias (tenis y pádel cargados) · academias de pádel · catálogo estándar de paquetes (30-sep) · Carlos es
+empleado directo · colegios de 1 hora · clase 400 a $50.000 es correcta · particulares anteriores al 15-sep
+revisadas · aviso de profesor sin reglas (lo hace Laura) · cruce academia–Siigo (descartado) · vigencia de
+las reglas · formulario de cliente · datos de Simón Mejía Cadavid · el agente ya lee Siigo · regla de
+paquetes para Victor Acosta ("de momento dejémoslo así") · centro de costos de Siigo (descartado dos veces)
+· partir la factura de torneo por línea · excepciones de permisos por usuario.
 
 ### Historia de los pendientes
 - 📅 **Semana del 10-ago-2026 — revisar la ventana de candidatas con el torneo del 7-8 de agosto ya

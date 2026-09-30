@@ -154,8 +154,8 @@ En *Authentication → URL Configuration*:
       dominio del club en Resend y agregar las dos variables en Vercel. Sin tocar código.
 - [ ] **Rotar el PAT de Supabase y el `access_key` de Siigo** (quedaron expuestos en
       chat). Al rotarlos hay que actualizar `.env` y los secretos de la Edge Function.
-- [ ] Crear el catálogo de paquetes: quedó vacío tras limpiar los datos de prueba, y
-      sin él recepción no puede asignar paquetes.
+- [x] ~~Crear el catálogo de paquetes~~ — hecho; desde el 30-sep-2026 el catálogo no lleva
+      precio (se digita al asignar a cada cliente).
 - [ ] Apuntar el SMTP de Supabase a Resend → habilita "olvidé mi contraseña".
 - [x] ~~Dominio propio + `site_url` de Supabase~~ — hecho: `alejandrofallacd.com` vivo con certificado, y Auth apuntando ahí (31-jul-2026).
 - [ ] En Vercel, hacer que `www` redirija a la raíz: hoy las dos sirven la app por

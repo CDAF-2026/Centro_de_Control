@@ -920,30 +920,24 @@ npm test          # 2. las pruebas (NO a la vez que el build)
 Al **16 de septiembre de 2026**: 254 commits, 99 migraciones, 16 archivos de prueba.
 La plataforma está en uso diario.
 
-### Pendientes abiertos (detalle en `MEMORIA.md`)
+### Pendientes abiertos
 
-- ⏸️ **Reglas de pago de Yeison Bedoya y Esteban Graciano** — EN PAUSA, el club las revisa.
-  **Yeison tiene 0 reglas y ya hay una clase cerrada que le paga $0.** Es lo primero al
-  retomar.
-- **Barrer las clases particulares anteriores al 15-sep-2026** comparando `clases.precio`
-  contra el `totalAmount` de su reserva. Hasta ese día el precio arrancaba en "0".
-- **Cargar los correos reales de los profesores** y darles contraseña (hoy Juan Cruz tiene
-  `test@gmail.com` y no puede entrar).
-- **Preguntarle al club quién es "Mauricio"** (1 reserva sin perfil, no se le puede crear
-  alias).
-- **Rotar tokens expuestos en chat**: PAT de Supabase y access_key de Siigo.
-- **Apuntar el SMTP de Supabase a Resend** → habilita "olvidé mi contraseña".
-- **9 fichas de clientes duplicadas dudosas** sin fusionar, a la espera del club.
-- **Academias de pádel** (aplazadas por Laura).
-- **Importador del Excel de academias** y cruce asistencia vs. facturas de Siigo (este
-  último bloqueado por conciliación: solo 36 de 224 líneas tienen `cliente_id`).
-- **Decidir sobre PITR** en Supabase (hoy solo respaldo diario).
+**La lista viva está en `MEMORIA.md` → "📌 Lista vigente"** (revisada con Laura el 30-sep-2026; 17
+puntos en tres grupos: datos que debe entregar el club · decisiones de Laura · construir sin prisa).
+Se evacúa punto por punto; no mantener una segunda copia aquí. Lo que hay que saber de entrada:
+
+- Faltan **datos del club** (niños de tenis con datos demo, documentos repetidos entre hermanos,
+  fichas duplicadas dudosas, cédulas en conflicto): están en `docs/` y no se adivinan.
+- **Resend del club** no está en Vercel: dos correos al cliente no salen, en silencio.
+- **Registro y consentimiento digital por QR**: hay un plan en `docs/`, sin ejecutar y con
+  decisiones de Laura pendientes. **No tocarlo sin que ella lo pida.**
+- Rotar las claves expuestas (PAT de Supabase, access_key de Siigo) y decidir el PITR.
 
 ### Cosas que se decidieron NO hacer (no las repropongas)
 
 - Centro de costos de Siigo para eventos (descartado **dos veces**).
 - Partir la factura de torneo por línea.
-- Entidad "grupo" oculta en academias — *se revirtió*: hoy **sí** existe `academia_grupo`.
+- Entidad "grupo" en academias: `academia_grupo` **se eliminó** el 22-sep-2026 (el planeador manda).
 - Tablero de rendimiento por franja (**aparcado**: el RPC existe y está verificado, pero
   ninguna pantalla lo llama; en agosto se registraron 2 clases de academia de ~250, así que
   cualquier tablero muestra rayas). La regla que lo zanjó: **un aviso donde no está la
