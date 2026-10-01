@@ -159,6 +159,45 @@ describe("el reporte de horas", () => {
     expect(t).toContain("sin marcar almuerzo");
   });
 
+  it("ofrece descargar en Excel el MISMO periodo que muestra", async () => {
+    const { default: Page } = await import("../src/app/(app)/horas/page");
+    const html = await render(Page, { searchParams: P({ periodo: PERIODO, ym: YM }) });
+    expect(html).toContain(`href="/horas/exportar?periodo=${PERIODO}&amp;ym=${YM}"`);
+    expect(texto(html)).toContain("Descargar Excel");
+  });
+
+  it("el Excel descargado trae las mismas cifras que la pantalla, en decimales", async () => {
+    const ExcelJS = (await import("exceljs")).default;
+    const { GET } = await import("../src/app/(app)/horas/exportar/route");
+    const res = await GET(
+      new Request(`http://localhost/horas/exportar?periodo=${PERIODO}&ym=${YM}`),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toContain(`horas-personal-${YM}-${PERIODO}.xlsx`);
+
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load((await res.arrayBuffer()) as any);
+    const { data: juan } = await admin().from("profiles").select("nombre").eq("id", empleado).single();
+
+    let resumen: any;
+    libro.getWorksheet("Resumen")!.eachRow((f) => {
+      if (f.getCell(1).value === juan!.nombre) resumen = f;
+    });
+    // 19 diurnas · 2 nocturnas · 3 extra diurnas · 2 extra nocturnas = 26 en total.
+    expect(resumen.getCell(3).value).toBe(3);
+    expect(resumen.getCell(4).value).toBe(19);
+    expect(resumen.getCell(5).value).toBe(2);
+    expect(resumen.getCell(6).value).toBe(3);
+    expect(resumen.getCell(7).value).toBe(2);
+    expect(resumen.getCell(10).value).toBe(26);
+
+    const suyos: number[] = [];
+    libro.getWorksheet("Turnos")!.eachRow((f) => {
+      if (f.getCell(1).value === juan!.nombre) suyos.push(f.getCell(9).value as number);
+    });
+    expect(suyos).toEqual([7, 9, 10]);
+  });
+
   it("un periodo sin turnos no revienta", async () => {
     const { default: Page } = await import("../src/app/(app)/horas/page");
     const t = texto(await render(Page, { searchParams: P({ periodo: "q1", ym: "2027-01" }) }));

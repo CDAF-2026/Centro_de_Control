@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { rangoNomina } from "@/lib/periodo";
-import { diaCorto, rangoDias } from "@/lib/fecha";
+import { diaCorto, mesLargo, rangoDias } from "@/lib/fecha";
 import { ROLE_LABEL } from "@/lib/roles";
 import {
   COLUMNAS,
@@ -95,11 +95,25 @@ export default async function HorasPage({
   });
 
   const qs = `?periodo=${periodo}&ym=${ym}`;
+  const rotuloPeriodo =
+    periodo === "q1" ? "quincena 1 (1–15)" : periodo === "q2" ? "quincena 2 (16–fin)" : "mes completo";
   const quien = (id: string) => nombre.get(id) ?? "—";
 
   return (
     <div className="space-y-6">
-      <h1 className="cdaf-headline">Horas del personal</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="cdaf-headline">Horas del personal</h1>
+        {/* Baja el periodo que se está VIENDO (el ya calculado, no lo que esté a
+            medio escoger en el formulario): lo que se ve es lo que se descarga. */}
+        <a
+          href={`/horas/exportar${qs}`}
+          className={buttonVariants({ variant: "outline" })}
+          title={`Descarga ${mesLargo(ym)} · ${rotuloPeriodo}`}
+        >
+          <Download className="size-4" />
+          Descargar Excel
+        </a>
+      </div>
 
       <form className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">

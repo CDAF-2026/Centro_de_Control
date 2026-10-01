@@ -1816,6 +1816,19 @@ recepción) y sin él sigue marcando desde el celular con normalidad.
 - Al prender o apagar el interruptor se revalida el layout entero: la entrada "Mi turno" del menú
   depende de `profiles.marca_turno`.
 
+📥 **Descargar el reporte en Excel** (1-oct-2026, pedido de Laura). Botón "Descargar Excel" en `/horas` →
+`/horas/exportar?periodo=…&ym=…` (route handler) → `src/lib/turnos-excel.ts` (exceljs). Decisiones de Laura:
+· **Dos pestañas**: "Resumen" (la tabla de la pantalla, una fila por persona, sin total general) y "Turnos"
+  (turno por turno: fecha, entrada, almuerzo, regreso, salida, horas, cómo marcó y una **Observación**).
+· **Horas en DECIMALES** (7,5 = 7 h 30 min) para multiplicar por el valor de la hora. La celda guarda el valor
+  EXACTO (min ÷ 60) y solo se muestra con 2 decimales, para que las sumas en Excel cuadren con el reporte.
+· **Baja el periodo que está en pantalla** (mes o quincena ya calculado), no lo que esté a medio escoger.
+· **Lo descargan los mismos que ven el reporte** (SA y coord. administrativo); misma RLS que `/horas`.
+· Un turno **sin cerrar** deja la celda de horas VACÍA (no 0) y lo dice; una salida de **otro día** lleva su
+  fecha y se marca para revisar. Si una consulta falla, responde 500: nunca un Excel con ceros.
+· ⚠️ `npm audit` marca `uuid` (dependencia de exceljs) por v3/v5/v6 con `buf`; exceljs solo usa v4 y aquí
+  solo se ESCRIBEN archivos. Pruebas: `tests/horas-excel.test.ts` + 2 en `tests/horas-render.test.tsx`.
+
 📷 **La foto se abre en grande al tocarla** (`horas/foto-turno.tsx`): con 32×32 en la tabla no se
 reconoce a nadie. La miniatura es un botón y el modal muestra la foto a tamaño completo con quién,
 qué día y a qué hora.
@@ -1945,9 +1958,18 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     arreglaron (1-oct-2026, `hoyBogota()`); quedan por revisar las de servidor en `/cartera`, `/clases`,
     `/cierre`, `/liquidacion`, `/horas`, `/clientes` y `/agente` (`grep -rn "getDate()\|toISOString().slice"`).
     De 7 p. m. a medianoche pueden creer que ya es mañana.
-19. **4 pruebas en rojo que dependen de datos reales** (ya fallaban el 1-oct-2026, antes del arreglo de
+19. **6 pruebas en rojo que dependen de datos reales** (ya fallaban el 1-oct-2026, antes del arreglo de
     fechas): 3 de "borrar las fotos al mes" en `turnos-marcar.test.ts` (cuentan TODAS las fotos vencidas y ya
     hay reales de más de 45 días) y 1 de `cobro-clase.test.tsx` (mover una clase cerrada entre paquetes).
+    **+2 desde el 1-oct** en `turnos-marcar.test.ts` › "el coordinador administrativo ve el reporte": usan a
+    **Sebastián Niño** (`snino777@gmail.com`) como coord. administrativo y **el club lo pasó a coord.
+    deportivo**, así que ve 0 turnos (correcto para su rol nuevo). Hoy el único coord. admin es Juan
+    Fernando, que marca turno: hay que rehacer la prueba sin depender de quién tenga el rol.
+20. **Turnos con la salida en OTRO día** (visto el 1-oct-2026 al armar el Excel de horas): en septiembre
+    hay turnos que quedaron abiertos y se cerraron días después, y **suman todas esas horas**. El peor:
+    **Juan Fernando Gaviria, entrada 1-sep 7:09 a. m. → salida 21-sep 6:58 a. m. = ~480 h** (su mes sale en
+    ~512 h). También Camila (1-sep 23,75 h; 4-sep 21,9 h) y Santiago (1-sep 22,2 h; 2-sep 18,3 h). Se
+    corrigen desde `/horas/[id]` → Corregir (solo SA). El Excel ya los marca: "La salida es de otro día".
 
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
