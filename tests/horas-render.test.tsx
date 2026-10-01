@@ -352,13 +352,29 @@ describe("qué se considera «por revisar»", () => {
     ...extra,
   });
 
-  it("un turno sin salida es «sin cerrar»", async () => {
+  it("un turno sin salida de un día YA PASADO es «sin cerrar»", async () => {
     const { revisar } = await import("../src/lib/turnos");
-    const r = revisar([
-      turno({ fin_el: null, minutos: null, foto_fin_path: null }) as any,
-      turno({ id: 2 }) as any,
-    ]);
+    const r = revisar(
+      [
+        turno({ fin_el: null, minutos: null, foto_fin_path: null }) as any,
+        turno({ id: 2 }) as any,
+      ],
+      "2027-09-24",
+    );
     expect(r.sinCerrar.map((t) => t.id)).toEqual([1]);
+  });
+
+  it("el turno de HOY sin salida está en curso: no es un olvido", async () => {
+    // Laura, 1-oct-2026: el reporte avisaba "no cerró el turno" a media mañana
+    // de gente que seguía trabajando.
+    const { revisar, enCurso } = await import("../src/lib/turnos");
+    const abierto = turno({ fin_el: null, minutos: null, foto_fin_path: null }) as any;
+    expect(revisar([abierto], "2027-09-23").sinCerrar).toEqual([]);
+    expect(enCurso(abierto, "2027-09-23")).toBe(true);
+    // Al día siguiente sí es un olvido.
+    expect(enCurso(abierto, "2027-09-24")).toBe(false);
+    // Un turno cerrado nunca está en curso.
+    expect(enCurso(turno({}) as any, "2027-09-23")).toBe(false);
   });
 
   it("un turno largo sin pausa es «sin almuerzo»; uno corto no", async () => {

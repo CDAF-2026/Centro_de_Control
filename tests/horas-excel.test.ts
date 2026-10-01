@@ -79,6 +79,7 @@ const DATOS = {
     turno(3, BETO, { minutos: 540, n_pausas: 0, minutos_pausa: 0, origen: "ajuste", ajuste_motivo: "olvidó marcar" }),
   ],
   pausas: new Map([[1, { inicio: "2026-09-14T17:00:00Z", fin: "2026-09-14T18:00:00Z" }]]),
+  hoy: "2026-10-01",
 };
 
 describe("el Excel del reporte de horas", () => {
@@ -137,6 +138,22 @@ describe("el Excel del reporte de horas", () => {
     expect(abierta).toBeDefined();
     expect(abierta!.getCell(9).value ?? null).toBeNull();
     expect(String(abierta!.getCell(11).value)).toContain("Sin cerrar");
+  });
+
+  it("el turno de HOY sin salida dice «en curso», no «sin cerrar»", async () => {
+    const hoy = turno(7, ANA, {
+      dia: "2026-10-01",
+      inicio_el: "2026-10-01T12:56:00Z",
+      fin_el: null,
+      minutos: null,
+      n_pausas: 0,
+      minutos_pausa: 0,
+    });
+    const hoja = (await abrir(await excelHoras({ ...DATOS, turnos: [hoy] }))).getWorksheet("Turnos")!;
+    const f = filaDe(hoja, "Ana");
+    expect(f.getCell(7).value).toBe("en curso");
+    expect(String(f.getCell(11).value)).toContain("En curso");
+    expect(String(f.getCell(11).value)).not.toContain("Sin cerrar");
   });
 
   it("avisa del turno largo sin almuerzo y del corregido a mano", async () => {

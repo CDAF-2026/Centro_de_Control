@@ -1816,6 +1816,14 @@ recepción) y sin él sigue marcando desde el celular con normalidad.
 - Al prender o apagar el interruptor se revalida el layout entero: la entrada "Mi turno" del menú
   depende de `profiles.marca_turno`.
 
+🟢 **Turno de HOY sin salida = "en curso", NO "no cerró"** (1-oct-2026, lo notó Laura: el reporte avisaba a
+media mañana que dos personas "no cerraron el turno del 1 oct", y estaban trabajando). `fin_el` vacío
+significa dos cosas que se arreglan distinto: hoy = se espera; un día anterior = olvido que corrige el SA
+(nadie cruza la medianoche, el club cierra a las 9 p. m.). Vive en **`enCurso()` / `revisar(turnos, hoy)`**
+de `src/lib/turnos.ts`, con "hoy" de Bogotá (`hoyTurnos()`, no el reloj UTC del servidor). La usan el aviso de
+`/horas`, la tabla de `/horas/[id]` ("en curso" en gris en vez de "sin marcar" en rojo) y el Excel.
+⚠️ Si el día de mañana alguien olvida cerrar, el aviso aparece desde las 12 a. m. del día siguiente.
+
 📥 **Descargar el reporte en Excel** (1-oct-2026, pedido de Laura). Botón "Descargar Excel" en `/horas` →
 `/horas/exportar?periodo=…&ym=…` (route handler) → `src/lib/turnos-excel.ts` (exceljs). Decisiones de Laura:
 · **Dos pestañas**: "Resumen" (la tabla de la pantalla, una fila por persona, sin total general) y "Turnos"

@@ -1,3 +1,4 @@
+import { diaIso } from "@/lib/fecha";
 import type { AppRole, TurnoHoras, TurnoListado } from "@/lib/database.types";
 
 /**
@@ -131,7 +132,7 @@ export function hm(min: number): string {
  * cambiar la palabra no obligue a tocar esta lógica.
  */
 export type Revisar = {
-  /** Nunca se marcó la salida: aporta CERO horas hasta que se corrija. */
+  /** Un día YA PASADO sin salida: aporta CERO horas hasta que se corrija. */
   sinCerrar: TurnoListado[];
   /** Turno largo sin almuerzo marcado: se le está pagando la hora de comida. */
   sinAlmuerzo: TurnoListado[];
@@ -139,9 +140,26 @@ export type Revisar = {
   sinFoto: TurnoListado[];
 };
 
-export function revisar(turnos: readonly TurnoListado[]): Revisar {
+/** "2026-10-01": hoy en Colombia (no en el reloj del servidor, que va en UTC). */
+export const hoyTurnos = (): string => diaIso(new Date().toISOString());
+
+/**
+ * El turno de HOY sin salida: la persona sigue trabajando.
+ *
+ * ⚠️ No es lo mismo que "no cerró" (1-oct-2026, Laura lo notó: el reporte
+ * avisaba que no habían cerrado el turno del mismo día a media mañana). Las dos
+ * situaciones se ven iguales en la base —`fin_el` vacío— y se arreglan
+ * distinto: una no se arregla, se espera; la otra la corrige el SA. Como nadie
+ * cruza la medianoche (el club cierra a las 9 p. m.), un turno abierto de un día
+ * anterior SÍ es un olvido. Se compara contra el día de la entrada, en Bogotá.
+ */
+export function enCurso(t: TurnoListado, hoy: string = hoyTurnos()): boolean {
+  return t.fin_el === null && t.dia >= hoy;
+}
+
+export function revisar(turnos: readonly TurnoListado[], hoy: string = hoyTurnos()): Revisar {
   return {
-    sinCerrar: turnos.filter((t) => t.fin_el === null),
+    sinCerrar: turnos.filter((t) => t.fin_el === null && !enCurso(t, hoy)),
     sinAlmuerzo: turnos.filter(
       (t) => t.minutos !== null && t.minutos > SIN_ALMUERZO_DESDE_MIN && t.n_pausas === 0,
     ),

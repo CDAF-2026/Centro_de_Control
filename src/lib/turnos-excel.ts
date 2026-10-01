@@ -1,7 +1,15 @@
 import ExcelJS from "exceljs";
 import { diaCorto, diaIso, horaCorta } from "@/lib/fecha";
 import { ROLE_LABEL } from "@/lib/roles";
-import { COLUMNAS, SIN_ALMUERZO_DESDE_MIN, minutosExtra, sumar, valorColumna } from "@/lib/turnos";
+import {
+  COLUMNAS,
+  SIN_ALMUERZO_DESDE_MIN,
+  enCurso,
+  hoyTurnos,
+  minutosExtra,
+  sumar,
+  valorColumna,
+} from "@/lib/turnos";
 import type { AppRole, TurnoHoras, TurnoListado } from "@/lib/database.types";
 
 /**
@@ -27,6 +35,8 @@ export type DatosExcelHoras = {
   turnos: TurnoListado[];
   /** Primer almuerzo de cada turno (el mismo criterio que el detalle en pantalla). */
   pausas: Map<number, { inicio: string; fin: string | null }>;
+  /** Hoy en Colombia ("2026-10-01"); por defecto, el de verdad. Las pruebas lo fijan. */
+  hoy?: string;
 };
 
 const FORMATO_HORAS = "0.00";
@@ -75,12 +85,15 @@ function pintar(fila: ExcelJS.Row, argb: string) {
 const otroDia = (t: TurnoListado) => !!t.fin_el && diaIso(t.fin_el) !== t.dia;
 
 /** Qué hay que saber de un turno para no leerlo mal. */
-function observacion(t: TurnoListado): string {
+function observacion(t: TurnoListado, hoy: string): string {
   const notas: string[] = [];
   // ⚠️ Un turno sin cerrar NO es un turno de cero horas: es un dato que falta.
   // Se dice con todas las letras, porque en la columna de horas los dos casos
   // se verían iguales y se arreglan distinto.
-  if (t.fin_el === null) {
+  if (enCurso(t, hoy)) {
+    // Hoy y sin salida: sigue trabajando. No es un olvido (ver `enCurso`).
+    notas.push("En curso: todavía no marca la salida");
+  } else if (t.fin_el === null) {
     notas.push("Sin cerrar: no suma horas hasta que se corrija");
   } else {
     // Nadie cruza la medianoche en el club: una salida de otro día casi siempre
@@ -100,6 +113,7 @@ const PUERTA: Record<TurnoListado["origen"], string> = {
 };
 
 export async function excelHoras(d: DatosExcelHoras): Promise<Buffer> {
+  const hoy = d.hoy ?? hoyTurnos();
   const libro = new ExcelJS.Workbook();
   libro.creator = "Centro de Control CDAF";
   libro.created = new Date();
@@ -194,6 +208,7 @@ export async function excelHoras(d: DatosExcelHoras): Promise<Buffer> {
   );
   for (const t of turnos) {
     const p = d.pausas.get(t.id);
+    const nota = observacion(t, hoy);
     const fila = hoja.addRow([
       nombre.get(t.perfil_id) ?? "—",
       fechaExcel(t.dia),
@@ -202,7 +217,9 @@ export async function excelHoras(d: DatosExcelHoras): Promise<Buffer> {
       p ? horaCorta(p.inicio) : "",
       p?.fin ? horaCorta(p.fin) : "",
       !t.fin_el
-        ? "sin marcar"
+        ? enCurso(t, hoy)
+          ? "en curso"
+          : "sin marcar"
         : otroDia(t)
           ? `${horaCorta(t.fin_el)} (${diaCorto(diaIso(t.fin_el))})`
           : horaCorta(t.fin_el),
@@ -210,12 +227,12 @@ export async function excelHoras(d: DatosExcelHoras): Promise<Buffer> {
       // Abierto = celda VACÍA, no 0: el dato falta, no vale cero.
       t.minutos === null ? null : horas(t.minutos),
       PUERTA[t.origen],
-      observacion(t),
+      nota,
     ]);
     fila.getCell(11).alignment = { wrapText: true, vertical: "top" };
-    if (t.fin_el === null) pintar(fila, ROJO);
-    // "Corregido a mano" solo informa; el ámbar es para lo que hay que revisar.
-    else if (/Sin almuerzo|otro día/.test(observacion(t))) pintar(fila, AMBAR);
+    if (nota.startsWith("Sin cerrar")) pintar(fila, ROJO);
+    // "En curso" y "Corregido a mano" solo informan; el ámbar es para revisar.
+    else if (/Sin almuerzo|otro día/.test(nota)) pintar(fila, AMBAR);
   }
   if (turnos.length === 0) hoja.addRow(["No hay turnos en este periodo."]);
 

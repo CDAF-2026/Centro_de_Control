@@ -14,7 +14,9 @@ import {
   PUEDE_CORREGIR_TURNO,
   SEMANA_MIN,
   SIN_ALMUERZO_DESDE_MIN,
+  enCurso,
   hm,
+  hoyTurnos,
   minutosExtra,
   porSemana,
   sumar,
@@ -68,6 +70,7 @@ export default async function HorasDeUnaPersonaPage({
   const turnos: TurnoListado[] = turnosRes.data ?? [];
 
   const totales = sumar(horas);
+  const hoyDia = hoyTurnos();
   const semanas = porSemana(horas);
 
   // Un solo enlace firmado por foto, en una sola llamada.
@@ -241,7 +244,9 @@ export default async function HorasDeUnaPersonaPage({
                 </thead>
                 <tbody>
                   {turnos.map((t) => {
-                    const sinCerrar = t.fin_el === null;
+                    // Hoy sin salida = sigue trabajando, no un olvido (ver `enCurso`).
+                    const ahora = enCurso(t, hoyDia);
+                    const sinCerrar = t.fin_el === null && !ahora;
                     const sinAlmuerzo =
                       t.minutos !== null && t.minutos > SIN_ALMUERZO_DESDE_MIN && t.n_pausas === 0;
                     const p = pausas.get(t.id);
@@ -256,7 +261,9 @@ export default async function HorasDeUnaPersonaPage({
                         <td className="px-4 py-2.5 font-medium">{diaCorto(t.dia)}</td>
                         <td className="text-muted-foreground px-4 py-2.5 tabular-nums">
                           {horaCorta(t.inicio_el)} –{" "}
-                          {sinCerrar ? (
+                          {ahora ? (
+                            <span className="text-muted-foreground italic">en curso</span>
+                          ) : sinCerrar ? (
                             <span className="text-destructive font-semibold">sin marcar</span>
                           ) : (
                             horaCorta(t.fin_el!)
