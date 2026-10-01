@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-const PUBLIC_PATHS = ["/", "/login", "/styleguide", "/auth"];
+// `/registro` es la página pública del QR (1-oct-2026): sin sesión a propósito.
+// Lo que escribe pasa por server actions que validan y llaman RPC de solo service_role.
+const PUBLIC_PATHS = ["/", "/login", "/styleguide", "/auth", "/registro"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(

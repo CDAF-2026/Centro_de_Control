@@ -1,6 +1,6 @@
 # Plan · Registro de datos y consentimiento informado por QR
 
-> **Estado: Fases 0 y 1 hechas el 1-oct-2026 (migraciones `20261001120000`–`135000`, ficha unificada en producción). Siguiente: Fase 2.**
+> **Estado: Fases 0, 1 y 2 hechas el 1-oct-2026. La página pública está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 3.**
 > Escrito el 30-sep-2026 a partir del video de Laura (30-sep-2026, 5:44 min), el
 > texto del consentimiento y la ficha personal que aparecen en él, y una lectura
 > completa de `handoff.md`, `MEMORIA.md` y el código del módulo de clientes.
@@ -650,7 +650,7 @@ Verificación por API (no confiar en el "ok" de `db:apply`):
 verificación por API cuadra, y `npm run build` sigue en verde.
 **Estimación:** 18–24 h (incluye la ficha unificada).
 
-### Fase 2 · Consentimiento público (camino R10 completo)
+### Fase 2 · Consentimiento público (camino R10 completo) — ✅ HECHA el 1-oct-2026 (detalle en MEMORIA.md)
 
 **Objetivo:** un papá escanea, elige *Consentimiento informado*, se identifica,
 firma, y el PDF aparece en la ficha del niño. Es la parte de más valor y la de

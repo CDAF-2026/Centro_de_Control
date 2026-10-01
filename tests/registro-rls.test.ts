@@ -143,17 +143,22 @@ describe("registro · quién ve qué", () => {
 });
 
 describe("registro · reglas de la base", () => {
-  it("la versión 2026-10 existe, tiene huella y está CERRADA (la página pública diría 'En preparación')", async () => {
-    const r = await client.query(
-      "select length(texto_sha256) as n, vigente_desde, (public.consentimiento_version_vigente()).id as vigente from public.consentimiento_version where codigo = '2026-10'",
-    );
-    expect(r.rows[0].n).toBe(64);
-    expect(r.rows[0].vigente_desde).toBeNull();
-    expect(r.rows[0].vigente).toBeNull();
+  // ⚠️ Si la versión está abierta o cerrada lo decide Laura (Fase 4), no la prueba:
+  // cada caso fuerza su precondición DENTRO de la transacción que se revierte (handoff §8.H).
+  it("la versión 2026-10 existe con huella; cerrada, `consentimiento_version_vigente()` no la devuelve", async () => {
+    await tx(async () => {
+      await client.query("update public.consentimiento_version set vigente_desde = null, vigente_hasta = null where codigo = '2026-10'");
+      const r = await client.query(
+        "select length(texto_sha256) as n, (public.consentimiento_version_vigente()).id as vigente from public.consentimiento_version where codigo = '2026-10'",
+      );
+      expect(r.rows[0].n).toBe(64);
+      expect(r.rows[0].vigente).toBeNull();
+    });
   });
 
   it("sin versión vigente, firmar se rechaza con un mensaje que lo dice", async () => {
     await tx(async () => {
+      await client.query("update public.consentimiento_version set vigente_desde = null, vigente_hasta = null");
       const m = await client.query("select id, cliente_id from public.cliente_miembros order by id limit 1");
       const msg = await rechazo("select public.consentimiento_firmar($1::jsonb)", [
         JSON.stringify({

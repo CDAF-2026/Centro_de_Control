@@ -16,6 +16,7 @@ import { NotaCard } from "@/app/(app)/notas/nota-card";
 import { listarNotas } from "@/lib/notas";
 import { staffDirectorio, mapaNombresStaff } from "@/lib/staff";
 import { documentoLegible } from "../documento";
+import { fechaHoraCorta } from "@/lib/fecha";
 
 const ROL_ACUDIENTE_LABEL = { padre: "Padre", madre: "Madre", otro: "Otro acudiente" } as const;
 
@@ -60,22 +61,44 @@ export default async function ClienteDetallePage({
     .order("created_at");
   const miembros: Miembro[] = miembrosRaw ?? [];
 
+  const miembroNombre = new Map(miembros.map((m) => [m.id, m.nombres]));
+  const conMiembro = (mid: number | null) => (mid != null && miembros.length > 1 ? miembroNombre.get(mid) ?? null : null);
+
+  // Cada documento sabe en qué bucket vive (los PDF de firma están en `consentimientos`,
+  // de solo escritura) y de qué niño es. El enlace se firma contra SU bucket.
   const { data: docsRaw } = await supabase
     .from("cliente_documentos")
-    .select("id, tipo, nombre_archivo, storage_path")
+    .select("id, tipo, nombre_archivo, storage_path, bucket, origen, miembro_id")
     .eq("cliente_id", Number(id))
     .order("created_at", { ascending: false });
   const docs: DocItem[] = await Promise.all(
     (docsRaw ?? []).map(async (d) => {
-      const { data: signed } = await supabase.storage
-        .from("cliente-docs")
-        .createSignedUrl(d.storage_path, 3600);
-      return { ...d, url: signed?.signedUrl ?? null };
+      const { data: signed } = await supabase.storage.from(d.bucket).createSignedUrl(d.storage_path, 3600);
+      return { ...d, url: signed?.signedUrl ?? null, miembro: conMiembro(d.miembro_id) };
     }),
   );
 
-  const miembroNombre = new Map(miembros.map((m) => [m.id, m.nombres]));
-  const conMiembro = (mid: number | null) => (mid != null && miembros.length > 1 ? miembroNombre.get(mid) ?? null : null);
+  // Consentimientos firmados por la página pública: el estado por miembro sale de la
+  // tabla de FIRMAS (la evidencia), no de los documentos — un archivo puede faltar,
+  // la firma no. Para cada miembro activo, la más reciente asignada.
+  const { data: firmasRaw } = await supabase
+    .from("consentimiento_firma")
+    .select("id, miembro_id, firmante_nombre, firmante_parentesco, firmado_el, pdf_path, pdf_sha256, metodo")
+    .eq("cliente_id", Number(id))
+    .eq("estado", "asignada")
+    .order("firmado_el", { ascending: false });
+  const firmaPorMiembro = new Map<number, NonNullable<typeof firmasRaw>[number]>();
+  for (const f of firmasRaw ?? []) if (f.miembro_id != null && !firmaPorMiembro.has(f.miembro_id)) firmaPorMiembro.set(f.miembro_id, f);
+  const consentimientos = await Promise.all(
+    miembros.map(async (m) => {
+      const f = firmaPorMiembro.get(m.id);
+      if (!f) return { miembro: m, firma: null, url: null };
+      const { data: signed } = f.pdf_path
+        ? await supabase.storage.from("consentimientos").createSignedUrl(f.pdf_path, 3600)
+        : { data: null };
+      return { miembro: m, firma: f, url: signed?.signedUrl ?? null };
+    }),
+  );
 
   const { data: inscripciones } = await supabase
     .from("inscripciones")
@@ -402,6 +425,44 @@ export default async function ClienteDetallePage({
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Consentimientos informados</CardTitle>
+          <CardDescription>Firmados por la familia desde el registro por QR. Uno por deportista.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="divide-y text-sm">
+            {consentimientos.map(({ miembro, firma, url }) => (
+              <li key={miembro.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-medium">{miembro.nombres} {miembro.apellidos}</p>
+                  {firma ? (
+                    <p className="text-muted-foreground text-xs">
+                      Firmado el {fechaHoraCorta(firma.firmado_el)} por {firma.firmante_nombre}
+                      {firma.firmante_parentesco ? ` (${firma.firmante_parentesco.toLowerCase()})` : ""} · firma {firma.metodo}
+                      {firma.pdf_sha256 ? ` · huella ${firma.pdf_sha256.slice(0, 10)}…` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground text-xs">Nadie ha firmado por este deportista todavía.</p>
+                  )}
+                </div>
+                {firma ? (
+                  url ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      Ver PDF
+                    </a>
+                  ) : (
+                    <Badge variant="warning">PDF pendiente</Badge>
+                  )
+                ) : (
+                  <Badge variant="warning">Sin consentimiento</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
 

@@ -1910,7 +1910,7 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
-## 📝 Registro por QR y consentimiento digital (en construcción · Fase 1 hecha el 1-oct-2026)
+## 📝 Registro por QR y consentimiento digital (en construcción · Fases 1 y 2 hechas el 1-oct-2026)
 Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-digital.md`** (§2 = las
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
@@ -1938,7 +1938,7 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
 - 📄 **`consentimiento_version`** con el texto del Word (marcador `{{EPS}}`), huella SHA-256 por trigger
   y **`vigente_desde = null` = página pública "En preparación"**: es la puerta del despliegue; se abre en
   la Fase 4. `consentimiento_version_vigente()` la devuelve (o null). Un solo texto vigente a la vez
-  (índice único parcial). Ojo: el título trae "AALEJANDRO" tal cual viene en el Word del club.
+  (índice único parcial). Ojo: el título venía con "AALEJANDRO" del Word y se corrigió a ALEJANDRO en 20261001140000.
 - 🗂️ Tablas `registro_sesion` (la cookie del recorrido) · `registro_solicitud` (cada envío tal cual, su
   `payload` se purga a los 90 días) · `registro_cambio` (solo campos de facturación) · `registro_intento`
   (rate limit) · **`consentimiento_firma`** (la evidencia: quién, cuándo = `now()` del servidor, IP,
@@ -1967,6 +1967,57 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
   (+3: ficha unificada, incluida una que crea un menor con padre y madre y lo borra).
   💡 Al escribir pruebas de RLS: una lectura rechazada **devuelve 0 filas, no error** — se mide contra
   una fila que se sabe que existe, no esperando "permission denied".
+
+**Fase 2 (consentimiento público, R5–R10) — `src/app/registro/` + `src/lib/registro/` + `src/lib/pdf/`:**
+- 🚪 **Dos llaves para abrir la página** (`registroAbierto()` en `src/lib/registro/version.ts`): la
+  versión vigente en la base (`vigente_desde`, lo que exige el RPC de firmar) **y** la variable
+  `REGISTRO_PUBLICO=1` en el entorno. Está en el `.env` local para probar; **en Vercel se pone en la
+  Fase 4** (DESPLIEGUE.md). Sin ella, `/registro` dice "En preparación" aunque el texto esté vigente.
+  ⚠️ La versión `2026-10` quedó **ABIERTA** (`vigente_desde = 2026-10-01`) el 1-oct para poder probar
+  el flujo real en local; producción sigue cerrada porque Vercel no tiene `REGISTRO_PUBLICO`.
+- Rutas (fuera de `(app)`, `PUBLIC_PATHS` del middleware): `/registro` (landing, R1) ·
+  `/registro/consentimiento` (identificación del menor + firmante, texto completo con la EPS puesta
+  en vivo, casilla "Apruebo", `FirmaPad`) · `/registro/listo` ("¿firmar por otro hijo?", R9) ·
+  `/registro/datos` ("Muy pronto" hasta la Fase 3). **D11**: si la fecha de nacimiento da ≥ 18, el
+  formulario esconde "quién firma" y la persona firma por sí misma con el mismo texto.
+- ✍️ **`FirmaPad`** (`signature_pad`): un lienzo para dedo/lápiz/ratón + "Escribir mi nombre" (fuente
+  manuscrita a un canvas). Arranca en *dibujar* en pantallas táctiles y en *escribir* en computador.
+  **Un punto no es firma**: se exige ≥ 40 px de recorrido (medido por LONGITUD, no por nº de puntos —
+  un trazo rápido trae pocos puntos). `touch-action: none` y escala al `devicePixelRatio`. El nombre
+  sugerido sigue en vivo al del firmante mientras no se edite en el pad.
+- 🔎 **Búsqueda del niño** (`src/lib/registro/match.ts`, una sola copia para Fase 2 y 3): documento →
+  desempate por nombre normalizado (la ñ cae a n en los dos lados) → nombre + fecha de nacimiento →
+  *ninguno* (la página lo manda a `/registro/datos`, nunca dice si existe) · *ambiguo* solo si dos
+  fichas tienen el mismo documento Y el mismo nombre → firma `pendiente_asignar` + nota automática
+  a SA/CA (escrita directo: `private.nota_sistema_roles` no se alcanza por PostgREST).
+- 🧾 `firmarConsentimiento()` (`consentimiento/actions.ts`): honeypot → zod → `registro_permitido`
+  → versión → búsqueda → sesión (cookie `cdaf_registro`, httpOnly, 2 h, path `/registro`) →
+  `registro_solicitud` → RPC `consentimiento_firmar` (hora del servidor) → PNG al bucket → PDF →
+  `consentimiento_adjuntar`. **Cada paso mira su error**; si el PDF falla, la firma ya existe.
+- 📄 **PDF** (`src/lib/pdf/consentimiento-pdf.tsx`, `@react-pdf/renderer`, Helvetica): página 1 texto +
+  datos + firma + fecha Bogotá; página 2 "Registro de firma electrónica" (id, firmante, método, hora
+  UTC y Bogotá, IP, navegador, versión y huella del texto). **La huella del archivo va en la base**
+  (`pdf_sha256`), no dentro del PDF. ⚠️ El logo es `src/lib/pdf/logo-cdaf-240.png` (73 KB): con
+  `public/logo-cdaf.png` (756 KB) el primer PDF salió de **700 KB**; ahora ~58 KB. Con el texto real
+  cabe en 2 páginas (letra 8 pt); el pie dice "última página", no "página 2", por si crece.
+  react-pdf no necesitó `serverExternalPackages` en Next 16 (build y runtime verificados).
+- 🪪 Ficha del cliente: tarjeta **"Consentimientos informados"** por miembro (estado desde
+  `consentimiento_firma`, no desde los documentos; enlace firmado al bucket `consentimientos`; huella
+  corta) y "Documentos" firma la URL contra la columna `bucket` y **no ofrece Eliminar** en los de
+  origen `firma_digital` (la base lo rechaza igual).
+- ✅ **Verificado de punta a punta en local el 1-oct-2026** con la ficha desechable **598 "Niña Prueba
+  QR"** (miembro 615, acudiente 177): firma dibujada → `asignada`, PDF en el bucket, huella coincide,
+  documento 5 en la ficha con `miembro_id`, solicitud `aplicada`, `audit_log` `consentimiento.firmar`.
+  **Esa ficha y su firma son de PRUEBA: borrarlas cuando Laura termine de revisar** (la firma y el
+  documento no se dejan borrar por trigger: hay que pasar `origen` a `subido` o hacerlo como postgres
+  con `alter table … disable trigger`, y borrar los objetos del bucket).
+- Pruebas: `registro-match.test.ts` (7, lógica pura con los hermanos Restrepo), `registro-pdf.test.ts`
+  (4, genera el PDF de verdad: 2 páginas, < 250 KB), `registro-render.test.tsx` (6: puerta cerrada y
+  abierta, landing, consentimiento, layout sin menú, listo, `FirmaPad` suelto).
+  ⚠️ Las pruebas de RLS que dependen de si la versión está abierta **fuerzan su estado dentro de la
+  transacción**: abrir o cerrar la versión es decisión de Laura, no de la prueba (handoff §8.H).
+- Queda un aviso de Base UI en consola de desarrollo ("changing the default value state of an
+  uncontrolled FieldControl") al abrir `/registro/consentimiento`; no afecta, pendiente de ubicar.
 
 ## Pendientes conocidos
 
@@ -2004,9 +2055,10 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
 11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
     Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
     cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
-12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fase 0 (decisiones) y Fase 1 (base +
-    ficha unificada) hechas el 1-oct-2026; siguen la Fase 2 (consentimiento público) y la 3 (formulario de
-    datos + bandeja). Plan y decisiones en `docs/plan-registro-y-consentimiento-digital.md`.
+12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0, 1 y 2 hechas el 1-oct-2026
+    (la página pública existe pero está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel). Sigue
+    la Fase 3 (formulario de datos + bandeja) y luego la 4 (QR y apertura). Plan y decisiones en
+    `docs/plan-registro-y-consentimiento-digital.md`. ⚠️ Borrar la ficha de prueba 598 al terminar.
 
 **Construir / revisar (agente), sin prisa**
 13. **"Olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend (depende del punto 11). Hoy la clave la

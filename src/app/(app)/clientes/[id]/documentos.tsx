@@ -17,6 +17,10 @@ export type DocItem = {
   nombre_archivo: string;
   storage_path: string;
   url: string | null;
+  /** `firma_digital` = lo generó una firma del registro por QR: no se borra (lo impide la base). */
+  origen?: "subido" | "firma_digital";
+  /** Nombre del miembro al que pertenece (solo cuando la ficha tiene varios). */
+  miembro?: string | null;
 };
 
 const TIPO_LABEL: Record<string, string> = {
@@ -63,8 +67,12 @@ export function Documentos({
                 <Badge variant="outline" className="ml-2">
                   {TIPO_LABEL[d.tipo] ?? d.tipo}
                 </Badge>
+                {d.miembro && <span className="text-muted-foreground ml-2 text-xs">· {d.miembro}</span>}
+                {d.origen === "firma_digital" && (
+                  <Badge variant="success" className="ml-2">Firma digital</Badge>
+                )}
               </div>
-              {puedeEditar && (
+              {puedeEditar && d.origen !== "firma_digital" && (
                 <form action={deleteDocumento}>
                   <input type="hidden" name="id" value={d.id} />
                   <input type="hidden" name="clienteId" value={clienteId} />

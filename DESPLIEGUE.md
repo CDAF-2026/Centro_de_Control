@@ -19,6 +19,7 @@ y **Preview**.
 | `OPENAI_API_KEY` | Solo la usa `/agente` |
 | `RESEND_API_KEY` | Correos con marca |
 | `RESEND_FROM` | Remitente de esos correos |
+| `REGISTRO_PUBLICO` | **Todavía NO.** Abre la página pública `/registro` (registro por QR y consentimiento). Se pone en `1` en la Fase 4 del plan, el día que el club imprime el QR. Sin ella, `/registro` dice "En preparación" aunque el texto esté vigente |
 
 ### ⚠️ Lo que NO hay que subir a Vercel
 
