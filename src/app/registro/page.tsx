@@ -29,7 +29,7 @@ export default async function RegistroPage() {
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-stadium/10 via-stadium/35 to-stadium" />
         <div aria-hidden className="absolute inset-0 hidden bg-gradient-to-r from-stadium/60 via-transparent to-stadium/60 md:block" />
-        <div className="absolute inset-x-0 -bottom-9 mx-auto w-full max-w-md px-6 md:max-w-lg">
+        <div className="absolute inset-x-0 -bottom-9 mx-auto w-full max-w-md px-6 md:max-w-3xl">
           <div className="size-[88px] overflow-hidden rounded-[20px] bg-primary shadow-2xl shadow-black/50">
             <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={88} height={88} className="size-full object-cover" priority />
           </div>
@@ -44,7 +44,8 @@ export default async function RegistroPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3.5 px-6 pt-7">
+      {/* Celular: una opción debajo de la otra. Computador: las dos en paralelo (pedido de Laura). */}
+      <div className="flex flex-col gap-3.5 px-6 pt-7 md:grid md:grid-cols-2 md:gap-4">
         <Opcion
           href="/registro/datos"
           titulo="Actualizar o ingresar datos"
@@ -70,14 +71,17 @@ function Opcion({ href, titulo, detalle, icono }: { href: string; titulo: string
   return (
     <Link
       href={href}
-      className="group flex min-h-[92px] items-center gap-4 rounded-[18px] bg-card p-4 shadow-xl shadow-black/35 transition-transform active:scale-[0.99]"
+      className="group flex min-h-[92px] items-center gap-4 rounded-[18px] bg-card p-4 shadow-xl shadow-black/35 transition-transform active:scale-[0.99] md:flex-col md:items-start md:gap-4 md:p-5 hover:md:-translate-y-0.5"
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-primary text-stadium">{icono}</span>
-      <span className="flex flex-col gap-0.5">
-        <span className="font-heading text-[17px] font-extrabold leading-tight text-stadium">{titulo}</span>
-        <span className="text-[13px] leading-snug text-[#5c6b73]">{detalle}</span>
+      <span className="flex flex-col gap-0.5 md:gap-1.5">
+        <span className="font-heading text-[17px] font-extrabold leading-tight text-stadium md:text-lg">{titulo}</span>
+        <span className="text-[13px] leading-snug text-[#5c6b73] md:text-sm">{detalle}</span>
       </span>
-      <ChevronRight className="ml-auto size-5 shrink-0 text-stadium transition-transform group-hover:translate-x-0.5" />
+      <span className="ml-auto flex items-center gap-1 md:mt-auto md:ml-0 md:pt-1 md:text-sm md:font-semibold md:text-stadium">
+        <span className="hidden md:inline">Empezar</span>
+        <ChevronRight className="size-5 shrink-0 text-stadium transition-transform group-hover:translate-x-0.5" />
+      </span>
     </Link>
   );
 }

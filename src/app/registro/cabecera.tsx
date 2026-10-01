@@ -8,7 +8,7 @@ import Link from "next/link";
  */
 export function Cabecera({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-1 flex-col px-4 pt-6 md:px-6">
+    <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-6 md:max-w-lg md:px-6">
       <Link href="/registro" className="mb-5 flex items-center gap-3">
         <span className="size-12 shrink-0 overflow-hidden rounded-xl bg-primary shadow-lg shadow-black/40">
           <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={48} height={48} className="size-full object-cover" priority />
