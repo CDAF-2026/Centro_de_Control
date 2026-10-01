@@ -17,6 +17,8 @@ import { listarNotas } from "@/lib/notas";
 import { staffDirectorio, mapaNombresStaff } from "@/lib/staff";
 import { documentoLegible } from "../documento";
 
+const ROL_ACUDIENTE_LABEL = { padre: "Padre", madre: "Madre", otro: "Otro acudiente" } as const;
+
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const FECHA_CORTA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
 const fechaCorta = (iso: string) => FECHA_CORTA.format(new Date(`${iso}T00:00:00`));
@@ -33,25 +35,25 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, tipo_documento, eps, rh, fecha_nacimiento, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, factura_tipo, factura_email, deportes, estado, acudiente_id",
+      "id, nombres, apellidos, documento, tipo_documento, eps, rh, fecha_nacimiento, lugar_nacimiento, direccion, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, factura_tipo, factura_email, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
   if (!cliente) notFound();
 
-  let acudiente: { nombre: string; documento: string | null; telefono: string | null; parentesco: string | null } | null = null;
-  if (cliente.acudiente_id) {
-    const { data } = await supabase
-      .from("acudientes")
-      .select("nombre, documento, telefono, parentesco")
-      .eq("id", cliente.acudiente_id)
-      .single();
-    acudiente = data ?? null;
-  }
+  // Padre y madre por separado (ficha unificada, 1-oct-2026). El principal va primero.
+  const { data: acudientesRaw } = await supabase
+    .from("acudientes")
+    .select("id, nombre, documento, telefono, email, parentesco, rol")
+    .eq("cliente_id", cliente.id)
+    .order("id");
+  const acudientes = (acudientesRaw ?? []).sort((a, b) =>
+    a.id === cliente.acudiente_id ? -1 : b.id === cliente.acudiente_id ? 1 : a.id - b.id,
+  );
 
   const { data: miembrosRaw } = await supabase
     .from("cliente_miembros")
-    .select("id, nombres, apellidos, fecha_nacimiento, documento, tipo_documento, eps, rh, deportes, es_titular")
+    .select("id, nombres, apellidos, fecha_nacimiento, lugar_nacimiento, documento, tipo_documento, eps, rh, deportes, es_titular")
     .eq("cliente_id", Number(id))
     .eq("activo", true)
     .order("es_titular", { ascending: false })
@@ -283,6 +285,8 @@ export default async function ClienteDetallePage({
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           <Dato label="Documento" valor={documentoLegible(cliente.tipo_documento, cliente.documento)} />
           <Dato label="Fecha de nacimiento" valor={cliente.fecha_nacimiento} />
+          <Dato label="Lugar de nacimiento" valor={cliente.lugar_nacimiento} />
+          <Dato label="Dirección" valor={cliente.direccion} />
           <Dato label="Celular" valor={cliente.celular} />
           <Dato label="Correo" valor={cliente.email} />
           <Dato label="EPS" valor={cliente.eps} />
@@ -317,16 +321,28 @@ export default async function ClienteDetallePage({
         </CardContent>
       </Card>
 
-      {acudiente && (
+      {acudientes.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Acudiente</CardTitle>
+            <CardTitle>{acudientes.length > 1 ? "Acudientes" : "Acudiente"}</CardTitle>
+            <CardDescription>El principal firma los consentimientos y recibe los correos de la familia.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4 text-sm">
-            <Dato label="Nombre" valor={acudiente.nombre} />
-            <Dato label="Parentesco" valor={acudiente.parentesco} />
-            <Dato label="Documento" valor={acudiente.documento} />
-            <Dato label="Teléfono" valor={acudiente.telefono} />
+          <CardContent className="space-y-4">
+            {acudientes.map((a) => (
+              <div key={a.id} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{a.nombre}</span>
+                  <Badge variant="outline">{ROL_ACUDIENTE_LABEL[a.rol]}</Badge>
+                  {a.id === cliente.acudiente_id && <Badge variant="success">Principal</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                  <Dato label="Documento" valor={a.documento} />
+                  <Dato label="Teléfono" valor={a.telefono} />
+                  <Dato label="Correo" valor={a.email} />
+                  <Dato label="Parentesco" valor={a.parentesco} />
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

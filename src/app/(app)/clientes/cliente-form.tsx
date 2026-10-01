@@ -5,6 +5,7 @@ import { createCliente, updateCliente, type ClienteFormState } from "./actions";
 import { DocumentoField } from "./documento-field";
 import { RH_VALORES } from "./documento";
 import { edadDesde } from "@/lib/validations/cliente";
+import type { AcudienteRol } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +20,8 @@ export type ClienteEditable = {
   documento: string | null;
   tipo_documento: string | null;
   fecha_nacimiento: string | null;
+  lugar_nacimiento?: string | null;
+  direccion?: string | null;
   celular: string | null;
   email: string | null;
   eps: string | null;
@@ -40,8 +43,36 @@ export type AcudienteEditable = {
   nombre: string | null;
   documento: string | null;
   telefono: string | null;
+  email?: string | null;
   parentesco: string | null;
+  rol?: AcudienteRol | null;
 } | null;
+
+/** Etiquetas del rol del acudiente (ficha unificada, 1-oct-2026). */
+export const ROL_ACUDIENTE: { valor: AcudienteRol; etiqueta: string }[] = [
+  { valor: "padre", etiqueta: "Padre" },
+  { valor: "madre", etiqueta: "Madre" },
+  { valor: "otro", etiqueta: "Otro acudiente" },
+];
+
+function RolSelect({ name, value, onChange }: { name: string; value: AcudienteRol; onChange: (v: AcudienteRol) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={name}>Rol</Label>
+      <select
+        id={name}
+        name={name}
+        value={value}
+        onChange={(e) => onChange(e.target.value as AcudienteRol)}
+        className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+      >
+        {ROL_ACUDIENTE.map((r) => (
+          <option key={r.valor} value={r.valor}>{r.etiqueta}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function Field({
   label, name, type = "text", error, required, defaultValue, value, readOnly, onChange, list,
@@ -77,10 +108,14 @@ function Field({
 export function ClienteForm({
   cliente,
   acudiente = null,
+  acudiente2 = null,
   identidadesSiigo = [],
 }: {
   cliente?: ClienteEditable;
+  /** Acudiente principal (`clientes.acudiente_id`): quien firma y recibe los correos. */
   acudiente?: AcudienteEditable;
+  /** Segundo acudiente (el otro padre o madre), opcional. */
+  acudiente2?: AcudienteEditable;
   identidadesSiigo?: IdentidadSiigo[];
 }) {
   const [state, action, pending] = useActionState(cliente ? updateCliente : createCliente, initial);
@@ -99,7 +134,18 @@ export function ClienteForm({
     nombre: acudiente?.nombre ?? "",
     documento: acudiente?.documento ?? "",
     telefono: acudiente?.telefono ?? "",
+    email: acudiente?.email ?? "",
     parentesco: acudiente?.parentesco ?? "",
+    rol: (acudiente?.rol ?? "otro") as AcudienteRol,
+  });
+  // El segundo acudiente arranca con el rol contrario al principal, que es el caso normal.
+  const [acu2, setAcu2] = useState({
+    nombre: acudiente2?.nombre ?? "",
+    documento: acudiente2?.documento ?? "",
+    telefono: acudiente2?.telefono ?? "",
+    email: acudiente2?.email ?? "",
+    parentesco: acudiente2?.parentesco ?? "",
+    rol: (acudiente2?.rol ?? (acudiente?.rol === "madre" ? "padre" : acudiente?.rol === "padre" ? "madre" : "otro")) as AcudienteRol,
   });
   // Arranca marcada si el acudiente guardado ya coincide con la emergencia.
   const yaCoinciden =
@@ -143,6 +189,10 @@ export function ClienteForm({
         <Field label="Fecha de nacimiento" name="fechaNacimiento" type="date" error={fe.fechaNacimiento} defaultValue={cliente?.fecha_nacimiento ?? ""} onChange={setFecha} />
       </div>
       <div className="grid grid-cols-2 gap-4">
+        <Field label="Lugar de nacimiento" name="lugarNacimiento" error={fe.lugarNacimiento} defaultValue={cliente?.lugar_nacimiento ?? ""} />
+        <Field label="Dirección de residencia" name="direccion" error={fe.direccion} defaultValue={cliente?.direccion ?? ""} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
         <Field label="Celular" name="celular" error={fe.celular} defaultValue={cliente?.celular ?? ""} />
         <Field label="Correo" name="email" type="email" error={fe.email} defaultValue={cliente?.email ?? ""} />
       </div>
@@ -178,27 +228,61 @@ export function ClienteForm({
 
       {menor && (
         <fieldset className="border-lime space-y-4 rounded-lg border-l-4 bg-muted/30 p-4">
-          <legend className="cdaf-eyebrow px-1">Acudiente (obligatorio · {edad} años)</legend>
-          <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors">
-            <input type="checkbox" checked={mismos} onChange={(e) => setMismos(e.target.checked)} className="accent-lime size-4" />
-            Usar los mismos datos del contacto de emergencia
-          </label>
-          <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required
-            value={acuNombre} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, nombre: v }))} />
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Documento" name="acudienteDocumento"
-              value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
-            <Field label="Teléfono" name="acudienteTelefono"
-              value={acuTelefono} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
+          <legend className="cdaf-eyebrow px-1">Acudientes (obligatorio · {edad} años)</legend>
+          {/* Le dice al servidor que los dos bloques se pintaron: un segundo acudiente vacío = quitarlo. */}
+          <input type="hidden" name="acudientesVisibles" value="1" />
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Acudiente principal <span className="text-muted-foreground font-normal">· firma y recibe los correos</span></p>
+            <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors">
+              <input type="checkbox" checked={mismos} onChange={(e) => setMismos(e.target.checked)} className="accent-lime size-4" />
+              Usar los mismos datos del contacto de emergencia
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <RolSelect name="acudienteRol" value={acu.rol} onChange={(v) => setAcu((s) => ({ ...s, rol: v }))} />
+              <Field label="Nombre del acudiente" name="acudienteNombre" error={fe.acudienteNombre} required
+                value={acuNombre} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, nombre: v }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Documento" name="acudienteDocumento"
+                value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
+              <Field label="Teléfono" name="acudienteTelefono"
+                value={acuTelefono} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Correo" name="acudienteEmail" type="email" error={fe.acudienteEmail}
+                value={acu.email} onChange={(v) => setAcu((s) => ({ ...s, email: v }))} />
+              <Field label="Parentesco" name="acudienteParentesco"
+                value={acuParentesco} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
+            </div>
+            {espejo && (
+              <p className="text-muted-foreground text-xs">
+                Se guardarán el nombre, el teléfono y el parentesco del contacto de emergencia. El documento y el
+                correo del acudiente se escriben aparte. Desmarca la casilla para editarlos por separado.
+              </p>
+            )}
           </div>
-          <Field label="Parentesco" name="acudienteParentesco"
-            value={acuParentesco} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
-          {espejo && (
-            <p className="text-muted-foreground text-xs">
-              Se guardarán el nombre, el teléfono y el parentesco del contacto de emergencia. El documento del
-              acudiente se escribe aparte. Desmarca la casilla para editarlos por separado.
-            </p>
-          )}
+
+          <div className="space-y-3 border-t pt-4">
+            <p className="text-sm font-medium">Segundo acudiente <span className="text-muted-foreground font-normal">· opcional (el otro padre o madre)</span></p>
+            <div className="grid grid-cols-2 gap-4">
+              <RolSelect name="acudiente2Rol" value={acu2.rol} onChange={(v) => setAcu2((s) => ({ ...s, rol: v }))} />
+              <Field label="Nombre" name="acudiente2Nombre" error={fe.acudiente2Nombre}
+                value={acu2.nombre} onChange={(v) => setAcu2((s) => ({ ...s, nombre: v }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Documento" name="acudiente2Documento"
+                value={acu2.documento} onChange={(v) => setAcu2((s) => ({ ...s, documento: v }))} />
+              <Field label="Teléfono" name="acudiente2Telefono"
+                value={acu2.telefono} onChange={(v) => setAcu2((s) => ({ ...s, telefono: v }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Correo" name="acudiente2Email" type="email" error={fe.acudiente2Email}
+                value={acu2.email} onChange={(v) => setAcu2((s) => ({ ...s, email: v }))} />
+              <Field label="Parentesco" name="acudiente2Parentesco"
+                value={acu2.parentesco} onChange={(v) => setAcu2((s) => ({ ...s, parentesco: v }))} />
+            </div>
+          </div>
         </fieldset>
       )}
 

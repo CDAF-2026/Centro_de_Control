@@ -40,6 +40,8 @@ export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "ot
 export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 
 export type Deporte = "tenis" | "padel";
+/** Papel del acudiente en la familia (ficha unificada, 1-oct-2026). */
+export type AcudienteRol = "padre" | "madre" | "otro";
 /** Las academias son 4 fijas: categoría × deporte. No es un enum de Postgres, es un CHECK. */
 export type AcademiaCategoria = "recreativa" | "competencia";
 /** Niveles nuevos de academia (ago-2026). Reemplazan a los de bola y a principiantes/iniciados. */
@@ -286,6 +288,9 @@ export type Database = {
           telefono: string | null;
           email: string | null;
           parentesco: string | null;
+          /** Ficha a la que pertenece. El principal es además `clientes.acudiente_id`. */
+          cliente_id: number | null;
+          rol: AcudienteRol;
           created_at: string;
         };
         Insert: {
@@ -295,6 +300,8 @@ export type Database = {
           telefono?: string | null;
           email?: string | null;
           parentesco?: string | null;
+          cliente_id?: number | null;
+          rol?: AcudienteRol;
           created_at?: string;
         };
         Update: {
@@ -304,9 +311,19 @@ export type Database = {
           telefono?: string | null;
           email?: string | null;
           parentesco?: string | null;
+          cliente_id?: number | null;
+          rol?: AcudienteRol;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "acudientes_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clientes";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       cliente_miembros: {
         Row: {
@@ -315,6 +332,7 @@ export type Database = {
           nombres: string;
           apellidos: string;
           fecha_nacimiento: string | null;
+          lugar_nacimiento: string | null;
           documento: string | null;
           tipo_documento: TipoDocumento | null;
           eps: string | null;
@@ -330,6 +348,7 @@ export type Database = {
           nombres: string;
           apellidos: string;
           fecha_nacimiento?: string | null;
+          lugar_nacimiento?: string | null;
           documento?: string | null;
           tipo_documento?: TipoDocumento | null;
           eps?: string | null;
@@ -352,9 +371,11 @@ export type Database = {
           eps: string | null;
           rh: Rh | null;
           fecha_nacimiento: string | null;
+          lugar_nacimiento: string | null;
           es_menor: boolean;
           celular: string | null;
           email: string | null;
+          direccion: string | null;
           emergencia_nombre: string | null;
           emergencia_celular: string | null;
           emergencia_parentesco: string | null;
@@ -377,9 +398,11 @@ export type Database = {
           eps?: string | null;
           rh?: Rh | null;
           fecha_nacimiento?: string | null;
+          lugar_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;
           email?: string | null;
+          direccion?: string | null;
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
@@ -402,9 +425,11 @@ export type Database = {
           eps?: string | null;
           rh?: Rh | null;
           fecha_nacimiento?: string | null;
+          lugar_nacimiento?: string | null;
           es_menor?: boolean;
           celular?: string | null;
           email?: string | null;
+          direccion?: string | null;
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;

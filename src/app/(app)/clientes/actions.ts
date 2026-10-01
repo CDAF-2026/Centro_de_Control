@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
-import { createClienteSchema, esMenorDeEdad } from "@/lib/validations/cliente";
+import { createClienteSchema, esMenorDeEdad, leerAcudientes, type AcudienteDatos } from "@/lib/validations/cliente";
 import { precioAsignacionSchema } from "@/lib/validations/paquete";
 import { getBookings, documentoDeBooking, type EcBooking } from "@/lib/easycancha/client";
 import { sendEmail } from "@/lib/email/resend";
@@ -45,6 +45,7 @@ async function sincronizarTitular(
     nombres: string;
     apellidos: string;
     fecha_nacimiento: string | null;
+    lugar_nacimiento: string | null;
     documento: string | null;
     tipo_documento: TipoDocumento | null;
     eps: string | null;
@@ -137,6 +138,44 @@ async function choqueNitFacturacion(
   };
 }
 
+/**
+ * Guarda el SEGUNDO acudiente de la ficha (padre o madre; el principal vive en
+ * `clientes.acudiente_id`). Con datos → crea o actualiza la fila que no es la
+ * principal; sin datos y con los bloques visibles → la borra. Devuelve el error
+ * de la base si lo hay (p. ej. dos "madre" en la misma ficha).
+ */
+async function guardarSegundoAcudiente(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clienteId: number,
+  principalId: number | null,
+  segundo: AcudienteDatos | null,
+  bloquesVisibles: boolean,
+): Promise<string | null> {
+  let q = supabase.from("acudientes").select("id").eq("cliente_id", clienteId);
+  if (principalId) q = q.neq("id", principalId);
+  const { data: existente } = await q.order("id").limit(1).maybeSingle();
+
+  if (segundo) {
+    const { error } = existente
+      ? await supabase.from("acudientes").update(segundo).eq("id", existente.id)
+      : await supabase.from("acudientes").insert({ ...segundo, cliente_id: clienteId });
+    return error ? mensajeAcudiente(error.message) : null;
+  }
+  // Sin segundo en un formulario que SÍ mostró los bloques: lo quitaron a propósito.
+  if (existente && bloquesVisibles) {
+    const { error } = await supabase.from("acudientes").delete().eq("id", existente.id);
+    return error ? error.message : null;
+  }
+  return null;
+}
+
+/** El índice único de rol habla en clave; se traduce para quien está guardando. */
+function mensajeAcudiente(msg: string): string {
+  return /acudientes_rol_uidx/.test(msg)
+    ? "La ficha ya tiene un acudiente con ese rol (padre o madre). Cambia el rol de uno de los dos."
+    : msg;
+}
+
 export async function createCliente(
   _prev: ClienteFormState,
   formData: FormData,
@@ -154,9 +193,10 @@ export async function createCliente(
   const tipoDocumento = leerTipoDocumento(formData, d.documento);
   const eps = texto(formData, "eps");
   const rh = leerRh(formData);
+  const { principal, segundo } = leerAcudientes(d);
 
   // Regla dura: un menor exige acudiente.
-  if (menor && !d.acudienteNombre) {
+  if (menor && !principal) {
     return {
       error: "Los menores de edad requieren acudiente.",
       fieldErrors: { acudienteNombre: "Nombre del acudiente obligatorio para menores" },
@@ -170,18 +210,11 @@ export async function createCliente(
   const choque = await choqueNitFacturacion(supabase, facturaANit);
   if (choque) return choque;
 
+  // El principal nace sin ficha (todavía no existe) y el trigger
+  // `clientes_acudiente_principal` lo ata al insertar la ficha.
   let acudienteId: number | null = null;
-  if (menor) {
-    const { data: ac, error: acErr } = await supabase
-      .from("acudientes")
-      .insert({
-        nombre: d.acudienteNombre!,
-        documento: d.acudienteDocumento || null,
-        telefono: d.acudienteTelefono || null,
-        parentesco: d.acudienteParentesco || null,
-      })
-      .select("id")
-      .single();
+  if (menor && principal) {
+    const { data: ac, error: acErr } = await supabase.from("acudientes").insert(principal).select("id").single();
     if (acErr || !ac) return { error: acErr?.message ?? "No se pudo guardar el acudiente." };
     acudienteId = ac.id;
   }
@@ -196,6 +229,8 @@ export async function createCliente(
       eps,
       rh,
       fecha_nacimiento: d.fechaNacimiento || null,
+      lugar_nacimiento: d.lugarNacimiento || null,
+      direccion: d.direccion || null,
       es_menor: menor,
       celular: d.celular || null,
       email: d.email || null,
@@ -212,6 +247,11 @@ export async function createCliente(
     .select("id")
     .single();
   if (error || !cli) return { error: error?.message ?? "No se pudo guardar el cliente." };
+
+  if (menor && segundo) {
+    const err = await guardarSegundoAcudiente(supabase, cli.id, acudienteId, segundo, true);
+    if (err) return { error: err };
+  }
 
   // Igual que al editar: las facturas sin dueño de su cédula o de su NIT de facturación se le atan.
   if (facturaANit) await reatribuirFacturas(supabase, cli.id, d.documento || null, facturaANit);
@@ -306,30 +346,37 @@ export async function updateCliente(
   const { data: actual } = await supabase.from("clientes").select("acudiente_id").eq("id", id).maybeSingle();
   if (!actual) return { error: "Cliente no encontrado." };
   let acudienteId = actual.acudiente_id;
+  const { principal, segundo } = leerAcudientes(d);
+  // El formulario solo pinta los bloques de acudiente para menores; si no vinieron,
+  // no se toca lo que ya hay (un adulto que fue menor conserva su acudiente).
+  const bloquesVisibles = formData.get("acudientesVisibles") === "1";
 
   // Regla dura: un menor exige acudiente (existente o diligenciado ahora).
-  if (menor && !d.acudienteNombre && !acudienteId) {
+  if (menor && !principal && !acudienteId) {
     return {
       error: "Los menores de edad requieren acudiente.",
       fieldErrors: { acudienteNombre: "Nombre del acudiente obligatorio para menores" },
     };
   }
 
-  // Crear o actualizar el acudiente si se diligenció.
-  if (d.acudienteNombre) {
-    const fields = {
-      nombre: d.acudienteNombre,
-      documento: d.acudienteDocumento || null,
-      telefono: d.acudienteTelefono || null,
-      parentesco: d.acudienteParentesco || null,
-    };
+  // Crear o actualizar el principal si se diligenció.
+  if (principal) {
     if (acudienteId) {
-      await supabase.from("acudientes").update(fields).eq("id", acudienteId);
+      const { error: acErr } = await supabase.from("acudientes").update(principal).eq("id", acudienteId);
+      if (acErr) return { error: mensajeAcudiente(acErr.message) };
     } else {
-      const { data: ac, error: acErr } = await supabase.from("acudientes").insert(fields).select("id").single();
-      if (acErr || !ac) return { error: acErr?.message ?? "No se pudo guardar el acudiente." };
+      const { data: ac, error: acErr } = await supabase
+        .from("acudientes")
+        .insert({ ...principal, cliente_id: id })
+        .select("id")
+        .single();
+      if (acErr || !ac) return { error: mensajeAcudiente(acErr?.message ?? "No se pudo guardar el acudiente.") };
       acudienteId = ac.id;
     }
+  }
+  if (bloquesVisibles) {
+    const err = await guardarSegundoAcudiente(supabase, id, acudienteId, segundo, true);
+    if (err) return { error: err };
   }
 
   const { facturaANombre, facturaANit } = leerFacturacion(formData);
@@ -345,6 +392,7 @@ export async function updateCliente(
     eps: texto(formData, "eps"),
     rh: leerRh(formData),
     fecha_nacimiento: d.fechaNacimiento || null,
+    lugar_nacimiento: d.lugarNacimiento || null,
     deportes: leerDeportes(formData),
   };
 
@@ -353,6 +401,7 @@ export async function updateCliente(
     .update({
       ...propios,
       es_menor: menor,
+      direccion: d.direccion || null,
       celular: d.celular || null,
       email: d.email || null,
       emergencia_nombre: d.emergenciaNombre || null,
@@ -403,6 +452,7 @@ export async function agregarHermano(
     nombres,
     apellidos,
     fecha_nacimiento: fechaNacimiento,
+    lugar_nacimiento: texto(formData, "lugarNacimiento"),
     documento,
     tipo_documento: leerTipoDocumento(formData, documento),
     eps: texto(formData, "eps"),
@@ -451,6 +501,7 @@ export async function editarHermano(
       nombres,
       apellidos,
       fecha_nacimiento: fechaNacimiento,
+      lugar_nacimiento: texto(formData, "lugarNacimiento"),
       documento,
       tipo_documento: leerTipoDocumento(formData, documento),
       eps: texto(formData, "eps"),

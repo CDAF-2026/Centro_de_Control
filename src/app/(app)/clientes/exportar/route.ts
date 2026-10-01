@@ -9,8 +9,12 @@ export const dynamic = "force-dynamic";
 const HEADER =
   "nombres,apellidos,documento,fecha_nacimiento,celular,email,emergencia_nombre,emergencia_celular,emergencia_parentesco,acudiente_nombre,acudiente_documento,acudiente_telefono,acudiente_parentesco,deportes,estado";
 
+// ⚠️ El embed lleva el nombre de la FK: desde la ficha unificada (1-oct-2026) hay DOS
+// relaciones entre clientes y acudientes (clientes.acudiente_id → acudientes, y
+// acudientes.cliente_id → clientes), y sin desambiguar PostgREST responde "more than
+// one relationship was found" — medido. Aquí se exporta el PRINCIPAL, como siempre.
 const SELECT =
-  "nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, deportes, estado, acudientes ( nombre, documento, telefono, parentesco )";
+  "nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, deportes, estado, acudientes!clientes_acudiente_id_fkey ( nombre, documento, telefono, parentesco )";
 
 /** Escapa un valor para CSV (comillas, comas y saltos de línea). */
 function esc(v: unknown): string {

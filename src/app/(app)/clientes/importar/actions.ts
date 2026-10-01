@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
-import { esMenorDeEdad } from "@/lib/validations/cliente";
+import { esMenorDeEdad, rolDesdeParentesco } from "@/lib/validations/cliente";
 import type { AppRole } from "@/lib/database.types";
 
 const WRITE_ROLES: AppRole[] = rolesForModule("clientes", "edit");
@@ -137,6 +137,7 @@ export async function importarClientesCsv(
           documento: r.acudiente_documento || null,
           telefono: r.acudiente_telefono || null,
           parentesco: r.acudiente_parentesco || null,
+          rol: rolDesdeParentesco(r.acudiente_parentesco),
         })
         .select("id")
         .single();

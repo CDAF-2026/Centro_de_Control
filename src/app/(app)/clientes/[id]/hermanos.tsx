@@ -17,6 +17,7 @@ export type Miembro = {
   nombres: string;
   apellidos: string;
   fecha_nacimiento: string | null;
+  lugar_nacimiento?: string | null;
   documento: string | null;
   tipo_documento: string | null;
   eps: string | null;
@@ -81,6 +82,10 @@ function FormHermano({
           />
         </div>
         <DocumentoField tipo={miembro?.tipo_documento ?? ""} numero={miembro?.documento ?? ""} error={fe.documento} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${uid}-lugar`}>Lugar de nacimiento</Label>
+        <Input id={`${uid}-lugar`} name="lugarNacimiento" defaultValue={miembro?.lugar_nacimiento ?? ""} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
