@@ -2016,6 +2016,13 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
   abierta, landing, consentimiento, layout sin menú, listo, `FirmaPad` suelto).
   ⚠️ Las pruebas de RLS que dependen de si la versión está abierta **fuerzan su estado dentro de la
   transacción**: abrir o cerrar la versión es decisión de Laura, no de la prueba (handoff §8.H).
+- 🎨 **Diseño "A · Cancha"** (Laura escogió entre 3 propuestas el 1-oct-2026, canvas
+  https://claude.ai/artifact/8p2fmzZkb1DFDMdRoZbKwf): la landing lleva la foto de Alejandro Falla en
+  blanco y negro arriba (`public/registro-hero.jpg`, 1400 px, 146 KB, ya en escala de grises) fundida
+  al fondo stadium, el logo lima montado sobre el borde (`public/registro-logo.jpg`, 512 px) y las dos
+  opciones como tarjetas blancas. Las pantallas interiores usan `Cabecera` (logo + nombre del club +
+  título) sobre la tarjeta blanca. Los originales (8 MB y 3 MB) viven en `Consentimiento
+  informado/insumos/`, fuera del repo; no subirlos a `public/`.
 - Queda un aviso de Base UI en consola de desarrollo ("changing the default value state of an
   uncontrolled FieldControl") al abrir `/registro/consentimiento`; no afecta, pendiente de ubicar.
 

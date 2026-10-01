@@ -59,7 +59,8 @@ describe("registro público · puerta abierta", () => {
     const html = await render(Page);
     expect(html).toContain('href="/registro/datos"');
     expect(html).toContain('href="/registro/consentimiento"');
-    expect(texto(html)).toContain("Firmar el consentimiento informado");
+    expect(html).toContain("registro-hero.jpg"); // la foto de la landing (diseño A)
+    expect(texto(html)).toContain("Firmar el consentimiento");
   });
 
   it("el consentimiento muestra el texto completo, la casilla de aprobación y el campo de la firma", async () => {
@@ -81,7 +82,7 @@ describe("registro público · puerta abierta", () => {
   it("el layout público no trae menú ni encabezado de la app", async () => {
     const { default: Layout } = await import("../src/app/registro/layout");
     const html = renderToStaticMarkup(<Layout><p>contenido</p></Layout>);
-    expect(html).toContain("Registro de deportistas");
+    expect(html).toContain("Centro Deportivo Alejandro Falla");
     expect(html).not.toContain("Dashboard");
     expect(html).not.toContain("Cerrar sesión");
   });

@@ -1,57 +1,77 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ClipboardList, PenLine } from "lucide-react";
+import { ChevronRight, ClipboardList, PenLine } from "lucide-react";
 import { registroAbierto } from "@/lib/registro/version";
 import { EnPreparacion } from "./en-preparacion";
 
-/** La landing del QR: dos caminos (R1). Sin versión vigente del texto, no hay nada que hacer aquí. */
+/**
+ * La landing del QR: dos caminos (R1). Diseño "A · Cancha": la foto de Alejandro
+ * Falla en blanco y negro se funde con el fondo stadium y el logo lima queda
+ * montado sobre su borde. Sin versión vigente del texto no hay nada que hacer aquí.
+ */
 export default async function RegistroPage() {
   const version = await registroAbierto();
   if (!version) return <EnPreparacion />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="font-heading text-xl font-semibold tracking-tight">¿Qué necesitas hacer?</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
+    <div className="flex flex-1 flex-col">
+      <div className="relative h-[300px] md:h-[340px]">
+        <Image
+          src="/registro-hero.jpg"
+          alt="Alejandro Falla jugando pádel"
+          fill
+          priority
+          sizes="(max-width: 448px) 100vw, 448px"
+          className="object-cover object-[60%_20%] grayscale contrast-105"
+        />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-stadium/10 via-stadium/35 to-stadium" />
+        <div className="absolute -bottom-9 left-6 size-[88px] overflow-hidden rounded-[20px] bg-primary shadow-2xl shadow-black/50">
+          <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={88} height={88} className="size-full object-cover" priority />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 px-6 pt-14">
+        <p className="cdaf-eyebrow text-primary">Centro Deportivo Alejandro Falla</p>
+        <h1 className="font-heading text-[34px] font-extrabold uppercase italic leading-[1.05] text-white">Registro de deportistas</h1>
+        <p className="mt-1 text-[15px] leading-relaxed text-[#c5cdc9]">
           Toma menos de cinco minutos. Ten a la mano el documento del deportista y el del padre, madre o acudiente.
         </p>
       </div>
 
-      <div className="grid gap-3">
-        <Link
+      <div className="flex flex-col gap-3.5 px-6 pt-7">
+        <Opcion
           href="/registro/datos"
-          className="group hover:border-primary/60 flex items-start gap-4 rounded-xl border p-4 shadow-sm transition-colors"
-        >
-          <span className="bg-muted group-hover:bg-primary/15 flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors">
-            <ClipboardList className="size-5" />
-          </span>
-          <span>
-            <span className="font-heading block font-semibold">Actualizar o ingresar datos</span>
-            <span className="text-muted-foreground block text-sm">
-              Llena la ficha del deportista (datos personales, acudientes y facturación) y firma el consentimiento al final.
-            </span>
-          </span>
-        </Link>
-
-        <Link
+          titulo="Actualizar o ingresar datos"
+          detalle="Ficha del deportista, acudientes y facturación. Al final firmas el consentimiento."
+          icono={<ClipboardList className="size-6" />}
+        />
+        <Opcion
           href="/registro/consentimiento"
-          className="group hover:border-primary/60 flex items-start gap-4 rounded-xl border p-4 shadow-sm transition-colors"
-        >
-          <span className="bg-muted group-hover:bg-primary/15 flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors">
-            <PenLine className="size-5" />
-          </span>
-          <span>
-            <span className="font-heading block font-semibold">Firmar el consentimiento informado</span>
-            <span className="text-muted-foreground block text-sm">
-              Si los datos del deportista ya están al día, solo lee el consentimiento y fírmalo.
-            </span>
-          </span>
-        </Link>
+          titulo="Firmar el consentimiento"
+          detalle="Si los datos ya están al día, solo lee y firma con el dedo."
+          icono={<PenLine className="size-6" />}
+        />
       </div>
 
-      <p className="text-muted-foreground text-xs">
+      <p className="mt-auto px-6 pt-7 text-xs leading-relaxed text-[#8a9399]">
         Si tienes más de un hijo en el club, el proceso se hace una vez por cada uno.
       </p>
     </div>
+  );
+}
+
+function Opcion({ href, titulo, detalle, icono }: { href: string; titulo: string; detalle: string; icono: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-[92px] items-center gap-4 rounded-[18px] bg-card p-4 shadow-xl shadow-black/35 transition-transform active:scale-[0.99]"
+    >
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-primary text-stadium">{icono}</span>
+      <span className="flex flex-col gap-0.5">
+        <span className="font-heading text-[17px] font-extrabold leading-tight text-stadium">{titulo}</span>
+        <span className="text-[13px] leading-snug text-[#5c6b73]">{detalle}</span>
+      </span>
+      <ChevronRight className="ml-auto size-5 shrink-0 text-stadium transition-transform group-hover:translate-x-0.5" />
+    </Link>
   );
 }

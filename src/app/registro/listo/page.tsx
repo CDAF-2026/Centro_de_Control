@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 import { leerSesion } from "@/lib/registro/sesion";
 import { terminarRecorrido } from "./actions";
 import { Button } from "@/components/ui/button";
+import { Cabecera } from "../cabecera";
 
 /**
  * Confirmación (R9: "¿otro hijo?"). Lo único que se muestra es lo que la propia
@@ -15,6 +16,7 @@ export default async function RegistroListoPage() {
   const firmados = sesion?.miembros.filter((m) => m.firmado).length ?? 0;
 
   return (
+    <Cabecera titulo="Registro de deportistas">
     <div className="space-y-6 text-center">
       <div className="bg-primary/15 ring-primary/25 mx-auto flex size-16 items-center justify-center rounded-full ring-1">
         <CheckCircle2 className="text-[#46530a] size-8" />
@@ -37,5 +39,6 @@ export default async function RegistroListoPage() {
       </div>
       <p className="text-muted-foreground text-xs">Puedes cerrar esta página. Nada más que hacer por hoy.</p>
     </div>
+    </Cabecera>
   );
 }

@@ -1,6 +1,7 @@
 import { registroAbierto } from "@/lib/registro/version";
 import { leerSesion } from "@/lib/registro/sesion";
 import { EnPreparacion } from "../en-preparacion";
+import { Cabecera } from "../cabecera";
 import { ConsentimientoForm, type Precargado } from "./consentimiento-form";
 
 /**
@@ -19,6 +20,7 @@ export default async function ConsentimientoPage() {
     : undefined;
 
   return (
+    <Cabecera titulo="Consentimiento informado">
     <ConsentimientoForm
       texto={{
         codigo: version.codigo,
@@ -27,5 +29,6 @@ export default async function ConsentimientoPage() {
       }}
       precargado={precargado}
     />
+    </Cabecera>
   );
 }

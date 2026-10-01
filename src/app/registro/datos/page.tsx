@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { registroAbierto } from "@/lib/registro/version";
 import { EnPreparacion } from "../en-preparacion";
+import { Cabecera } from "../cabecera";
 
 /**
  * El formulario de datos llega con la Fase 3. Mientras tanto la landing ofrece el
@@ -11,6 +12,7 @@ export default async function RegistroDatosPage() {
   const version = await registroAbierto();
   if (!version) return <EnPreparacion />;
   return (
+    <Cabecera titulo="Actualizar datos">
     <div className="space-y-4 text-center">
       <h2 className="font-heading text-xl font-semibold tracking-tight">Muy pronto</h2>
       <p className="text-muted-foreground text-sm">
@@ -21,5 +23,6 @@ export default async function RegistroDatosPage() {
         Ir a firmar el consentimiento →
       </Link>
     </div>
+    </Cabecera>
   );
 }
