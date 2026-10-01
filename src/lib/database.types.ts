@@ -37,6 +37,14 @@ export type Rh = "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-";
 export type FacturaTipo = "natural" | "juridica";
 
 export type ClienteDocumentoTipo = "consentimiento" | "certificado_medico" | "otro";
+/** Registro público y consentimiento digital (1-oct-2026). */
+export type RegistroTipo = "datos" | "consentimiento";
+export type RegistroEstado = "recibida" | "aplicada" | "en_revision" | "rechazada" | "expirada";
+export type CambioEstado = "pendiente" | "aprobado" | "rechazado";
+export type FirmaEstado = "asignada" | "pendiente_asignar" | "anulada";
+export type FirmaMetodo = "dibujada" | "escrita";
+/** De dónde salió un documento de la ficha: lo subió el personal o lo generó una firma. */
+export type DocumentoOrigen = "subido" | "firma_digital";
 export type EmpleadoDocumentoTipo = "contrato" | "hoja_vida" | "otro";
 
 export type Deporte = "tenis" | "padel";
@@ -486,30 +494,243 @@ export type Database = {
         Row: {
           id: number;
           cliente_id: number;
+          /** De qué persona de la ficha es (null = de la familia). */
+          miembro_id: number | null;
           tipo: ClienteDocumentoTipo;
           nombre_archivo: string;
           storage_path: string;
+          /** Bucket donde vive `storage_path`: cliente-docs (subidos) o consentimientos (firmas). */
+          bucket: string;
+          origen: DocumentoOrigen;
           uploaded_by: string | null;
           created_at: string;
         };
         Insert: {
           id?: number;
           cliente_id: number;
+          miembro_id?: number | null;
           tipo?: ClienteDocumentoTipo;
           nombre_archivo: string;
           storage_path: string;
+          bucket?: string;
+          origen?: DocumentoOrigen;
           uploaded_by?: string | null;
           created_at?: string;
         };
         Update: {
           id?: number;
           cliente_id?: number;
+          miembro_id?: number | null;
           tipo?: ClienteDocumentoTipo;
           nombre_archivo?: string;
           storage_path?: string;
+          bucket?: string;
+          origen?: DocumentoOrigen;
           uploaded_by?: string | null;
           created_at?: string;
         };
+        Relationships: [];
+      };
+      // ─── Registro público y consentimiento digital (1-oct-2026) ───
+      // Ninguna de estas tablas tiene privilegios para anon/authenticated salvo
+      // los SELECT que dan sus políticas: se escriben solo por RPC o service_role.
+      consentimiento_version: {
+        Row: {
+          id: number;
+          codigo: string;
+          titulo: string;
+          texto: string;
+          texto_sha256: string;
+          vigente_desde: string | null;
+          vigente_hasta: string | null;
+          creado_por: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          codigo: string;
+          titulo: string;
+          texto: string;
+          texto_sha256?: string;
+          vigente_desde?: string | null;
+          vigente_hasta?: string | null;
+          creado_por?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          codigo?: string;
+          titulo?: string;
+          texto?: string;
+          texto_sha256?: string;
+          vigente_desde?: string | null;
+          vigente_hasta?: string | null;
+          creado_por?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      registro_sesion: {
+        Row: {
+          id: string;
+          firmante: Json | null;
+          miembros: Json;
+          cerrada: boolean;
+          created_at: string;
+          expira_el: string;
+        };
+        Insert: {
+          id?: string;
+          firmante?: Json | null;
+          miembros?: Json;
+          cerrada?: boolean;
+          created_at?: string;
+          expira_el?: string;
+        };
+        Update: {
+          id?: string;
+          firmante?: Json | null;
+          miembros?: Json;
+          cerrada?: boolean;
+          created_at?: string;
+          expira_el?: string;
+        };
+        Relationships: [];
+      };
+      registro_solicitud: {
+        Row: {
+          id: string;
+          sesion_id: string | null;
+          tipo: RegistroTipo;
+          estado: RegistroEstado;
+          payload: Json | null;
+          resultado: Json | null;
+          cliente_id: number | null;
+          miembro_id: number | null;
+          ip_hash: string | null;
+          user_agent: string | null;
+          revisada_por: string | null;
+          revisada_el: string | null;
+          nota_revision: string | null;
+          created_at: string;
+          expira_el: string;
+        };
+        Insert: {
+          id?: string;
+          sesion_id?: string | null;
+          tipo: RegistroTipo;
+          estado?: RegistroEstado;
+          payload?: Json | null;
+          resultado?: Json | null;
+          cliente_id?: number | null;
+          miembro_id?: number | null;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          revisada_por?: string | null;
+          revisada_el?: string | null;
+          nota_revision?: string | null;
+          created_at?: string;
+          expira_el?: string;
+        };
+        Update: {
+          id?: string;
+          sesion_id?: string | null;
+          tipo?: RegistroTipo;
+          estado?: RegistroEstado;
+          payload?: Json | null;
+          resultado?: Json | null;
+          cliente_id?: number | null;
+          miembro_id?: number | null;
+          ip_hash?: string | null;
+          user_agent?: string | null;
+          revisada_por?: string | null;
+          revisada_el?: string | null;
+          nota_revision?: string | null;
+          created_at?: string;
+          expira_el?: string;
+        };
+        Relationships: [];
+      };
+      registro_cambio: {
+        Row: {
+          id: number;
+          solicitud_id: string;
+          cliente_id: number;
+          campo: string;
+          valor_actual: string | null;
+          valor_nuevo: string | null;
+          estado: CambioEstado;
+          decidido_por: string | null;
+          decidido_el: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          solicitud_id: string;
+          cliente_id: number;
+          campo: string;
+          valor_actual?: string | null;
+          valor_nuevo?: string | null;
+          estado?: CambioEstado;
+          decidido_por?: string | null;
+          decidido_el?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          solicitud_id?: string;
+          cliente_id?: number;
+          campo?: string;
+          valor_actual?: string | null;
+          valor_nuevo?: string | null;
+          estado?: CambioEstado;
+          decidido_por?: string | null;
+          decidido_el?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      registro_intento: {
+        Row: { id: number; ip_hash: string; created_at: string };
+        Insert: { id?: number; ip_hash: string; created_at?: string };
+        Update: { id?: number; ip_hash?: string; created_at?: string };
+        Relationships: [];
+      };
+      consentimiento_firma: {
+        Row: {
+          id: string;
+          solicitud_id: string | null;
+          sesion_id: string | null;
+          version_id: number;
+          cliente_id: number | null;
+          miembro_id: number | null;
+          estado: FirmaEstado;
+          firmante_nombre: string;
+          firmante_documento: string;
+          firmante_parentesco: string | null;
+          firmante_celular: string | null;
+          firmante_email: string | null;
+          menor_nombre: string;
+          menor_documento: string | null;
+          menor_rh: string | null;
+          eps: string | null;
+          metodo: FirmaMetodo;
+          /** Hora del servidor (now() de Postgres), nunca del celular. */
+          firmado_el: string;
+          ip: string | null;
+          user_agent: string | null;
+          firma_png_path: string | null;
+          pdf_path: string | null;
+          pdf_sha256: string | null;
+          documento_id: number | null;
+          anulada_por: string | null;
+          anulada_el: string | null;
+          motivo_anulacion: string | null;
+          created_at: string;
+        };
+        // Se escribe solo por RPC (consentimiento_firmar / _adjuntar / _anular).
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       academias: {
@@ -1549,6 +1770,25 @@ export type Database = {
         Args: { p_clase: number; p_delta?: number };
         Returns: { restante: number; total: number }[];
       };
+      // ─── Registro público y consentimiento digital (1-oct-2026) ───
+      /** Versión vigente del texto (o null si está "En preparación"). */
+      consentimiento_version_vigente: {
+        Args: Record<string, never>;
+        Returns: Database["public"]["Tables"]["consentimiento_version"]["Row"] | null;
+      };
+      /** Solo service_role. Cuenta el intento y dice si esa IP puede seguir (10/10 min · 40/día). */
+      registro_permitido: { Args: { p_ip_hash: string }; Returns: boolean };
+      /** Solo service_role. Crea la evidencia de la firma con la hora del servidor; devuelve su uuid. */
+      consentimiento_firmar: { Args: { p_datos: Json }; Returns: string };
+      /** Solo service_role. Guarda rutas y huella del PDF; crea el documento en la ficha si la firma está asignada. */
+      consentimiento_adjuntar: {
+        Args: { p_firma: string; p_pdf_path: string; p_png_path: string; p_sha256: string };
+        Returns: number | null;
+      };
+      /** Solo superadministrador (valida por dentro). Estado + motivo; el archivo no se toca. */
+      consentimiento_anular: { Args: { p_firma: string; p_motivo: string }; Returns: undefined };
+      /** Solo service_role / cron. Expira, purga payloads a los 90 días y limpia intentos. */
+      registro_limpiar: { Args: Record<string, never>; Returns: Json };
       siigo_recaudo: {
         Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { facturado: number; cobrado: number; pendiente: number }[];

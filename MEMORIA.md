@@ -1910,6 +1910,64 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
+## 📝 Registro por QR y consentimiento digital (en construcción · Fase 1 hecha el 1-oct-2026)
+Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-digital.md`** (§2 = las
+decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
+llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
+mandan: **sobrescribir todo salvo facturación** (un NIT distinto espera aprobación) · **ficha unificada**
+con el Word del club · **solo menores** (si la edad da ≥18 la misma pantalla deja de pedir acudiente) ·
+revisan **SA y coord. administrativo** · texto definitivo = `Consentimiento informado/insumos/…MENORES DE
+EDAD .docx`, versión `2026-10`, se firma una vez.
+
+**Fase 1 (base, sin pantalla pública) — migraciones `20261001120000`–`135000`:**
+- 👨‍👩‍👧 **Ficha unificada** (`…120000_ficha_unificada`): `acudientes` cuelga de la ficha (`cliente_id`,
+  `rol` padre/madre/otro); **`clientes.acudiente_id` sigue siendo el principal** (lo usa el CHECK "menor
+  exige acudiente" y los cinco sitios que crean fichas) y el trigger `clientes_acudiente_principal`
+  mantiene la pareja coherente (ata el acudiente al insertar la ficha; rechaza uno de otra ficha). Nuevas
+  `clientes.direccion`, `clientes.lugar_nacimiento` (espejo) y `cliente_miembros.lugar_nacimiento` (los
+  triggers de 0066/0074 lo copian). Backfill medido: 142 acudientes atados · rol desde el parentesco
+  escrito (45 padre · 82 madre · 15 otro) · **18 huérfanos borrados** con fila entera en `audit_log`
+  (`acudiente.borrar_huerfano`). Formulario con **"Acudiente principal" + "Segundo acudiente"** (rol,
+  nombre, documento, teléfono, correo, parentesco; el hidden `acudientesVisibles=1` le dice al servidor
+  que un segundo vacío = quitarlo); ficha con tarjeta "Acudientes" y marca "Principal".
+  ⚠️⚠️ **Desde aquí hay DOS relaciones entre `clientes` y `acudientes`** (`clientes.acudiente_id →` y
+  `acudientes.cliente_id →`): un embed `acudientes ( … )` de PostgREST responde **"more than one
+  relationship was found"** — medido, rompió el exportador CSV. Hay que nombrar la FK:
+  `acudientes!clientes_acudiente_id_fkey ( … )`. Y el importador CSV deriva el rol con
+  `rolDesdeParentesco()` (misma regla del backfill).
+- 📄 **`consentimiento_version`** con el texto del Word (marcador `{{EPS}}`), huella SHA-256 por trigger
+  y **`vigente_desde = null` = página pública "En preparación"**: es la puerta del despliegue; se abre en
+  la Fase 4. `consentimiento_version_vigente()` la devuelve (o null). Un solo texto vigente a la vez
+  (índice único parcial). Ojo: el título trae "AALEJANDRO" tal cual viene en el Word del club.
+- 🗂️ Tablas `registro_sesion` (la cookie del recorrido) · `registro_solicitud` (cada envío tal cual, su
+  `payload` se purga a los 90 días) · `registro_cambio` (solo campos de facturación) · `registro_intento`
+  (rate limit) · **`consentimiento_firma`** (la evidencia: quién, cuándo = `now()` del servidor, IP,
+  navegador, versión, huella del PDF; **nunca se borra**, se anula con motivo). **Ninguna da privilegios
+  a `anon` ni escritura a `authenticated`**: escribe el servidor (service_role) por RPC. Leen: firmas →
+  los mismos roles que ven documentos; solicitudes/cambios/versión → SA y CA.
+- 🧾 `cliente_documentos` ganó `miembro_id` (de qué niño es: dos hermanos = dos PDF), `bucket` y
+  `origen` (`subido` | `firma_digital`). Trigger `cliente_documentos_proteger_firma`: **un documento de
+  firma no se borra ni como postgres**. ⚠️ La ficha hoy firma las URL contra `cliente-docs`; en la Fase 2
+  debe usar la columna `bucket`.
+- 🪣 Bucket privado **`consentimientos`** (`<firma_uuid>/consentimiento.pdf` y `/firma.png`): lectura
+  para el personal, **sin insert/update/delete para nadie con sesión**. Solo service_role escribe, una vez.
+- ⚙️ RPC (solo service_role salvo anular): `registro_permitido(ip_hash)` (10 / 10 min · 40 / día,
+  cuenta el intento) · `consentimiento_firmar(jsonb)` (rechaza sin versión vigente y si el miembro no es
+  de esa ficha; `asignada` o `pendiente_asignar`) · `consentimiento_adjuntar(firma, pdf, png, sha)` (crea
+  el documento en la ficha del niño si está asignada) · `consentimiento_anular(firma, motivo)` (solo SA,
+  valida por dentro; `audit_log` con la fila entera) · `registro_limpiar()` (pg_cron `registro-limpiar`
+  07:50 UTC = 02:50 Bogotá) · `private.nota_sistema_roles(texto, roles[])` (generaliza la de SA).
+  `registro_aplicar_datos` y las de la bandeja **llegan con la Fase 3**, cuando el payload exista.
+- 🧰 `logAuditSistema()` en `src/lib/audit.ts`: `logAudit()` retorna **sin escribir** cuando no hay
+  sesión, y en el camino público nunca la hay. Escribe con `actor_id = null` (= el sistema).
+- 📦 Instaladas `signature_pad@5`, `@react-pdf/renderer@4`, `qrcode` (dev). Build en verde. Según su
+  documentación, react-pdf no necesita configuración extra en Next ≥ 14.1.1; se confirma al usarlo.
+- Pruebas: `tests/registro-rls.test.ts` (12, Postgres revertido: privilegios, políticas, firmar →
+  adjuntar → no se borra → anular, miembro ajeno, rate limit, limpieza) y `tests/clientes-form.test.tsx`
+  (+3: ficha unificada, incluida una que crea un menor con padre y madre y lo borra).
+  💡 Al escribir pruebas de RLS: una lectura rechazada **devuelve 0 filas, no error** — se mide contra
+  una fila que se sabe que existe, no esperando "permission denied".
+
 ## Pendientes conocidos
 
 ### 📌 Lista vigente (revisada con Laura el 30-sep-2026 — ESTA es la lista; lo de abajo es historia)
@@ -1946,9 +2004,9 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
 11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
     Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
     cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
-12. **Registro y consentimiento digital por QR**: plan escrito, sin ejecutar
-    (`docs/plan-registro-y-consentimiento-digital.md`). Tiene **10 decisiones de Laura** en su §2. **No
-    tocar nada de eso hasta que ella lo diga** (30-sep-2026).
+12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fase 0 (decisiones) y Fase 1 (base +
+    ficha unificada) hechas el 1-oct-2026; siguen la Fase 2 (consentimiento público) y la 3 (formulario de
+    datos + bandeja). Plan y decisiones en `docs/plan-registro-y-consentimiento-digital.md`.
 
 **Construir / revisar (agente), sin prisa**
 13. **"Olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend (depende del punto 11). Hoy la clave la

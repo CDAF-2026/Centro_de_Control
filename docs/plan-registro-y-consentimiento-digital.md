@@ -1,6 +1,6 @@
 # Plan · Registro de datos y consentimiento informado por QR
 
-> **Estado: Fase 0 cerrada el 1-oct-2026 (decisiones en §2). Siguiente: Fase 1.**
+> **Estado: Fases 0 y 1 hechas el 1-oct-2026 (migraciones `20261001120000`–`135000`, ficha unificada en producción). Siguiente: Fase 2.**
 > Escrito el 30-sep-2026 a partir del video de Laura (30-sep-2026, 5:44 min), el
 > texto del consentimiento y la ficha personal que aparecen en él, y una lectura
 > completa de `handoff.md`, `MEMORIA.md` y el código del módulo de clientes.
@@ -604,7 +604,7 @@ Respuestas en §2. Insumos en `Consentimiento informado/insumos/`. Texto de la
 casilla D9 propuesto en §4.4, pendiente del visto bueno de Laura (se puede dar
 al revisar la pantalla en la Fase 3).
 
-### Fase 1 · Cimientos (base de datos y librerías) — sin pantalla pública
+### Fase 1 · Cimientos (base de datos y librerías) — ✅ HECHA el 1-oct-2026 (detalle en MEMORIA.md, sección "Registro por QR")
 
 **Objetivo:** que exista todo lo que las pantallas van a usar, verificado, sin
 exponer nada todavía. Incluye la **unificación de la ficha** (D2), que es un
