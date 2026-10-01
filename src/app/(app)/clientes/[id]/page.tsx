@@ -370,14 +370,22 @@ export default async function ClienteDetallePage({
         </Card>
       )}
 
-      {(cliente.es_menor || miembros.length > 1) && (
+      {/* Si la titular es una adulta (la mamá o el papá), lo que se agrega son HIJOS; si es un niño,
+          HERMANOS. Antes la tarjeta solo salía en fichas de menores, y a la ficha de un adulto solo no
+          había forma de agregarle sus hijos (caso Alejandra Vila / Alanna Mondragón, 1-oct-2026). */}
+      {(cliente.es_menor || miembros.length > 1 || puedeEditar) && (
         <Card>
           <CardHeader>
             <CardTitle>Miembros de la familia</CardTitle>
             <CardDescription>Personas de esta ficha familiar (titular e hijos/hermanos). La situación financiera es única para toda la familia.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Hermanos clienteId={cliente.id} miembros={miembros} puedeEditar={puedeEditar} />
+            <Hermanos
+              clienteId={cliente.id}
+              miembros={miembros}
+              puedeEditar={puedeEditar}
+              parentesco={cliente.es_menor ? "hermano" : "hijo"}
+            />
           </CardContent>
         </Card>
       )}

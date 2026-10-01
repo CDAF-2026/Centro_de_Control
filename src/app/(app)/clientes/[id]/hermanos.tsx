@@ -12,6 +12,8 @@ import { Pencil, Plus, X } from "lucide-react";
 
 const initial: ClienteFormState = {};
 
+export type Parentesco = "hijo" | "hermano";
+
 export type Miembro = {
   id: number;
   nombres: string;
@@ -36,7 +38,7 @@ function edad(fn: string | null): number | null {
 }
 const depLabel = (d: string) => (d === "tenis" ? "Tenis" : "Pádel");
 
-/** Formulario de hermano: sirve para crear (sin `miembro`) y para editar (con él). */
+/** Formulario de hijo/hermano: sirve para crear (sin `miembro`) y para editar (con él). */
 function FormHermano({
   clienteId,
   miembro,
@@ -44,9 +46,11 @@ function FormHermano({
   action,
   pending,
   onCancel,
+  parentesco,
 }: {
   clienteId: number;
   miembro?: Miembro;
+  parentesco: Parentesco;
   state: ClienteFormState;
   action: (formData: FormData) => void;
   pending: boolean;
@@ -132,7 +136,7 @@ function FormHermano({
       {state.error && <p className="text-destructive text-sm">{state.error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Guardando…" : miembro ? "Guardar cambios" : "Guardar hermano"}
+          {pending ? "Guardando…" : miembro ? "Guardar cambios" : `Guardar ${parentesco}`}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancelar
@@ -146,10 +150,13 @@ export function Hermanos({
   clienteId,
   miembros,
   puedeEditar,
+  parentesco,
 }: {
   clienteId: number;
   miembros: Miembro[];
   puedeEditar: boolean;
+  /** "hijo" si el titular es un adulto (la mamá o el papá); "hermano" si es un niño. */
+  parentesco: Parentesco;
 }) {
   // Un solo formulario abierto a la vez: "nuevo" o el id del hermano en edición.
   const [modo, setModo] = useState<number | "nuevo" | null>(null);
@@ -188,6 +195,7 @@ export function Hermanos({
                   action={accionEdit}
                   pending={pendingEdit}
                   onCancel={() => setModo(null)}
+                  parentesco={parentesco}
                 />
               </li>
             );
@@ -211,7 +219,7 @@ export function Hermanos({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    title="Editar hermano"
+                    title={`Editar ${parentesco}`}
                     onClick={() => setModo(m.id)}
                   >
                     <Pencil className="size-4" />
@@ -219,7 +227,7 @@ export function Hermanos({
                   <form action={quitarHermano}>
                     <input type="hidden" name="miembroId" value={m.id} />
                     <input type="hidden" name="clienteId" value={clienteId} />
-                    <Button type="submit" variant="ghost" size="icon-sm" title="Quitar hermano">
+                    <Button type="submit" variant="ghost" size="icon-sm" title={`Quitar ${parentesco}`}>
                       <X className="size-4" />
                     </Button>
                   </form>
@@ -238,10 +246,11 @@ export function Hermanos({
             action={accionAdd}
             pending={pendingAdd}
             onCancel={() => setModo(null)}
+            parentesco={parentesco}
           />
         ) : modo === null ? (
           <Button type="button" variant="outline" size="sm" onClick={() => setModo("nuevo")}>
-            <Plus className="size-4" /> Agregar hermano
+            <Plus className="size-4" /> Agregar {parentesco}
           </Button>
         ) : null)}
     </div>

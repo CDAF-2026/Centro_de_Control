@@ -124,6 +124,20 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     **documento del acudiente se escribe aparte** porque la emergencia no lo tiene. El bloque del
     acudiente sale apenas la fecha de nacimiento dice menor, y va justo debajo de la emergencia.
   · Prueba: `tests/clientes-form.test.tsx`.
+- 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
+  salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
+  **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que
+  edita clientes, y el botón dice **"Agregar hijo"** si la titular es adulta y **"Agregar hermano"** si es
+  un niño (`parentesco` en `hermanos.tsx`). Por dentro es la misma acción (`agregarHermano`). Prueba:
+  `tests/familia-hijos.test.tsx`.
+  · ✅ **Alejandra Vila → ficha de su hija Alanna Mondragón (447)**, mismo día, decisión de Laura: la
+    ficha 283 de Alejandra (adulta, sin deporte) estaba **vacía** (0 clases, facturas, paquetes,
+    inscripciones; recontado justo antes de borrar) y se borró con rastro en `audit_log`
+    (`cliente.fusionar`). La 447 queda con Alanna de titular, Alejandra como **acudiente madre** (102,
+    ahora con su correo) y contacto de emergencia, y su cédula **1110525056 como NIT de facturación**:
+    lo que Siigo le facture a la mamá llega a la ficha de la niña. Antes eso era imposible, porque la
+    cédula ya era el documento de la ficha 283 y en el sync **la cédula le gana al NIT de facturación**.
+    Al hacerlo había 0 facturas con esa cédula.
 - 👤 **El nombre del deportista NUNCA se lee de `clientes`** (ago-2026, `src/lib/deportistas.ts`).
   El **profesor** no tiene el módulo de clientes y `clientes_select` lo excluye, así que esa consulta
   con su sesión devuelve **0 filas sin error** (medido: ve 0 de 320 en `clientes` y 276 en

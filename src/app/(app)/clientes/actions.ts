@@ -430,7 +430,7 @@ export async function updateCliente(
   redirect(`/clientes/${id}`);
 }
 
-/** Agrega un hermano a la ficha familiar (miembro no titular). */
+/** Agrega un hijo o hermano a la ficha familiar (miembro no titular). */
 export async function agregarHermano(
   _prev: ClienteFormState,
   formData: FormData,
@@ -443,7 +443,7 @@ export async function agregarHermano(
   const documento = String(formData.get("documento") ?? "").trim() || null;
   if (!clienteId) return { error: "Ficha inválida." };
   if (!nombres || !apellidos) {
-    return { error: "Nombre y apellido del hermano son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
+    return { error: "Nombre y apellido son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
   }
 
   const supabase = await createClient();
@@ -481,7 +481,7 @@ export async function editarHermano(
   const documento = String(formData.get("documento") ?? "").trim() || null;
   if (!miembroId || !clienteId) return { error: "Ficha inválida." };
   if (!nombres || !apellidos) {
-    return { error: "Nombre y apellido del hermano son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
+    return { error: "Nombre y apellido son obligatorios.", fieldErrors: { nombres: !nombres ? "Requerido" : "", apellidos: !apellidos ? "Requerido" : "" } };
   }
 
   const supabase = await createClient();
@@ -491,7 +491,7 @@ export async function editarHermano(
     .eq("id", miembroId)
     .eq("cliente_id", clienteId)
     .maybeSingle();
-  if (!m) return { error: "Ese hermano no pertenece a esta ficha." };
+  if (!m) return { error: "Esa persona no pertenece a esta ficha." };
   // El titular se edita desde los datos del cliente, no desde aquí.
   if (m.es_titular) return { error: "El titular se edita en los datos del cliente." };
 
