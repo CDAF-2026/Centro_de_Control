@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { instanteClase } from "@/lib/fecha";
+import { ahoraPantalla, hoyBogota, isoDia } from "@/lib/periodo";
 import { can, rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { listarStaff } from "@/lib/staff";
@@ -61,7 +62,7 @@ function Kpi({
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string }>;
+  searchParams: Promise<{ periodo?: string; desde?: string; hasta?: string; ahora?: string }>;
 }) {
   // Antes solo pedía sesión: quitar el dashboard del menú lo habría escondido
   // sin cerrarlo, y cualquiera podía llegar escribiendo la dirección.
@@ -77,6 +78,7 @@ export default async function DashboardPage({
         desde={sp.desde}
         hasta={sp.hasta}
         nombre={profile.nombre ?? "usuario"}
+        ahora={ahoraPantalla(sp.ahora)}
       />
     );
   }
@@ -87,7 +89,8 @@ export default async function DashboardPage({
   // equipo y sirve tal cual el día que se le devuelva la pantalla a algún rol;
   // borrarlo obligaría a rehacerlo.
   const supabase = await createClient();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoyDia = hoyBogota();
+  const hoy = isoDia(hoyDia);
   const esProfesor = profile.role === "profesor";
   const esFinanzas = can(profile.role, "reportes_financieros", "read");
 
@@ -127,9 +130,8 @@ export default async function DashboardPage({
   // marcador llevaba tiempo mostrando $0 sin que nadie lo notara.
   let totalMes = 0;
   if (esFinanzas) {
-    const d = new Date();
-    const d1 = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-    const d2 = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const d1 = isoDia(new Date(hoyDia.getFullYear(), hoyDia.getMonth(), 1));
+    const d2 = isoDia(new Date(hoyDia.getFullYear(), hoyDia.getMonth() + 1, 0));
     // `p_excluir_eventos: true` igual que el dashboard del superadministrador,
     // para que un torneo aporte su utilidad neta y no su bruto (regla 2).
     const { data: recaudo } = await supabase.rpc("siigo_recaudo", {

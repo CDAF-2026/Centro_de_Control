@@ -585,6 +585,12 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   general no re-avisa a los 9). Comentar una nota resuelta NO la reabre. Migración 0047.
   UI en `notas/` (`mencion-textarea`, `nota-composer`, `nota-card`, `nota-comentarios`,
   `nota-rapida`) + campanita en `app-shell/notas-campana.tsx`. Migraciones 0044–0045, 0047.
+- ⚠️⚠️ **"Hoy" se saca con `hoyBogota()` (`src/lib/periodo.ts`), NUNCA con `new Date().getDate()` /
+  `toISOString()` en el servidor** (1-oct-2026). Vercel corre en UTC: desde las **7 p. m.** de Colombia el
+  servidor ya está en el día siguiente. El 30-sep a las 8 p. m. el dashboard pedía "1–1 de octubre" y el
+  cliente vio todo en $0; todas las noches corría además el marcador de hoy y la semana un día. Para revisar
+  el dashboard a otra hora en local: `/dashboard?ahora=2026-09-30T20:00:00-05:00` (solo en desarrollo) y
+  levantar el servidor con `TZ=UTC` (config `cdaf-dev-utc`). Prueba: `tests/periodo-bogota.test.ts`.
 - ⚠️ **Fechas en componentes de cliente**: usar `fechaHoraCorta`/`tiempoRelativo` de
   **`src/lib/fecha.ts`**, NUNCA `Intl.DateTimeFormat("es-CO")` en algo que se renderice en servidor
   y navegador: el español mete un espacio fino (U+202F) antes de "p. m." en Node pero no siempre en
@@ -1935,6 +1941,13 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     en el modelo de reglas.
 17. **Campo propio de "personas"** en `paquetes_catalogo`, solo si algún día quieren filtrar o reportar por
     eso. Hoy va en el nombre y `personasDe()` lo lee de ahí.
+18. **Otras pantallas que sacan "hoy" del reloj del servidor (UTC)** — el dashboard e `/ingresos` ya se
+    arreglaron (1-oct-2026, `hoyBogota()`); quedan por revisar las de servidor en `/cartera`, `/clases`,
+    `/cierre`, `/liquidacion`, `/horas`, `/clientes` y `/agente` (`grep -rn "getDate()\|toISOString().slice"`).
+    De 7 p. m. a medianoche pueden creer que ya es mañana.
+19. **4 pruebas en rojo que dependen de datos reales** (ya fallaban el 1-oct-2026, antes del arreglo de
+    fechas): 3 de "borrar las fotos al mes" en `turnos-marcar.test.ts` (cuentan TODAS las fotos vencidas y ya
+    hay reales de más de 45 días) y 1 de `cobro-clase.test.tsx` (mover una clase cerrada entre paquetes).
 
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de

@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
 import { mapaNombresStaff } from "@/lib/staff";
+import { hoyBogota } from "@/lib/periodo";
 
 type RankProfesor = { nombre: string; clases: number };
 
@@ -22,12 +23,16 @@ const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad
  * las reservas de EasyCancha (excluye canceladas). Cachea 10 min para no
  * golpear la API en cada carga del dashboard; si la API falla, lista vacía.
  */
-export async function clasesSemanaPorProfesor(): Promise<{ desde: string; hasta: string; ranking: RankProfesor[] }> {
+export async function clasesSemanaPorProfesor(
+  ahora: Date = new Date(),
+): Promise<{ desde: string; hasta: string; ranking: RankProfesor[] }> {
   const base = process.env.EASYCANCHA_API_URL ?? "https://www.easycancha.com/api";
   const token = process.env.EASYCANCHA_TOKEN;
   const club = process.env.EASYCANCHA_CLUB_ID;
 
-  const hoy = new Date();
+  // El día de Colombia, no el del servidor (UTC): un domingo después de las 7 p. m.
+  // la semana se corría a la siguiente.
+  const hoy = hoyBogota(ahora);
   const lunes = new Date(hoy);
   lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
   const domingo = new Date(lunes);

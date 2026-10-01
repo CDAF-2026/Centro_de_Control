@@ -128,7 +128,7 @@ const mean = (xs: number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0
  * servidor, que en producción es UTC (+5 h): eso desplazaría la franja "ahora" y
  * el día de hoy a partir de las 7 p.m. Aquí importa al minuto, así que se fija.
  */
-function ahoraBogota(): { iso: string; hora: number; minutos: number } {
+function ahoraBogota(ahora: Date): { iso: string; hora: number; minutos: number } {
   const partes = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Bogota",
     year: "numeric",
@@ -137,7 +137,7 @@ function ahoraBogota(): { iso: string; hora: number; minutos: number } {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).formatToParts(new Date());
+  }).formatToParts(ahora);
   const g = (t: string) => partes.find((p) => p.type === t)?.value ?? "00";
   const hora = Number(g("hour")) % 24;
   return { iso: `${g("year")}-${g("month")}-${g("day")}`, hora, minutos: hora * 60 + Number(g("minute")) };
@@ -269,8 +269,8 @@ const capitaliza = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * llamada a EasyCancha alimenta las dos vistas; si la API falla devuelve la
  * estructura vacía con `error` para que el dashboard degrade sin romperse.
  */
-export async function ocupacionCanchas(): Promise<Ocupacion> {
-  const ahora = ahoraBogota();
+export async function ocupacionCanchas(now: Date = new Date()): Promise<Ocupacion> {
+  const ahora = ahoraBogota(now);
   const hoyIso = ahora.iso;
 
   // Semana lunes→domingo que contiene a hoy (misma ventana que el ranking de

@@ -11,13 +11,49 @@ export type Periodo = "semana" | "mes" | "3m" | "custom";
 /** Fecha local en ISO (YYYY-MM-DD) — evita el corrimiento de día de toISOString (UTC). */
 export const isoDia = iso;
 
+const DIA_BOGOTA = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Bogota",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
+ * El día de HOY en Colombia, como fecha a medianoche (para sumar días con
+ * `getDate()` y sacar el ISO con `isoDia`).
+ *
+ * ⚠️ Bug del 30-sep-2026: se tomaba el día con `now.getDate()`, que es el día del
+ * SERVIDOR. Vercel corre en UTC (+5 h), así que desde las 7 p. m. de Cali el
+ * dashboard ya creía que era mañana: el 30-sep a las 8 p. m. "este mes" era
+ * "1–1 de octubre" y todo salía en $0. Todas las noches corría además el
+ * marcador de hoy y la semana un día.
+ */
+export function hoyBogota(ahora: Date = new Date()): Date {
+  const p: Record<string, string> = {};
+  for (const parte of DIA_BOGOTA.formatToParts(ahora)) p[parte.type] = parte.value;
+  return new Date(Number(p.year), Number(p.month) - 1, Number(p.day));
+}
+
+/**
+ * El "ahora" de la pantalla. En desarrollo acepta `?ahora=2026-09-30T20:00-05:00`
+ * para revisar cómo se ve el dashboard a otra hora (p. ej. de noche o un fin de
+ * mes). En producción se ignora siempre.
+ */
+export function ahoraPantalla(raw?: string): Date {
+  if (process.env.NODE_ENV !== "production" && raw) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
+
 /** Valida el query param y cae a "mes" si no es un periodo conocido. */
 export function parsePeriodo(raw: string | undefined): Periodo {
   return raw === "semana" || raw === "3m" || raw === "custom" ? raw : "mes";
 }
 
 export function rangoPeriodo(periodo: Periodo, now: Date, desde?: string, hasta?: string) {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = hoyBogota(now);
   const todayIso = iso(today);
   let curStart: Date;
   let curEnd = today;

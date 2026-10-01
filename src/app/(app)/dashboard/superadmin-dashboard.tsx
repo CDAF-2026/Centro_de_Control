@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
 import { clasesSemanaPorProfesor } from "@/lib/easycancha";
 import { ocupacionCanchas } from "@/lib/easycancha/ocupacion";
-import { rangoPeriodo, isoDia, type Periodo } from "@/lib/periodo";
+import { rangoPeriodo, isoDia, hoyBogota, type Periodo } from "@/lib/periodo";
 import { PeriodoToggle } from "./periodo-toggle";
 import { CountUp } from "./count-up";
 import { ChartArea } from "./chart-area";
@@ -39,18 +39,21 @@ export async function SuperadminDashboard({
   nombre,
   desde,
   hasta,
+  ahora: now,
 }: {
   periodo: Periodo;
   nombre: string;
   desde?: string;
   hasta?: string;
+  ahora: Date;
 }) {
   const supabase = await createClient();
-  const now = new Date();
+  // El día se cuenta en Colombia, no en el servidor (UTC): ver `hoyBogota`.
+  const hoy = hoyBogota(now);
   const { curStartIso, curEndIso, todayIso, prevStartIso, prevEndIso } = rangoPeriodo(periodo, now, desde, hasta);
-  const semanaECPromise = clasesSemanaPorProfesor(); // EasyCancha en paralelo (cache 10 min)
-  const ocupacionPromise = ocupacionCanchas(); // idem: ocupación de canchas de la semana
-  const hace6Iso = isoDia(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6));
+  const semanaECPromise = clasesSemanaPorProfesor(now); // EasyCancha en paralelo (cache 10 min)
+  const ocupacionPromise = ocupacionCanchas(now); // idem: ocupación de canchas de la semana
+  const hace6Iso = isoDia(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 6));
 
   // OJO: todas las sumas se hacen en la BASE (RPCs). Traer facturas fila a fila
   // y sumarlas aquí trunca en 1000 filas (tope de PostgREST) y daña las cifras.
@@ -255,7 +258,7 @@ export async function SuperadminDashboard({
   const fechaCortaFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
   const dias7: { fecha: string; label: string; fechaLarga: string; fechaCorta: string; monto: number; facturas: number; esHoy: boolean; detalle: { nombre: string; total: number; color: string }[] }[] = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - i);
     const isoD = isoDia(d);
     dias7.push({
       fecha: isoD,
