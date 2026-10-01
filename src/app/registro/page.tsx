@@ -18,7 +18,7 @@ export default async function RegistroPage() {
       {/* La foto sale de la columna y ocupa TODO el ancho (en celular la columna ya es
           la pantalla; en computador evita el recorte con bordes duros). El logo vuelve a
           la columna centrada para quedar alineado con el texto de abajo. */}
-      <div className="relative left-1/2 h-[300px] w-screen -translate-x-1/2 md:h-[300px]">
+      <div className="relative left-1/2 h-[300px] w-screen -translate-x-1/2 md:h-[340px]">
         <Image
           src="/registro-hero.jpg"
           alt="Alejandro Falla jugando pádel"
@@ -60,7 +60,9 @@ export default async function RegistroPage() {
         />
       </div>
 
-      <p className="mt-auto px-6 pt-7 text-xs leading-relaxed text-[#8a9399] md:pt-5">
+      {/* Celular: la nota baja al pie (mt-auto). Computador: pegada a las tarjetas y centrada,
+          para no dejar un hueco entre las dos (Laura, 1-oct-2026). */}
+      <p className="mt-auto px-6 pt-7 text-xs leading-relaxed text-[#8a9399] md:mt-0 md:pt-6 md:text-center">
         Si tienes más de un hijo en el club, el proceso se hace una vez por cada uno.
       </p>
     </div>
