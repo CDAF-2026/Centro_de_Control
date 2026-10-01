@@ -1973,11 +1973,12 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     **Sebastián Niño** (`snino777@gmail.com`) como coord. administrativo y **el club lo pasó a coord.
     deportivo**, así que ve 0 turnos (correcto para su rol nuevo). Hoy el único coord. admin es Juan
     Fernando, que marca turno: hay que rehacer la prueba sin depender de quién tenga el rol.
-20. **Turnos con la salida en OTRO día** (visto el 1-oct-2026 al armar el Excel de horas): en septiembre
-    hay turnos que quedaron abiertos y se cerraron días después, y **suman todas esas horas**. El peor:
-    **Juan Fernando Gaviria, entrada 1-sep 7:09 a. m. → salida 21-sep 6:58 a. m. = ~480 h** (su mes sale en
-    ~512 h). También Camila (1-sep 23,75 h; 4-sep 21,9 h) y Santiago (1-sep 22,2 h; 2-sep 18,3 h). Se
-    corrigen desde `/horas/[id]` → Corregir (solo SA). El Excel ya los marca: "La salida es de otro día".
+20. **El reporte de horas se usa para pagar DESDE OCTUBRE de 2026** (Laura, 1-oct-2026): el club apenas se
+    está adaptando a marcar y desde octubre lo usará "más juiciosamente". **Septiembre NO se paga con el
+    reporte**, así que sus turnos con la salida en otro día (Juan Fernando 1→21-sep ≈ 480 h; Camila 1 y
+    4-sep; Santiago 1 y 2-sep) **no hace falta corregirlos** para la nómina. Lo que sí hay que vigilar es
+    octubre en adelante: el aviso de "no cerró" y la marca "La salida es de otro día" del Excel son las
+    señales. Se corrigen desde `/horas/[id]` → Corregir (solo SA).
 
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
