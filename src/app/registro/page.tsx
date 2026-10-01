@@ -15,18 +15,24 @@ export default async function RegistroPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="relative h-[300px] md:h-[340px]">
+      {/* La foto sale de la columna y ocupa TODO el ancho (en celular la columna ya es
+          la pantalla; en computador evita el recorte con bordes duros). El logo vuelve a
+          la columna centrada para quedar alineado con el texto de abajo. */}
+      <div className="relative left-1/2 h-[300px] w-screen -translate-x-1/2 md:h-[420px]">
         <Image
           src="/registro-hero.jpg"
           alt="Alejandro Falla jugando pádel"
           fill
           priority
-          sizes="(max-width: 448px) 100vw, 448px"
+          sizes="100vw"
           className="object-cover object-[60%_20%] grayscale contrast-105"
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-stadium/10 via-stadium/35 to-stadium" />
-        <div className="absolute -bottom-9 left-6 size-[88px] overflow-hidden rounded-[20px] bg-primary shadow-2xl shadow-black/50">
-          <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={88} height={88} className="size-full object-cover" priority />
+        <div aria-hidden className="absolute inset-0 hidden bg-gradient-to-r from-stadium/60 via-transparent to-stadium/60 md:block" />
+        <div className="absolute inset-x-0 -bottom-9 mx-auto w-full max-w-md px-6 md:max-w-lg">
+          <div className="size-[88px] overflow-hidden rounded-[20px] bg-primary shadow-2xl shadow-black/50">
+            <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={88} height={88} className="size-full object-cover" priority />
+          </div>
         </div>
       </div>
 

@@ -15,7 +15,7 @@ export default function RegistroLayout({ children }: { children: React.ReactNode
   const year = new Date().getFullYear();
   return (
     <main className="bg-stadium relative flex min-h-screen flex-col items-center overflow-hidden">
-      <div className="relative flex w-full max-w-md flex-1 flex-col">
+      <div className="relative flex w-full max-w-md flex-1 flex-col md:max-w-lg">
         {children}
         <p className="px-6 pb-6 pt-4 text-center text-[11px] text-white/35">
           © {year} Centro Deportivo Alejandro Falla · alejandrofallacd.com
