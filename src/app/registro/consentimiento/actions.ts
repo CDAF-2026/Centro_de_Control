@@ -10,6 +10,7 @@ import { registroAbierto } from "@/lib/registro/version";
 import { generarPdfConsentimiento } from "@/lib/pdf/consentimiento-pdf";
 import { logAuditSistema } from "@/lib/audit";
 import { edadDesde } from "@/lib/validations/cliente";
+import { capitalizarNombre } from "@/lib/nombres";
 import type { Json } from "@/lib/database.types";
 
 export type ConsentimientoState = {
@@ -80,11 +81,11 @@ export async function firmarConsentimiento(
   // D11: con 18 o más firma por sí mismo; el firmante es la persona.
   const edad = edadDesde(d.fechaNacimiento);
   const mayor = edad != null && edad >= 18;
-  const nombreMenor = `${d.nombres} ${d.apellidos}`.trim();
+  const nombreMenor = `${capitalizarNombre(d.nombres)} ${capitalizarNombre(d.apellidos)}`.trim();
   const firmante = mayor
     ? { nombre: nombreMenor, documento: d.documento, parentesco: null as string | null, celular: d.firmanteCelular || null, email: d.firmanteEmail || null }
     : {
-        nombre: (d.firmanteNombre ?? "").trim(),
+        nombre: capitalizarNombre(d.firmanteNombre),
         documento: soloDigitos(d.firmanteDocumento) ?? "",
         parentesco: d.firmanteParentesco || null,
         celular: d.firmanteCelular || null,

@@ -911,6 +911,12 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   `/clientes/registros` (solo superadmin y coord. administrativo).
 - **La facturación es OBLIGATORIA en el formulario público**: el papá elige de quién se toman los
   datos (la madre, el padre, él mismo si es mayor, u otra persona/empresa). Nunca llega vacía.
+  **Si la ficha ya tiene facturación, la opción por defecto es "No cambiar la facturación"**
+  (`facturaDe = mantener`): no viaja nada y el SQL no toca lo que hay. Solo llega un cambio a la
+  bandeja cuando el papá QUISO cambiarla (Laura, 2-oct-2026). La pantalla lo sabe por la acción
+  `tieneFacturacion()`, que devuelve un sí/no y nunca el NIT; el servidor lo recomprueba al enviar.
+- **Los nombres se guardan con mayúscula inicial** (`capitalizarNombre`, `src/lib/nombres.ts`):
+  "laura salazar" → "Laura Salazar". Las razones sociales (jurídica) se dejan como se escriben.
 - **Solo menores.** Si la fecha de nacimiento da 18 o más, la misma pantalla deja de pedir acudiente
   y la persona firma por sí misma con el mismo texto.
 - **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega

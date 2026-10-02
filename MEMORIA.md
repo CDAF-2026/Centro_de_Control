@@ -2144,6 +2144,19 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   · **Una firma por niño y versión**: si ya hay firma `asignada` con PDF para esa versión, `/registro/listo?ya=1`
     dice que ya estaba firmado y no se crea otra (en las pruebas un niño quedó con dos). Si la firma quedó
     sin PDF (falló a mitad de camino), se retoma esa misma (`upsert` en el bucket) en vez de duplicarla.
+- 💳 **"No cambiar la facturación"** (Laura, 2-oct-2026; reemplaza mi propuesta de "dejarla como la tiene el
+  club", que no le gustó porque el papá no sabe qué tiene el club). Regla: solo se genera un cambio por
+  aprobar cuando la ficha YA tiene facturación **y** el papá quiso cambiarla. Al entrar al paso 4 la
+  pantalla llama a `tieneFacturacion()` (server action: resuelve la ficha con la MISMA `decidirFicha` del
+  envío, devuelve solo sí/no, cuenta un intento del rate limit); si es sí, la pregunta pasa a "¿Quieres
+  cambiar los datos de facturación?" con "No cambiar la facturación" marcada por defecto (`facturaDe =
+  mantener`, sin datos; el SQL no toca nada). El servidor recomprueba: `mantener` sobre una ficha sin NIT →
+  "Necesitamos los datos de facturación" y la pantalla vuelve a ofrecer las opciones. Medido al decidirlo:
+  126 de 517 fichas activas tienen NIT; sin esto, cada una habría generado un cambio por aprobar.
+- 🔤 **Mayúscula inicial en los nombres** (`capitalizarNombre`, `src/lib/nombres.ts`, con pruebas): nombres,
+  apellidos, acudiente, emergencia, lugar de nacimiento, firmante y nombre de facturación (natural; una
+  razón social se deja tal cual). Partículas en minúscula ("María de los Ángeles"), guiones y apóstrofos
+  respetados.
   ⚠️ **React 19 vacía los campos no controlados de un `<form action={fn}>` cuando la acción termina.**
   Tras un error del servidor (por ejemplo el freno del documento ajeno) el papá perdía los cuatro pasos
   escritos. Los dos formularios públicos envían ahora desde `onSubmit` con `startTransition(() =>

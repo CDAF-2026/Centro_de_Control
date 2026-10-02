@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
-import { enviarDatos, type DatosState } from "./actions";
+import { enviarDatos, tieneFacturacion, type DatosState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,12 +96,14 @@ function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?:
 }
 
 type Snap = Record<string, string>;
-type OpcionFactura = { valor: "acudiente" | "propio" | "otro"; titulo: string; sub?: string; detalle?: string; datos?: { nombre: string; nit: string; email: string } };
+type OpcionFactura = { valor: "mantener" | "acudiente" | "propio" | "otro"; titulo: string; sub?: string; detalle?: string; datos?: { nombre: string; nit: string; email: string } };
 
 /** Las opciones de "¿a nombre de quién salen las facturas?", armadas con lo escrito en los pasos anteriores. */
-function opcionesFactura(snap: Snap, mayor: boolean): OpcionFactura[] {
+function opcionesFactura(snap: Snap, mayor: boolean, yaTiene: boolean): OpcionFactura[] {
   const rol = (r: string) => (r === "madre" ? "Madre" : r === "padre" ? "Padre" : "Familiar");
   const ops: OpcionFactura[] = [];
+  // La ficha ya tiene facturación: la opción por defecto es no tocarla (Laura, 2-oct-2026).
+  if (yaTiene) ops.push({ valor: "mantener", titulo: "No cambiar la facturación", sub: "El club la conserva como la tiene" });
   if (mayor) {
     const nombre = `${snap.nombres ?? ""} ${snap.apellidos ?? ""}`.trim();
     ops.push({ valor: "propio", titulo: nombre || "A mi nombre", sub: "A mi nombre", detalle: [snap.tipoDocumento && snap.documento ? `${snap.tipoDocumento} ${snap.documento}` : "", snap.email ?? ""].filter(Boolean).join(" · "), datos: { nombre, nit: snap.documento ?? "", email: snap.email ?? "" } });
@@ -139,6 +141,8 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const [paso, setPaso] = useState(0);
   const [snap, setSnap] = useState<Snap>({});
   const [facturaDe, setFacturaDe] = useState<OpcionFactura["valor"] | "">("");
+  // null = todavía no se preguntó; se consulta al entrar al paso 4 (solo un sí/no, nunca datos).
+  const [yaTiene, setYaTiene] = useState<boolean | null>(null);
   const [otro, setOtro] = useState({ tipo: "natural", nombre: "", nit: "", email: "" });
 
   const edad = edadDesde(fecha);
@@ -156,6 +160,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   useEffect(() => {
     const campos = Object.keys(fe);
     if (!campos.length) return;
+    if (fe.facturaDe) { setYaTiene(false); setFacturaDe(mayor ? "propio" : "acudiente"); }
     const i = pasos.findIndex((p) => campos.some(CAMPOS[p]));
     if (i >= 0) setPaso(i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,8 +187,20 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const continuar = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (!pasoValido(actual)) return;
-    tomarFoto();
-    if (pasos[paso + 1] === "facturacion" && !facturaDe) setFacturaDe(mayor ? "propio" : "acudiente");
+    const s = tomarFoto();
+    if (pasos[paso + 1] === "facturacion") {
+      setYaTiene(null);
+      void tieneFacturacion({
+        nombres: s.nombres ?? "", apellidos: s.apellidos ?? "", documento: s.documento ?? "", fechaNacimiento: s.fechaNacimiento ?? "",
+        acudienteDocumento: s.acudienteDocumento, acudienteEmail: s.acudienteEmail, email: s.email,
+      }).then((tiene) => {
+        setYaTiene(tiene);
+        setFacturaDe((actualDe) => actualDe || (tiene ? "mantener" : mayor ? "propio" : "acudiente"));
+      }).catch(() => {
+        setYaTiene(false);
+        setFacturaDe((actualDe) => actualDe || (mayor ? "propio" : "acudiente"));
+      });
+    }
     setPaso(paso + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -207,9 +224,10 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
     startTransition(() => action(fd));
   };
 
-  const opciones = opcionesFactura(snap, mayor);
+  const opciones = opcionesFactura(snap, mayor, yaTiene === true);
   const elegida = opciones.find((o) => o.valor === facturaDe) ?? opciones[0];
   const esOtro = elegida.valor === "otro";
+  const esMantener = elegida.valor === "mantener";
   const editarComoOtro = () => {
     if (elegida.datos) setOtro({ tipo: "natural", nombre: elegida.datos.nombre, nit: elegida.datos.nit, email: elegida.datos.email });
     setFacturaDe("otro");
@@ -319,18 +337,21 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
         {/* Paso 4 · Facturación (obligatoria) */}
         <section data-paso="facturacion" hidden={actual !== "facturacion"} className="space-y-5">
-          <Encabezado pregunta="¿A nombre de qué persona o empresa debe el centro deportivo emitir las facturas?" />
+          <Encabezado pregunta={yaTiene ? "¿Quieres cambiar los datos de facturación?" : "¿A nombre de qué persona o empresa debe el centro deportivo emitir las facturas?"} />
           <input type="hidden" name="facturaDe" value={elegida.valor} />
           {fe.facturaDe && <p className="text-destructive text-sm">{fe.facturaDe}</p>}
-          <div className="grid gap-5 md:grid-cols-2 md:items-start">
-          <div className="space-y-2.5" role="radiogroup" aria-label="A nombre de quién salen las facturas">
+          {yaTiene === null ? (
+            <div className="bg-muted h-24 animate-pulse rounded-[14px]" aria-busy />
+          ) : (
+          <div className="grid min-w-0 gap-5 md:grid-cols-2 md:items-start">
+          <div className="min-w-0 space-y-2.5" role="radiogroup" aria-label="A nombre de quién salen las facturas">
             {opciones.map((o) => {
               const on = o.valor === elegida.valor;
               return (
-                <label key={o.valor} className={cn("flex cursor-pointer items-start gap-3.5 rounded-[14px] border-[1.5px] px-4 py-3.5 transition-colors", on ? "border-stadium border-2" : "border-input")}>
+                <label key={o.valor} className={cn("flex min-w-0 cursor-pointer items-start gap-3.5 rounded-[14px] border-[1.5px] px-4 py-3.5 transition-colors", on ? "border-stadium border-2" : "border-input")}>
                   <input type="radio" name="facturaDeOpcion" value={o.valor} checked={on} onChange={() => setFacturaDe(o.valor)} className="accent-stadium mt-0.5 size-5 shrink-0" />
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-[15px] font-bold">{o.titulo}</span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="truncate text-[15px] font-bold">{o.titulo}</span>
                     {o.sub && <span className={cn("text-[13px] font-semibold", on ? "text-[#46530a]" : "text-muted-foreground")}>{o.sub}</span>}
                     {o.detalle && <span className="text-muted-foreground truncate text-xs">{o.detalle}</span>}
                   </span>
@@ -339,7 +360,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             })}
           </div>
 
-          {esOtro ? (
+          {esMantener ? null : esOtro ? (
             <div className="space-y-4 rounded-[14px] border-[1.5px] p-4">
               <div className="grid grid-cols-[136px_1fr] gap-3">
                 <Campo label="Tipo" name="facturaTipo" error={fe.facturaTipo}>
@@ -381,6 +402,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             </div>
           )}
           </div>
+          )}
 
           <label className="bg-background flex cursor-pointer items-start gap-3 rounded-[14px] px-4 py-3.5 text-sm">
             <input type="checkbox" name="acepto_datos" required className="accent-lime mt-0.5 size-5" />
