@@ -94,3 +94,38 @@ describe("buscarMiembro · documento de alguien con otro nombre", () => {
     if (r.tipo === "unico") expect(r.miembro.miembro_id).toBe(428);
   });
 });
+
+import { buscarAdultoPorCorreo } from "../src/lib/registro/match";
+/** Cliente falso con dos tablas: `clientes` (por correo) y `cliente_miembros` (el titular). */
+function fichasFalsas(clientes: Array<{ id: number; nombres: string; apellidos: string }>, titulares: Record<number, number>) {
+  let tabla = "";
+  let clienteId = 0;
+  const q: Record<string, unknown> = {};
+  q.select = () => q; q.ilike = () => q;
+  q.eq = (col: string, v: unknown) => { if (col === "cliente_id") clienteId = Number(v); return q; };
+  q.limit = () => Object.assign(Promise.resolve({ data: tabla === "clientes" ? clientes : [] }), {
+    maybeSingle: async () => ({ data: titulares[clienteId] ? { id: titulares[clienteId] } : null }),
+  });
+  return { from: (t: string) => { tabla = t; return q; } } as never;
+}
+
+describe("buscarAdultoPorCorreo (adulto cuya ficha no tiene cédula; Laura, 2-oct-2026)", () => {
+  it("correo en una ficha de adulto Y nombre coincide → el titular de esa ficha (se actualiza)", async () => {
+    const r = await buscarAdultoPorCorreo(fichasFalsas([{ id: 77, nombres: "Ana María", apellidos: "Pérez Gómez" }], { 77: 900 }), {
+      email: "Ana@Correo.com", nombres: "ana", apellidos: "perez",
+    });
+    expect(r).toEqual({ cliente_id: 77, miembro_id: 900 });
+  });
+
+  it("correo sí pero el nombre no (la pareja comparte correo) → null (ficha nueva, nunca 'hermano')", async () => {
+    const r = await buscarAdultoPorCorreo(fichasFalsas([{ id: 77, nombres: "Ana María", apellidos: "Pérez Gómez" }], { 77: 900 }), {
+      email: "ana@correo.com", nombres: "Carlos", apellidos: "Ruiz",
+    });
+    expect(r).toBeNull();
+  });
+
+  it("sin correo, o con el correo en ninguna ficha → null", async () => {
+    expect(await buscarAdultoPorCorreo(fichasFalsas([], {}), { email: "", nombres: "Ana", apellidos: "Pérez" })).toBeNull();
+    expect(await buscarAdultoPorCorreo(fichasFalsas([], {}), { email: "x@y.com", nombres: "Ana", apellidos: "Pérez" })).toBeNull();
+  });
+});

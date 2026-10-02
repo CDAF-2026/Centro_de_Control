@@ -2152,10 +2152,11 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   inicio"** (Laura: nada de "registrar a otra persona"); la tarjeta de consentimiento en la portada lleva
   la etiqueta **"Solo menores de edad"** (Laura prefirió avisar ahí y no validar la edad dentro del
   consentimiento); textos de la portada neutros (adultos y menores). Facturación de adultos: misma regla.
-  **Pendiente de decisión de Laura**: cómo casar al adulto cuya ficha no tiene cédula (medido: 381 fichas
-  de adultos; 331 con cédula → se actualizan bien; 48 sin cédula pero con correo → hoy `decidirFicha` lo
-  mete como miembro NO titular de su propia ficha por el modo "hermano"; 2 sin nada → ficha nueva).
-  Propuesta: correo + nombre coinciden → actualizar al titular; correo sí y nombre no → crear ficha nueva.
+  **Ficha del adulto sin cédula** (decidido por Laura el mismo día; medido: 381 fichas de adultos, 331 con
+  cédula → se actualizan bien; 48 con correo y sin cédula; 2 sin nada): `buscarAdultoPorCorreo` (match.ts)
+  busca por correo y exige que el NOMBRE coincida → se actualiza el titular (le queda la cédula); correo
+  sin nombre (la pareja comparte correo) → ficha nueva. Antes el modo "hermano" lo metía como segundo
+  miembro de su propia ficha. Un adulto nunca entra como "hermano". Pruebas en `registro-match.test.ts`.
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

@@ -116,3 +116,29 @@ export async function buscarMiembro(
 
   return { tipo: "ninguno" };
 }
+
+/**
+ * Un ADULTO que se registra por el QR y cuya ficha no tiene cédula guardada (medido el
+ * 2-oct-2026: 48 de 381 fichas de adultos tienen correo pero no cédula). Se busca su ficha
+ * por el CORREO y solo cuenta si el NOMBRE coincide: la pareja puede compartir correo, y
+ * en una ficha familiar el correo del papá vive en la ficha del hijo titular. Devuelve el
+ * titular de esa ficha para ACTUALIZARLO (y así le queda la cédula); null = ficha nueva.
+ * Nunca "hermano": antes el adulto entraba como segundo miembro de su propia ficha.
+ * Regla de Laura (2-oct-2026): correo + nombre → actualizar; correo sin nombre → crear.
+ */
+export async function buscarAdultoPorCorreo(
+  supabase: SupabaseClient<Database>,
+  datos: { email?: string | null; nombres: string; apellidos: string },
+): Promise<{ cliente_id: number; miembro_id: number } | null> {
+  const em = (datos.email ?? "").trim().toLowerCase();
+  if (!em || !datos.nombres.trim() || !datos.apellidos.trim()) return null;
+  const { data: fichas } = await supabase.from("clientes").select("id, nombres, apellidos").ilike("email", em).limit(5);
+  const cands: Candidato[] = (fichas ?? []).map((f) => ({
+    miembro_id: 0, cliente_id: f.id, nombres: f.nombres, apellidos: f.apellidos, documento: null, fecha_nacimiento: null, es_titular: true,
+  }));
+  const d = desempatarPorNombre(cands, datos.nombres, datos.apellidos);
+  if (d.length !== 1) return null;
+  const { data: tit } = await supabase.from("cliente_miembros").select("id").eq("cliente_id", d[0].cliente_id).eq("es_titular", true).limit(1).maybeSingle();
+  if (!tit) return null;
+  return { cliente_id: d[0].cliente_id, miembro_id: tit.id };
+}

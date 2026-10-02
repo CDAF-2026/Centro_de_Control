@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { datosSchema, erroresDeCampo } from "@/lib/registro/esquemas";
-import { buscarMiembro, soloDigitos } from "@/lib/registro/match";
+import { buscarMiembro, buscarAdultoPorCorreo, soloDigitos } from "@/lib/registro/match";
 import { buscarClienteDeReserva } from "@/lib/clientes-match";
 import { hashIp, ipDelVisitante, navegadorDelVisitante } from "@/lib/registro/evidencia";
 import { anotarEnSesion, crearSesion, leerSesion, type Firmante } from "@/lib/registro/sesion";
@@ -80,7 +80,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     return { error: "Revisa el documento: no coincide con el nombre que escribiste. Escríbelos tal como aparecen en el documento de identidad.", fieldErrors: { documento: "No coincide con el nombre" }, documentoDudoso: true };
   }
 
-  const { decision, candidatos } = await decidirFicha(admin, busqueda, { mayor, documento: d.documento, acuDoc, contactoEmail });
+  const { decision, candidatos } = await decidirFicha(admin, busqueda, { mayor, documento: d.documento, acuDoc, contactoEmail, nombres: d.nombres, apellidos: d.apellidos });
 
 
   // Mayúscula inicial en lo que escribe el público (Laura, 2-oct-2026): "laura salazar" → "Laura Salazar".
@@ -158,7 +158,7 @@ type Decision = { modo: "crear" | "hermano" | "actualizar"; cliente_id?: number;
 async function decidirFicha(
   admin: ReturnType<typeof createAdminClient>,
   busqueda: Awaited<ReturnType<typeof buscarMiembro>>,
-  o: { mayor: boolean; documento: string; acuDoc: string | null; contactoEmail: string },
+  o: { mayor: boolean; documento: string; acuDoc: string | null; contactoEmail: string; nombres: string; apellidos: string },
 ): Promise<{ decision: Decision; candidatos: number[] | null }> {
   if (busqueda.tipo === "unico") {
     return { decision: { modo: "actualizar", cliente_id: busqueda.miembro.cliente_id, miembro_id: busqueda.miembro.miembro_id }, candidatos: null };
@@ -166,7 +166,13 @@ async function decidirFicha(
   if (busqueda.tipo === "ambiguo" || busqueda.tipo === "documento_ajeno") {
     return { decision: null, candidatos: busqueda.candidatos.map((c) => c.miembro_id) };
   }
-  const adulto = await buscarClienteDeReserva(admin, { email: o.contactoEmail, documento: o.mayor ? o.documento : o.acuDoc });
+  // Adulto sin ficha por cédula: su ficha por correo + nombre → se actualiza el titular (y le
+  // queda la cédula). Si no, ficha nueva. Nunca "hermano" (Laura, 2-oct-2026).
+  if (o.mayor) {
+    const propia = await buscarAdultoPorCorreo(admin, { email: o.contactoEmail, nombres: o.nombres, apellidos: o.apellidos });
+    return { decision: propia ? { modo: "actualizar", ...propia } : { modo: "crear" }, candidatos: null };
+  }
+  const adulto = await buscarClienteDeReserva(admin, { email: o.contactoEmail, documento: o.acuDoc });
   let clienteId = adulto?.id ?? null;
   if (!clienteId && o.acuDoc) {
     const { data: a } = await admin.from("acudientes").select("cliente_id").eq("documento", o.acuDoc).not("cliente_id", "is", null).limit(1).maybeSingle();

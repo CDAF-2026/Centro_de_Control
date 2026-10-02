@@ -921,6 +921,10 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   nombre") y al enviar va a `/registro/listo` con solo "Volver al inicio": **no pasa a firmar**. La
   tarjeta "Firmar consentimiento informado" de la portada dice "Solo menores de edad"; no hay bloqueo por edad
   dentro del consentimiento (Laura decidió avisar en la portada, no validar).
+  **Cómo se encuentra la ficha de un adulto** (`decidirFicha` + `buscarAdultoPorCorreo` en `match.ts`):
+  por cédula como siempre; si no está (48 de 381 fichas de adultos no tienen cédula), por **correo +
+  nombre** → se actualiza el titular de esa ficha (y le queda la cédula); correo sin nombre (la pareja
+  comparte correo) → ficha nueva. Un adulto **nunca** entra en modo "hermano".
 - **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega
   desde la ficha en la plataforma.
 - **La página NUNCA devuelve datos existentes** (un documento ajeno no revela si existe). Si el niño
