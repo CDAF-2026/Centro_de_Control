@@ -41,7 +41,7 @@ export default async function RegistroPage() {
         <p className="cdaf-eyebrow text-primary">Centro Deportivo Alejandro Falla</p>
         <h1 className="font-heading text-[34px] font-extrabold uppercase italic leading-[1.05] text-white md:text-[32px]">Registro de deportistas</h1>
         <p className="mt-1 text-[15px] leading-relaxed text-[#c5cdc9] md:mt-0 md:text-sm">
-          Toma menos de cinco minutos. Ten a la mano el documento de identidad del deportista y, si es menor de edad, el del padre, madre o acudiente.
+          Ten a la mano tu documento de identidad o el documento del deportista que quieres registrar.
         </p>
       </div>
 
@@ -50,13 +50,13 @@ export default async function RegistroPage() {
         <Opcion
           href="/registro/datos"
           titulo="Actualizar o ingresar datos"
-          detalle="Ficha del deportista, acudientes y facturación. Para adultos y menores de edad."
+          detalle="Si aún no estás registrado en el sistema del CDAF o si quieres actualizar tus datos."
           icono={<ClipboardList className="size-6" />}
         />
         <Opcion
           href="/registro/consentimiento"
-          titulo="Firmar el consentimiento"
-          detalle="Si los datos ya están al día, solo lee y firma con el dedo."
+          titulo="Firmar consentimiento informado"
+          detalle="Si los datos de tu hijo/a ya están actualizados, solo lee y firma el documento."
           nota="Solo menores de edad"
           icono={<PenLine className="size-6" />}
         />

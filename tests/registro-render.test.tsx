@@ -61,7 +61,7 @@ describe("registro público · puerta abierta", () => {
     expect(html).toContain('href="/registro/datos"');
     expect(html).toContain('href="/registro/consentimiento"');
     expect(html).toContain("registro-hero.jpg"); // la foto de la landing (diseño A)
-    expect(texto(html)).toContain("Firmar el consentimiento");
+    expect(texto(html)).toContain("Firmar consentimiento informado");
     // El consentimiento es solo para menores de edad (club, 2-oct-2026); la tarjeta lo dice.
     expect(texto(html)).toContain("Solo menores de edad");
     expect(texto(html)).not.toContain("Al final firmas el consentimiento");

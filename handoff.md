@@ -919,7 +919,7 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - **Adultos: datos sí, consentimiento no** (pedido del club, 2-oct-2026). Si la fecha de nacimiento da
   18 o más, el formulario de datos deja de pedir acudiente (3 pasos, contacto propio, factura "a mi
   nombre") y al enviar va a `/registro/listo` con solo "Volver al inicio": **no pasa a firmar**. La
-  tarjeta "Firmar el consentimiento" de la portada dice "Solo menores de edad"; no hay bloqueo por edad
+  tarjeta "Firmar consentimiento informado" de la portada dice "Solo menores de edad"; no hay bloqueo por edad
   dentro del consentimiento (Laura decidió avisar en la portada, no validar).
 - **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega
   desde la ficha en la plataforma.
