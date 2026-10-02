@@ -15,9 +15,12 @@ import {
   Settings,
   Clock,
   Timer,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleKey } from "@/lib/auth/permissions";
+import type { AppRole } from "@/lib/database.types";
+import { PUEDE_REVISAR_REGISTROS } from "@/lib/registro/revision";
 
 export type NavItem = {
   label: string;
@@ -31,12 +34,18 @@ export type NavItem = {
    * son de roles distintos y mañana puede entrar cualquier otro.
    */
   requiere?: "marca_turno";
+  /**
+   * Regla de DENTRO del módulo: además del permiso, solo estos roles ven la entrada.
+   * Hoy solo la usa "Registros" (bandeja del registro por QR, D8: SA y coord. admin).
+   */
+  soloRoles?: AppRole[];
 };
 
 /** Navegación principal. Cada ítem se filtra por la matriz de permisos del rol. */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, module: "dashboard" },
   { label: "Clientes", href: "/clientes", icon: Users, module: "clientes" },
+  { label: "Registros", href: "/clientes/registros", icon: Inbox, module: "clientes", soloRoles: PUEDE_REVISAR_REGISTROS },
   { label: "Empleados", href: "/empleados", icon: UserCog, module: "empleados" },
   { label: "Academias", href: "/academias", icon: GraduationCap, module: "academias" },
   { label: "Paquetes", href: "/paquetes", icon: Package, module: "paquetes" },

@@ -78,6 +78,14 @@ export default async function ClienteDetallePage({
     }),
   );
 
+  // Cambios de facturación propuestos por la familia (registro por QR) y aún sin decidir.
+  // Solo SA/CA ven filas (política); para los demás la cuenta es 0 y el aviso no sale.
+  const { count: cambiosPendientes } = await supabase
+    .from("registro_cambio")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", Number(id))
+    .eq("estado", "pendiente");
+
   // Consentimientos firmados por la página pública: el estado por miembro sale de la
   // tabla de FIRMAS (la evidencia), no de los documentos — un archivo puede faltar,
   // la firma no. Para cada miembro activo, la más reciente asignada.
@@ -300,6 +308,13 @@ export default async function ClienteDetallePage({
           {cliente.es_menor && <Badge variant="outline">Menor de edad</Badge>}
         </div>
       </div>
+
+      {(cambiosPendientes ?? 0) > 0 && (
+        <p className="border-warning/40 bg-warning/10 rounded-lg border px-4 py-3 text-sm">
+          La familia propuso {cambiosPendientes} cambio(s) de facturación desde el registro por QR.{" "}
+          <Link href="/clientes/registros" className="font-medium hover:underline">Revisar</Link>
+        </p>
+      )}
 
       <Card>
         <CardHeader>

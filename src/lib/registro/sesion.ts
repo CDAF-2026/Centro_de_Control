@@ -14,7 +14,14 @@ import type { Json } from "@/lib/database.types";
 const COOKIE = "cdaf_registro";
 const VIDA_SEG = 2 * 60 * 60;
 
-export type MiembroSesion = { miembro_id: number; cliente_id: number; nombre: string; firmado?: boolean };
+/** Lo que el formulario de datos escribió del menor, para precargar (bloqueado) el consentimiento. */
+export type DatosMenor = {
+  nombres: string; apellidos: string; tipoDocumento: string; documento: string;
+  fechaNacimiento: string; eps: string; rh: string;
+};
+export type MiembroSesion = {
+  miembro_id: number; cliente_id: number; nombre: string; firmado?: boolean; datos?: DatosMenor;
+};
 export type Firmante = { nombre: string; documento: string; parentesco?: string; celular?: string; email?: string };
 
 export type Sesion = {

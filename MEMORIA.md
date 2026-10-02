@@ -1924,7 +1924,7 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
-## 📝 Registro por QR y consentimiento digital (en construcción · Fases 1 y 2 hechas el 1-oct-2026)
+## 📝 Registro por QR y consentimiento digital (en construcción · Fases 1, 2 y 3 hechas el 1-oct-2026)
 Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-digital.md`** (§2 = las
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
@@ -2040,6 +2040,44 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
 - Queda un aviso de Base UI en consola de desarrollo ("changing the default value state of an
   uncontrolled FieldControl") al abrir `/registro/consentimiento`; no afecta, pendiente de ubicar.
 
+**Fase 3 (formulario de datos + bandeja, R2–R4, R8–R9) — migración `20261001150000`:**
+- 🧮 **`registro_aplicar_datos(solicitud, decisión)`**: UNA transacción (ficha + acudientes + miembro +
+  facturación + auditoría). La DECISIÓN la toma el servidor con la misma `buscarMiembro` del
+  consentimiento: *unico* → `actualizar` · *ninguno* → adulto por correo→cédula (`buscarClienteDeReserva`)
+  o cédula del acudiente en `acudientes` → `hermano` en esa ficha, si no `crear` (el niño es el titular, el
+  acudiente principal queda en `clientes.acudiente_id` y el trigger lo ata) · *ambiguo* → no se escribe,
+  queda `en_revision` y se avisa a los revisores.
+  · **D1 en SQL**: lo que llega reemplaza lo que había (un campo vacío no borra); `before` completo en
+    `audit_log` (`registro.aplicar`). Para el titular se escribe `clientes` y el trigger de 0066 copia.
+  · **Facturación** (`private.registro_facturacion`): sin NIT previo (o el mismo) y sin choque
+    (`private.nit_en_uso`, misma regla que `choqueNitFacturacion`) → se escribe; si no, cada campo distinto
+    va a `registro_cambio` pendiente (sin duplicar). **Nunca** `reatribuirFacturas` desde aquí.
+  · **Acudientes** (`private.registro_acudientes`): uno por rol padre/madre (se actualiza, no se duplica).
+  · Verificado en simulacro y en `tests/registro-aplicar.test.ts` (6, revertidas): crear, hermano,
+    sobrescribir con `before`, NIT distinto → 3 pendientes, NIT ajeno → nunca se escribe, menor sin
+    acudiente → rechazo, solicitud repetida → rechazo.
+- 📝 `/registro/datos` (`datos-form.tsx`, `datos/actions.ts` → `enviarDatos`): la ficha unificada
+  completa, casilla D9, honeypot, rate limit; con ≥ 18 años esconde acudientes y pide celular/correo
+  propios. El correo y celular de la ficha son los del acudiente principal. Al terminar, la sesión guarda
+  al menor (`MiembroSesion.datos`) y `/registro/consentimiento` lo precarga **bloqueado** (R4); `listo`
+  ofrece "Registrar otro hijo(a)" → `/registro/datos` con el acudiente precargado (R9).
+  ⚠️ Las casillas de deporte van con `formData.getAll("deportes")` (regla de la casa).
+- 🗂️ **Bandeja `/clientes/registros`** (entrada "Registros" del menú, solo `PUEDE_REVISAR_REGISTROS` =
+  SA y coord. admin, `src/lib/registro/revision.ts`; `NavItem.soloRoles` es nuevo para eso): facturación
+  por aprobar (tabla hoy/propuesto, `registro_cambio_decidir`; aprobar un NIT corre `reatribuirFacturas`
+  **con sesión**), firmas por asignar (`consentimiento_asignar`), datos por asignar (solicitud ambigua →
+  `registro_aplicar_datos` con el cliente de servicio tras validar el rol; la función exige `recibida`, así
+  que la acción la devuelve a ese estado antes) o descartar con motivo, e historial. La ficha avisa "la
+  familia propuso N cambios de facturación" con enlace. `reatribuirFacturas` se movió a
+  `src/lib/facturacion.ts` para que la bandeja y `clientes/actions.ts` compartan una sola copia.
+- ✅ **Verificado en local el 1-oct-2026**: "Niño Nuevo QR" (RC 9990000021) con la acudiente de la ficha
+  598 entró como **hermano** (miembro 637) con lugar de nacimiento, RH, dirección y emergencia; el
+  consentimiento salió precargado y bloqueado; firma escrita → `asignada`, documento 12 en la ficha.
+  **Fichas de prueba que hay que borrar al terminar la revisión de Laura**: cliente 598 (miembros 615 y
+  637, acudiente 177), sus 3 firmas, documentos 5 y 12, solicitudes y objetos del bucket.
+- Pruebas: `registro-aplicar.test.ts` (6) · `registro-render.test.tsx` (+2: formulario de datos, bandeja
+  con un cambio sembrado y borrado en `finally`).
+
 ## Pendientes conocidos
 
 ### 📌 Lista vigente (revisada con Laura el 30-sep-2026 — ESTA es la lista; lo de abajo es historia)
@@ -2076,9 +2114,9 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
 11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
     Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
     cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
-12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0, 1 y 2 hechas el 1-oct-2026
-    (la página pública existe pero está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel). Sigue
-    la Fase 3 (formulario de datos + bandeja) y luego la 4 (QR y apertura). Plan y decisiones en
+12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 (la
+    página pública completa existe pero está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel).
+    Sigue la Fase 4 (QR, apertura, documentación en handoff). Plan y decisiones en
     `docs/plan-registro-y-consentimiento-digital.md`. ⚠️ Borrar la ficha de prueba 598 al terminar.
 
 **Construir / revisar (agente), sin prisa**

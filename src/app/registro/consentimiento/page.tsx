@@ -14,9 +14,12 @@ export default async function ConsentimientoPage() {
   const version = await registroAbierto();
   if (!version) return <EnPreparacion />;
 
+  // Viene de "Actualizar datos": el último niño registrado y aún sin firmar queda
+  // precargado y bloqueado (es el mismo que acaba de escribir), y el firmante también.
   const sesion = await leerSesion();
-  const precargado: Precargado | undefined = sesion?.firmante
-    ? { firmante: sesion.firmante }
+  const pendiente = sesion?.miembros.filter((m) => !m.firmado && m.datos).at(-1);
+  const precargado: Precargado | undefined = sesion?.firmante || pendiente
+    ? { firmante: sesion?.firmante ?? undefined, menor: pendiente?.datos }
     : undefined;
 
   return (

@@ -50,3 +50,63 @@ export function erroresDeCampo(issues: z.ZodIssue[]): Record<string, string> {
   for (const i of issues) out[String(i.path[0] ?? "_")] ??= i.message;
   return out;
 }
+
+/** Un acudiente del formulario de datos (padre, madre u otro). */
+const acudienteSchema = {
+  rol: z.enum(["padre", "madre", "otro"]).optional(),
+  nombre: texto(120).optional(),
+  documento: z.string().trim().max(20).optional(),
+  telefono: texto(20).optional(),
+  email: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
+  parentesco: texto(40).optional(),
+};
+
+/**
+ * El formulario "Actualizar o ingresar datos" (R2, plan §4.4): la ficha unificada
+ * completa. Lo obligatorio se decide aquí y no en el navegador. Con 18 o más años
+ * (D11) no se exigen acudientes: la persona es su propio contacto.
+ */
+export const datosSchema = z.object({
+  sitio_web: z.string().max(200).optional(),
+  acepto_datos: z.literal("on", { message: "Debes autorizar el tratamiento de datos" }),
+
+  // Deportista
+  nombres: texto(80).min(2, "Escribe el nombre"),
+  apellidos: texto(80).min(2, "Escribe los apellidos"),
+  tipoDocumento: z.enum(["RC", "TI", "CC", "CE", "PP", "PPT"]),
+  documento: soloDigitos(20),
+  fechaNacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
+  lugarNacimiento: texto(80).optional(),
+  eps: texto(80).min(2, "Escribe la EPS"),
+  rh: z.enum(["", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]).optional(),
+
+  // Familia
+  direccion: texto(160).optional(),
+  celular: texto(20).optional(),
+  email: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
+  emergenciaNombre: texto(120).optional(),
+  emergenciaCelular: texto(20).optional(),
+  emergenciaParentesco: texto(40).optional(),
+
+  // Acudiente principal (quien diligencia y firma) y segundo acudiente
+  acudienteRol: acudienteSchema.rol,
+  acudienteNombre: acudienteSchema.nombre,
+  acudienteDocumento: acudienteSchema.documento,
+  acudienteTelefono: acudienteSchema.telefono,
+  acudienteEmail: acudienteSchema.email,
+  acudienteParentesco: acudienteSchema.parentesco,
+  acudiente2Rol: acudienteSchema.rol,
+  acudiente2Nombre: acudienteSchema.nombre,
+  acudiente2Documento: acudienteSchema.documento,
+  acudiente2Telefono: acudienteSchema.telefono,
+  acudiente2Email: acudienteSchema.email,
+  acudiente2Parentesco: acudienteSchema.parentesco,
+
+  // Facturación (opcional)
+  facturaTipo: z.enum(["", "natural", "juridica"]).optional(),
+  facturaANombre: texto(160).optional(),
+  facturaANit: z.string().trim().max(20).optional(),
+  facturaEmail: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
+});
+
+export type DatosInput = z.infer<typeof datosSchema>;

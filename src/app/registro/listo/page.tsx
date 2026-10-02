@@ -30,14 +30,16 @@ export default async function RegistroListoPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/registro/consentimiento" className="bg-primary text-primary-foreground hover:brightness-95 inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-medium shadow-sm">
-          Firmar por otro hijo(a)
+        <Link href="/registro/datos" className="bg-primary text-primary-foreground hover:brightness-95 inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-medium shadow-sm">
+          Registrar otro hijo(a)
         </Link>
         <form action={terminarRecorrido}>
           <Button type="submit" variant="outline" size="lg" className="w-full">No, gracias · terminar</Button>
         </form>
       </div>
-      <p className="text-muted-foreground text-xs">Puedes cerrar esta página. Nada más que hacer por hoy.</p>
+      <p className="text-muted-foreground text-xs">
+        Si solo falta la firma de otro hijo(a), <Link href="/registro/consentimiento" className="text-primary font-medium hover:underline">fírmala aquí</Link>. Puedes cerrar esta página cuando termines.
+      </p>
     </div>
     </Cabecera>
   );

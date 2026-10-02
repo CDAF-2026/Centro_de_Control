@@ -94,6 +94,17 @@ describe("registro público · puerta abierta", () => {
     expect(texto(html)).toContain("No, gracias");
   });
 
+  it("el formulario de datos trae la ficha unificada completa y la casilla de tratamiento de datos (D9)", async () => {
+    vigente = VERSION;
+    const { default: Page } = await import("../src/app/registro/datos/page");
+    const html = await render(Page);
+    for (const n of ["nombres", "apellidos", "documento", "fechaNacimiento", "lugarNacimiento", "eps", "rh", "direccion", "emergenciaNombre", "acepto_datos", "sitio_web"]) {
+      expect(html, n).toContain(`name="${n}"`);
+    }
+    expect(texto(html)).toContain("Ley 1581 de 2012");
+    expect(texto(html)).toContain("Guardar y pasar a firmar");
+  });
+
   it("FirmaPad se monta suelto con sus dos campos ocultos", async () => {
     const { FirmaPad } = await import("../src/app/registro/consentimiento/firma-pad");
     const html = renderToStaticMarkup(<FirmaPad nombreSugerido="Mamá Prueba" />);
@@ -102,4 +113,41 @@ describe("registro público · puerta abierta", () => {
     expect(texto(html)).toContain("Dibujar mi firma");
     expect(texto(html)).toContain("Escribir mi nombre");
   });
+});
+
+/**
+ * La bandeja de revisión (Fase 3) se monta con el guardia simulado y service_role,
+ * como las demás pruebas de render de pantallas con sesión. Siembra un cambio de
+ * facturación pendiente sobre una ficha de prueba y lo borra en `finally`.
+ */
+describe("bandeja de registros", () => {
+  it("lista un cambio de facturación pendiente con sus botones y el historial", async () => {
+    vi.doMock("@/lib/auth", () => ({
+      requireRole: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+      requireProfile: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+      getProfile: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+    }));
+    const { createClient: sb } = await import("@supabase/supabase-js");
+    const admin = sb(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    vi.doMock("@/lib/supabase/server", () => ({ createClient: async () => admin, createAdminClient: () => admin }));
+
+    const { data: cli } = await admin.from("clientes").select("id, nombres, apellidos").order("id").limit(1).single();
+    const { data: sol } = await admin.from("registro_solicitud").insert({ tipo: "datos", estado: "en_revision", cliente_id: cli!.id, payload: {} }).select("id").single();
+    const { data: cambio } = await admin.from("registro_cambio").insert({ solicitud_id: sol!.id, cliente_id: cli!.id, campo: "factura_a_nit", valor_actual: "1", valor_nuevo: "9990009999" }).select("id").single();
+    try {
+      const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
+      const html = await render(Page);
+      const t = texto(html);
+      expect(t).toContain("Facturación por aprobar");
+      expect(t).toContain("9990009999");
+      expect(t).toContain(`${cli!.nombres} ${cli!.apellidos}`);
+      expect(t).toContain("Aprobar");
+      expect(t).toContain("Historial");
+    } finally {
+      await admin.from("registro_cambio").delete().eq("id", cambio!.id);
+      await admin.from("registro_solicitud").delete().eq("id", sol!.id);
+      vi.doUnmock("@/lib/auth");
+      vi.doUnmock("@/lib/supabase/server");
+    }
+  }, 30_000);
 });

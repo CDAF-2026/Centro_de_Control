@@ -1,28 +1,20 @@
-import Link from "next/link";
 import { registroAbierto } from "@/lib/registro/version";
+import { leerSesion } from "@/lib/registro/sesion";
 import { EnPreparacion } from "../en-preparacion";
 import { Cabecera } from "../cabecera";
+import { DatosForm } from "./datos-form";
 
 /**
- * El formulario de datos llega con la Fase 3. Mientras tanto la landing ofrece el
- * camino y aquí se explica en vez de dar un 404 — un enlace muerto en el QR del
- * club se lee como "esto no sirve".
+ * "Actualizar o ingresar datos" (R2–R4). Con sesión del recorrido (viene de "¿otro
+ * hijo?") se precarga el acudiente principal para no volver a escribirlo (R9).
  */
 export default async function RegistroDatosPage() {
   const version = await registroAbierto();
   if (!version) return <EnPreparacion />;
+  const sesion = await leerSesion();
   return (
     <Cabecera titulo="Actualizar datos">
-    <div className="space-y-4 text-center">
-      <h2 className="font-heading text-xl font-semibold tracking-tight">Muy pronto</h2>
-      <p className="text-muted-foreground text-sm">
-        La actualización de datos desde el celular está en construcción. Por ahora, recepción toma tus datos y
-        aquí puedes firmar el consentimiento informado.
-      </p>
-      <Link href="/registro/consentimiento" className="text-primary text-sm font-medium hover:underline">
-        Ir a firmar el consentimiento →
-      </Link>
-    </div>
+      <DatosForm firmante={sesion?.firmante ?? null} />
     </Cabecera>
   );
 }

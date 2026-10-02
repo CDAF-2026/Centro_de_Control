@@ -1,6 +1,6 @@
 # Plan · Registro de datos y consentimiento informado por QR
 
-> **Estado: Fases 0, 1 y 2 hechas el 1-oct-2026. La página pública está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 3.**
+> **Estado: Fases 0–3 hechas el 1-oct-2026. La página pública completa está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 4 (QR y apertura).**
 > Escrito el 30-sep-2026 a partir del video de Laura (30-sep-2026, 5:44 min), el
 > texto del consentimiento y la ficha personal que aparecen en él, y una lectura
 > completa de `handoff.md`, `MEMORIA.md` y el código del módulo de clientes.
@@ -691,7 +691,7 @@ niño no encontrado → pendiente y asignado desde la bandeja) terminan con su P
 en la ficha correcta, con evidencia completa, y las pruebas pasan.
 **Estimación:** 22–30 h.
 
-### Fase 3 · Formulario de datos, aplicación y bandeja completa (R2–R4, R8–R9)
+### Fase 3 · Formulario de datos, aplicación y bandeja completa (R2–R4, R8–R9) — ✅ HECHA el 1-oct-2026 (detalle en MEMORIA.md)
 
 **Objetivo:** el camino largo entero, con la cadena de hermanos.
 

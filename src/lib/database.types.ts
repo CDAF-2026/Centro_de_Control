@@ -1789,6 +1789,15 @@ export type Database = {
       consentimiento_anular: { Args: { p_firma: string; p_motivo: string }; Returns: undefined };
       /** Solo service_role / cron. Expira, purga payloads a los 90 días y limpia intentos. */
       registro_limpiar: { Args: Record<string, never>; Returns: Json };
+      /** Solo service_role. Aplica una solicitud de datos en UNA transacción (crear / hermano / actualizar). */
+      registro_aplicar_datos: {
+        Args: { p_solicitud: string; p_decision: Json };
+        Returns: { cliente_id: number; miembro_id: number; creada: boolean; cambios_pendientes: number };
+      };
+      /** SA / coord. admin (valida por dentro). Aprueba o rechaza un cambio de facturación. */
+      registro_cambio_decidir: { Args: { p_cambio: number; p_aprobar: boolean }; Returns: undefined };
+      /** SA / coord. admin. Ata una firma `pendiente_asignar` al miembro escogido; devuelve el documento creado. */
+      consentimiento_asignar: { Args: { p_firma: string; p_miembro: number }; Returns: number | null };
       siigo_recaudo: {
         Args: { p_desde: string; p_hasta: string; p_excluir_eventos?: boolean };
         Returns: { facturado: number; cobrado: number; pendiente: number }[];

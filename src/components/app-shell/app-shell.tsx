@@ -62,7 +62,7 @@ export function AppShell({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const items = NAV_ITEMS.filter(
-    (i) => can(role, i.module) && (i.requiere !== "marca_turno" || marcaTurno),
+    (i) => can(role, i.module) && (i.requiere !== "marca_turno" || marcaTurno) && (!i.soloRoles || i.soloRoles.includes(role)),
   );
   const current = items.find(
     (i) => pathname === i.href || pathname.startsWith(`${i.href}/`),
