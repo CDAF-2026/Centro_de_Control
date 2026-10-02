@@ -20,7 +20,7 @@ export default async function CerrarClasePage({
 
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, clase_semanal_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, precio, valor_facturado, paquete_cliente_id")
+    .select("id, tipo, fecha, hora_inicio, deporte, estado, academia_id, clase_semanal_id, cliente_id, miembro_id, profesor_id, asistentes_no_registrados, num_asistentes, motivo_cancelacion, precio, valor_facturado, paquete_cliente_id")
     .eq("id", claseId)
     .single();
   if (!clase) notFound();
@@ -159,6 +159,7 @@ export default async function CerrarClasePage({
         <CierreForm
           claseId={claseId}
           estadoActual={clase.estado}
+          motivoActual={clase.motivo_cancelacion}
           deportistas={deportistas}
           otrosInscritos={otrosInscritos}
           estadoPorCliente={estadoPorCliente}

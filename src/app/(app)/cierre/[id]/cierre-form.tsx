@@ -11,9 +11,16 @@ const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP",
 
 type Alumno = { id: number; nombre: string };
 
+/** Motivos de academia que se escogen de una vez en el select (Laura, 2-oct-2026):
+ *  lluvia y evento son los casos de todos los días. Se guardan como cualquier
+ *  "no se dictó" (estado `cancelada` + motivo), así que el resto no cambia. */
+const MOTIVOS_RAPIDOS = { lluvia: "Lluvia", evento: "Evento" } as const;
+type MotivoRapido = keyof typeof MOTIVOS_RAPIDOS;
+
 export function CierreForm({
   claseId,
   estadoActual,
+  motivoActual = null,
   deportistas,
   otrosInscritos = [],
   estadoPorCliente,
@@ -25,6 +32,8 @@ export function CierreForm({
 }: {
   claseId: number;
   estadoActual: string;
+  /** Motivo guardado si ya se había cerrado como "no se dictó". */
+  motivoActual?: string | null;
   /** Los apuntados a ESTA clase del planeador. */
   deportistas: Alumno[];
   /** El resto de matriculados en la academia: solo para una reposición. */
@@ -49,9 +58,20 @@ export function CierreForm({
   // "No se dictó" saca la clase de la cola para siempre, así que tiene que decir
   // POR QUÉ: un receso sin cargar y un olvido se ven iguales y se arreglan
   // distinto (uno está bien, el otro hay que reponerlo).
-  const [estadoClase, setEstadoClase] = useState(
-    estadoActual === "programada" ? "realizada" : estadoActual,
-  );
+  // En academia, lluvia y evento son opciones propias del select: la opción
+  // escogida se traduce a estado `cancelada` + su motivo al enviar.
+  const [opcion, setOpcion] = useState<string>(() => {
+    if (estadoActual === "programada") return "realizada";
+    if (esAcademia && estadoActual === "cancelada") {
+      const rapido = (Object.keys(MOTIVOS_RAPIDOS) as MotivoRapido[]).find(
+        (k) => MOTIVOS_RAPIDOS[k] === motivoActual,
+      );
+      if (rapido) return rapido;
+    }
+    return estadoActual;
+  });
+  const motivoRapido = opcion in MOTIVOS_RAPIDOS ? MOTIVOS_RAPIDOS[opcion as MotivoRapido] : null;
+  const estadoClase = motivoRapido ? "cancelada" : opcion;
   const noSeDicto = estadoClase === "cancelada";
 
   const presentes = deportistas.filter((d) => estados[d.id] === "presente").length;
@@ -70,14 +90,17 @@ export function CierreForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="estado">¿La clase se dictó?</Label>
+        <input type="hidden" name="estado" value={estadoClase} />
+        {motivoRapido && <input type="hidden" name="motivo_cancelacion" value={motivoRapido} />}
         <select
           id="estado"
-          name="estado"
-          value={estadoClase}
-          onChange={(e) => setEstadoClase(e.target.value)}
+          value={opcion}
+          onChange={(e) => setOpcion(e.target.value)}
           className="border-input bg-background h-11 w-full rounded-md border px-3 text-base"
         >
           <option value="realizada">Sí, se dictó</option>
+          {esAcademia && <option value="lluvia">No se dictó por lluvia</option>}
+          {esAcademia && <option value="evento">No se dictó por evento</option>}
           <option value="cancelada">No se dictó este día</option>
           {/* "No-show" es de la clase particular: el cliente no llegó. En academia
               eso no existe — si no vino nadie, la clase no se dictó. */}
@@ -85,12 +108,13 @@ export function CierreForm({
         </select>
       </div>
 
-      {noSeDicto && (
+      {noSeDicto && !motivoRapido && (
         <div className="border-warning/35 bg-warning/10 space-y-2 rounded-md border px-3 py-3">
           <Label htmlFor="motivo_cancelacion">¿Por qué no se dictó?</Label>
           <Input
             id="motivo_cancelacion"
             name="motivo_cancelacion"
+            defaultValue={motivoActual ?? ""}
             required
             minLength={3}
             placeholder="Semana de receso · profesor enfermo · lluvia · cancha ocupada"

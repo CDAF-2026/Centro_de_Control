@@ -960,6 +960,11 @@ para lo que el calendario no previó: un receso sin cargar, un profesor enfermo,
 - Complementa al receso, no lo reemplaza: el receso evita marcar ~100 clases a mano; esto cubre el
   caso suelto. `academia_pendientes` no necesitó cambios: cualquier fila de `clases` para esa celda
   y fecha —cerrada o cancelada— la saca de la cola.
+- **Lluvia y evento, de un clic (2-oct-2026, pedido de Laura):** en academia el select ofrece además
+  **"No se dictó por lluvia"** y **"No se dictó por evento"**. No piden escribir nada: el formulario
+  envía `cancelada` + motivo `Lluvia`/`Evento`, así que `cerrarClase` no cambió. Al reabrir una
+  clase así, el select vuelve a esa opción (`motivoActual`). "No se dictó este día" sigue para los
+  demás motivos, con texto libre.
 
 ### 🗑️ El botón "Academia" de `/clases` SE QUITÓ (23-sep-2026, pedido de Laura)
 Con el cierre derivado, cafetería no tiene nada que hacer con las academias, y el botón sobre
