@@ -102,11 +102,15 @@ export const datosSchema = z.object({
   acudiente2Email: acudienteSchema.email,
   acudiente2Parentesco: acudienteSchema.parentesco,
 
-  // Facturación (opcional)
-  facturaTipo: z.enum(["", "natural", "juridica"]).optional(),
-  facturaANombre: texto(160).optional(),
-  facturaANit: z.string().trim().max(20).optional(),
-  facturaEmail: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
+  // Facturación: OBLIGATORIA (Laura, 1-oct-2026). Lo que puede elegir el papá es de
+  // quién se toman los datos (un acudiente, él mismo si es mayor, u otra persona o
+  // empresa); la pantalla copia los del acudiente a estos campos, y aquí se exige que
+  // lleguen llenos vengan de donde vengan.
+  facturaDe: z.enum(["acudiente", "acudiente2", "propio", "otro"], { message: "Elige a nombre de quién salen las facturas" }),
+  facturaTipo: z.enum(["natural", "juridica"], { message: "Elige el tipo" }),
+  facturaANombre: texto(160).min(2, "Escribe el nombre o la razón social"),
+  facturaANit: soloDigitos(20),
+  facturaEmail: z.string().trim().max(120).email("Escribe un correo válido para las facturas"),
 });
 
 export type DatosInput = z.infer<typeof datosSchema>;

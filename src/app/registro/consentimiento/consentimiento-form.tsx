@@ -2,12 +2,15 @@
 
 import { useActionState, useCallback, useState } from "react";
 import Link from "next/link";
+import { Check, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import { firmarConsentimiento, type ConsentimientoState } from "./actions";
 import { FirmaPad } from "./firma-pad";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { edadDesde } from "@/lib/validations/cliente";
+import { resumenDelConsentimiento, titulosDelTexto } from "@/lib/registro/texto";
 import { TIPOS_DOCUMENTO, RH_VALORES, tipoDocumentoPorEdad } from "@/app/(app)/clientes/documento";
 
 export type TextoConsentimiento = { codigo: string; titulo: string; parrafos: string[] };
@@ -18,23 +21,49 @@ export type Precargado = {
   firmante?: { nombre: string; documento: string; parentesco?: string; celular?: string; email?: string };
 };
 
-function Campo({
-  label, name, error, children,
-}: { label: string; name: string; error?: string; children: React.ReactNode }) {
+const INPUT = "h-12 rounded-[10px] border-[1.5px] px-3.5 text-[15px] md:text-[15px]";
+const SEL = "border-input bg-card h-12 w-full appearance-none rounded-[10px] border-[1.5px] px-3.5 pr-9 text-[15px] disabled:opacity-70";
+const CARD = "bg-card rounded-2xl shadow-[0_1px_2px_rgba(26,28,30,0.06),0_6px_18px_rgba(26,28,30,0.06)]";
+
+function Campo({ label, name, error, children }: { label: string; name: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <Label htmlFor={name} className="text-[13px] font-semibold text-charcoal">{label}</Label>
       {children}
       {error && <p className="text-destructive text-sm">{error}</p>}
     </div>
   );
 }
 
-const sel = "border-input bg-background h-9 w-full rounded-md border px-2 text-sm";
+function Select({ id, name, children, ...rest }: React.ComponentProps<"select">) {
+  return (
+    <div className="relative">
+      <select id={id} name={name} className={SEL} {...rest}>{children}</select>
+      <ChevronDown className="text-muted-foreground pointer-events-none absolute right-3.5 top-4 size-4" />
+    </div>
+  );
+}
+
+/** Un párrafo del texto con la EPS escrita resaltada donde va el marcador. */
+function Parrafo({ texto, eps }: { texto: string; eps: string }) {
+  const partes = texto.split("{{EPS}}");
+  return (
+    <p className="text-charcoal m-0 text-sm leading-[1.65]">
+      {partes.map((p, i) => (
+        <span key={i}>
+          {p}
+          {i < partes.length - 1 && <mark className="bg-primary/50 rounded px-1 font-bold text-foreground">{eps.trim() || "____________"}</mark>}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 /**
- * Identificación + texto + "Apruebo" + firma (R5). El texto se muestra COMPLETO
- * en un cuadro con scroll; la EPS que escriba el papá se refleja en vivo en el
+ * Identificación + resumen + texto íntegro + "Apruebo" + firma (R5), diseño C
+ * "Resumen primero" (Laura, 1-oct-2026). El texto legal se muestra COMPLETO, partido
+ * en las partes del acordeón (todas están en la página, abiertas o plegadas); el
+ * resumen orienta y lo dice. La EPS que escriba el papá se refleja en vivo en el
  * párrafo que la nombra, para que lea exactamente lo que va a firmar.
  */
 export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsentimiento; precargado?: Precargado }) {
@@ -43,17 +72,27 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
   const [fecha, setFecha] = useState(precargado?.menor?.fechaNacimiento ?? "");
   const [eps, setEps] = useState(precargado?.menor?.eps ?? "");
   const [tipoDoc, setTipoDoc] = useState(precargado?.menor?.tipoDocumento ?? "");
-  const [nombreMenor, setNombreMenor] = useState(
-    precargado?.menor ? `${precargado.menor.nombres} ${precargado.menor.apellidos}` : "",
-  );
+  const [nombres, setNombres] = useState(precargado?.menor?.nombres ?? "");
+  const [apellidos, setApellidos] = useState(precargado?.menor?.apellidos ?? "");
   const [nombreFirmante, setNombreFirmante] = useState(precargado?.firmante?.nombre ?? "");
+  const [parentesco, setParentesco] = useState(precargado?.firmante?.parentesco ?? "");
+  const [editando, setEditando] = useState(false);
   const [firmaOk, setFirmaOk] = useState(false);
   const onFirma = useCallback((ok: boolean) => setFirmaOk(ok), []);
 
+  const titulos = titulosDelTexto(texto.codigo, texto.parrafos.length);
+  const iEps = texto.parrafos.findIndex((p) => p.includes("{{EPS}}"));
+  const [abiertos, setAbiertos] = useState<number[]>(() => Array.from(new Set([0, iEps].filter((i) => i >= 0))));
+  const todasAbiertas = abiertos.length === texto.parrafos.length;
+  const alternar = (i: number) => setAbiertos((a) => (a.includes(i) ? a.filter((x) => x !== i) : [...a, i]));
+
+  const nombreMenor = `${nombres} ${apellidos}`.trim();
   const edad = edadDesde(fecha);
   // D11: si ya tiene 18, firma por sí mismo con el mismo texto; no se piden acudientes.
   const mayor = edad != null && edad >= 18;
   const bloqueado = !!precargado?.menor;
+  const resumido = bloqueado && !editando;
+  const iniciales = nombreMenor.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "—";
 
   const alCambiarFecha = (v: string) => {
     setFecha(v);
@@ -62,151 +101,188 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
 
   if (state.noEncontrado) {
     return (
-      <div className="space-y-4">
-        <h2 className="font-heading text-xl font-semibold tracking-tight">No encontramos ese registro</h2>
-        <p className="text-muted-foreground text-sm">
-          No tenemos una ficha con esos datos. Llena primero los datos del deportista y al final podrás firmar el
-          consentimiento.
+      <div className={cn(CARD, "space-y-4 p-5")}>
+        <h2 className="font-heading text-xl font-extrabold tracking-tight">No encontramos ese registro</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          No tenemos una ficha con esos datos. Llena primero los datos del deportista y al final podrás firmar el consentimiento.
         </p>
-        <Link href="/registro/datos" className="text-primary text-sm font-medium hover:underline">
-          Ir a ingresar los datos →
-        </Link>
+        <Link href="/registro/datos" className="text-[#46530a] text-sm font-semibold hover:underline">Ir a ingresar los datos →</Link>
         <p className="text-muted-foreground text-xs">Si crees que es un error, acércate a recepción.</p>
       </div>
     );
   }
 
   return (
-    <form action={action} className="space-y-6">
+    <form action={action} className="flex flex-col gap-3">
       {/* Honeypot: invisible para una persona; un robot lo llena y el servidor descarta el envío. */}
       <div className="absolute -left-[9999px] top-0" aria-hidden>
-        <label>
-          Sitio web <input type="text" name="sitio_web" tabIndex={-1} autoComplete="off" />
-        </label>
+        <label>Sitio web <input type="text" name="sitio_web" tabIndex={-1} autoComplete="off" /></label>
       </div>
 
-      <section className="space-y-4">
-        <div>
-          <h2 className="font-heading text-lg font-semibold tracking-tight">1 · ¿Por quién firmas?</h2>
-          <p className="text-muted-foreground text-sm">Los datos del deportista, tal como están en su documento.</p>
+      {/* Quién y por quién: resumido si viene de "Actualizar datos"; completo si no */}
+      {resumido && (
+        <div className={cn(CARD, "flex items-center gap-3.5 px-4 py-4")}>
+          <span className="bg-stadium text-primary font-heading flex size-11 shrink-0 items-center justify-center rounded-xl text-base font-extrabold">{iniciales}</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="truncate text-[15px] font-bold">{nombreMenor}</span>
+            <span className="text-muted-foreground text-[13px]">
+              {edad != null ? `${edad} años · ` : ""}EPS {eps || "—"}{!mayor && nombreFirmante ? ` · firma ${nombreFirmante}${parentesco ? ` (${parentesco.toLowerCase()})` : ""}` : ""}
+            </span>
+          </span>
+          <button type="button" onClick={() => setEditando(true)} className="text-[#46530a] shrink-0 text-[13px] font-semibold hover:underline">Editar</button>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo label="Nombres" name="nombres" error={fe.nombres}>
-            <Input id="nombres" name="nombres" required readOnly={bloqueado} defaultValue={precargado?.menor?.nombres ?? ""}
-              onChange={(e) => setNombreMenor(`${e.target.value} ${(document.getElementById("apellidos") as HTMLInputElement | null)?.value ?? ""}`)} />
-          </Campo>
-          <Campo label="Apellidos" name="apellidos" error={fe.apellidos}>
-            <Input id="apellidos" name="apellidos" required readOnly={bloqueado} defaultValue={precargado?.menor?.apellidos ?? ""}
-              onChange={(e) => setNombreMenor(`${(document.getElementById("nombres") as HTMLInputElement | null)?.value ?? ""} ${e.target.value}`)} />
-          </Campo>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo label="Fecha de nacimiento" name="fechaNacimiento" error={fe.fechaNacimiento}>
-            <Input id="fechaNacimiento" name="fechaNacimiento" type="date" required readOnly={bloqueado} value={fecha} onChange={(e) => alCambiarFecha(e.target.value)} />
-          </Campo>
-          <div className="grid grid-cols-[7rem_1fr] gap-2">
-            <Campo label="Tipo" name="tipoDocumento" error={fe.tipoDocumento}>
-              <select id="tipoDocumento" name="tipoDocumento" required className={sel} value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)} disabled={bloqueado}>
-                <option value="">—</option>
-                {TIPOS_DOCUMENTO.filter((t) => t.valor !== "NIT").map((t) => (
-                  <option key={t.valor} value={t.valor}>{t.valor}</option>
-                ))}
-              </select>
-              {bloqueado && <input type="hidden" name="tipoDocumento" value={tipoDoc} />}
-            </Campo>
-            <Campo label="Número de documento" name="documento" error={fe.documento}>
-              <Input id="documento" name="documento" inputMode="numeric" required readOnly={bloqueado} defaultValue={precargado?.menor?.documento ?? ""} />
-            </Campo>
-          </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo label="EPS" name="eps" error={fe.eps}>
-            <Input id="eps" name="eps" required value={eps} onChange={(e) => setEps(e.target.value)} placeholder="Sura, Nueva EPS, Salud Total…" />
-          </Campo>
-          <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>
-            <select id="rh" name="rh" className={sel} defaultValue={precargado?.menor?.rh ?? ""}>
-              <option value="">—</option>
-              {RH_VALORES.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
-          </Campo>
-        </div>
-      </section>
-
-      {!mayor && (
-        <section className="space-y-4">
-          <div>
-            <h2 className="font-heading text-lg font-semibold tracking-tight">2 · Quién firma</h2>
-            <p className="text-muted-foreground text-sm">
-              {edad != null ? `${nombreMenor.trim() || "El deportista"} tiene ${edad} años: firma el padre, la madre o el acudiente.` : "El padre, la madre o el acudiente del deportista."}
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo label="Nombre completo" name="firmanteNombre" error={fe.firmanteNombre}>
-              <Input id="firmanteNombre" name="firmanteNombre" required={!mayor} value={nombreFirmante} onChange={(e) => setNombreFirmante(e.target.value)} autoComplete="name" />
-            </Campo>
-            <Campo label="Cédula" name="firmanteDocumento" error={fe.firmanteDocumento}>
-              <Input id="firmanteDocumento" name="firmanteDocumento" inputMode="numeric" required={!mayor} defaultValue={precargado?.firmante?.documento ?? ""} />
-            </Campo>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Campo label="Parentesco" name="firmanteParentesco" error={fe.firmanteParentesco}>
-              <select id="firmanteParentesco" name="firmanteParentesco" className={sel} defaultValue={precargado?.firmante?.parentesco ?? ""}>
-                <option value="">—</option>
-                <option value="Madre">Madre</option>
-                <option value="Padre">Padre</option>
-                <option value="Acudiente">Otro acudiente</option>
-              </select>
-            </Campo>
-            <Campo label="Celular" name="firmanteCelular" error={fe.firmanteCelular}>
-              <Input id="firmanteCelular" name="firmanteCelular" inputMode="tel" defaultValue={precargado?.firmante?.celular ?? ""} autoComplete="tel" />
-            </Campo>
-            <Campo label="Correo" name="firmanteEmail" error={fe.firmanteEmail}>
-              <Input id="firmanteEmail" name="firmanteEmail" type="email" defaultValue={precargado?.firmante?.email ?? ""} autoComplete="email" />
-            </Campo>
-          </div>
-        </section>
       )}
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="font-heading text-lg font-semibold tracking-tight">{mayor ? "2" : "3"} · Lee el consentimiento</h2>
-          <p className="text-muted-foreground text-sm">Versión {texto.codigo}. Es el mismo texto que quedará en el PDF firmado.</p>
+      <section hidden={resumido} className={cn(CARD, "space-y-5 p-5")}>
+        <div className="space-y-1">
+          <h2 className="font-heading text-lg font-extrabold tracking-tight">¿Por quién firmas?</h2>
+          <p className="text-muted-foreground text-sm">Los datos del deportista, tal como están en su documento.</p>
         </div>
-        <div className="bg-muted/30 max-h-72 space-y-3 overflow-y-auto rounded-lg border p-4 text-sm leading-relaxed">
-          <p className="font-heading text-xs font-semibold uppercase tracking-wide">{texto.titulo}</p>
-          {texto.parrafos.map((p, i) => (
-            <p key={i}>{p.replace(/\{\{EPS\}\}/g, eps.trim() || "____________")}</p>
-          ))}
+        <Campo label="Nombres" name="nombres" error={fe.nombres}>
+          <Input id="nombres" name="nombres" required readOnly={bloqueado} value={nombres} onChange={(e) => setNombres(e.target.value)} className={INPUT} />
+        </Campo>
+        <Campo label="Apellidos" name="apellidos" error={fe.apellidos}>
+          <Input id="apellidos" name="apellidos" required readOnly={bloqueado} value={apellidos} onChange={(e) => setApellidos(e.target.value)} className={INPUT} />
+        </Campo>
+        <Campo label="Fecha de nacimiento" name="fechaNacimiento" error={fe.fechaNacimiento}>
+          <Input id="fechaNacimiento" name="fechaNacimiento" type="date" required readOnly={bloqueado} value={fecha} onChange={(e) => alCambiarFecha(e.target.value)} className={INPUT} />
+        </Campo>
+        <div className="grid grid-cols-[110px_1fr] gap-3">
+          <Campo label="Tipo" name="tipoDocumento" error={fe.tipoDocumento}>
+            <Select id="tipoDocumento" name={bloqueado ? undefined : "tipoDocumento"} required value={tipoDoc} onChange={(e) => setTipoDoc(e.target.value)} disabled={bloqueado}>
+              <option value="">—</option>
+              {TIPOS_DOCUMENTO.filter((t) => t.valor !== "NIT").map((t) => <option key={t.valor} value={t.valor}>{t.valor}</option>)}
+            </Select>
+            {bloqueado && <input type="hidden" name="tipoDocumento" value={tipoDoc} />}
+          </Campo>
+          <Campo label="Número de documento" name="documento" error={fe.documento}>
+            <Input id="documento" name="documento" inputMode="numeric" required readOnly={bloqueado} defaultValue={precargado?.menor?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+          </Campo>
         </div>
-        <label className="bg-muted/40 hover:bg-muted/60 flex cursor-pointer items-start gap-3 rounded-md px-3 py-3 text-sm transition-colors">
-          <input type="checkbox" name="acepto" required className="accent-lime mt-0.5 size-4" />
-          <span>
-            <strong>Apruebo.</strong> Leí el consentimiento completo y lo acepto{mayor ? "" : " en nombre de mi hijo(a)"}
-            {nombreMenor.trim() ? ` (${nombreMenor.trim()})` : ""}.
-          </span>
-        </label>
-        {fe.acepto && <p className="text-destructive text-sm">{fe.acepto}</p>}
+        <Campo label="EPS" name="eps" error={fe.eps}>
+          <Input id="eps" name="eps" required value={eps} onChange={(e) => setEps(e.target.value)} placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} />
+        </Campo>
+        <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>
+          <Select id="rh" name="rh" defaultValue={precargado?.menor?.rh ?? ""}>
+            <option value="">—</option>
+            {RH_VALORES.map((v) => <option key={v} value={v}>{v}</option>)}
+          </Select>
+        </Campo>
+
+        {!mayor && (
+          <div className="space-y-5 border-t pt-5">
+            <div className="space-y-1">
+              <h2 className="font-heading text-lg font-extrabold tracking-tight">Quién firma</h2>
+              <p className="text-muted-foreground text-sm">
+                {edad != null ? `${nombreMenor || "El deportista"} tiene ${edad} años: firma el padre, la madre o el acudiente.` : "El padre, la madre o el acudiente del deportista."}
+              </p>
+            </div>
+            <Campo label="Nombre completo" name="firmanteNombre" error={fe.firmanteNombre}>
+              <Input id="firmanteNombre" name="firmanteNombre" required={!mayor} value={nombreFirmante} onChange={(e) => setNombreFirmante(e.target.value)} autoComplete="name" className={INPUT} />
+            </Campo>
+            <div className="grid grid-cols-[1fr_130px] gap-3">
+              <Campo label="Cédula" name="firmanteDocumento" error={fe.firmanteDocumento}>
+                <Input id="firmanteDocumento" name="firmanteDocumento" inputMode="numeric" required={!mayor} defaultValue={precargado?.firmante?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+              </Campo>
+              <Campo label="Parentesco" name="firmanteParentesco" error={fe.firmanteParentesco}>
+                <Select id="firmanteParentesco" name="firmanteParentesco" value={parentesco} onChange={(e) => setParentesco(e.target.value)}>
+                  <option value="">—</option>
+                  <option value="Madre">Madre</option>
+                  <option value="Padre">Padre</option>
+                  <option value="Acudiente">Otro</option>
+                </Select>
+              </Campo>
+            </div>
+            <Campo label="Celular" name="firmanteCelular" error={fe.firmanteCelular}>
+              <Input id="firmanteCelular" name="firmanteCelular" inputMode="tel" defaultValue={precargado?.firmante?.celular ?? ""} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
+            </Campo>
+            <Campo label="Correo" name="firmanteEmail" error={fe.firmanteEmail}>
+              <Input id="firmanteEmail" name="firmanteEmail" type="email" defaultValue={precargado?.firmante?.email ?? ""} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
+            </Campo>
+          </div>
+        )}
+        {bloqueado && editando && (
+          <button type="button" onClick={() => setEditando(false)} className="text-muted-foreground text-sm font-semibold hover:underline">Listo, volver al resumen</button>
+        )}
       </section>
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="font-heading text-lg font-semibold tracking-tight">{mayor ? "3" : "4"} · Firma</h2>
-          <p className="text-muted-foreground text-sm">
-            La fecha, la hora y el dispositivo quedan registrados como evidencia de la firma.
-          </p>
+      {/* En resumen */}
+      <section className={cn(CARD, "space-y-3.5 p-5")}>
+        <div className="flex items-center gap-2.5">
+          <span className="bg-primary/35 flex size-8 items-center justify-center rounded-[9px]"><ListChecks className="size-[18px] text-[#46530a]" /></span>
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">En resumen</h2>
         </div>
-        <FirmaPad nombreSugerido={mayor ? nombreMenor.trim() : nombreFirmante} onCambio={onFirma} />
+        <p className="text-muted-foreground text-[13px] leading-relaxed">Lo que estás aceptando, en palabras sencillas. Lo que firmas es el texto completo de abajo.</p>
+        <ul className="m-0 list-none space-y-3 p-0">
+          {resumenDelConsentimiento(nombreMenor, eps, mayor).map((linea, i) => (
+            <li key={i} className="flex items-start gap-3 text-sm leading-[1.55]">
+              <Check className="mt-0.5 size-[18px] shrink-0 text-[#46530a]" strokeWidth={2.6} />
+              <span>{linea}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Texto completo */}
+      <section className={cn(CARD, "overflow-hidden")}>
+        <div className="space-y-1 px-5 pb-3.5 pt-5">
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Texto completo</h2>
+          <p className="text-muted-foreground text-[13px]">Toca cada parte para leerla. Es el mismo texto del PDF que firmas.</p>
+          <p className="font-heading text-muted-foreground pt-2 text-[11px] font-bold uppercase tracking-wide">{texto.titulo}</p>
+        </div>
+        {texto.parrafos.map((p, i) => {
+          const abierto = abiertos.includes(i);
+          return (
+            <div key={i} className="border-t">
+              <button type="button" aria-expanded={abierto} aria-controls={`parte-${i}`} onClick={() => alternar(i)}
+                className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm font-bold">
+                <span className="flex items-center gap-2.5">
+                  <span className="bg-muted text-muted-foreground font-heading flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">{i + 1}</span>
+                  {titulos[i]}
+                </span>
+                {abierto ? <ChevronUp className="text-muted-foreground size-[18px] shrink-0" /> : <ChevronDown className="text-muted-foreground size-[18px] shrink-0" />}
+              </button>
+              <div id={`parte-${i}`} hidden={!abierto} className="pb-4.5 pl-[52px] pr-5">
+                <Parrafo texto={p} eps={eps} />
+              </div>
+            </div>
+          );
+        })}
+        <div className="flex items-center justify-between border-t px-5 py-3.5">
+          <span className="text-muted-foreground text-xs">{texto.parrafos.length} partes · unos 4 minutos de lectura</span>
+          <button type="button" onClick={() => setAbiertos(todasAbiertas ? [] : texto.parrafos.map((_, i) => i))} className="text-[#46530a] text-[13px] font-semibold hover:underline">
+            {todasAbiertas ? "Cerrar todo" : "Abrir todo"}
+          </button>
+        </div>
+      </section>
+
+      {/* Apruebo */}
+      <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
+        <input type="checkbox" name="acepto" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
+        <span className="text-sm leading-relaxed">
+          <strong>Apruebo.</strong> Leí el consentimiento completo y lo acepto{mayor ? "" : " en nombre de mi hijo(a)"}
+          {nombreMenor ? ` (${nombreMenor})` : ""}.
+        </span>
+      </label>
+      {fe.acepto && <p className="text-destructive -mt-1 text-sm">{fe.acepto}</p>}
+
+      {/* Firma */}
+      <section className={cn(CARD, "space-y-3 p-5")}>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Tu firma</h2>
+          <span className="text-muted-foreground truncate text-xs">{mayor ? nombreMenor : nombreFirmante}</span>
+        </div>
+        <FirmaPad nombreSugerido={mayor ? nombreMenor : nombreFirmante} onCambio={onFirma} />
         {fe.firmaPng && <p className="text-destructive text-sm">{fe.firmaPng}</p>}
       </section>
 
       {state.error && (
-        <p role="alert" className="border-destructive/20 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm">
-          {state.error}
-        </p>
+        <p role="alert" className="border-destructive/20 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm">{state.error}</p>
       )}
-      <Button type="submit" size="lg" className="w-full" disabled={pending || !firmaOk}>
+      <Button type="submit" size="lg" disabled={pending || !firmaOk} className="bg-stadium text-primary hover:bg-stadium/90 h-[54px] w-full rounded-xl text-base font-bold">
         {pending ? "Guardando la firma…" : "Firmar el consentimiento"}
       </Button>
+      <p className="text-muted-foreground text-center text-xs">El PDF firmado queda en la ficha {nombreMenor ? `de ${nombres.trim().split(/\s+/)[0]}` : "del deportista"} en el club.</p>
     </form>
   );
 }

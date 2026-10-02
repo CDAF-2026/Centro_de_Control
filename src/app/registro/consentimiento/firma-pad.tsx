@@ -133,15 +133,17 @@ export function FirmaPad({
       <input type="hidden" name="metodo" value={modo} />
       <input type="hidden" name="firmaPng" value={png} />
 
-      <div className="bg-muted inline-flex rounded-lg p-1 text-sm">
+      <div className="bg-muted grid grid-cols-2 gap-1 rounded-xl p-1 text-sm" role="tablist">
         {(["dibujada", "escrita"] as Modo[]).map((m) => (
           <button
             key={m}
             type="button"
+            role="tab"
+            aria-selected={modo === m}
             onClick={() => setModo(m)}
             className={cn(
-              "rounded-md px-3 py-1.5 transition-colors",
-              modo === m ? "bg-card shadow-sm font-medium" : "text-muted-foreground hover:text-foreground",
+              "h-[42px] rounded-[9px] font-semibold transition-colors",
+              modo === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {m === "dibujada" ? "Dibujar mi firma" : "Escribir mi nombre"}
@@ -151,23 +153,29 @@ export function FirmaPad({
 
       {modo === "dibujada" ? (
         <div className="space-y-2">
-          <canvas
-            ref={canvasRef}
-            aria-label="Área para firmar"
-            className="bg-background h-44 w-full rounded-lg border-2 border-dashed"
-            style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
-          />
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground text-xs">Firma con el dedo, el lápiz o el ratón dentro del recuadro.</p>
-            <Button type="button" variant="ghost" size="sm" onClick={limpiar}>Borrar y repetir</Button>
+          <div className="relative">
+            <canvas
+              ref={canvasRef}
+              aria-label="Área para firmar"
+              className="h-48 w-full rounded-[14px] border-2 border-dashed border-[#b9c3c0] bg-[#fafbfa]"
+              style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
+            />
+            {/* La línea de firma y la ayuda van DEBAJO del lienzo (pointer-events: none): no estorban al trazo. */}
+            <div aria-hidden className="pointer-events-none absolute inset-x-6 bottom-11 h-px bg-[#c9d2cf]" />
+            <span aria-hidden className="text-muted-foreground pointer-events-none absolute bottom-[50px] left-[22px] text-lg">×</span>
+            {!png && <span aria-hidden className="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-sm">Firma aquí con el dedo</span>}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground text-xs">Si te queda fea, no importa: puedes repetirla.</p>
+            <Button type="button" variant="ghost" size="sm" onClick={limpiar} className="shrink-0">Borrar</Button>
           </div>
         </div>
       ) : (
         <div className="space-y-2">
           <Label htmlFor="firma-nombre">Escribe tu nombre completo como firma</Label>
-          <Input id="firma-nombre" value={nombre} onChange={(e) => { setEditado(true); setNombre(e.target.value); }} autoComplete="name" />
+          <Input id="firma-nombre" value={nombre} onChange={(e) => { setEditado(true); setNombre(e.target.value); }} autoComplete="name" className="h-12 rounded-[10px] border-[1.5px] px-3.5 text-[15px] md:text-[15px]" />
           {png && (
-            <div className="bg-background rounded-lg border-2 border-dashed p-2">
+            <div className="rounded-[14px] border-2 border-dashed border-[#b9c3c0] bg-[#fafbfa] p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={png} alt="Vista previa de la firma" className="mx-auto h-20 object-contain" />
             </div>
@@ -175,6 +183,10 @@ export function FirmaPad({
           <p className="text-muted-foreground text-xs">Tu nombre escrito queda como firma electrónica, con la misma evidencia.</p>
         </div>
       )}
+      <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
+        <svg className="mt-0.5 size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+        La fecha, la hora y el dispositivo quedan registrados como evidencia de la firma.
+      </p>
     </div>
   );
 }

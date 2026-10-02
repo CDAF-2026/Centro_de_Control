@@ -14,10 +14,12 @@ export const dynamic = "force-dynamic";
 export default function RegistroLayout({ children }: { children: React.ReactNode }) {
   const year = new Date().getFullYear();
   return (
-    <main className="bg-stadium relative flex min-h-screen flex-col items-center overflow-hidden">
+    // Las pantallas oscuras (landing, datos, listo) van sobre el fondo stadium; el
+    // consentimiento (diseño C) es claro y lo anuncia con `data-tema="claro"`.
+    <main className="group bg-stadium has-[[data-tema=claro]]:bg-background relative flex min-h-screen flex-col items-center overflow-hidden">
       <div className="relative flex w-full max-w-md flex-1 flex-col md:max-w-3xl">
         {children}
-        <p className="px-6 pb-6 pt-4 text-center text-[11px] text-white/35">
+        <p className="group-has-[[data-tema=claro]]:text-muted-foreground px-6 pb-6 pt-4 text-center text-[11px] text-white/35">
           © {year} Centro Deportivo Alejandro Falla · alejandrofallacd.com
         </p>
       </div>

@@ -1,6 +1,6 @@
 # Plan · Registro de datos y consentimiento informado por QR
 
-> **Estado: Fases 0–3 hechas el 1-oct-2026. La página pública completa está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 4 (QR y apertura).**
+> **Estado: Fases 0–3 hechas el 1-oct-2026, más el rediseño de las dos pantallas públicas (datos = "A · Paso a paso", consentimiento = "C · Resumen primero"; facturación obligatoria). La página pública completa está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 4 (QR y apertura).**
 > Escrito el 30-sep-2026 a partir del video de Laura (30-sep-2026, 5:44 min), el
 > texto del consentimiento y la ficha personal que aparecen en él, y una lectura
 > completa de `handoff.md`, `MEMORIA.md` y el código del módulo de clientes.
@@ -261,7 +261,7 @@ exactamente estos campos.
 | **Padre**: nombre, cédula, celular, correo | ambos (hoy un solo acudiente) | **nueva** tabla `cliente_acudientes` (ficha ↔ acudiente, `rol` padre/madre/otro, `principal`); `acudientes.email` ya existe |
 | **Madre**: nombre, cédula, celular, correo | Word | ídem, segunda fila |
 | Celular y correo de la ficha | plataforma | `clientes.celular/email` = los del acudiente principal (como hoy) |
-| Facturación: natural/jurídica, razón social, NIT, correo | ambos | `factura_tipo`, `factura_a_nombre`, `factura_a_nit`, `factura_email` |
+| Facturación: natural/jurídica, razón social, NIT, correo. **Obligatoria** (Laura, 1-oct-2026): se elige de quién se toman los datos (madre/padre escritos arriba, uno mismo si es mayor, u otra persona/empresa) y los campos viajan llenos siempre | ambos | `factura_tipo`, `factura_a_nombre`, `factura_a_nit`, `factura_email` (`facturaDe` solo en el formulario) |
 | Deportes (tenis/pádel) | plataforma | `deportes[]` |
 | Estado (activo/retirado) | plataforma | **no** se expone en la landing |
 

@@ -74,6 +74,10 @@ describe("registro público · puerta abierta", () => {
     expect(html).toContain('name="firmaPng"');
     expect(html).toContain('name="sitio_web"'); // honeypot
     expect(html).toContain('name="eps"');
+    // Diseño C "Resumen primero": resumen, el texto completo por partes y el tema claro para el layout.
+    expect(t).toContain("En resumen");
+    expect(t).toContain("Texto completo");
+    expect(html).toContain('data-tema="claro"');
     // El botón arranca deshabilitado: sin firma válida no se envía.
     expect(html).toMatch(/Firmar el consentimiento<\/button>/);
     expect(html).toMatch(/disabled=""[^>]*>Firmar el consentimiento|<button[^>]*disabled=""[^>]*>[^<]*Firmar/);
@@ -102,7 +106,13 @@ describe("registro público · puerta abierta", () => {
       expect(html, n).toContain(`name="${n}"`);
     }
     expect(texto(html)).toContain("Ley 1581 de 2012");
-    expect(texto(html)).toContain("Guardar y pasar a firmar");
+    // Diseño A "Paso a paso": barra de pasos, el primero abierto con "Continuar" (el botón de
+    // guardar solo aparece en el último paso) y los demás pasos montados pero ocultos.
+    expect(texto(html)).toContain("Paso 1 de 4");
+    expect(texto(html)).toContain("Continuar");
+    expect(html).toContain('data-paso="facturacion" hidden=""');
+    expect(html).toContain('name="facturaDe"');
+    expect(texto(html)).toContain("¿A nombre de quién salen las facturas?");
   });
 
   it("FirmaPad se monta suelto con sus dos campos ocultos", async () => {

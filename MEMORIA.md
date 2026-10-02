@@ -2078,10 +2078,47 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
 - ✅ **Verificado en local el 1-oct-2026**: "Niño Nuevo QR" (RC 9990000021) con la acudiente de la ficha
   598 entró como **hermano** (miembro 637) con lugar de nacimiento, RH, dirección y emergencia; el
   consentimiento salió precargado y bloqueado; firma escrita → `asignada`, documento 12 en la ficha.
-  **Fichas de prueba que hay que borrar al terminar la revisión de Laura**: cliente 598 (miembros 615 y
-  637, acudiente 177), sus 3 firmas, documentos 5 y 12, solicitudes y objetos del bucket.
+  **Fichas de prueba que hay que borrar al terminar la revisión de Laura**: cliente 598 (miembros 615,
+  637 y **689** "Niña Prueba QR Diseño", acudiente 177), sus **4 firmas**, sus documentos (5, 12 y el del
+  689), solicitudes y objetos del bucket. La 598 quedó además con facturación (NIT 9990000002) por la
+  prueba del rediseño.
 - Pruebas: `registro-aplicar.test.ts` (6) · `registro-render.test.tsx` (+2: formulario de datos, bandeja
   con un cambio sembrado y borrado en `finally`).
+
+**Rediseño de las dos pantallas públicas (1-oct-2026, Laura eligió entre 3 propuestas por pantalla,
+canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
+- 📝 **Datos = "A · Paso a paso"** (`datos-form.tsx`): un paso por pantalla (deportista → contacto →
+  acudientes → facturación; con ≥18 años son tres), barra de progreso en la zona oscura, una sola
+  columna, campos de 48 px, "Continuar"/"Volver". Es UN solo formulario: los pasos que no se ven siguen
+  montados con `hidden` y todo viaja junto al final. Cada paso se valida en el navegador antes de avanzar
+  (`checkValidity` de sus campos); si el servidor devuelve un error, la pantalla salta al paso que lo tiene
+  (`CAMPOS` por paso). ⚠️ Un `required` inválido en un paso oculto bloquea el envío SIN aviso (el navegador
+  no puede enfocarlo): `alEnviar` los busca y salta a ese paso. `Cabecera` ganó `sinTarjeta` para que el
+  formulario pinte la barra entre la cabecera y la tarjeta.
+- 💳 **Facturación OBLIGATORIA** (Laura, 1-oct-2026: "muchos padres la dejarían vacía y la información
+  queda incompleta"). Ya no hay casilla opcional: el paso 4 pregunta **"¿A nombre de quién salen las
+  facturas?"** con la madre/el padre (los acudientes escritos en el paso 3; "a mi nombre" si es mayor) u
+  "Otra persona o empresa". Al elegir un acudiente, sus datos se copian a los campos de facturación
+  (hidden) y se muestra "Así quedará la factura" con **Editar** (pasa a "otra persona" con esos valores
+  precargados). `datosSchema` exige `facturaDe`, `facturaTipo`, `facturaANombre`, `facturaANit` y
+  `facturaEmail` (prueba `tests/registro-esquemas.test.ts`). El SQL no cambió: la regla D1 sigue (NIT
+  distinto al que había → `registro_cambio` pendiente). Consecuencia: toda ficha que se registre por QR
+  queda con NIT; si ya tenía otro, los revisores reciben el aviso.
+- ✍️ **Consentimiento = "C · Resumen primero"** (`consentimiento-form.tsx`, pantalla CLARA): franja
+  blanca con logo (`CabeceraClara`), tarjeta de identidad resumida (iniciales, nombre, edad, EPS, quién
+  firma; "Editar" despliega los campos; si no viene de "Actualizar datos" los campos salen abiertos),
+  tarjeta **"En resumen"** (5 frases en lenguaje claro, `resumenDelConsentimiento` en
+  `src/lib/registro/texto.ts`, con el nombre y la EPS en vivo; la pantalla dice que lo que se firma es el
+  texto completo), tarjeta **"Texto completo"** en acordeón (un título corto por párrafo,
+  `titulosDelTexto`, atado al código de la versión: otra versión sale con "Parte N" hasta que alguien
+  escriba los suyos; abiertos por defecto el primero y el de la EPS; "Abrir todo"), "Apruebo" en lima y la
+  firma. **El texto legal se muestra íntegro y sin tocar**; solo cambia la presentación. El fondo claro lo
+  decide el layout con `has-[[data-tema=claro]]` (Tailwind v4): la cabecera clara lleva `data-tema="claro"`.
+- `FirmaPad`: pestañas a lo ancho, lienzo con línea de firma y "×", ayuda "Firma aquí con el dedo"
+  mientras no hay trazo (todo `pointer-events: none`), nota de evidencia con candado.
+- Verificado en local el 1-oct-2026 de punta a punta en celular (375 px) y en escritorio: 4 pasos → envío
+  (la niña entró como miembro 689 de la 598 por la cédula de la acudiente; facturación escrita porque la
+  ficha no tenía NIT) → consentimiento precargado → firma escrita → PDF (firma 81c67be2…).
 
 ## Pendientes conocidos
 
@@ -2147,6 +2184,10 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     **Sebastián Niño** (`snino777@gmail.com`) como coord. administrativo y **el club lo pasó a coord.
     deportivo**, así que ve 0 turnos (correcto para su rol nuevo). Hoy el único coord. admin es Juan
     Fernando, que marca turno: hay que rehacer la prueba sin depender de quién tenga el rol.
+    **+1 desde el 1-oct (noche)** en `academias-render.test.tsx` › "nadie queda matriculado sin ninguna
+    clase": **Melissa Hurtado** (miembro 604, una de las 15 niñas demo del 30-sep) está matriculada en
+    Recreativa Tenis (inscripción 235) **sin ningún día**. Es un dato, no código: hay que ponerla en su
+    clase o retirarla desde `/academias`; con eso la prueba vuelve a verde.
 20. **El reporte de horas se usa para pagar DESDE OCTUBRE de 2026** (Laura, 1-oct-2026): el club apenas se
     está adaptando a marcar y desde octubre lo usará "más juiciosamente". **Septiembre NO se paga con el
     reporte**, así que sus turnos con la salida en otro día (Juan Fernando 1→21-sep ≈ 480 h; Camila 1 y
