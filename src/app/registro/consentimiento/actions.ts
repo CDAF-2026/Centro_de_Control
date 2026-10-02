@@ -7,7 +7,9 @@ import { buscarMiembro, soloDigitos } from "@/lib/registro/match";
 import { hashIp, ipDelVisitante, navegadorDelVisitante, sha256 } from "@/lib/registro/evidencia";
 import { anotarEnSesion, crearSesion, leerSesion } from "@/lib/registro/sesion";
 import { registroAbierto } from "@/lib/registro/version";
-import { generarPdfConsentimiento } from "@/lib/pdf/consentimiento-pdf";
+import { generarPdfConsentimiento, fechaHoraBogota } from "@/lib/pdf/consentimiento-pdf";
+import { sendEmail } from "@/lib/email/resend";
+import { consentimientoFirmadoEmail } from "@/lib/email/consentimiento-firmado";
 import { logAuditSistema } from "@/lib/audit";
 import { edadDesde } from "@/lib/validations/cliente";
 import { capitalizarNombre } from "@/lib/nombres";
@@ -214,6 +216,15 @@ export async function firmarConsentimiento(
   if (adjErr) {
     console.error("[registro] adjuntar:", firmaId, adjErr.message);
     return { error: GENERICO };
+  }
+
+  // 5) Copia del PDF al correo del firmante (D5; Laura, 2-oct-2026). Si falla, el PDF ya está
+  // en la ficha: se registra y se sigue. Sin correo escrito, no se envía nada.
+  if (firmante.email) {
+    const firmadoEl = firma?.firmado_el ?? new Date().toISOString();
+    const correo = consentimientoFirmadoEmail({ firmante: firmante.nombre, menor: nombreMenor, fechaTexto: fechaHoraBogota(firmadoEl), firmaPorSiMismo: mayor });
+    const envio = await sendEmail({ to: firmante.email, subject: correo.subject, html: correo.html, attachments: [{ filename: correo.filename, content: pdf }] });
+    if (!envio.ok) console.error("[registro] correo:", firmaId, envio.error);
   }
 
   if (busqueda.tipo === "documento_ajeno") {

@@ -93,7 +93,7 @@ MENORES DE EDAD .docx` (texto legal, versión 2026-10) y `FICHA PERSONAL 2026.do
 | D3 | *Solo consentimiento* y **no se encuentra** → se le manda a llenar datos. Si hay **dos** candidatos con el mismo documento **y** el mismo nombre (una ficha duplicada), la firma queda guardada "por asignar" | Caso extremo: hoy no existe ninguno. No se construye pantalla propia: aparece en la misma bandeja con un botón "Asignar" |
 | D4 | **Solo padres por menores.** La página se construye para niños de academias y clases particulares | Sin interruptor "firmo por mí mismo" |
 | D11 | **Mayores de 18 en academias**: medido el 1-oct-2026, de 152 matriculados activos 133 son menores, **0** tienen 18 o más y 19 no tienen fecha de nacimiento. Si la fecha de nacimiento da 18 o más, el formulario deja de pedir acudiente y la persona firma por sí misma **con el mismo texto** (ya dice "en nombre propio o en calidad de titular de la patria potestad"). **Cambio del 2-oct-2026 (pedido del club)**: el QR también sirve para que los clientes **adultos** actualicen su ficha; un adulto llena los datos y termina en "Listo" **sin firmar** consentimiento. La portada marca el consentimiento como "Solo menores de edad" | Misma pantalla adaptada a la edad; sin segundo documento; adulto no firma |
-| D5 | Copia del PDF al correo: **después, opcional** (Fase 5.3) | Depende de la cuenta de Resend del club |
+| D5 | Copia del PDF al correo: **después, opcional** (Fase 5.3). Laura la pidió el 2-oct-2026; la cuenta de Resend del club ya existe y está en Vercel | — |
 | D6 | Texto del Word **definitivo y revisado**; se firma **una vez** | Se carga como versión `2026-10`; versionado por si cambia |
 | D7 | **Firma + evidencia** (nivel 1), sin costo | §4.6 tal cual |
 | D8 | Revisan la bandeja **superadmin y coordinador administrativo** | Guardia: lista propia `PUEDE_REVISAR_REGISTROS` (patrón `PUEDE_REABRIR_EVENTO`), no la matriz de clientes |
@@ -754,7 +754,7 @@ documentación está actualizada.
 |---|---|---|---|
 | 5.1 | ~~Padre y madre por separado~~ — **pasó a la Fase 1** por D2 | — | — |
 | 5.2 | **Lista "sin consentimiento"** en `/clientes` (filtro) y en la ficha de cada academia ("N niños sin firmar"), para que el club persiga a los que faltan | Fase 2 | 4–6 h |
-| 5.3 | **Copia del PDF al correo** del firmante con Resend (plantilla con marca como `clase-confirmada.ts`) | D5 + cuenta Resend del club | 3–4 h |
+| 5.3 | ~~**Copia del PDF al correo** del firmante con Resend~~ → **hecha el 2-oct-2026** (`consentimiento-firmado.ts`, adjunto, sin copia al club) | — | — |
 | 5.4 | **Cloudflare Turnstile** si aparecen envíos basura | abuso observado | 2–3 h |
 | 5.5 | **Código de verificación** por correo antes de firmar (nivel 2 de D7) | D7 + Resend | 6–8 h |
 | 5.6 | **Renovación**: `vigente_hasta` en firmas, aviso "consentimiento vencido" y re-firma anual/semestral | D6 | 4–6 h |

@@ -925,6 +925,12 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   por cédula como siempre; si no está (48 de 381 fichas de adultos no tienen cédula), por **correo +
   nombre** → se actualiza el titular de esa ficha (y le queda la cédula); correo sin nombre (la pareja
   comparte correo) → ficha nueva. Un adulto **nunca** entra en modo "hermano".
+- **Copia del PDF al correo del firmante** (D5, 2-oct-2026): tras `consentimiento_adjuntar`, si el
+  firmante escribió correo, `sendEmail` (Resend, cuenta del club en Vercel) le manda el PDF adjunto
+  con la plantilla `src/lib/email/consentimiento-firmado.ts` (texto corto; sin copia al club). Si
+  falla, `console.error` y se sigue: el PDF ya está en la ficha. Para VER el correo sin firmar nada:
+  `http://localhost:3000/registro/correo-prueba?a=correo@x.com` (solo en desarrollo; en local sale por
+  la cuenta de Resend del `.env`, que es la de Vena Digital).
 - **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega
   desde la ficha en la plataforma.
 - **La página NUNCA devuelve datos existentes** (un documento ajeno no revela si existe). Si el niño

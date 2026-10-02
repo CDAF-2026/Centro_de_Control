@@ -13,9 +13,9 @@ celular y, sin descargar nada ni crear usuario:
    menores de edad**: la portada lo dice. Un adulto que llena sus datos termina ahí, sin
    firmar nada.
 
-Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), y queda
+Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), queda
 guardado en la ficha del niño en la plataforma, en la tarjeta **"Consentimientos
-informados"**. Un PDF por cada niño; si tiene hermanos, se firma uno por cada uno (la
+informados"**, y **el papá recibe una copia en su correo** (si lo escribió). Un PDF por cada niño; si tiene hermanos, se firma uno por cada uno (la
 página lo ofrece al terminar: "Registrar otro hijo(a)").
 
 Dirección: **https://alejandrofallacd.com/registro**
@@ -61,6 +61,7 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 | "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre** (o "a mi nombre" si es un adulto): el club factura a nombre de esa persona |
 | "Soy adulto, ¿tengo que firmar el consentimiento?" | No. Solo actualiza sus datos con **"Actualizar o ingresar datos"** y al final vuelve al inicio. El consentimiento es solo para menores de edad |
 | "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
+| "No me llegó el PDF al correo" | Llega solo si escribió su correo al firmar; revisar spam. El PDF siempre está en la ficha y se le puede reenviar desde **Documentos** |
 | "Dice *Demasiados intentos*" | Hay un tope por conexión (60 envíos cada 10 minutos y 400 al día; el wifi del club cuenta como una sola conexión). Esperar unos minutos o hacerlo con datos móviles |
 
 ## Dónde se ve en la plataforma

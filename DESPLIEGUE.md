@@ -146,13 +146,11 @@ En *Authentication → URL Configuration*:
 
 - [x] ~~Prueba de humo detrás del login~~ — hecha, todo OK (31-jul-2026).
 - [x] ~~Cargar los correos reales de los 9 profesores~~ — hecho (31-jul-2026).
-- [ ] **Resend con cuenta del CDAF.** En el primer despliegue se dejaron fuera
-      `RESEND_API_KEY` y `RESEND_FROM` a propósito: las de `.env` son de Vena Digital.
-      ⚠️ Mientras falten, **dos correos al cliente no salen y nadie se entera**: la
-      confirmación al cerrarle una clase y la bienvenida al asignarle un paquete. No
-      se rompe nada (ambos llamados hacen `console.error` y siguen), pero recepción no
-      debe prometer un correo que no va a llegar. Al abrir la cuenta: verificar el
-      dominio del club en Resend y agregar las dos variables en Vercel. Sin tocar código.
+- [x] ~~Resend con cuenta del CDAF~~ — hecho: cuenta `agentecdaf` en Resend con el dominio
+      `alejandrofallacd.com` verificado y las dos variables en Vercel; los correos de
+      cierre de clase llegan a los clientes (verificado el 2-oct-2026 en el panel de
+      Resend). El `.env` local sigue con la cuenta de Vena Digital: lo que se envíe
+      desde el Mac sale por esa cuenta, no por la del club.
 - [ ] **Rotar el PAT de Supabase y el `access_key` de Siigo** (quedaron expuestos en
       chat). Al rotarlos hay que actualizar `.env` y los secretos de la Edge Function.
 - [x] ~~Crear el catálogo de paquetes~~ — hecho; desde el 30-sep-2026 el catálogo no lleva

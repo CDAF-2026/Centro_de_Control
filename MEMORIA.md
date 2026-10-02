@@ -2157,6 +2157,12 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   busca por correo y exige que el NOMBRE coincida → se actualiza el titular (le queda la cédula); correo
   sin nombre (la pareja comparte correo) → ficha nueva. Antes el modo "hermano" lo metía como segundo
   miembro de su propia ficha. Un adulto nunca entra como "hermano". Pruebas en `registro-match.test.ts`.
+- 📧 **Copia del PDF al correo del papá** (D5 / Fase 5.3, pedido de Laura el 2-oct-2026: adjunto, texto
+  corto, sin copia al club). `sendEmail` ganó `attachments` (base64); plantilla
+  `src/lib/email/consentimiento-firmado.ts` (misma marca que `clase-confirmada.ts`); se envía al final de
+  `firmarConsentimiento` si el firmante dejó correo, y un fallo solo se registra. Ruta de prueba solo en
+  desarrollo `/registro/correo-prueba?a=…` (PDF de muestra de 55 KB; probado a un correo de Laura). En
+  local sale por la cuenta de Resend de Vena (`.env`); en producción por la del club (`agentecdaf`).
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación
@@ -2216,9 +2222,11 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
    los secretos de la Edge Function `siigo-sync`.
 10. **Respaldo al minuto (PITR)** de Supabase: hoy es diario (un borrado por error cuesta hasta un día). Se
     paga aparte.
-11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
-    Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
-    cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
+11. ~~Cuenta de Resend del club~~ → **YA EXISTE y funciona en producción** (visto el 2-oct-2026: cuenta
+    `agentecdaf` en Resend, dominio `alejandrofallacd.com` verificado hace 2 meses, correos "Tu clase fue
+    confirmada" entregados a clientes reales). O sea que Vercel SÍ tiene `RESEND_API_KEY`/`RESEND_FROM`;
+    la nota de DESPLIEGUE.md estaba vieja. Lo único que sigue con la cuenta de Vena Digital es el `.env`
+    LOCAL: un correo enviado desde el Mac sale por la cuenta de Vena, no por la del club.
 12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 y esa
     misma noche el rediseño de las dos pantallas públicas (datos "A · Paso a paso", consentimiento "C ·
     Resumen primero", facturación obligatoria; commit `40e92fc`). La página pública completa existe pero

@@ -9,6 +9,8 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  /** Adjuntos (p. ej. el PDF del consentimiento). Resend los recibe en base64; tope 40 MB por correo. */
+  attachments?: Array<{ filename: string; content: Buffer }>;
 }): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM;
@@ -23,6 +25,9 @@ export async function sendEmail(opts: {
         to: [opts.to],
         subject: opts.subject,
         html: opts.html,
+        ...(opts.attachments?.length
+          ? { attachments: opts.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) }
+          : {}),
       }),
     });
     if (!res.ok) {
