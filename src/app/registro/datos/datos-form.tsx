@@ -61,9 +61,9 @@ function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?:
   const n = (c: string) => `acudiente${c}`;
   const [rol, setRol] = useState(inicial?.rol ?? "madre");
   return (
-    <div className="space-y-5">
+    <div className="grid gap-5 md:grid-cols-2">
       <input type="hidden" name={n("Rol")} value={rol} />
-      <fieldset className="space-y-1.5">
+      <fieldset className="space-y-1.5 md:col-span-2">
         <legend className="text-[13px] font-semibold text-charcoal">Es</legend>
         <div className="grid grid-cols-3 gap-2.5 pt-1.5">
           {([["madre", "Madre"], ["padre", "Padre"], ["otro", "Otro familiar"]] as const).map(([v, t]) => (
@@ -73,9 +73,11 @@ function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?:
         </div>
       </fieldset>
       {rol === "otro" && (
-        <Campo label="Parentesco" name={n("Parentesco")}>
-          <Input id={n("Parentesco")} name={n("Parentesco")} defaultValue={inicial?.parentesco ?? ""} placeholder="Abuela, tío…" className={INPUT} />
-        </Campo>
+        <div className="md:col-span-2">
+          <Campo label="Parentesco" name={n("Parentesco")}>
+            <Input id={n("Parentesco")} name={n("Parentesco")} defaultValue={inicial?.parentesco ?? ""} placeholder="Abuela, tío…" className={INPUT} />
+          </Campo>
+        </div>
       )}
       <Campo label="Nombre completo" name={n("Nombre")} error={errores[n("Nombre")]}>
         <Input id={n("Nombre")} name={n("Nombre")} required defaultValue={inicial?.nombre ?? ""} autoComplete="name" className={INPUT} />
@@ -221,7 +223,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
         <span className="text-primary block text-[11px] font-bold uppercase tracking-[0.14em]">Paso {Math.min(paso, pasos.length - 1) + 1} de {pasos.length} · {TITULO[actual]}</span>
       </div>
 
-      <div className="bg-card rounded-[20px] p-6 shadow-xl ring-1 ring-white/5 md:p-7">
+      <div className="bg-card rounded-[20px] p-6 shadow-xl ring-1 ring-white/5 md:p-9">
         {state.error && (
           <p role="alert" className="border-destructive/20 bg-destructive/5 text-destructive mb-5 rounded-lg border px-3 py-2 text-sm">{state.error}</p>
         )}
@@ -229,6 +231,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
         {/* Paso 1 · El deportista */}
         <section data-paso="deportista" hidden={actual !== "deportista"} className="space-y-5">
           <Encabezado pregunta="¿A quién vas a registrar?" />
+          <div className="grid gap-5 md:grid-cols-2">
           <Campo label="Nombres" name="nombres" error={fe.nombres}><Input id="nombres" name="nombres" required className={INPUT} autoComplete="off" /></Campo>
           <Campo label="Apellidos" name="apellidos" error={fe.apellidos}><Input id="apellidos" name="apellidos" required className={INPUT} autoComplete="off" /></Campo>
           <Campo label="Fecha de nacimiento" name="fechaNacimiento" error={fe.fechaNacimiento}>
@@ -241,7 +244,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
                 {TIPOS_DOCUMENTO.filter((t) => t.valor !== "NIT").map((t) => <option key={t.valor} value={t.valor}>{t.valor}</option>)}
               </Select>
             </Campo>
-            <Campo label="Número de documento" name="documento" error={fe.documento}>
+            <Campo label="Documento" name="documento" error={fe.documento}>
               <Input id="documento" name="documento" inputMode="numeric" required className={INPUT} placeholder="Sin puntos" />
             </Campo>
           </div>
@@ -265,24 +268,27 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
               ))}
             </div>
           </fieldset>
+          </div>
         </section>
 
         {/* Paso 2 · Contacto */}
         <section data-paso="familia" hidden={actual !== "familia"} className="space-y-5">
           <Encabezado pregunta={mayor ? "¿Cómo te contactamos?" : "¿Cómo contactamos a la familia?"} />
-          <Campo label="Dirección de residencia" name="direccion" error={fe.direccion}><Input id="direccion" name="direccion" autoComplete="street-address" placeholder="Calle, número, barrio" className={INPUT} /></Campo>
+          <div className="grid gap-5 md:grid-cols-2">
+          <div className="md:col-span-2"><Campo label="Dirección de residencia" name="direccion" error={fe.direccion}><Input id="direccion" name="direccion" autoComplete="street-address" placeholder="Calle, número, barrio" className={INPUT} /></Campo></div>
           {mayor && (
             <>
               <Campo label="Celular" name="celular" error={fe.celular}><Input id="celular" name="celular" inputMode="tel" required autoComplete="tel" className={INPUT} placeholder="300 000 0000" /></Campo>
               <Campo label="Correo" name="email" error={fe.email}><Input id="email" name="email" type="email" required autoComplete="email" className={INPUT} placeholder="nombre@correo.com" /></Campo>
             </>
           )}
-          <div className="bg-border h-px" />
-          <span className="text-muted-foreground block text-xs font-bold uppercase tracking-[0.1em]">Contacto de emergencia</span>
+          <div className="bg-border h-px md:col-span-2" />
+          <span className="text-muted-foreground block text-xs font-bold uppercase tracking-[0.1em] md:col-span-2">Contacto de emergencia</span>
           <Campo label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre}><Input id="emergenciaNombre" name="emergenciaNombre" className={INPUT} /></Campo>
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <Campo label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular}><Input id="emergenciaCelular" name="emergenciaCelular" inputMode="tel" className={INPUT} placeholder="300 000 0000" /></Campo>
             <Campo label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}><Input id="emergenciaParentesco" name="emergenciaParentesco" placeholder="Tío, abuela…" className={INPUT} /></Campo>
+          </div>
           </div>
         </section>
 
@@ -300,6 +306,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
           <Encabezado pregunta="¿A nombre de qué persona o empresa debe el centro deportivo emitir las facturas?" />
           <input type="hidden" name="facturaDe" value={elegida.valor} />
           {fe.facturaDe && <p className="text-destructive text-sm">{fe.facturaDe}</p>}
+          <div className="grid gap-5 md:grid-cols-2 md:items-start">
           <div className="space-y-2.5" role="radiogroup" aria-label="A nombre de quién salen las facturas">
             {opciones.map((o) => {
               const on = o.valor === elegida.valor;
@@ -357,6 +364,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
               )}
             </div>
           )}
+          </div>
 
           <label className="bg-background flex cursor-pointer items-start gap-3 rounded-[14px] px-4 py-3.5 text-sm">
             <input type="checkbox" name="acepto_datos" required className="accent-lime mt-0.5 size-5" />
@@ -366,21 +374,21 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
         </section>
 
         {/* Botones */}
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-3 md:flex md:flex-row-reverse md:items-center md:justify-between md:space-y-0">
           {/* Dos botones con `key` distinta: si React reutilizara el mismo nodo, el clic de "Continuar"
               en el penúltimo paso terminaría como envío del formulario (el nodo ya sería type="submit"
               cuando el navegador ejecuta la acción por defecto del clic). */}
           {ultimo ? (
-            <Button key="enviar" type="submit" size="lg" disabled={pending} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
+            <Button key="enviar" type="submit" size="lg" disabled={pending} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25 md:w-auto md:min-w-72 md:px-8">
               {pending ? "Guardando…" : "Guardar y pasar a firmar"} {!pending && <ArrowRight className="size-[18px]" />}
             </Button>
           ) : (
-            <Button key="continuar" type="button" size="lg" onClick={continuar} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
+            <Button key="continuar" type="button" size="lg" onClick={continuar} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25 md:w-auto md:min-w-72 md:px-8">
               Continuar <ArrowRight className="size-[18px]" />
             </Button>
           )}
           {paso > 0 && (
-            <button type="button" onClick={volver} className="text-muted-foreground block w-full text-center text-sm font-semibold hover:underline">← Volver al paso {paso}</button>
+            <button type="button" onClick={volver} className="text-muted-foreground block w-full text-center text-sm font-semibold hover:underline md:w-auto">← Volver al paso {paso}</button>
           )}
         </div>
       </div>

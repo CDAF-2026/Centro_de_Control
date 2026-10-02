@@ -14,7 +14,7 @@ export default async function RegistroDatosPage() {
   if (!version) return <EnPreparacion />;
   const sesion = await leerSesion();
   return (
-    <Cabecera titulo="Actualizar datos" sinTarjeta>
+    <Cabecera titulo="Actualizar datos" sinTarjeta ancho="xl">
       <DatosForm firmante={sesion?.firmante ?? null} />
     </Cabecera>
   );

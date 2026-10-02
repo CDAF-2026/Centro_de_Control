@@ -144,6 +144,7 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
         <div className="space-y-1">
           <h2 className="font-heading text-lg font-extrabold tracking-tight">¿Por quién firmas?</h2>
         </div>
+        <div className="grid gap-5 md:grid-cols-2">
         <Campo label="Nombres" name="nombres" error={fe.nombres}>
           <Input id="nombres" name="nombres" required readOnly={bloqueado} value={nombres} onChange={(e) => setNombres(e.target.value)} className={INPUT} />
         </Campo>
@@ -161,7 +162,7 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
             </Select>
             {bloqueado && <input type="hidden" name="tipoDocumento" value={tipoDoc} />}
           </Campo>
-          <Campo label="Número de documento" name="documento" error={fe.documento}>
+          <Campo label="Documento" name="documento" error={fe.documento}>
             <Input id="documento" name="documento" inputMode="numeric" required readOnly={bloqueado} defaultValue={precargado?.menor?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
           </Campo>
         </div>
@@ -174,10 +175,11 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
             {RH_VALORES.map((v) => <option key={v} value={v}>{v}</option>)}
           </Select>
         </Campo>
+        </div>
 
         {!mayor && (
-          <div className="space-y-5 border-t pt-5">
-            <div className="space-y-1">
+          <div className="grid gap-5 border-t pt-5 md:grid-cols-2">
+            <div className="space-y-1 md:col-span-2">
               <h2 className="font-heading text-lg font-extrabold tracking-tight">Quién firma</h2>
             </div>
             <Campo label="Nombre completo" name="firmanteNombre" error={fe.firmanteNombre}>

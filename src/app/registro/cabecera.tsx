@@ -8,9 +8,9 @@ import Link from "next/link";
  * con `sinTarjeta` se entrega crudo (el formulario de datos pinta su propia barra de
  * pasos entre la cabecera y la tarjeta).
  */
-export function Cabecera({ titulo, sinTarjeta, children }: { titulo: string; sinTarjeta?: boolean; children: React.ReactNode }) {
+export function Cabecera({ titulo, sinTarjeta, ancho = "md", children }: { titulo: string; sinTarjeta?: boolean; ancho?: "md" | "xl"; children: React.ReactNode }) {
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-6 md:max-w-lg md:px-6">
+    <div className={`mx-auto flex w-full max-w-md flex-1 flex-col px-4 pt-6 md:px-6 ${ancho === "xl" ? "md:max-w-2xl" : "md:max-w-lg"}`}>
       <Link href="/registro" className="mb-5 flex items-center gap-3">
         <span className="size-12 shrink-0 overflow-hidden rounded-xl bg-primary shadow-lg shadow-black/40">
           <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={48} height={48} className="size-full object-cover" priority />
@@ -32,7 +32,7 @@ export function Cabecera({ titulo, sinTarjeta, children }: { titulo: string; sin
  */
 export function FondoClaro({ children }: { children: React.ReactNode }) {
   return (
-    <div data-tema="claro" className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pt-4 md:max-w-lg md:px-0 md:pt-6">
+    <div data-tema="claro" className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pt-4 md:max-w-2xl md:px-0 md:pt-6">
       {children}
     </div>
   );
