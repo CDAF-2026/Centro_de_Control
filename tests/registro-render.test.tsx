@@ -76,7 +76,7 @@ describe("registro público · puerta abierta", () => {
     expect(html).toContain('name="eps"');
     // Diseño C "Resumen primero": resumen, el texto completo por partes y el tema claro para el layout.
     expect(t).toContain("En resumen");
-    expect(t).toContain("Texto completo");
+    expect(t).toContain("El documento completo");
     expect(html).toContain('data-tema="claro"');
     // El botón arranca deshabilitado: sin firma válida no se envía.
     expect(html).toMatch(/Firmar el consentimiento<\/button>/);
@@ -112,7 +112,7 @@ describe("registro público · puerta abierta", () => {
     expect(texto(html)).toContain("Continuar");
     expect(html).toContain('data-paso="facturacion" hidden=""');
     expect(html).toContain('name="facturaDe"');
-    expect(texto(html)).toContain("¿A nombre de quién salen las facturas?");
+    expect(texto(html)).toContain("¿A nombre de qué persona o empresa debe el centro deportivo emitir las facturas?");
   });
 
   it("FirmaPad se monta suelto con sus dos campos ocultos", async () => {

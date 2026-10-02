@@ -26,23 +26,14 @@ export function Cabecera({ titulo, sinTarjeta, children }: { titulo: string; sin
 }
 
 /**
- * Cabecera de las pantallas CLARAS (el consentimiento, diseño C "Resumen primero"):
- * franja blanca con el logo y el título, y debajo las tarjetas sueltas sobre el fondo
- * claro. `data-tema="claro"` es lo que lee el layout para cambiar el fondo de la página.
+ * Fondo de las pantallas CLARAS (el consentimiento, diseño C "Resumen primero"): el
+ * título y el logo los pinta la propia pantalla dentro de su primera tarjeta.
+ * `data-tema="claro"` es lo que lee el layout para cambiar el fondo de la página.
  */
-export function CabeceraClara({ titulo, subtitulo, children }: { titulo: string; subtitulo: string; children: React.ReactNode }) {
+export function FondoClaro({ children }: { children: React.ReactNode }) {
   return (
-    <div data-tema="claro" className="mx-auto flex w-full max-w-md flex-1 flex-col md:max-w-lg">
-      <Link href="/registro" className="bg-card flex items-center gap-3 px-5 py-3.5 shadow-[0_1px_0_rgba(26,28,30,0.08)] md:mt-4 md:rounded-2xl md:shadow-sm">
-        <span className="size-9 shrink-0 overflow-hidden rounded-[9px] bg-primary">
-          <Image src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={36} height={36} className="size-full object-cover" priority />
-        </span>
-        <span className="flex flex-col gap-px">
-          <span className="font-heading text-[15px] font-extrabold uppercase italic leading-tight">{titulo}</span>
-          <span className="text-muted-foreground text-[11px]">{subtitulo}</span>
-        </span>
-      </Link>
-      <div className="flex flex-col gap-3 px-4 pt-4 md:px-0">{children}</div>
+    <div data-tema="claro" className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 px-4 pt-4 md:max-w-lg md:px-0 md:pt-6">
+      {children}
     </div>
   );
 }

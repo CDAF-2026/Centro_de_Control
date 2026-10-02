@@ -1,7 +1,7 @@
 import { registroAbierto } from "@/lib/registro/version";
 import { leerSesion } from "@/lib/registro/sesion";
 import { EnPreparacion } from "../en-preparacion";
-import { CabeceraClara } from "../cabecera";
+import { FondoClaro } from "../cabecera";
 import { ConsentimientoForm, type Precargado } from "./consentimiento-form";
 
 /**
@@ -22,7 +22,7 @@ export default async function ConsentimientoPage() {
     : undefined;
 
   return (
-    <CabeceraClara titulo="Consentimiento informado" subtitulo={`Centro Deportivo Alejandro Falla · versión ${version.codigo}`}>
+    <FondoClaro>
       <ConsentimientoForm
         texto={{
           codigo: version.codigo,
@@ -31,6 +31,6 @@ export default async function ConsentimientoPage() {
         }}
         precargado={precargado}
       />
-    </CabeceraClara>
+    </FondoClaro>
   );
 }

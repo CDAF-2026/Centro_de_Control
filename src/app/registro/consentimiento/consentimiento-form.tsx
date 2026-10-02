@@ -119,24 +119,30 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
         <label>Sitio web <input type="text" name="sitio_web" tabIndex={-1} autoComplete="off" /></label>
       </div>
 
-      {/* Quién y por quién: resumido si viene de "Actualizar datos"; completo si no */}
-      {resumido && (
-        <div className={cn(CARD, "flex items-center gap-3.5 px-4 py-4")}>
-          <span className="bg-stadium text-primary font-heading flex size-11 shrink-0 items-center justify-center rounded-xl text-base font-extrabold">{iniciales}</span>
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-[15px] font-bold">{nombreMenor}</span>
-            <span className="text-muted-foreground text-[13px]">
-              {edad != null ? `${edad} años · ` : ""}EPS {eps || "—"}{!mayor && nombreFirmante ? ` · firma ${nombreFirmante}${parentesco ? ` (${parentesco.toLowerCase()})` : ""}` : ""}
+      {/* Título de la página unificado con el deportista (Laura, 2-oct-2026) */}
+      <div className={cn(CARD, "overflow-hidden")}>
+        <Link href="/registro" className="flex items-center gap-3 px-5 py-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/registro-logo.jpg" alt="Centro Deportivo Alejandro Falla" width={40} height={40} className="size-10 shrink-0 rounded-[10px] object-cover" />
+          <h1 className="font-heading text-lg font-extrabold uppercase italic leading-tight">Consentimiento informado</h1>
+        </Link>
+        {resumido && (
+          <div className="flex items-center gap-3.5 border-t px-5 py-4">
+            <span className="bg-stadium text-primary font-heading flex size-11 shrink-0 items-center justify-center rounded-xl text-base font-extrabold">{iniciales}</span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-[15px] font-bold">{nombreMenor}</span>
+              <span className="text-muted-foreground text-[13px]">
+                {edad != null ? `${edad} años · ` : ""}EPS {eps || "—"}{!mayor && nombreFirmante ? ` · firma ${nombreFirmante}${parentesco ? ` (${parentesco.toLowerCase()})` : ""}` : ""}
+              </span>
             </span>
-          </span>
-          <button type="button" onClick={() => setEditando(true)} className="text-[#46530a] shrink-0 text-[13px] font-semibold hover:underline">Editar</button>
-        </div>
-      )}
+            <button type="button" onClick={() => setEditando(true)} className="text-[#46530a] shrink-0 text-[13px] font-semibold hover:underline">Editar</button>
+          </div>
+        )}
+      </div>
 
       <section hidden={resumido} className={cn(CARD, "space-y-5 p-5")}>
         <div className="space-y-1">
           <h2 className="font-heading text-lg font-extrabold tracking-tight">¿Por quién firmas?</h2>
-          <p className="text-muted-foreground text-sm">Los datos del deportista, tal como están en su documento.</p>
         </div>
         <Campo label="Nombres" name="nombres" error={fe.nombres}>
           <Input id="nombres" name="nombres" required readOnly={bloqueado} value={nombres} onChange={(e) => setNombres(e.target.value)} className={INPUT} />
@@ -173,9 +179,6 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
           <div className="space-y-5 border-t pt-5">
             <div className="space-y-1">
               <h2 className="font-heading text-lg font-extrabold tracking-tight">Quién firma</h2>
-              <p className="text-muted-foreground text-sm">
-                {edad != null ? `${nombreMenor || "El deportista"} tiene ${edad} años: firma el padre, la madre o el acudiente.` : "El padre, la madre o el acudiente del deportista."}
-              </p>
             </div>
             <Campo label="Nombre completo" name="firmanteNombre" error={fe.firmanteNombre}>
               <Input id="firmanteNombre" name="firmanteNombre" required={!mayor} value={nombreFirmante} onChange={(e) => setNombreFirmante(e.target.value)} autoComplete="name" className={INPUT} />
@@ -212,7 +215,7 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
           <span className="bg-primary/35 flex size-8 items-center justify-center rounded-[9px]"><ListChecks className="size-[18px] text-[#46530a]" /></span>
           <h2 className="font-heading text-[19px] font-extrabold tracking-tight">En resumen</h2>
         </div>
-        <p className="text-muted-foreground text-[13px] leading-relaxed">Lo que estás aceptando, en palabras sencillas. Lo que firmas es el texto completo de abajo.</p>
+        <p className="text-muted-foreground text-sm leading-relaxed">A continuación encontrarás los puntos principales del consentimiento informado del Centro Deportivo Alejandro Falla. Te recomendamos leer el documento completo antes de firmar.</p>
         <ul className="m-0 list-none space-y-3 p-0">
           {resumenDelConsentimiento(nombreMenor, eps, mayor).map((linea, i) => (
             <li key={i} className="flex items-start gap-3 text-sm leading-[1.55]">
@@ -225,31 +228,29 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
 
       {/* Texto completo */}
       <section className={cn(CARD, "overflow-hidden")}>
-        <div className="space-y-1 px-5 pb-3.5 pt-5">
-          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Texto completo</h2>
-          <p className="text-muted-foreground text-[13px]">Toca cada parte para leerla. Es el mismo texto del PDF que firmas.</p>
-          <p className="font-heading text-muted-foreground pt-2 text-[11px] font-bold uppercase tracking-wide">{texto.titulo}</p>
+        <div className="space-y-2 px-5 pb-4 pt-5">
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">El documento completo</h2>
+          <p className="font-heading text-muted-foreground text-[11px] font-bold uppercase tracking-wide">{texto.titulo}</p>
         </div>
         {texto.parrafos.map((p, i) => {
           const abierto = abiertos.includes(i);
           return (
-            <div key={i} className="border-t">
+            <div key={i} className={cn("border-t transition-colors", abierto && "bg-primary/10 border-l-4 border-l-primary")}>
               <button type="button" aria-expanded={abierto} aria-controls={`parte-${i}`} onClick={() => alternar(i)}
-                className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm font-bold">
+                className={cn("flex w-full items-center justify-between gap-3 py-4 pr-5 text-left text-sm font-bold", abierto ? "pl-4" : "pl-5")}>
                 <span className="flex items-center gap-2.5">
-                  <span className="bg-muted text-muted-foreground font-heading flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">{i + 1}</span>
+                  <span className={cn("font-heading flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold", abierto ? "bg-stadium text-primary" : "bg-muted text-muted-foreground")}>{i + 1}</span>
                   {titulos[i]}
                 </span>
-                {abierto ? <ChevronUp className="text-muted-foreground size-[18px] shrink-0" /> : <ChevronDown className="text-muted-foreground size-[18px] shrink-0" />}
+                {abierto ? <ChevronUp className="size-[18px] shrink-0" /> : <ChevronDown className="text-muted-foreground size-[18px] shrink-0" />}
               </button>
-              <div id={`parte-${i}`} hidden={!abierto} className="pb-4.5 pl-[52px] pr-5">
+              <div id={`parte-${i}`} hidden={!abierto} className="pb-5 pl-[48px] pr-5">
                 <Parrafo texto={p} eps={eps} />
               </div>
             </div>
           );
         })}
-        <div className="flex items-center justify-between border-t px-5 py-3.5">
-          <span className="text-muted-foreground text-xs">{texto.parrafos.length} partes · unos 4 minutos de lectura</span>
+        <div className="flex items-center justify-end border-t px-5 py-3.5">
           <button type="button" onClick={() => setAbiertos(todasAbiertas ? [] : texto.parrafos.map((_, i) => i))} className="text-[#46530a] text-[13px] font-semibold hover:underline">
             {todasAbiertas ? "Cerrar todo" : "Abrir todo"}
           </button>

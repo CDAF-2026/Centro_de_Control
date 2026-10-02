@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
  * y no quiere garabatear con el ratón. Las dos producen un PNG transparente que
  * viaja en el campo oculto `firmaPng`, con el método en `metodo`.
  *
+ * - Arranca SIEMPRE en "dibujar" (Laura, 2-oct-2026), también en computador.
  * - `touch-action: none` en el lienzo: si no, el celular desplaza la página al firmar.
  * - Se escala al `devicePixelRatio` (si no, en pantallas retina sale pixelada) y se
  *   vuelve a escalar al cambiar el tamaño.
@@ -42,13 +43,6 @@ export function FirmaPad({
   useEffect(() => {
     if (!editado) setNombre(nombreSugerido);
   }, [nombreSugerido, editado]);
-
-  // En pantallas táctiles arranca en "dibujar"; en computador, en "escribir".
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const tactil = window.matchMedia?.("(pointer: coarse)").matches;
-    setModo(tactil ? "dibujada" : "escrita");
-  }, []);
 
   useEffect(() => {
     if (modo !== "dibujada") return;

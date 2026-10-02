@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Info, Plus } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { enviarDatos, type DatosState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,11 +36,11 @@ function Select({ id, name, children, ...rest }: React.ComponentProps<"select">)
   );
 }
 
-function Encabezado({ pregunta, detalle }: { pregunta: string; detalle: string }) {
+function Encabezado({ pregunta, detalle }: { pregunta: string; detalle?: string }) {
   return (
     <div className="space-y-1.5">
       <h2 className="font-heading text-[22px] font-extrabold tracking-tight">{pregunta}</h2>
-      <p className="text-muted-foreground text-sm leading-relaxed">{detalle}</p>
+      {detalle && <p className="text-muted-foreground text-sm leading-relaxed">{detalle}</p>}
     </div>
   );
 }
@@ -56,63 +56,57 @@ const CAMPOS: Record<ClavePaso, (campo: string) => boolean> = {
   facturacion: (c) => c.startsWith("factura") || c === "acepto_datos",
 };
 
-function Acudiente({ prefijo, titulo, etiqueta, obligatorio, inicial, errores }: {
-  prefijo: "acudiente" | "acudiente2"; titulo: string; etiqueta: string; obligatorio: boolean;
-  inicial?: Partial<Firmante> & { rol?: string }; errores: Record<string, string>;
-}) {
-  const n = (c: string) => `${prefijo}${c}`;
-  const [rol, setRol] = useState(inicial?.rol ?? (prefijo === "acudiente" ? "madre" : "padre"));
+/** El acudiente: UNO solo en la página pública (Laura, 2-oct-2026), con su parentesco. */
+function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?: string }; errores: Record<string, string> }) {
+  const n = (c: string) => `acudiente${c}`;
+  const [rol, setRol] = useState(inicial?.rol ?? "madre");
   return (
-    <div className="space-y-4 rounded-[14px] border-[1.5px] p-4">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold">{titulo}</span>
-        <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold", obligatorio ? "bg-primary/25 text-[#46530a]" : "bg-muted text-muted-foreground")}>{etiqueta}</span>
-      </div>
+    <div className="space-y-5">
       <input type="hidden" name={n("Rol")} value={rol} />
-      <div className="bg-muted grid grid-cols-3 gap-1 rounded-[10px] p-1" role="radiogroup" aria-label="Es">
-        {([["madre", "Madre"], ["padre", "Padre"], ["otro", "Otro"]] as const).map(([v, t]) => (
-          <button key={v} type="button" role="radio" aria-checked={rol === v} onClick={() => setRol(v)}
-            className={cn("h-10 rounded-lg text-sm font-semibold transition-colors", rol === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}>{t}</button>
-        ))}
-      </div>
-      <Campo label="Nombre completo" name={n("Nombre")} error={errores[n("Nombre")]}>
-        <Input id={n("Nombre")} name={n("Nombre")} required={obligatorio} defaultValue={inicial?.nombre ?? ""} autoComplete="name" className={INPUT} placeholder="Nombre y apellidos" />
-      </Campo>
-      <Campo label="Cédula" name={n("Documento")} error={errores[n("Documento")]}>
-        <Input id={n("Documento")} name={n("Documento")} inputMode="numeric" required={obligatorio} defaultValue={inicial?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
-      </Campo>
-      <Campo label="Celular" name={n("Telefono")} error={errores[n("Telefono")]}>
-        <Input id={n("Telefono")} name={n("Telefono")} inputMode="tel" required={obligatorio} defaultValue={inicial?.celular ?? ""} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
-      </Campo>
-      <Campo label="Correo" name={n("Email")} error={errores[n("Email")]} hint={obligatorio ? "Aquí llegan los correos del club." : undefined}>
-        <Input id={n("Email")} name={n("Email")} type="email" required={obligatorio} defaultValue={inicial?.email ?? ""} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
-      </Campo>
+      <fieldset className="space-y-1.5">
+        <legend className="text-[13px] font-semibold text-charcoal">Es</legend>
+        <div className="grid grid-cols-3 gap-2.5 pt-1.5">
+          {([["madre", "Madre"], ["padre", "Padre"], ["otro", "Otro familiar"]] as const).map(([v, t]) => (
+            <button key={v} type="button" role="radio" aria-checked={rol === v} onClick={() => setRol(v)}
+              className={cn("h-12 rounded-[10px] border-[1.5px] px-1 text-[13px] font-semibold transition-colors", rol === v ? "border-stadium bg-stadium text-primary" : "text-charcoal")}>{t}</button>
+          ))}
+        </div>
+      </fieldset>
       {rol === "otro" && (
         <Campo label="Parentesco" name={n("Parentesco")}>
           <Input id={n("Parentesco")} name={n("Parentesco")} defaultValue={inicial?.parentesco ?? ""} placeholder="Abuela, tío…" className={INPUT} />
         </Campo>
       )}
+      <Campo label="Nombre completo" name={n("Nombre")} error={errores[n("Nombre")]}>
+        <Input id={n("Nombre")} name={n("Nombre")} required defaultValue={inicial?.nombre ?? ""} autoComplete="name" className={INPUT} />
+      </Campo>
+      <Campo label="Cédula" name={n("Documento")} error={errores[n("Documento")]}>
+        <Input id={n("Documento")} name={n("Documento")} inputMode="numeric" required defaultValue={inicial?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+      </Campo>
+      <Campo label="Celular" name={n("Telefono")} error={errores[n("Telefono")]}>
+        <Input id={n("Telefono")} name={n("Telefono")} inputMode="tel" required defaultValue={inicial?.celular ?? ""} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
+      </Campo>
+      <Campo label="Correo" name={n("Email")} error={errores[n("Email")]}>
+        <Input id={n("Email")} name={n("Email")} type="email" required defaultValue={inicial?.email ?? ""} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
+      </Campo>
     </div>
   );
 }
 
 type Snap = Record<string, string>;
-type OpcionFactura = { valor: "acudiente" | "acudiente2" | "propio" | "otro"; titulo: string; sub?: string; detalle: string; datos?: { nombre: string; nit: string; email: string } };
+type OpcionFactura = { valor: "acudiente" | "propio" | "otro"; titulo: string; sub?: string; detalle?: string; datos?: { nombre: string; nit: string; email: string } };
 
 /** Las opciones de "¿a nombre de quién salen las facturas?", armadas con lo escrito en los pasos anteriores. */
 function opcionesFactura(snap: Snap, mayor: boolean): OpcionFactura[] {
-  const rol = (r: string) => (r === "madre" ? "Madre" : r === "padre" ? "Padre" : "Acudiente");
+  const rol = (r: string) => (r === "madre" ? "Madre" : r === "padre" ? "Padre" : "Familiar");
   const ops: OpcionFactura[] = [];
   if (mayor) {
     const nombre = `${snap.nombres ?? ""} ${snap.apellidos ?? ""}`.trim();
     ops.push({ valor: "propio", titulo: nombre || "A mi nombre", sub: "A mi nombre", detalle: [snap.tipoDocumento && snap.documento ? `${snap.tipoDocumento} ${snap.documento}` : "", snap.email ?? ""].filter(Boolean).join(" · "), datos: { nombre, nit: snap.documento ?? "", email: snap.email ?? "" } });
   } else {
-    ops.push({ valor: "acudiente", titulo: snap.acudienteNombre || "Acudiente principal", sub: `${rol(snap.acudienteRol ?? "")} · acudiente principal`, detalle: [snap.acudienteDocumento ? `CC ${snap.acudienteDocumento}` : "", snap.acudienteEmail ?? ""].filter(Boolean).join(" · "), datos: { nombre: snap.acudienteNombre ?? "", nit: snap.acudienteDocumento ?? "", email: snap.acudienteEmail ?? "" } });
-    if (snap.acudiente2Nombre?.trim()) {
-      ops.push({ valor: "acudiente2", titulo: snap.acudiente2Nombre, sub: `${rol(snap.acudiente2Rol ?? "")} · segundo acudiente`, detalle: [snap.acudiente2Documento ? `CC ${snap.acudiente2Documento}` : "", snap.acudiente2Email ?? ""].filter(Boolean).join(" · "), datos: { nombre: snap.acudiente2Nombre, nit: snap.acudiente2Documento ?? "", email: snap.acudiente2Email ?? "" } });
-    }
+    ops.push({ valor: "acudiente", titulo: snap.acudienteNombre || "Acudiente", sub: rol(snap.acudienteRol ?? ""), detalle: [snap.acudienteDocumento ? `CC ${snap.acudienteDocumento}` : "", snap.acudienteEmail ?? ""].filter(Boolean).join(" · "), datos: { nombre: snap.acudienteNombre ?? "", nit: snap.acudienteDocumento ?? "", email: snap.acudienteEmail ?? "" } });
   }
-  ops.push({ valor: "otro", titulo: "Otra persona o empresa", detalle: "Escribes el NIT o cédula, la razón social y el correo." });
+  ops.push({ valor: "otro", titulo: "Otra persona o empresa" });
   return ops;
 }
 
@@ -128,8 +122,11 @@ function opcionesFactura(snap: Snap, mayor: boolean): OpcionFactura[] {
  * salta al paso que lo tiene.
  *
  * Facturación es OBLIGATORIA (Laura, 1-oct-2026): se elige de quién se toman los datos
- * (un acudiente, uno mismo si es mayor, u otra persona o empresa) y los campos viajan
+ * (el acudiente, uno mismo si es mayor, u otra persona o empresa) y los campos viajan
  * llenos siempre; el servidor los exige.
+ *
+ * Un solo acudiente y sin textos explicativos (Laura, 2-oct-2026): la pantalla pide
+ * lo mínimo y no explica lo obvio; el segundo acudiente se agrega desde la ficha.
  */
 export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const [state, action, pending] = useActionState<DatosState, FormData>(enviarDatos, {});
@@ -137,7 +134,6 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [fecha, setFecha] = useState("");
   const [tipoDoc, setTipoDoc] = useState("");
-  const [segundo, setSegundo] = useState(false);
   const [paso, setPaso] = useState(0);
   const [snap, setSnap] = useState<Snap>({});
   const [facturaDe, setFacturaDe] = useState<OpcionFactura["valor"] | "">("");
@@ -181,7 +177,8 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
     return s;
   };
 
-  const continuar = () => {
+  const continuar = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
     if (!pasoValido(actual)) return;
     tomarFoto();
     if (pasos[paso + 1] === "facturacion" && !facturaDe) setFacturaDe(mayor ? "propio" : "acudiente");
@@ -221,10 +218,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
         <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${pasos.length}, minmax(0, 1fr))` }} aria-hidden>
           {pasos.map((p, i) => <div key={p} className={cn("h-[5px] rounded-full", i <= paso ? "bg-primary" : "bg-white/20")} />)}
         </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-primary text-[11px] font-bold uppercase tracking-[0.14em]">Paso {Math.min(paso, pasos.length - 1) + 1} de {pasos.length} · {TITULO[actual]}</span>
-          <span className="text-xs text-white/55">{ultimo ? "Último paso" : "≈ 4 minutos en total"}</span>
-        </div>
+        <span className="text-primary block text-[11px] font-bold uppercase tracking-[0.14em]">Paso {Math.min(paso, pasos.length - 1) + 1} de {pasos.length} · {TITULO[actual]}</span>
       </div>
 
       <div className="bg-card rounded-[20px] p-6 shadow-xl ring-1 ring-white/5 md:p-7">
@@ -234,17 +228,11 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
         {/* Paso 1 · El deportista */}
         <section data-paso="deportista" hidden={actual !== "deportista"} className="space-y-5">
-          <Encabezado pregunta="¿A quién vas a registrar?" detalle="Escribe los datos de tu hijo o hija tal como aparecen en su documento de identidad." />
+          <Encabezado pregunta="¿A quién vas a registrar?" />
           <Campo label="Nombres" name="nombres" error={fe.nombres}><Input id="nombres" name="nombres" required className={INPUT} autoComplete="off" /></Campo>
           <Campo label="Apellidos" name="apellidos" error={fe.apellidos}><Input id="apellidos" name="apellidos" required className={INPUT} autoComplete="off" /></Campo>
           <Campo label="Fecha de nacimiento" name="fechaNacimiento" error={fe.fechaNacimiento}>
             <Input id="fechaNacimiento" name="fechaNacimiento" type="date" required value={fecha} onChange={(e) => alCambiarFecha(e.target.value)} className={INPUT} />
-            {edad != null && edad >= 0 && (
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span className="bg-primary/25 rounded-full px-2.5 py-1 text-xs font-bold text-[#46530a]">{edad} años · {mayor ? "mayor de edad" : "menor de edad"}</span>
-                <span className="text-muted-foreground text-xs">{mayor ? "Firmas por ti mismo(a)." : "Por eso pediremos a su acudiente."}</span>
-              </div>
-            )}
           </Campo>
           <div className="grid grid-cols-[110px_1fr] gap-3">
             <Campo label="Tipo" name="tipoDocumento" error={fe.tipoDocumento}>
@@ -258,7 +246,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             </Campo>
           </div>
           <Campo label="Lugar de nacimiento" name="lugarNacimiento" error={fe.lugarNacimiento}><Input id="lugarNacimiento" name="lugarNacimiento" placeholder="Ciudad" className={INPUT} /></Campo>
-          <Campo label="EPS" name="eps" error={fe.eps} hint="Aparece en el consentimiento que vas a firmar."><Input id="eps" name="eps" required placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} /></Campo>
+          <Campo label="EPS" name="eps" error={fe.eps}><Input id="eps" name="eps" required placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} /></Campo>
           <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>
             <Select id="rh" name="rh" defaultValue="">
               <option value="">—</option>
@@ -276,23 +264,22 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
                 </label>
               ))}
             </div>
-            <p className="text-muted-foreground text-xs">Puedes marcar los dos.</p>
           </fieldset>
         </section>
 
         {/* Paso 2 · Contacto */}
         <section data-paso="familia" hidden={actual !== "familia"} className="space-y-5">
-          <Encabezado pregunta={mayor ? "¿Cómo te contactamos?" : "¿Cómo contactamos a la familia?"} detalle={mayor ? "Tu celular, tu correo y a quién llamar en una emergencia." : "Dónde viven y a quién llamar en una emergencia."} />
+          <Encabezado pregunta={mayor ? "¿Cómo te contactamos?" : "¿Cómo contactamos a la familia?"} />
           <Campo label="Dirección de residencia" name="direccion" error={fe.direccion}><Input id="direccion" name="direccion" autoComplete="street-address" placeholder="Calle, número, barrio" className={INPUT} /></Campo>
           {mayor && (
             <>
               <Campo label="Celular" name="celular" error={fe.celular}><Input id="celular" name="celular" inputMode="tel" required autoComplete="tel" className={INPUT} placeholder="300 000 0000" /></Campo>
-              <Campo label="Correo" name="email" error={fe.email} hint="Aquí llegan los correos del club."><Input id="email" name="email" type="email" required autoComplete="email" className={INPUT} placeholder="nombre@correo.com" /></Campo>
+              <Campo label="Correo" name="email" error={fe.email}><Input id="email" name="email" type="email" required autoComplete="email" className={INPUT} placeholder="nombre@correo.com" /></Campo>
             </>
           )}
           <div className="bg-border h-px" />
           <span className="text-muted-foreground block text-xs font-bold uppercase tracking-[0.1em]">Contacto de emergencia</span>
-          <Campo label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre}><Input id="emergenciaNombre" name="emergenciaNombre" placeholder="Quién contesta si pasa algo" className={INPUT} /></Campo>
+          <Campo label="Nombre" name="emergenciaNombre" error={fe.emergenciaNombre}><Input id="emergenciaNombre" name="emergenciaNombre" className={INPUT} /></Campo>
           <div className="grid grid-cols-[1fr_120px] gap-3">
             <Campo label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular}><Input id="emergenciaCelular" name="emergenciaCelular" inputMode="tel" className={INPUT} placeholder="300 000 0000" /></Campo>
             <Campo label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}><Input id="emergenciaParentesco" name="emergenciaParentesco" placeholder="Tío, abuela…" className={INPUT} /></Campo>
@@ -302,23 +289,15 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
         {/* Paso 3 · Acudientes (solo menores) */}
         {!mayor && (
           <section data-paso="acudientes" hidden={actual !== "acudientes"} className="space-y-5">
-            <Encabezado pregunta="¿Quién responde por el deportista?" detalle={`${edad != null ? `Tiene ${edad} años. ` : ""}Al menos un padre, madre o acudiente. El principal es quien firma y recibe los correos del club.`} />
+            <Encabezado pregunta="¿Quién responde por el deportista?" detalle="Escribe los datos del padre, de la madre o del familiar que está a cargo. Esta persona firma el consentimiento y recibe la información del club." />
             <input type="hidden" name="acudientesVisibles" value="1" />
-            <Acudiente prefijo="acudiente" titulo="Acudiente principal" etiqueta="Quien diligencia" obligatorio errores={fe}
-              inicial={firmante ? { ...firmante, rol: firmante.parentesco === "Madre" ? "madre" : firmante.parentesco === "Padre" ? "padre" : "otro" } : undefined} />
-            {segundo ? (
-              <Acudiente prefijo="acudiente2" titulo="Segundo acudiente" etiqueta="Opcional" obligatorio={false} errores={fe} />
-            ) : (
-              <button type="button" onClick={() => setSegundo(true)} className="text-charcoal flex h-[50px] w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed text-sm font-semibold">
-                <Plus className="size-[18px]" /> Agregar segundo acudiente <span className="text-muted-foreground font-normal">(opcional)</span>
-              </button>
-            )}
+            <Acudiente errores={fe} inicial={firmante ? { ...firmante, rol: firmante.parentesco === "Madre" ? "madre" : firmante.parentesco === "Padre" ? "padre" : "otro" } : undefined} />
           </section>
         )}
 
         {/* Paso 4 · Facturación (obligatoria) */}
         <section data-paso="facturacion" hidden={actual !== "facturacion"} className="space-y-5">
-          <Encabezado pregunta="¿A nombre de quién salen las facturas?" detalle="El club factura electrónicamente cada pago. Este dato es obligatorio." />
+          <Encabezado pregunta="¿A nombre de qué persona o empresa debe el centro deportivo emitir las facturas?" />
           <input type="hidden" name="facturaDe" value={elegida.valor} />
           {fe.facturaDe && <p className="text-destructive text-sm">{fe.facturaDe}</p>}
           <div className="space-y-2.5" role="radiogroup" aria-label="A nombre de quién salen las facturas">
@@ -376,7 +355,6 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
               {(fe.facturaANombre || fe.facturaANit || fe.facturaEmail) && (
                 <p className="text-destructive text-sm">{fe.facturaANombre || fe.facturaANit || fe.facturaEmail}. Pulsa Editar para completarlo.</p>
               )}
-              <p className="text-muted-foreground flex items-start gap-1.5 text-xs"><Info className="mt-0.5 size-3.5 shrink-0" />Tomado de lo que escribiste en el paso anterior. Si la ficha ya tenía otro NIT, el club confirma el cambio antes de aplicarlo.</p>
             </div>
           )}
 
@@ -389,12 +367,15 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
         {/* Botones */}
         <div className="mt-6 space-y-3">
+          {/* Dos botones con `key` distinta: si React reutilizara el mismo nodo, el clic de "Continuar"
+              en el penúltimo paso terminaría como envío del formulario (el nodo ya sería type="submit"
+              cuando el navegador ejecuta la acción por defecto del clic). */}
           {ultimo ? (
-            <Button type="submit" size="lg" disabled={pending} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
+            <Button key="enviar" type="submit" size="lg" disabled={pending} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
               {pending ? "Guardando…" : "Guardar y pasar a firmar"} {!pending && <ArrowRight className="size-[18px]" />}
             </Button>
           ) : (
-            <Button type="button" size="lg" onClick={continuar} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
+            <Button key="continuar" type="button" size="lg" onClick={continuar} className="h-[54px] w-full rounded-xl text-base font-bold shadow-lg shadow-primary/25">
               Continuar <ArrowRight className="size-[18px]" />
             </Button>
           )}
@@ -403,7 +384,6 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
           )}
         </div>
       </div>
-      <p className="mt-4 text-center text-xs text-white/45">Tus datos se guardan al final, cuando firmas.</p>
     </form>
   );
 }

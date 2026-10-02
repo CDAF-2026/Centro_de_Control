@@ -36,21 +36,23 @@ export function titulosDelTexto(codigo: string, nParrafos: number): string[] {
  * la pantalla lo dice y lo que se firma es el texto completo.
  */
 export function resumenDelConsentimiento(nombre: string, eps: string, mayor: boolean): string[] {
-  const n = nombre.trim() || (mayor ? "" : "tu hijo(a)");
+  const completo = nombre.trim();
+  const n = completo || "Tu hijo(a)";
+  const pila = completo.split(/\s+/)[0] || "tu hijo(a)";
   const e = eps.trim() || "…";
   return mayor
     ? [
-        "Participas voluntariamente y estás en condiciones de salud para hacer deporte.",
-        "Conoces y aceptas el reglamento del club, y asumes los riesgos propios del deporte.",
-        `Tu EPS (${e}) cubre la atención médica; el club no responde por lesiones.`,
-        "El club puede retirar de la clase a quien agreda a otros, sin devolución de dinero.",
-        "Autorizas el uso de tus datos y fotos en la web y redes del club (Ley 1581 de 2012).",
+        "Participas voluntariamente en las actividades deportivas y estás en condiciones de salud para hacerlo.",
+        "Conoces y aceptas el reglamento del centro deportivo, y asumes los riesgos propios de la práctica del deporte.",
+        `Tu EPS (${e}) cubre la atención médica si ocurre un accidente o una lesión; el centro deportivo no asume esa responsabilidad.`,
+        "Si agredes a un compañero o a un profesor, el centro deportivo puede retirarte de la clase sin devolver el dinero.",
+        "Autorizas el tratamiento de tus datos personales y el uso de tus fotos y videos en la página web y las redes sociales del centro deportivo (Ley 1581 de 2012).",
       ]
     : [
-        `${n} participa voluntariamente y está en condiciones de salud para hacer deporte.`,
-        "Conoces y aceptas el reglamento del club, y asumes los riesgos propios del deporte.",
-        `Su EPS (${e}) cubre la atención médica; el club no responde por lesiones.`,
-        "El club puede retirar de la clase a quien agreda a otros, sin devolución de dinero.",
-        `Autorizas el uso de datos y fotos de ${n} en la web y redes del club (Ley 1581 de 2012).`,
+        `${n} participa voluntariamente en las actividades deportivas y está en condiciones de salud para hacerlo.`,
+        "Conoces y aceptas el reglamento del centro deportivo, y asumes los riesgos propios de la práctica del deporte.",
+        `La EPS de ${pila} (${e}) cubre la atención médica si ocurre un accidente o una lesión; el centro deportivo no asume esa responsabilidad.`,
+        "Si el deportista agrede a un compañero o a un profesor, el centro deportivo puede retirarlo de la clase sin devolver el dinero.",
+        `Autorizas el tratamiento de los datos personales de ${pila} y el uso de sus fotos y videos en la página web y las redes sociales del centro deportivo (Ley 1581 de 2012).`,
       ];
 }

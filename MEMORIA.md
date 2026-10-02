@@ -2115,7 +2115,25 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   firma. **El texto legal se muestra íntegro y sin tocar**; solo cambia la presentación. El fondo claro lo
   decide el layout con `has-[[data-tema=claro]]` (Tailwind v4): la cabecera clara lleva `data-tema="claro"`.
 - `FirmaPad`: pestañas a lo ancho, lienzo con línea de firma y "×", ayuda "Firma aquí con el dedo"
-  mientras no hay trazo (todo `pointer-events: none`), nota de evidencia con candado.
+  mientras no hay trazo (todo `pointer-events: none`), nota de evidencia con candado. **Arranca siempre en
+  "Dibujar"**, también en computador (Laura, 2-oct-2026).
+- 🧹 **Ajustes de Laura tras probar (2-oct-2026)**: **sin textos explicativos ni etiquetas** en las dos
+  pantallas ("súper dumb, no es necesario": nada de "≈ 4 minutos", "Tomado de lo que escribiste…", "Quien
+  diligencia", chip de edad, hints bajo los campos; regla para adelante) · **un solo acudiente** en el
+  formulario público, con parentesco Madre/Padre/Otro familiar como botones (las pestañas con "Agregar
+  segundo acudiente" la confundieron: creyó que cambiaban de persona; el segundo acudiente se agrega desde
+  la ficha) · facturación: "¿A nombre de qué persona o empresa debe el centro deportivo emitir las
+  facturas?" sin más texto · consentimiento: el título "Consentimiento informado" va en la MISMA tarjeta
+  que el niño (sin subtítulo de versión; `FondoClaro` reemplazó a `CabeceraClara`), resumen con frases
+  reescritas (`texto.ts`), intro "A continuación encontrarás los puntos principales… Te recomendamos leer
+  el documento completo antes de firmar", acordeón "El documento completo" con la parte abierta marcada
+  (fondo lima suave + borde izquierdo + número oscuro) · enlace "fírmala aquí" de `/listo` en blanco
+  subrayado (el verde no se leía sobre el fondo oscuro).
+  ⚠️ **Fallo que salió al probar**: al pulsar "Continuar" en el penúltimo paso el navegador mostraba
+  "Controla esta casilla" sobre la Ley 1581. Causa: React reutilizaba el MISMO nodo `<button>` para
+  "Continuar" (type=button) y "Guardar" (type=submit); el estado cambia dentro del clic y, cuando el
+  navegador ejecuta la acción por defecto, el botón ya es submit → envío + validación nativa. Arreglo: `key`
+  distinta en cada botón y `preventDefault()` en `continuar`.
 - Verificado en local el 1-oct-2026 de punta a punta en celular (375 px) y en escritorio: 4 pasos → envío
   (la niña entró como miembro 689 de la 598 por la cédula de la acudiente; facturación escrita porque la
   ficha no tenía NIT) → consentimiento precargado → firma escrita → PDF (firma 81c67be2…).

@@ -38,7 +38,7 @@ export default async function RegistroListoPage() {
         </form>
       </div>
       <p className="text-muted-foreground text-xs">
-        Si solo falta la firma de otro hijo(a), <Link href="/registro/consentimiento" className="text-primary font-medium hover:underline">fírmala aquí</Link>. Puedes cerrar esta página cuando termines.
+        Si solo falta la firma de otro hijo(a), <Link href="/registro/consentimiento" className="font-semibold text-white underline underline-offset-2">fírmala aquí</Link>. Puedes cerrar esta página cuando termines.
       </p>
     </div>
     </Cabecera>
