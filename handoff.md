@@ -925,6 +925,9 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   por cédula como siempre; si no está (48 de 381 fichas de adultos no tienen cédula), por **correo +
   nombre** → se actualiza el titular de esa ficha (y le queda la cédula); correo sin nombre (la pareja
   comparte correo) → ficha nueva. Un adulto **nunca** entra en modo "hermano".
+- **Bandeja `/clientes/registros` = cola única** (2-oct-2026): contadores + pendientes por antigüedad con la
+  decisión en la tarjeta (`decidirCambios` aprueba o rechaza TODOS los campos de facturación de una ficha;
+  candidatos como radio para firmas/datos ambiguos) + historial con `?filtro=`. Ver MEMORIA.
 - **Copia del PDF al correo del firmante** (D5, 2-oct-2026): tras `consentimiento_adjuntar`, si el
   firmante escribió correo, `sendEmail` (Resend, cuenta del club en Vercel) le manda el PDF adjunto
   con la plantilla `src/lib/email/consentimiento-firmado.ts` (texto corto; sin copia al club). Si

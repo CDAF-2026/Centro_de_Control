@@ -2168,6 +2168,17 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   `firmarConsentimiento` si el firmante dejó correo, y un fallo solo se registra. Ruta de prueba solo en
   desarrollo `/registro/correo-prueba?a=…` (PDF de muestra de 55 KB; probado a un correo de Laura). En
   local sale por la cuenta de Resend de Vena (`.env`); en producción por la del club (`agentecdaf`).
+- 🗂️ **Bandeja `/clientes/registros` rediseñada: "A · Cola única"** (Laura eligió entre dos propuestas el
+  2-oct-2026; canvas https://claude.ai/artifact/13VtPT9hNXUj3PqB9Lzc7n). Tres contadores (facturación en
+  negro con lima, firmas, datos), UNA cola de pendientes ordenada por antigüedad con la decisión en la misma
+  tarjeta (facturación: "hoy → propuesto" por campo y **un solo botón "Aprobar los N cambios"** →
+  `decidirCambios`, que decide todos los campos de la ficha de una vez; firmas y datos ambiguos: **tarjetas de
+  radio con las fichas candidatas** + "Otra ficha…" con el buscador; descartar pide motivo al desplegarse) e
+  historial con filtros por enlace (`?filtro=datos|consentimiento|revision`, conteos por `count: exact`),
+  columna "Quién" (acudiente principal del payload) y resultado en chips. Las firmas no guardan la lista de
+  candidatos: se buscan por el documento del menor en `cliente_miembros`. Para VER la bandeja con datos sin
+  sesión: sembrar en una prueba, renderizar con `renderToStaticMarkup`, inyectar el CSS de `.next/static/chunks`
+  y servir el HTML desde el scratchpad (el middleware redirige hasta `public/`).
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

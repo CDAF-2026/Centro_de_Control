@@ -94,3 +94,32 @@ export async function descartarSolicitud(_prev: RevisionState, formData: FormDat
   revalidatePath("/clientes/registros");
   return { ok: "Solicitud descartada." };
 }
+
+/**
+ * Aprueba o rechaza TODOS los cambios pendientes de una ficha de una vez (diseño A de la
+ * bandeja, Laura, 2-oct-2026): la familia propone la facturación completa, y decidir campo
+ * por campo dejaba medias facturaciones. Reutiliza la misma función de la base por cambio.
+ */
+export async function decidirCambios(_prev: RevisionState, formData: FormData): Promise<RevisionState> {
+  await requireRole(PUEDE_REVISAR_REGISTROS);
+  const ids = String(formData.get("cambioIds") ?? "").split(",").map(Number).filter((n) => n > 0);
+  const aprobar = String(formData.get("decision")) === "aprobar";
+  if (!ids.length) return { error: "No hay cambios." };
+
+  const supabase = await createClient();
+  const { data: cambios } = await supabase.from("registro_cambio").select("id, cliente_id, campo").in("id", ids).eq("estado", "pendiente");
+  if (!cambios?.length) return { error: "Los cambios ya fueron decididos." };
+
+  for (const c of cambios) {
+    const { error } = await supabase.rpc("registro_cambio_decidir", { p_cambio: c.id, p_aprobar: aprobar });
+    if (error) return { error: error.message };
+  }
+  const clienteId = cambios[0].cliente_id;
+  if (aprobar && cambios.some((c) => c.campo === "factura_a_nit")) {
+    const { data: c } = await supabase.from("clientes").select("documento, factura_a_nit").eq("id", clienteId).single();
+    await reatribuirFacturas(supabase, clienteId, c?.documento ?? null, c?.factura_a_nit ?? null);
+  }
+  revalidatePath("/clientes/registros");
+  revalidatePath(`/clientes/${clienteId}`);
+  return { ok: aprobar ? "Facturación aplicada a la ficha." : "Cambios rechazados." };
+}
