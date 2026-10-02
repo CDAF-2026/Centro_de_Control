@@ -142,7 +142,8 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     },
   });
 
-  redirect("/registro/consentimiento");
+  // Un adulto NO firma consentimiento (pedido del club, 2-oct-2026): termina en "Listo".
+  redirect(mayor ? "/registro/listo" : "/registro/consentimiento");
 }
 
 type Decision = { modo: "crear" | "hermano" | "actualizar"; cliente_id?: number; miembro_id?: number } | null;

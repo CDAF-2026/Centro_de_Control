@@ -5,7 +5,8 @@ import { registroAbierto } from "@/lib/registro/version";
 import { EnPreparacion } from "./en-preparacion";
 
 /**
- * La landing del QR: dos caminos (R1). Diseño "A · Cancha": la foto de Alejandro
+ * La landing del QR: dos caminos (R1). El consentimiento es SOLO para menores de edad
+ * (pedido del club, 2-oct-2026): la tarjeta lo dice; un adulto usa "Actualizar o ingresar datos". Diseño "A · Cancha": la foto de Alejandro
  * Falla en blanco y negro se funde con el fondo stadium y el logo lima queda
  * montado sobre su borde. Sin versión vigente del texto no hay nada que hacer aquí.
  */
@@ -40,7 +41,7 @@ export default async function RegistroPage() {
         <p className="cdaf-eyebrow text-primary">Centro Deportivo Alejandro Falla</p>
         <h1 className="font-heading text-[34px] font-extrabold uppercase italic leading-[1.05] text-white md:text-[32px]">Registro de deportistas</h1>
         <p className="mt-1 text-[15px] leading-relaxed text-[#c5cdc9] md:mt-0 md:text-sm">
-          Toma menos de cinco minutos. Ten a la mano el documento del deportista y el del padre, madre o acudiente.
+          Toma menos de cinco minutos. Ten a la mano el documento de identidad del deportista y, si es menor de edad, el del padre, madre o acudiente.
         </p>
       </div>
 
@@ -49,13 +50,14 @@ export default async function RegistroPage() {
         <Opcion
           href="/registro/datos"
           titulo="Actualizar o ingresar datos"
-          detalle="Ficha del deportista, acudientes y facturación. Al final firmas el consentimiento."
+          detalle="Ficha del deportista, acudientes y facturación. Para adultos y menores de edad."
           icono={<ClipboardList className="size-6" />}
         />
         <Opcion
           href="/registro/consentimiento"
           titulo="Firmar el consentimiento"
           detalle="Si los datos ya están al día, solo lee y firma con el dedo."
+          nota="Solo menores de edad"
           icono={<PenLine className="size-6" />}
         />
       </div>
@@ -63,13 +65,13 @@ export default async function RegistroPage() {
       {/* Celular: la nota baja al pie (mt-auto). Computador: pegada a las tarjetas y centrada,
           para no dejar un hueco entre las dos (Laura, 1-oct-2026). */}
       <p className="mt-auto px-6 pt-7 text-xs leading-relaxed text-[#8a9399] md:mt-0 md:pt-6 md:text-center">
-        Si tienes más de un hijo en el club, el proceso se hace una vez por cada uno.
+        Si en tu familia hay más de un deportista, el proceso se hace una vez por cada uno.
       </p>
     </div>
   );
 }
 
-function Opcion({ href, titulo, detalle, icono }: { href: string; titulo: string; detalle: string; icono: React.ReactNode }) {
+function Opcion({ href, titulo, detalle, nota, icono }: { href: string; titulo: string; detalle: string; nota?: string; icono: React.ReactNode }) {
   return (
     <Link
       href={href}
@@ -77,6 +79,7 @@ function Opcion({ href, titulo, detalle, icono }: { href: string; titulo: string
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-primary text-stadium">{icono}</span>
       <span className="flex flex-col gap-0.5 md:gap-1.5">
+        {nota && <span className="w-fit whitespace-nowrap rounded-full bg-stadium px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{nota}</span>}
         <span className="font-heading text-[17px] font-extrabold leading-tight text-stadium md:text-base">{titulo}</span>
         <span className="text-[13px] leading-snug text-[#5c6b73]">{detalle}</span>
       </span>

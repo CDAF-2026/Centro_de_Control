@@ -32,8 +32,9 @@ vi.mock("@/lib/registro/version", async (orig) => {
   const real = await orig<typeof import("../src/lib/registro/version")>();
   return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente };
 });
+let sesion: any = null;
 vi.mock("@/lib/registro/sesion", () => ({
-  leerSesion: async () => null,
+  leerSesion: async () => sesion,
   crearSesion: async () => "s",
   anotarEnSesion: async () => {},
   cerrarSesion: async () => {},
@@ -61,6 +62,21 @@ describe("registro público · puerta abierta", () => {
     expect(html).toContain('href="/registro/consentimiento"');
     expect(html).toContain("registro-hero.jpg"); // la foto de la landing (diseño A)
     expect(texto(html)).toContain("Firmar el consentimiento");
+    // El consentimiento es solo para menores de edad (club, 2-oct-2026); la tarjeta lo dice.
+    expect(texto(html)).toContain("Solo menores de edad");
+    expect(texto(html)).not.toContain("Al final firmas el consentimiento");
+  });
+
+  it("la página 'listo' para un adulto (datos sin firma) solo ofrece volver al inicio", async () => {
+    sesion = { id: "s", firmante: { nombre: "Ana Pérez", documento: "1" }, miembros: [{ miembro_id: 1, cliente_id: 1, nombre: "Ana Pérez", firmado: false, datos: { fechaNacimiento: "1990-05-05" } }] };
+    try {
+      const { default: Page } = await import("../src/app/registro/listo/page");
+      const html = await render(Page);
+      expect(texto(html)).toContain("Volver al inicio");
+      expect(texto(html)).toContain("Tus datos quedaron guardados");
+      expect(html).not.toContain('href="/registro/consentimiento"');
+      expect(texto(html)).not.toContain("Registrar otro hijo");
+    } finally { sesion = null; }
   });
 
   it("el consentimiento muestra el texto completo, la casilla de aprobación y el campo de la firma", async () => {

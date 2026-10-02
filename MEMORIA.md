@@ -1929,7 +1929,8 @@ Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-di
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
 mandan: **sobrescribir todo salvo facturación** (un NIT distinto espera aprobación) · **ficha unificada**
-con el Word del club · **solo menores** (si la edad da ≥18 la misma pantalla deja de pedir acudiente) ·
+con el Word del club · **adultos actualizan datos pero NO firman** (si la edad da ≥18 el formulario deja de
+pedir acudiente y termina en "Listo" sin pasar al consentimiento; pedido del club, 2-oct-2026) ·
 revisan **SA y coord. administrativo** · texto definitivo = `Consentimiento informado/insumos/…MENORES DE
 EDAD .docx`, versión `2026-10`, se firma una vez.
 
@@ -1992,8 +1993,8 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
 - Rutas (fuera de `(app)`, `PUBLIC_PATHS` del middleware): `/registro` (landing, R1) ·
   `/registro/consentimiento` (identificación del menor + firmante, texto completo con la EPS puesta
   en vivo, casilla "Apruebo", `FirmaPad`) · `/registro/listo` ("¿firmar por otro hijo?", R9) ·
-  `/registro/datos` ("Muy pronto" hasta la Fase 3). **D11**: si la fecha de nacimiento da ≥ 18, el
-  formulario esconde "quién firma" y la persona firma por sí misma con el mismo texto.
+  `/registro/datos` ("Muy pronto" hasta la Fase 3). **D11** (superada el 2-oct-2026, ver abajo): si la
+  fecha de nacimiento da ≥ 18, el formulario esconde "quién firma" y la persona firma por sí misma.
 - ✍️ **`FirmaPad`** (`signature_pad`): un lienzo para dedo/lápiz/ratón + "Escribir mi nombre" (fuente
   manuscrita a un canvas). Arranca en *dibujar* en pantallas táctiles y en *escribir* en computador.
   **Un punto no es firma**: se exige ≥ 40 px de recorrido (medido por LONGITUD, no por nº de puntos —
@@ -2144,6 +2145,17 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   · **Una firma por niño y versión**: si ya hay firma `asignada` con PDF para esa versión, `/registro/listo?ya=1`
     dice que ya estaba firmado y no se crea otra (en las pruebas un niño quedó con dos). Si la firma quedó
     sin PDF (falló a mitad de camino), se retoma esa misma (`upsert` en el bucket) en vez de duplicarla.
+- 🧑 **Adultos por el mismo QR (pedido del club, 2-oct-2026)**: el cliente quiere usar el QR también para
+  que los clientes adultos actualicen su ficha. Laura: "si es mayor de edad no lo pasamos al consentimiento;
+  los adultos no deben firmarlo". Hecho: `enviarDatos` redirige a `/registro/listo` cuando `mayor`; la
+  página "Listo" detecta al adulto por la fecha de nacimiento de la sesión y solo ofrece **"Volver al
+  inicio"** (Laura: nada de "registrar a otra persona"); la tarjeta de consentimiento en la portada lleva
+  la etiqueta **"Solo menores de edad"** (Laura prefirió avisar ahí y no validar la edad dentro del
+  consentimiento); textos de la portada neutros (adultos y menores). Facturación de adultos: misma regla.
+  **Pendiente de decisión de Laura**: cómo casar al adulto cuya ficha no tiene cédula (medido: 381 fichas
+  de adultos; 331 con cédula → se actualizan bien; 48 sin cédula pero con correo → hoy `decidirFicha` lo
+  mete como miembro NO titular de su propia ficha por el modo "hermano"; 2 sin nada → ficha nueva).
+  Propuesta: correo + nombre coinciden → actualizar al titular; correo sí y nombre no → crear ficha nueva.
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

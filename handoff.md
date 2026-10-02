@@ -916,8 +916,11 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   Al papá nunca se le pregunta ni se le muestra lo que tiene el club (Laura, 2-oct-2026).
 - **Los nombres se guardan con mayúscula inicial** (`capitalizarNombre`, `src/lib/nombres.ts`):
   "laura salazar" → "Laura Salazar". Las razones sociales (jurídica) se dejan como se escriben.
-- **Solo menores.** Si la fecha de nacimiento da 18 o más, la misma pantalla deja de pedir acudiente
-  y la persona firma por sí misma con el mismo texto.
+- **Adultos: datos sí, consentimiento no** (pedido del club, 2-oct-2026). Si la fecha de nacimiento da
+  18 o más, el formulario de datos deja de pedir acudiente (3 pasos, contacto propio, factura "a mi
+  nombre") y al enviar va a `/registro/listo` con solo "Volver al inicio": **no pasa a firmar**. La
+  tarjeta "Firmar el consentimiento" de la portada dice "Solo menores de edad"; no hay bloqueo por edad
+  dentro del consentimiento (Laura decidió avisar en la portada, no validar).
 - **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega
   desde la ficha en la plataforma.
 - **La página NUNCA devuelve datos existentes** (un documento ajeno no revela si existe). Si el niño

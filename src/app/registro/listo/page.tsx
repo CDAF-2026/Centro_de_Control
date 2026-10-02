@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { leerSesion } from "@/lib/registro/sesion";
+import { edadDesde } from "@/lib/validations/cliente";
 import { terminarRecorrido } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Cabecera } from "../cabecera";
@@ -13,8 +14,13 @@ import { Cabecera } from "../cabecera";
 export default async function RegistroListoPage({ searchParams }: { searchParams: Promise<{ ya?: string }> }) {
   const { ya } = await searchParams;
   const sesion = await leerSesion();
-  const ultimo = sesion?.miembros.at(-1)?.nombre ?? null;
+  const miembro = sesion?.miembros.at(-1) ?? null;
+  const ultimo = miembro?.nombre ?? null;
   const firmados = sesion?.miembros.filter((m) => m.firmado).length ?? 0;
+  // Un adulto llega aquí desde el formulario de datos, sin firmar (los mayores de edad no
+  // firman consentimiento; pedido del club, 2-oct-2026): solo se le ofrece volver al inicio.
+  const edad = edadDesde(miembro?.datos?.fechaNacimiento ?? null);
+  const adulto = !miembro?.firmado && edad != null && edad >= 18;
 
   return (
     <Cabecera titulo="Registro de deportistas">
@@ -23,15 +29,22 @@ export default async function RegistroListoPage({ searchParams }: { searchParams
         <CheckCircle2 className="text-[#46530a] size-8" />
       </div>
       <div className="space-y-2">
-        <h2 className="font-heading text-xl font-semibold tracking-tight">¡Listo{ultimo ? `, ${ultimo.split(" ")[0]} queda registrado` : ""}!</h2>
+        <h2 className="font-heading text-xl font-semibold tracking-tight">¡Listo{ultimo ? `, ${ultimo.split(" ")[0]}${adulto ? "" : " queda registrado"}` : ""}!</h2>
         <p className="text-muted-foreground text-sm">
-          {ya === "1"
+          {adulto
+            ? "Tus datos quedaron guardados en el Centro Deportivo Alejandro Falla."
+            : ya === "1"
             ? "Este consentimiento ya estaba firmado y guardado en la ficha del deportista. No hace falta firmarlo otra vez."
             : "El consentimiento firmado quedó guardado en la ficha del deportista en el Centro Deportivo Alejandro Falla."}
           {firmados > 1 ? ` Llevas ${firmados} consentimientos firmados en esta visita.` : ""}
         </p>
       </div>
 
+      {adulto ? (
+        <form action={terminarRecorrido}>
+          <Button type="submit" size="lg" className="w-full sm:w-auto sm:min-w-56">Volver al inicio</Button>
+        </form>
+      ) : (<>
       <div className="grid gap-3 sm:grid-cols-2">
         <Link href="/registro/datos" className="bg-primary text-primary-foreground hover:brightness-95 inline-flex h-11 items-center justify-center rounded-lg px-4 text-sm font-medium shadow-sm">
           Registrar otro hijo(a)
@@ -43,6 +56,7 @@ export default async function RegistroListoPage({ searchParams }: { searchParams
       <p className="text-muted-foreground text-xs">
         Si solo falta la firma de otro hijo(a), <Link href="/registro/consentimiento" className="text-foreground font-semibold underline underline-offset-2">fírmala aquí</Link>. Puedes cerrar esta página cuando termines.
       </p>
+      </>)}
     </div>
     </Cabecera>
   );

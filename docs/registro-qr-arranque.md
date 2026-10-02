@@ -4,12 +4,14 @@ Fecha: 2 de octubre de 2026 · Centro Deportivo Alejandro Falla · Vena Digital
 
 ## Qué es
 
-Un código QR en recepción. El papá o la mamá lo escanea con el celular y, sin descargar
-nada ni crear usuario:
+Un código QR en recepción. El papá, la mamá o el propio deportista adulto lo escanea con el
+celular y, sin descargar nada ni crear usuario:
 
 1. **Actualiza o ingresa los datos** del deportista (4 pasos cortos: el deportista,
-   contacto, acudiente, facturación), o
-2. **Firma el consentimiento informado** con el dedo (o escribiendo su nombre).
+   contacto, acudiente, facturación; un adulto no ve el paso del acudiente), o
+2. **Firma el consentimiento informado** con el dedo (o escribiendo su nombre). **Solo
+   menores de edad**: la portada lo dice. Un adulto que llena sus datos termina ahí, sin
+   firmar nada.
 
 Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), y queda
 guardado en la ficha del niño en la plataforma, en la tarjeta **"Consentimientos
@@ -56,7 +58,8 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 | "Tengo dos hijos" | Se registra uno, se firma, y al final la página ofrece **"Registrar otro hijo(a)"** |
 | "Me equivoqué en un dato" | Puede volver a escanear y hacerlo de nuevo: lo nuevo reemplaza lo anterior. La firma no se repite: si el niño ya tiene firma vigente, la página lo dice y no crea otra |
 | "Me dice *Revisa el documento: no coincide con el nombre*" | Escribió un documento que en la plataforma es de otra persona (casi siempre su propia cédula en el campo del niño). Que lo corrija. Si insiste en que es correcto, al segundo intento puede marcar "Confirmo…": no se toca ninguna ficha y les llega a **Registros** para revisarlo |
-| "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre**: el club factura a nombre de esa persona |
+| "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre** (o "a mi nombre" si es un adulto): el club factura a nombre de esa persona |
+| "Soy adulto, ¿tengo que firmar el consentimiento?" | No. Solo actualiza sus datos con **"Actualizar o ingresar datos"** y al final vuelve al inicio. El consentimiento es solo para menores de edad |
 | "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
 | "Dice *Demasiados intentos*" | Hay un tope por conexión (60 envíos cada 10 minutos y 400 al día; el wifi del club cuenta como una sola conexión). Esperar unos minutos o hacerlo con datos móviles |
 
