@@ -2156,9 +2156,14 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
 11. **Cuenta de Resend del club**: en Vercel faltan `RESEND_API_KEY` y `RESEND_FROM` (las de `.env` son de
     Vena Digital). Mientras falten, **dos correos al cliente no salen y nadie se entera**: la confirmación al
     cerrar una clase y la bienvenida al asignar un paquete. Recepción no debe prometerlos.
-12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 (la
-    página pública completa existe pero está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel).
-    Sigue la Fase 4 (QR, apertura, documentación en handoff). Plan y decisiones en
+12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 y esa
+    misma noche el rediseño de las dos pantallas públicas (datos "A · Paso a paso", consentimiento "C ·
+    Resumen primero", facturación obligatoria; commit `40e92fc`). La página pública completa existe pero
+    está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel.
+    **Dónde quedamos (1-oct-2026, noche)**: Laura prueba al día siguiente en local las dos pantallas
+    rediseñadas (`/registro/datos` y `/registro/consentimiento`, mejor desde el celular) y pide ajustes;
+    DESPUÉS se arranca la **Fase 4** (QR, limpieza de la ficha de prueba 598, `REGISTRO_PUBLICO=1` en
+    Vercel el día que el club imprima, handoff.md, plan de arranque). Plan y decisiones en
     `docs/plan-registro-y-consentimiento-digital.md`. ⚠️ Borrar la ficha de prueba 598 al terminar.
 
 **Construir / revisar (agente), sin prisa**
