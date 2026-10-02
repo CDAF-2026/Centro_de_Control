@@ -318,7 +318,7 @@ La fuente de verdad del esquema son las **migraciones**. `src/lib/database.types
   versión, huella del PDF. **Nunca se borra**; se anula con motivo (`consentimiento_anular`, solo SA).
 - `registro_sesion` (la cookie del recorrido, 2 h) · `registro_solicitud` (cada envío tal cual; el
   `payload` se purga a 90 días) · `registro_cambio` (solo facturación, pendiente de aprobar) ·
-  `registro_intento` (rate limit: 10 / 10 min · 40 / día por IP).
+  `registro_intento` (rate limit: 60 / 10 min · 400 / día por IP; el wifi del club es UNA IP).
 - **Ninguna da privilegios a `anon` ni escritura a `authenticated`**: escribe el servidor
   (service_role) por RPC `SECURITY DEFINER` que valida por dentro.
 
@@ -925,6 +925,12 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   pregunta y campos. No agregar hints, subtítulos ni notas "para ayudar".
 - **El papá que ya es titular de su propia ficha no se duplica como acudiente**: el niño entra como
   hijo de esa ficha (lo mismo que "Agregar hijo" en la plataforma).
+- **Un documento que es de alguien con OTRO nombre nunca se sobrescribe** (`documento_ajeno` en
+  `match.ts`). Casi siempre es el papá poniendo su cédula en el campo del niño: la página lo frena
+  con un mensaje que no revela nada; al segundo intento puede confirmar y el envío va a la bandeja
+  sin tocar ninguna ficha.
+- **Se firma UNA vez por niño y versión.** Si ya hay firma vigente con PDF, la página lo dice y no
+  crea otra; si la firma quedó sin PDF (falló a mitad), se retoma esa misma.
 
 ---
 

@@ -54,10 +54,11 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 | "Firmé y me dice *No encontramos ese registro*" | El niño no está en la plataforma con esos datos. Que use **"Actualizar o ingresar datos"**: al terminar pasa directo a firmar |
 | "¿Tengo que crear usuario o contraseña?" | No. Se entra por el QR y no hay cuenta |
 | "Tengo dos hijos" | Se registra uno, se firma, y al final la página ofrece **"Registrar otro hijo(a)"** |
-| "Me equivoqué en un dato" | Puede volver a escanear y hacerlo de nuevo: lo nuevo reemplaza lo anterior. La firma no se repite: una firma vale mientras no cambie el texto del consentimiento |
+| "Me equivoqué en un dato" | Puede volver a escanear y hacerlo de nuevo: lo nuevo reemplaza lo anterior. La firma no se repite: si el niño ya tiene firma vigente, la página lo dice y no crea otra |
+| "Me dice *Revisa el documento: no coincide con el nombre*" | Escribió un documento que en la plataforma es de otra persona (casi siempre su propia cédula en el campo del niño). Que lo corrija. Si insiste en que es correcto, al segundo intento puede marcar "Confirmo…": no se toca ninguna ficha y les llega a **Registros** para revisarlo |
 | "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre**: el club factura a nombre de esa persona |
 | "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
-| "Dice *Demasiados intentos*" | Hay un tope de intentos por conexión (10 cada 10 minutos). Esperar unos minutos o hacerlo desde el celular con datos móviles |
+| "Dice *Demasiados intentos*" | Hay un tope por conexión (60 envíos cada 10 minutos y 400 al día; el wifi del club cuenta como una sola conexión). Esperar unos minutos o hacerlo con datos móviles |
 
 ## Dónde se ve en la plataforma
 

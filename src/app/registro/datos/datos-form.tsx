@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import { enviarDatos, type DatosState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -192,13 +192,19 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
   // Al enviar, un campo inválido en un paso OCULTO bloquearía el envío sin aviso
   // (el navegador no puede enfocarlo): se busca y se salta a ese paso.
+  // ⚠️ Se envía desde aquí (transición) y NO con `<form action>`: React 19 vacía los campos
+  // no controlados cuando la acción termina, y tras un error del servidor el papá perdía
+  // los cuatro pasos escritos.
   const alEnviar = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     for (let i = 0; i < pasos.length; i++) {
       if (pasos[i] === actual) continue;
       const sec = formRef.current?.querySelector<HTMLElement>(`[data-paso="${pasos[i]}"]`);
       const malo = sec && Array.from(sec.querySelectorAll<HTMLInputElement | HTMLSelectElement>("input, select")).find((el) => !el.checkValidity());
-      if (malo) { e.preventDefault(); setPaso(i); setTimeout(() => malo.reportValidity(), 50); return; }
+      if (malo) { setPaso(i); setTimeout(() => malo.reportValidity(), 50); return; }
     }
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => action(fd));
   };
 
   const opciones = opcionesFactura(snap, mayor);
@@ -210,7 +216,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   };
 
   return (
-    <form ref={formRef} action={action} onSubmit={alEnviar} className="flex flex-col">
+    <form ref={formRef} onSubmit={alEnviar} className="flex flex-col">
       <div className="absolute -left-[9999px] top-0" aria-hidden>
         <label>Sitio web <input type="text" name="sitio_web" tabIndex={-1} autoComplete="off" /></label>
       </div>
@@ -248,6 +254,16 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
               <Input id="documento" name="documento" inputMode="numeric" required className={INPUT} placeholder="Sin puntos" />
             </Campo>
           </div>
+          {/* Segundo intento con un documento que es de alguien de otro nombre: puede confirmar y
+              el envío va a revisión sin tocar a nadie (Laura, 2-oct-2026). */}
+          {state.documentoDudoso && (
+            <div className="md:col-span-2">
+            <label className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm">
+              <input type="checkbox" name="confirmoDocumento" className="accent-lime mt-0.5 size-5 shrink-0" />
+              <span className="text-charcoal leading-relaxed">Confirmo que el documento y el nombre son correctos.</span>
+            </label>
+            </div>
+          )}
           <Campo label="Lugar de nacimiento" name="lugarNacimiento" error={fe.lugarNacimiento}><Input id="lugarNacimiento" name="lugarNacimiento" placeholder="Ciudad" className={INPUT} /></Campo>
           <Campo label="EPS" name="eps" error={fe.eps}><Input id="eps" name="eps" required placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} /></Campo>
           <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>

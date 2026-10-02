@@ -229,16 +229,15 @@ describe("registro · reglas de la base", () => {
     });
   });
 
-  it("rate limit: 10 intentos pasan, el 11º en 10 minutos se rechaza", async () => {
+  it("rate limit: 60 intentos pasan, el 61º en 10 minutos se rechaza (el wifi del club es UNA IP)", async () => {
     await tx(async () => {
       const ip = `prueba-${Date.now()}`;
-      const res: boolean[] = [];
-      for (let i = 0; i < 11; i++) {
-        const r = await client.query("select public.registro_permitido($1) as ok", [ip]);
-        res.push(r.rows[0].ok);
-      }
-      expect(res.slice(0, 10).every(Boolean)).toBe(true);
-      expect(res[10]).toBe(false);
+      // Se siembran 59 intentos de golpe (misma IP, ahora) y se mide el 60º y el 61º.
+      await client.query("insert into public.registro_intento (ip_hash) select $1 from generate_series(1, 59)", [ip]);
+      const a = await client.query("select public.registro_permitido($1) as ok", [ip]);
+      const b = await client.query("select public.registro_permitido($1) as ok", [ip]);
+      expect(a.rows[0].ok).toBe(true);
+      expect(b.rows[0].ok).toBe(false);
     });
   });
 

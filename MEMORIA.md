@@ -2129,6 +2129,26 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   el documento completo antes de firmar", acordeón "El documento completo" con la parte abierta marcada
   (fondo lima suave + borde izquierdo + número oscuro) · enlace "fírmala aquí" de `/listo` en blanco
   subrayado (el verde no se leía sobre el fondo oscuro).
+- 🛡️ **Tres blindajes antes de abrir (Laura, 2-oct-2026, tras revisar el flujo)**:
+  · **`documento_ajeno`** (`match.ts`): si el documento coincide con alguien cuyo nombre NO se parece
+    (primer nombre + primer apellido normalizados), nunca se escribe sobre esa persona. Antes `buscarMiembro`
+    aceptaba un documento único sin mirar el nombre y D1 le habría cambiado al papá el nombre y la fecha
+    de nacimiento por los del niño (el error típico: su cédula en el campo del niño). La página responde
+    "Revisa el documento: no coincide con el nombre que escribiste" (sin revelar que el documento existe,
+    R8) y muestra la casilla "Confirmo que el documento y el nombre son correctos"; con ella, el envío va
+    a `en_revision` / firma `pendiente_asignar` + aviso a los revisores, sin tocar ninguna ficha. La
+    confirmación hecha en datos viaja en la sesión (`DatosMenor.confirmado`) para no volver a frenar en
+    la firma. Pruebas con un cliente falso en `registro-match.test.ts`.
+  · **Tope de intentos 60 / 10 min · 400 / día** (migración `20261002100000`): con 10 / 10 min, el wifi
+    del club (una sola IP) habría bloqueado a la quinta familia el día del arranque.
+  · **Una firma por niño y versión**: si ya hay firma `asignada` con PDF para esa versión, `/registro/listo?ya=1`
+    dice que ya estaba firmado y no se crea otra (en las pruebas un niño quedó con dos). Si la firma quedó
+    sin PDF (falló a mitad de camino), se retoma esa misma (`upsert` en el bucket) en vez de duplicarla.
+  ⚠️ **React 19 vacía los campos no controlados de un `<form action={fn}>` cuando la acción termina.**
+  Tras un error del servidor (por ejemplo el freno del documento ajeno) el papá perdía los cuatro pasos
+  escritos. Los dos formularios públicos envían ahora desde `onSubmit` con `startTransition(() =>
+  action(new FormData(form)))`, que no resetea nada. Vale para cualquier formulario nuevo con
+  `useActionState` y campos no controlados.
   ⚠️ **Fallo que salió al probar**: al pulsar "Continuar" en el penúltimo paso el navegador mostraba
   "Controla esta casilla" sobre la Ley 1581. Causa: React reutilizaba el MISMO nodo `<button>` para
   "Continuar" (type=button) y "Guardar" (type=submit); el estado cambia dentro del clic y, cuando el

@@ -37,6 +37,9 @@ export const consentimientoSchema = z.object({
   firmanteCelular: texto(20).optional(),
   firmanteEmail: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
 
+  // "Confirmo que el documento y el nombre son correctos": solo aparece al segundo intento
+  // cuando el documento coincide con alguien de otro nombre (ver match.ts).
+  confirmoDocumento: z.string().max(5).optional(),
   acepto: z.literal("on", { message: "Debes aprobar el consentimiento" }),
   metodo: z.enum(["dibujada", "escrita"]),
   firmaPng: firmaPngSchema,
@@ -68,6 +71,7 @@ const acudienteSchema = {
  */
 export const datosSchema = z.object({
   sitio_web: z.string().max(200).optional(),
+  confirmoDocumento: z.string().max(5).optional(),
   acepto_datos: z.literal("on", { message: "Debes autorizar el tratamiento de datos" }),
 
   // Deportista

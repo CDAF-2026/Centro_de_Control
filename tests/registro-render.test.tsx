@@ -39,7 +39,7 @@ vi.mock("@/lib/registro/sesion", () => ({
   cerrarSesion: async () => {},
 }));
 
-const render = async (fn: any, props: any = {}) => renderToStaticMarkup(await fn(props));
+const render = async (fn: any, props: any = { searchParams: Promise.resolve({}) }) => renderToStaticMarkup(await fn(props));
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("registro público · puerta cerrada", () => {

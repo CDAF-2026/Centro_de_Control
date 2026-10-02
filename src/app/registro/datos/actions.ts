@@ -11,7 +11,12 @@ import { registroAbierto } from "@/lib/registro/version";
 import { edadDesde } from "@/lib/validations/cliente";
 import type { Json } from "@/lib/database.types";
 
-export type DatosState = { error?: string; fieldErrors?: Record<string, string> };
+export type DatosState = {
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  /** El documento coincide con alguien de otro nombre: la pantalla ofrece confirmar (segundo intento). */
+  documentoDudoso?: boolean;
+};
 
 const GENERICO = "No pudimos guardar los datos. Inténtalo de nuevo o acércate a recepción.";
 
@@ -66,11 +71,19 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
   const contactoEmail = mayor ? (d.email ?? "") : (d.acudienteEmail ?? "");
   const contactoCel = mayor ? (d.celular ?? "") : (d.acudienteTelefono ?? "");
 
+  // El documento es de alguien con OTRO nombre (casi siempre el papá puso su propia cédula):
+  // se frena con un mensaje que no revela nada. Si confirma, se guarda SIN tocar a nadie y
+  // va a la bandeja (Laura, 2-oct-2026).
+  const confirmado = d.confirmoDocumento === "on";
+  if (busqueda.tipo === "documento_ajeno" && !confirmado) {
+    return { error: "Revisa el documento: no coincide con el nombre que escribiste. Escríbelos tal como aparecen en el documento de identidad.", fieldErrors: { documento: "No coincide con el nombre" }, documentoDudoso: true };
+  }
+
   let decision: { modo: "crear" | "hermano" | "actualizar"; cliente_id?: number; miembro_id?: number } | null = null;
   let candidatos: number[] | null = null;
   if (busqueda.tipo === "unico") {
     decision = { modo: "actualizar", cliente_id: busqueda.miembro.cliente_id, miembro_id: busqueda.miembro.miembro_id };
-  } else if (busqueda.tipo === "ambiguo") {
+  } else if (busqueda.tipo === "ambiguo" || busqueda.tipo === "documento_ajeno") {
     candidatos = busqueda.candidatos.map((c) => c.miembro_id);
   } else {
     // Niño nuevo: ¿la familia ya existe? Por el adulto (correo → cédula) o por la cédula del acudiente.
@@ -100,7 +113,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     familia: { direccion: d.direccion || null, celular: contactoCel || null, email: contactoEmail.toLowerCase() || null, emergencia_nombre: d.emergenciaNombre || null, emergencia_celular: d.emergenciaCelular || null, emergencia_parentesco: d.emergenciaParentesco || null },
     acudientes,
     facturacion: { factura_tipo: d.facturaTipo || null, factura_a_nombre: d.facturaANombre || null, factura_a_nit: soloDigitos(d.facturaANit), factura_email: d.facturaEmail?.toLowerCase() || null },
-    busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : busqueda.tipo === "ambiguo" ? { tipo: "ambiguo", candidatos } : { tipo: "ninguno", modo: decision?.modo },
+    busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : busqueda.tipo === "ninguno" ? { tipo: "ninguno", modo: decision?.modo } : { tipo: busqueda.tipo, candidatos },
   };
 
   const sesionActual = await leerSesion();
@@ -124,6 +137,8 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     if (r.cambios_pendientes > 0) {
       await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} propuso cambiar la facturación de la ficha de ${nombreMenor}. Hay ${r.cambios_pendientes} cambio(s) por aprobar en Clientes › Registros.`);
     }
+  } else if (busqueda.tipo === "documento_ajeno") {
+    await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} registró a ${nombreMenor} con un documento que en la plataforma tiene otra persona, y confirmó que es correcto. No se tocó ninguna ficha: revisar en Clientes › Registros.`);
   } else {
     // Caso extremo (D3): dos fichas con el mismo documento y nombre. No se escribe en clientes.
     await avisarRevisores(admin, `Aviso automático · Los datos de ${nombreMenor} enviados por ${firmante.nombre} coinciden con más de una ficha. Revisar en Clientes › Registros.`);
@@ -133,7 +148,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     firmante,
     miembro: {
       ...miembro, nombre: nombreMenor, firmado: false,
-      datos: { nombres: d.nombres, apellidos: d.apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh ?? "" },
+      datos: { nombres: d.nombres, apellidos: d.apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh ?? "", confirmado: confirmado || undefined },
     },
   });
 

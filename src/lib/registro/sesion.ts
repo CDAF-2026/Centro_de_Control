@@ -18,6 +18,8 @@ const VIDA_SEG = 2 * 60 * 60;
 export type DatosMenor = {
   nombres: string; apellidos: string; tipoDocumento: string; documento: string;
   fechaNacimiento: string; eps: string; rh: string;
+  /** El papá confirmó que documento y nombre son correctos pese a coincidir con otra persona (va a revisión). */
+  confirmado?: boolean;
 };
 export type MiembroSesion = {
   miembro_id: number; cliente_id: number; nombre: string; firmado?: boolean; datos?: DatosMenor;

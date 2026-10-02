@@ -9,6 +9,11 @@ import type { Database } from "@/lib/database.types";
  *     (medido): en los datos reales hay hermanos con el mismo número (Matías/Elena Restrepo),
  *     así que con más de un resultado se desempata por NOMBRE normalizado — que es justo lo
  *     que el consentimiento trae escrito. Si aun así quedan dos (una ficha duplicada), AMBIGUO.
+ *     ⚠️ Y si el documento coincide pero el NOMBRE no se parece a NINGUNO de los que lo tienen,
+ *     es DOCUMENTO_AJENO (Laura, 2-oct-2026): casi siempre es el papá escribiendo su propia
+ *     cédula en el campo del niño. Antes se aceptaba y D1 le sobrescribía al papá el nombre y
+ *     la fecha de nacimiento con los del niño. Ahora nunca se escribe sobre esa coincidencia:
+ *     la página lo frena y, si insiste confirmando, va a la bandeja sin tocar nada.
  *  2. Nombre normalizado + fecha de nacimiento exacta.
  *  3. Nada → NINGUNO (la página lo manda a llenar datos; nunca dice "no existes" con datos ajenos).
  *
@@ -28,6 +33,7 @@ export type Candidato = {
 export type ResultadoBusqueda =
   | { tipo: "unico"; miembro: Candidato; por: "documento" | "documento+nombre" | "nombre+fecha" }
   | { tipo: "ambiguo"; candidatos: Candidato[] }
+  | { tipo: "documento_ajeno"; candidatos: Candidato[] }
   | { tipo: "ninguno" };
 
 /**
@@ -87,11 +93,11 @@ export async function buscarMiembro(
   if (doc) {
     const { data } = await supabase.from("cliente_miembros").select(CAMPOS).eq("documento", doc).eq("activo", true).limit(20);
     const cands = (data ?? []).map(aCandidato);
-    if (cands.length === 1) return { tipo: "unico", miembro: cands[0], por: "documento" };
-    if (cands.length > 1) {
+    if (cands.length) {
       const d = desempatarPorNombre(cands, datos.nombres, datos.apellidos);
-      if (d.length === 1) return { tipo: "unico", miembro: d[0], por: "documento+nombre" };
-      return { tipo: "ambiguo", candidatos: d.length ? d : cands };
+      if (d.length === 0) return { tipo: "documento_ajeno", candidatos: cands };
+      if (d.length === 1) return { tipo: "unico", miembro: d[0], por: cands.length === 1 ? "documento" : "documento+nombre" };
+      return { tipo: "ambiguo", candidatos: d };
     }
   }
 

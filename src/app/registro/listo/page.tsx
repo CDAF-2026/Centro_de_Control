@@ -10,7 +10,8 @@ import { Cabecera } from "../cabecera";
  * persona acaba de escribir (el nombre del deportista, desde la sesión): nunca un
  * dato de la ficha.
  */
-export default async function RegistroListoPage() {
+export default async function RegistroListoPage({ searchParams }: { searchParams: Promise<{ ya?: string }> }) {
+  const { ya } = await searchParams;
   const sesion = await leerSesion();
   const ultimo = sesion?.miembros.at(-1)?.nombre ?? null;
   const firmados = sesion?.miembros.filter((m) => m.firmado).length ?? 0;
@@ -24,7 +25,9 @@ export default async function RegistroListoPage() {
       <div className="space-y-2">
         <h2 className="font-heading text-xl font-semibold tracking-tight">¡Listo{ultimo ? `, ${ultimo.split(" ")[0]} queda registrado` : ""}!</h2>
         <p className="text-muted-foreground text-sm">
-          El consentimiento firmado quedó guardado en la ficha del deportista en el Centro Deportivo Alejandro Falla.
+          {ya === "1"
+            ? "Este consentimiento ya estaba firmado y guardado en la ficha del deportista. No hace falta firmarlo otra vez."
+            : "El consentimiento firmado quedó guardado en la ficha del deportista en el Centro Deportivo Alejandro Falla."}
           {firmados > 1 ? ` Llevas ${firmados} consentimientos firmados en esta visita.` : ""}
         </p>
       </div>

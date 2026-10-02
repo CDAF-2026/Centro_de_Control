@@ -17,6 +17,8 @@ export type ConsentimientoState = {
   fieldErrors?: Record<string, string>;
   /** No hay ficha con esos datos: se le ofrece llenar los datos primero (D3). */
   noEncontrado?: boolean;
+  /** El documento coincide con alguien de otro nombre: la pantalla ofrece confirmar (segundo intento). */
+  documentoDudoso?: boolean;
 };
 
 const GENERICO = "No pudimos guardar la firma. Inténtalo de nuevo o acércate a recepción.";
@@ -102,13 +104,42 @@ export async function firmarConsentimiento(
   if (busqueda.tipo === "ninguno") return { noEncontrado: true };
 
   const sesion = (await leerSesion()) ?? null;
+
+  // Documento de alguien con OTRO nombre: se frena; si confirma (aquí o ya lo hizo en
+  // "Actualizar datos"), la firma queda pendiente de asignar y nadie se toca.
+  const confirmado = d.confirmoDocumento === "on" || !!sesion?.miembros.some((m) => m.datos?.documento === d.documento && m.datos?.confirmado);
+  if (busqueda.tipo === "documento_ajeno" && !confirmado) {
+    return { error: "Revisa el documento: no coincide con el nombre que escribiste. Escríbelos tal como aparecen en el documento de identidad.", fieldErrors: { documento: "No coincide con el nombre" }, documentoDudoso: true };
+  }
+
+  // Se firma UNA vez por niño y versión (D6). Si ya hay una firma vigente con su PDF, no se
+  // crea otra: se da por hecho. Si la hay pero sin PDF (falló a mitad de camino), se retoma
+  // esa misma firma en vez de duplicarla.
+  let firmaPrevia: { id: string; firmado_el: string; pdf_path: string | null } | null = null;
+  if (busqueda.tipo === "unico") {
+    const { data: previa } = await admin
+      .from("consentimiento_firma")
+      .select("id, firmado_el, pdf_path")
+      .eq("miembro_id", busqueda.miembro.miembro_id)
+      .eq("version_id", version.id)
+      .eq("estado", "asignada")
+      .order("firmado_el", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    firmaPrevia = previa ?? null;
+    if (firmaPrevia?.pdf_path) {
+      const sesionId = sesion?.id ?? (await crearSesion({ nombre: firmante.nombre, documento: firmante.documento, parentesco: firmante.parentesco ?? undefined, celular: firmante.celular ?? undefined, email: firmante.email ?? undefined }));
+      await anotarEnSesion(sesionId, { miembro: { miembro_id: busqueda.miembro.miembro_id, cliente_id: busqueda.miembro.cliente_id, nombre: nombreMenor, firmado: true } });
+      redirect("/registro/listo?ya=1");
+    }
+  }
   const sesionId = sesion?.id ?? (await crearSesion({ nombre: firmante.nombre, documento: firmante.documento, parentesco: firmante.parentesco ?? undefined, celular: firmante.celular ?? undefined, email: firmante.email ?? undefined }));
 
   // La solicitud, tal cual llegó (sin la imagen: pesa y ya va al bucket).
   const payload: Json = {
     menor: { nombres: d.nombres, apellidos: d.apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh || null },
     firmante,
-    busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : { tipo: "ambiguo", candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
+    busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : { tipo: busqueda.tipo, candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
   };
   const { data: sol, error: solErr } = await admin
     .from("registro_solicitud")
@@ -126,8 +157,8 @@ export async function firmarConsentimiento(
     return { error: GENERICO };
   }
 
-  // 1) La firma, con la hora del servidor.
-  const { data: firmaId, error: firmaErr } = await admin.rpc("consentimiento_firmar", {
+  // 1) La firma, con la hora del servidor (o la previa que quedó sin PDF).
+  const { data: firmaNueva, error: firmaErr } = firmaPrevia ? { data: firmaPrevia.id, error: null } : await admin.rpc("consentimiento_firmar", {
     p_datos: {
       solicitud_id: sol.id, sesion_id: sesionId,
       cliente_id: busqueda.tipo === "unico" ? busqueda.miembro.cliente_id : null,
@@ -138,16 +169,17 @@ export async function firmarConsentimiento(
       metodo: d.metodo, ip, user_agent: ua,
     },
   });
-  if (firmaErr || !firmaId) {
+  if (firmaErr || !firmaNueva) {
     console.error("[registro] firmar:", firmaErr?.message);
     return { error: GENERICO };
   }
+  const firmaId = firmaNueva;
 
   // 2) La imagen de la firma, 3) el PDF, 4) adjuntar. Se mira cada error.
   const { data: firma } = await admin.from("consentimiento_firma").select("firmado_el").eq("id", firmaId).single();
   const png = Buffer.from(d.firmaPng.split(",")[1], "base64");
   const pngPath = `${firmaId}/firma.png`;
-  const { error: pngErr } = await admin.storage.from("consentimientos").upload(pngPath, png, { contentType: "image/png", upsert: false });
+  const { error: pngErr } = await admin.storage.from("consentimientos").upload(pngPath, png, { contentType: "image/png", upsert: !!firmaPrevia });
   if (pngErr) {
     console.error("[registro] png:", firmaId, pngErr.message);
     return { error: GENERICO };
@@ -169,7 +201,7 @@ export async function firmarConsentimiento(
     return { error: GENERICO };
   }
   const pdfPath = `${firmaId}/consentimiento.pdf`;
-  const { error: pdfErr } = await admin.storage.from("consentimientos").upload(pdfPath, pdf, { contentType: "application/pdf", upsert: false });
+  const { error: pdfErr } = await admin.storage.from("consentimientos").upload(pdfPath, pdf, { contentType: "application/pdf", upsert: !!firmaPrevia });
   if (pdfErr) {
     console.error("[registro] pdf upload:", firmaId, pdfErr.message);
     return { error: GENERICO };
@@ -183,7 +215,13 @@ export async function firmarConsentimiento(
     return { error: GENERICO };
   }
 
-  if (busqueda.tipo === "ambiguo") {
+  if (busqueda.tipo === "documento_ajeno") {
+    await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} firmó por ${nombreMenor} con un documento que en la plataforma tiene otra persona, y confirmó que es correcto. La firma quedó sin asignar: revisar en Clientes › Registros.`);
+    await logAuditSistema({
+      action: "consentimiento.pendiente_asignar", entity: "consentimiento_firma", entityId: firmaId,
+      after: { motivo: "documento_ajeno", candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
+    });
+  } else if (busqueda.tipo === "ambiguo") {
     // Caso extremo (D3): mismo documento y mismo nombre en dos fichas. Avisar a los revisores.
     await avisarRevisores(admin, `Aviso automático · Un consentimiento firmado por ${firmante.nombre} para ${nombreMenor} coincide con más de una ficha. Hay que asignarlo desde la ficha correcta (Clientes).`);
     await logAuditSistema({

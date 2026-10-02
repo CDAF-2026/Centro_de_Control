@@ -54,3 +54,43 @@ describe("desempatarPorNombre (hermanos con el mismo documento)", () => {
     expect(desempatarPorNombre([matias, elena], "", "Restrepo")).toHaveLength(2);
   });
 });
+
+/**
+ * `buscarMiembro` con un cliente de Supabase FALSO (sin base): lo que importa aquí es la
+ * decisión, no la consulta. Caso real que motivó la regla (Laura, 2-oct-2026): el papá
+ * escribe SU cédula en el campo del niño; antes se aceptaba y D1 le sobrescribía el nombre.
+ */
+import { buscarMiembro } from "../src/lib/registro/match";
+
+function clienteFalso(filas: Array<Partial<Candidato> & { id: number }>) {
+  const q = {
+    select: () => q, eq: () => q,
+    limit: async () => ({ data: filas.map((f) => ({ cliente_id: 1, nombres: "", apellidos: "", documento: null, fecha_nacimiento: null, es_titular: false, ...f })) }),
+  };
+  return { from: () => q } as never;
+}
+
+describe("buscarMiembro · documento de alguien con otro nombre", () => {
+  it("el papá pone su propia cédula: el documento es de Carlos, pero el nombre es Luciano → documento_ajeno, nunca único", async () => {
+    const r = await buscarMiembro(clienteFalso([{ id: 10, nombres: "Carlos", apellidos: "Gómez", documento: "71234556" }]), {
+      documento: "71234556", nombres: "Luciano", apellidos: "Gómez", fechaNacimiento: "2017-06-02",
+    });
+    expect(r.tipo).toBe("documento_ajeno");
+  });
+
+  it("documento único y nombre parecido → único (como siempre)", async () => {
+    const r = await buscarMiembro(clienteFalso([{ id: 10, nombres: "Luciano Andrés", apellidos: "Gómez Pérez", documento: "1023456789" }]), {
+      documento: "1023456789", nombres: "luciano", apellidos: "gomez",
+    });
+    expect(r.tipo).toBe("unico");
+    if (r.tipo === "unico") expect(r.por).toBe("documento");
+  });
+
+  it("hermanos con el mismo documento: el nombre escoge → único por documento+nombre", async () => {
+    const r = await buscarMiembro(clienteFalso([{ id: 584, nombres: "Matías", apellidos: "Restrepo", documento: "1017204187" }, { id: 428, nombres: "Elena", apellidos: "Restrepo", documento: "1017204187" }]), {
+      documento: "1017204187", nombres: "Elena", apellidos: "Restrepo",
+    });
+    expect(r.tipo).toBe("unico");
+    if (r.tipo === "unico") expect(r.miembro.miembro_id).toBe(428);
+  });
+});

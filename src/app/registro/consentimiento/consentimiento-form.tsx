@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useState } from "react";
+import { startTransition, useActionState, useCallback, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import { firmarConsentimiento, type ConsentimientoState } from "./actions";
@@ -17,7 +17,7 @@ export type TextoConsentimiento = { codigo: string; titulo: string; parrafos: st
 
 /** Un dato de la sesión del recorrido: viene de "Actualizar datos" (Fase 3) y evita volver a pedirlo. */
 export type Precargado = {
-  menor?: { nombres: string; apellidos: string; documento: string; tipoDocumento: string; fechaNacimiento: string; eps: string; rh: string };
+  menor?: { nombres: string; apellidos: string; documento: string; tipoDocumento: string; fechaNacimiento: string; eps: string; rh: string; confirmado?: boolean };
   firmante?: { nombre: string; documento: string; parentesco?: string; celular?: string; email?: string };
 };
 
@@ -99,6 +99,14 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
     if (!tipoDoc) setTipoDoc(tipoDocumentoPorEdad(edadDesde(v)) ?? "");
   };
 
+  // Enviar desde onSubmit (transición) y no con `<form action>`: React 19 vacía los campos no
+  // controlados al terminar la acción, y un error del servidor dejaría la pantalla en blanco.
+  const alEnviar = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    startTransition(() => action(fd));
+  };
+
   if (state.noEncontrado) {
     return (
       <div className={cn(CARD, "space-y-4 p-5")}>
@@ -113,7 +121,7 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
   }
 
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form onSubmit={alEnviar} className="flex flex-col gap-3">
       {/* Honeypot: invisible para una persona; un robot lo llena y el servidor descarta el envío. */}
       <div className="absolute -left-[9999px] top-0" aria-hidden>
         <label>Sitio web <input type="text" name="sitio_web" tabIndex={-1} autoComplete="off" /></label>
@@ -258,6 +266,17 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
           </button>
         </div>
       </section>
+
+      {/* Documento de alguien con otro nombre: al segundo intento puede confirmar (va a revisión). */}
+      {precargado?.menor?.confirmado && <input type="hidden" name="confirmoDocumento" value="on" />}
+      {state.documentoDudoso && (
+        <div className={cn(CARD, "p-1")}>
+          <label className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm">
+              <input type="checkbox" name="confirmoDocumento" className="accent-lime mt-0.5 size-5 shrink-0" />
+              <span className="text-charcoal leading-relaxed">Confirmo que el documento y el nombre son correctos.</span>
+            </label>
+        </div>
+      )}
 
       {/* Apruebo */}
       <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
