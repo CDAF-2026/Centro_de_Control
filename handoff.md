@@ -148,6 +148,9 @@ Cubre, en un solo sitio, lo que el club hacía en Excel y WhatsApp:
 - **Nómina**: liquidación de entrenadores por reglas, y turnos por horas del personal
   administrativo (con la normativa laboral colombiana codificada en SQL).
 - **Notas**: tablón de relevo de turno del staff.
+- **Registro por QR y consentimiento digital** (`/registro`, público): el papá escanea un QR,
+  actualiza la ficha del niño y firma el consentimiento informado con el dedo; el PDF queda en la
+  ficha. Es la **primera pantalla sin sesión que escribe en la base**.
 
 ### Integraciones externas
 
@@ -215,6 +218,7 @@ src/
       ingresos/  liquidacion/  agente/  config/  perfil/
     (auth)/login/
     quiosco/               # FUERA de (app): aparato de una sola función, sin menú
+    registro/              # FUERA de (app): página PÚBLICA del QR (landing, datos, consentimiento, listo)
     styleguide/
     globals.css            # Tokens de marca + semánticos shadcn
   components/
@@ -225,6 +229,10 @@ src/
     supabase/              # client.ts (browser), server.ts (RSC), admin.ts (service_role), middleware.ts
     validations/           # esquemas zod por dominio
     easycancha/            # cliente de la API + claveProfesor() + pareceClase()
+    registro/              # el camino público: match.ts (búsqueda del niño), esquemas.ts (zod),
+                           #   sesion.ts (cookie), evidencia.ts (IP/UA), version.ts (las dos llaves),
+                           #   texto.ts (títulos y resumen del consentimiento), revision.ts (quién revisa)
+    pdf/                   # consentimiento-pdf.tsx (@react-pdf/renderer) + logo-cdaf-240.png
     email/  openai/
     database.types.ts      # ⚠️ MANUAL, no generado
     liquidacion.ts  turnos.ts  eventos.ts  finanzas.ts  periodo.ts
@@ -232,7 +240,8 @@ src/
 supabase/
   migrations/              # 99 archivos. Fuente de verdad del esquema
   functions/               # Edge Functions (Deno): siigo-sync, turnos-limpiar-fotos
-scripts/                   # Utilidades de consola (.mjs y .py)
+scripts/                   # Utilidades de consola (.mjs y .py); qr-registro.mjs genera el QR
+generated/                 # Salidas de scripts (gitignored): el QR va aquí
 tests/                     # 16 archivos de Vitest — muchos contra Postgres real
 e2e/                       # Playwright
 docs/                      # Pendientes con el club (datos a revisar)
@@ -267,6 +276,7 @@ types.ts          # Tipos del módulo (solo donde hace falta).
 | Redeploy Edge Function de Siigo | `node --env-file=.env scripts/deploy-siigo-fn.mjs` |
 | Redeploy tarea de fotos de turno | `npm run deploy:turnos-fn` · cron: `npm run cron:turnos` |
 | E2E | `npm run test:e2e` |
+| QR del registro público | `npm run qr:registro` → `generated/qr-registro{.svg,.png,-logo.png}` |
 
 **Nunca corras build y test a la vez** (ver §1.18).
 
@@ -293,11 +303,29 @@ La fuente de verdad del esquema son las **migraciones**. `src/lib/database.types
 - `clientes` — la **ficha familiar** (no una persona). `documento` = cédula,
   `tipo_documento` (CC/TI/CE/PP/NIT), `fecha_nacimiento`, `deportes[]`.
 - `cliente_miembros` — **las personas**. Hermanos, hijos, el titular.
-- `acudientes`, `cliente_documentos` (bucket `cliente-docs`).
+- `acudientes` — cuelgan de la ficha (`cliente_id`, `rol` padre|madre|otro).
+  `clientes.acudiente_id` sigue siendo el principal y el trigger `clientes_acudiente_principal`
+  mantiene la pareja coherente. ⚠️ Hay **dos relaciones** entre `clientes` y `acudientes`: un
+  embed `acudientes(…)` de PostgREST falla con "more than one relationship"; nombra la FK:
+  `acudientes!clientes_acudiente_id_fkey(…)`.
+- `cliente_documentos` (`bucket`, `origen` subido|firma_digital, `miembro_id`). Un documento de
+  `firma_digital` **no se puede borrar ni como postgres** (trigger).
+
+**Registro público y consentimiento** (plan en `docs/plan-registro-y-consentimiento-digital.md`)
+- `consentimiento_version` — el texto legal con marcador `{{EPS}}`, huella SHA-256 por trigger.
+  `vigente_desde` null = la página pública dice "En preparación". Una sola vigente a la vez.
+- `consentimiento_firma` — **la evidencia**: quién, cuándo (`now()` del servidor), IP, navegador,
+  versión, huella del PDF. **Nunca se borra**; se anula con motivo (`consentimiento_anular`, solo SA).
+- `registro_sesion` (la cookie del recorrido, 2 h) · `registro_solicitud` (cada envío tal cual; el
+  `payload` se purga a 90 días) · `registro_cambio` (solo facturación, pendiente de aprobar) ·
+  `registro_intento` (rate limit: 10 / 10 min · 40 / día por IP).
+- **Ninguna da privilegios a `anon` ni escritura a `authenticated`**: escribe el servidor
+  (service_role) por RPC `SECURITY DEFINER` que valida por dentro.
 
 > 🔒 **Toda ficha nace con su fila de titular**, y lo hace el **trigger
-> `clientes_crear_titular`** (migración 0066), NO el código. Hay **cinco sitios** que crean
-> fichas y basta que uno lo olvide para que la operación (asistencia, paquetes) cuelgue de
+> `clientes_crear_titular`** (migración 0066), NO el código. Hay **seis sitios** que crean
+> fichas (formulario, las dos sincros de EasyCancha, importador CSV, `import-easycancha.mjs` y
+> el RPC `registro_aplicar_datos` del registro público) y basta que uno lo olvide para que la operación (asistencia, paquetes) cuelgue de
 > la nada y la clase salga como "Sin deportista". **Al crear una ficha desde código nuevo:
 > no insertes el titular, ya está.**
 
@@ -338,7 +366,9 @@ La fuente de verdad del esquema son las **migraciones**. `src/lib/database.types
 `siigo_resumen_cliente` · `eventos_pyg` · `evento_facturas_candidatas` · `evento_atar_facturas` ·
 `evento_soltar_factura` · `eventos_resultado_periodo` · `eventos_retenido` · `staff_directorio` ·
 `staff_docentes` · `notas_listar` · `nota_comentar` · `paquete_consumir` · `turnos_horas` ·
-`turnos_listar` · `turno_marcar` · `quiosco_marcar` · `academia_ocupacion_franja`.
+`turnos_listar` · `turno_marcar` · `quiosco_marcar` · `academia_ocupacion_franja` ·
+`registro_permitido` · `consentimiento_firmar` · `consentimiento_adjuntar` · `consentimiento_anular` ·
+`consentimiento_asignar` · `registro_aplicar_datos` · `registro_cambio_decidir` · `registro_limpiar`.
 
 > ⚠️ `siigo_recaudo`, `siigo_ingreso_diario`, `siigo_facturado_diario` y
 > `siigo_facturado_servicio` tienen un 3er parámetro **`p_excluir_eventos` (default false)**.
@@ -742,7 +772,9 @@ Son propios, en `src/app/(app)/dashboard/`: `CountUp`, `ChartArea`, `ChartBarras
 - ⚠️ **La URL `centro-control-cdaf.vercel.app` YA NO EXISTE** (404). Es de julio-2026, antes
   de renombrar el proyecto. Aparece en transcripciones viejas y llevó a diagnosticar
   "producción caída" cuando estaba perfecta. **Usa siempre el dominio propio.**
-- Vercel solo necesita **9 variables** (ver `DESPLIEGUE.md`). Las de scripts de consola
+- Vercel necesita **9 variables** (ver `DESPLIEGUE.md`) más **`REGISTRO_PUBLICO=1`** el día que el
+  club imprima el QR: es la segunda llave de la página pública (la primera es la versión vigente
+  del texto en la base). Sin ella `/registro` dice "En preparación" aunque todo lo demás esté listo. Las de scripts de consola
   (`SUPABASE_ACCESS_TOKEN`, `SIIGO_*`, `PG*`, `DATABASE_URL`…) **no van a Vercel**: no
   sirven de nada allá y amplían la superficie expuesta.
 
@@ -764,6 +796,7 @@ Son propios, en `src/app/(app)/dashboard/`: `CountUp`, `ChartArea`, `ChartBarras
 | `turnos` | Privado | Fotos de marcación. Dato sensible (Ley 1581) → enlaces firmados + **borrado automático a los 45 días**. |
 | `cliente-docs` | Privado | Documentos de clientes. |
 | `evento-docs` | Privado | Soportes de gasto de eventos. |
+| `consentimientos` | Privado | `<firma_uuid>/consentimiento.pdf` y `/firma.png`. Lectura para el personal; **nadie con sesión escribe**: solo service_role, una vez. |
 
 Ningún bucket tiene `file_size_limit` propio (usan el global del proyecto).
 
@@ -775,6 +808,7 @@ Ningún bucket tiene `file_size_limit` propio (usan el global del proyecto).
 | `siigo-sync` saldos | 08:15 UTC (03:15 Bogotá) | Refresca saldos |
 | `turnos-limpiar-fotos` | 07:40 UTC (02:40 Bogotá) | Borra fotos de más de 45 días |
 | `paquetes_marcar_vencidos` | 06:15 UTC (01:15 Bogotá) | `activo → vencido` por fecha |
+| `registro-limpiar` | 07:50 UTC (02:50 Bogotá) | Sesiones vencidas, intentos viejos y `payload` de solicitudes de más de 90 días. **Nunca toca `consentimiento_firma`** |
 
 ---
 
@@ -870,6 +904,28 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   destinatario.
 - **Un comentario en el tablón general NO re-avisa a los nueve.**
 
+### Registro público y consentimiento (decisiones de Laura, 1 y 2-oct-2026)
+
+- **Lo que escribe el papá SOBRESCRIBE lo que había, salvo facturación.** Un NIT distinto al que ya
+  tenía la ficha **no se aplica**: queda en `registro_cambio` y lo aprueba la bandeja
+  `/clientes/registros` (solo superadmin y coord. administrativo).
+- **La facturación es OBLIGATORIA en el formulario público**: el papá elige de quién se toman los
+  datos (la madre, el padre, él mismo si es mayor, u otra persona/empresa). Nunca llega vacía.
+- **Solo menores.** Si la fecha de nacimiento da 18 o más, la misma pantalla deja de pedir acudiente
+  y la persona firma por sí misma con el mismo texto.
+- **Un solo acudiente en la página pública** (madre, padre u otro familiar). El segundo se agrega
+  desde la ficha en la plataforma.
+- **La página NUNCA devuelve datos existentes** (un documento ajeno no revela si existe). Si el niño
+  no se encuentra, se le pide llenar los datos; si dos fichas coinciden exactamente, nadie se toca y
+  se avisa a los revisores.
+- **La evidencia de la firma no se borra.** Se anula con motivo y queda en `audit_log`.
+- **El texto legal se muestra íntegro y sin tocar**; los títulos cortos y el "En resumen" son capa
+  de lectura (`src/lib/registro/texto.ts`) atada al código de la versión.
+- **Sin textos explicativos ni etiquetas de más** en las pantallas públicas (Laura, 2-oct-2026):
+  pregunta y campos. No agregar hints, subtítulos ni notas "para ayudar".
+- **El papá que ya es titular de su propia ficha no se duplica como acudiente**: el niño entra como
+  hijo de esa ficha (lo mismo que "Agregar hijo" en la plataforma).
+
 ---
 
 ## 15 · El flujo de trabajo, paso a paso
@@ -929,8 +985,10 @@ Se evacúa punto por punto; no mantener una segunda copia aquí. Lo que hay que 
 - Faltan **datos del club** (niños de tenis con datos demo, documentos repetidos entre hermanos,
   fichas duplicadas dudosas, cédulas en conflicto): están en `docs/` y no se adivinan.
 - **Resend del club** no está en Vercel: dos correos al cliente no salen, en silencio.
-- **Registro y consentimiento digital por QR**: hay un plan en `docs/`, sin ejecutar y con
-  decisiones de Laura pendientes. **No tocarlo sin que ella lo pida.**
+- **Registro y consentimiento digital por QR**: Fases 0–4 construidas (1 y 2-oct-2026) y en `main`.
+  Producción sigue **cerrada** hasta poner `REGISTRO_PUBLICO=1` en Vercel el día que el club imprima
+  el QR (`npm run qr:registro`). Plan y decisiones en `docs/plan-registro-y-consentimiento-digital.md`;
+  guía para el club en `docs/registro-qr-arranque.md`.
 - Rotar las claves expuestas (PAT de Supabase, access_key de Siigo) y decidir el PITR.
 
 ### Cosas que se decidieron NO hacer (no las repropongas)

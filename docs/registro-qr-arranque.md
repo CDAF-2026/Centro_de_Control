@@ -1,0 +1,79 @@
+# Registro por QR y consentimiento digital · Guía de arranque para el club
+
+Fecha: 2 de octubre de 2026 · Centro Deportivo Alejandro Falla · Vena Digital
+
+## Qué es
+
+Un código QR en recepción. El papá o la mamá lo escanea con el celular y, sin descargar
+nada ni crear usuario:
+
+1. **Actualiza o ingresa los datos** del deportista (4 pasos cortos: el deportista,
+   contacto, acudiente, facturación), o
+2. **Firma el consentimiento informado** con el dedo (o escribiendo su nombre).
+
+Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), y queda
+guardado en la ficha del niño en la plataforma, en la tarjeta **"Consentimientos
+informados"**. Un PDF por cada niño; si tiene hermanos, se firma uno por cada uno (la
+página lo ofrece al terminar: "Registrar otro hijo(a)").
+
+Dirección: **https://alejandrofallacd.com/registro**
+
+## Antes del día de arranque
+
+| Qué | Quién | Estado |
+|---|---|---|
+| Imprimir el QR (archivo `qr-registro-logo.png` o el `.svg` para el diseñador) | Club / diseñador | Pendiente |
+| Decidir el día en que se pone el QR en recepción | Club | Pendiente |
+| Prender la página pública (`REGISTRO_PUBLICO=1` en Vercel) **ese mismo día** | Vena Digital | Pendiente |
+| Borrar la ficha de prueba "Niña Prueba QR" | Vena Digital | Pendiente |
+| Prueba real: escanear el QR impreso, registrar un niño de prueba, firmar y verlo en la ficha; luego anular la firma con motivo | Laura | Pendiente |
+
+Mientras la página no esté prendida, el QR lleva a una pantalla que dice **"Estamos
+preparando el registro"**. No pasa nada malo si alguien lo escanea antes.
+
+## Quién revisa, y qué
+
+Solo el **superadministrador** y el **coordinador administrativo** ven el menú
+**Clientes › Registros**. Allí llegan tres cosas, y cada una trae una nota automática
+en el tablón:
+
+| Llega a la bandeja | Cuándo pasa | Qué hacer |
+|---|---|---|
+| **Facturación por aprobar** | La familia escribió un NIT o una razón social **distinta** a la que ya tenía la ficha | Comparar "hoy" vs "propuesto". **Aprobar** (y el sistema ata las facturas de Siigo de ese NIT) o **rechazar** con motivo |
+| **Firmas por asignar** | Dos fichas tienen exactamente el mismo documento y el mismo nombre del niño (hermanos con documento repetido, por ejemplo) | Elegir a qué niño pertenece la firma. El PDF se crea en esa ficha |
+| **Datos por asignar** | Mismo caso, pero con el formulario de datos | Elegir la ficha a la que se aplican, o descartar con motivo |
+
+Todo lo demás se aplica solo: si el niño ya existía, sus datos se **actualizan con lo
+que escribió el papá** (celular, correo, EPS, RH, dirección, acudiente…). Si no existía,
+se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
+
+## Qué decirle a un papá
+
+| Situación | Respuesta |
+|---|---|
+| "Firmé y me dice *No encontramos ese registro*" | El niño no está en la plataforma con esos datos. Que use **"Actualizar o ingresar datos"**: al terminar pasa directo a firmar |
+| "¿Tengo que crear usuario o contraseña?" | No. Se entra por el QR y no hay cuenta |
+| "Tengo dos hijos" | Se registra uno, se firma, y al final la página ofrece **"Registrar otro hijo(a)"** |
+| "Me equivoqué en un dato" | Puede volver a escanear y hacerlo de nuevo: lo nuevo reemplaza lo anterior. La firma no se repite: una firma vale mientras no cambie el texto del consentimiento |
+| "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre**: el club factura a nombre de esa persona |
+| "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
+| "Dice *Demasiados intentos*" | Hay un tope de intentos por conexión (10 cada 10 minutos). Esperar unos minutos o hacerlo desde el celular con datos móviles |
+
+## Dónde se ve en la plataforma
+
+- **Ficha del cliente** → tarjeta **Consentimientos informados** (por cada niño: firmado o no,
+  con enlace al PDF) y **Documentos** (el PDF, que no se puede eliminar).
+- **Ficha del cliente** → aviso "La familia propuso N cambios de facturación" con enlace a
+  la bandeja.
+- **Clientes › Registros** → la bandeja y el historial de lo aplicado.
+- **Notas** → cada caso que necesita revisión llega como "Aviso automático".
+
+## Si algo no funciona
+
+- La página dice "Estamos preparando el registro": falta prender `REGISTRO_PUBLICO` en Vercel
+  o no hay versión vigente del texto. Avisar a Vena Digital.
+- Un papá dice que firmó y en la ficha no aparece: buscar en **Clientes › Registros › Firmas
+  por asignar** (puede haber quedado pendiente por un documento repetido).
+- Hay que cambiar el texto del consentimiento: **no se edita el vigente**. Se crea una
+  versión nueva (Vena Digital) y desde ese día las firmas salen con ella; las anteriores
+  siguen valiendo con su versión.

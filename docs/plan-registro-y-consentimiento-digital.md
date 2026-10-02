@@ -1,6 +1,6 @@
 # Plan · Registro de datos y consentimiento informado por QR
 
-> **Estado: Fases 0–3 hechas el 1-oct-2026, más el rediseño de las dos pantallas públicas (datos = "A · Paso a paso", consentimiento = "C · Resumen primero"; facturación obligatoria). La página pública completa está desplegada pero cerrada (falta `REGISTRO_PUBLICO=1` en Vercel). Siguiente: Fase 4 (QR y apertura).**
+> **Estado: Fases 0–4 construidas (1 y 2-oct-2026): pantallas públicas rediseñadas (datos = "A · Paso a paso", consentimiento = "C · Resumen primero", versión de escritorio, facturación obligatoria), QR generado (`npm run qr:registro`), handoff.md y guía del club (`docs/registro-qr-arranque.md`) escritos. La página está desplegada pero CERRADA: se abre el día que el club imprima el QR, con `REGISTRO_PUBLICO=1` en Vercel, la prueba real de Laura y el borrado de la ficha de prueba 598.**
 > Escrito el 30-sep-2026 a partir del video de Laura (30-sep-2026, 5:44 min), el
 > texto del consentimiento y la ficha personal que aparecen en él, y una lectura
 > completa de `handoff.md`, `MEMORIA.md` y el código del módulo de clientes.
@@ -724,7 +724,7 @@ las facturas se atan solo tras aprobar.
 los cambios aparecen en la bandeja y nada se aplicó sin aprobación.
 **Estimación:** 24–32 h (bandeja más pequeña).
 
-### Fase 4 · QR, salida a producción y documentación
+### Fase 4 · QR, salida a producción y documentación — 🟡 CONSTRUIDA el 2-oct-2026; falta la apertura (QR impreso + `REGISTRO_PUBLICO=1` en Vercel + prueba real + borrar la ficha 598)
 
 1. `scripts/qr-registro.mjs` → `generated/qr-registro.svg` y `.png` (1200 px)
    con `https://alejandrofallacd.com/registro`. Diseño de la pieza impresa

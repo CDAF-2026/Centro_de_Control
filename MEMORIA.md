@@ -1924,7 +1924,7 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
-## 📝 Registro por QR y consentimiento digital (en construcción · Fases 1, 2 y 3 hechas el 1-oct-2026)
+## 📝 Registro por QR y consentimiento digital (Fases 1–4 construidas el 1 y 2-oct-2026 · falta la apertura)
 Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-digital.md`** (§2 = las
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
@@ -2178,11 +2178,13 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     misma noche el rediseño de las dos pantallas públicas (datos "A · Paso a paso", consentimiento "C ·
     Resumen primero", facturación obligatoria; commit `40e92fc`). La página pública completa existe pero
     está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel.
-    **Dónde quedamos (1-oct-2026, noche)**: Laura prueba al día siguiente en local las dos pantallas
-    rediseñadas (`/registro/datos` y `/registro/consentimiento`, mejor desde el celular) y pide ajustes;
-    DESPUÉS se arranca la **Fase 4** (QR, limpieza de la ficha de prueba 598, `REGISTRO_PUBLICO=1` en
-    Vercel el día que el club imprima, handoff.md, plan de arranque). Plan y decisiones en
-    `docs/plan-registro-y-consentimiento-digital.md`. ⚠️ Borrar la ficha de prueba 598 al terminar.
+    **2-oct-2026**: Laura revisó y pidió ajustes (aplicados: sin textos explicativos, un solo acudiente,
+    consentimiento unificado, versión de escritorio) y se construyó la **Fase 4**: `npm run qr:registro`
+    (QR limpio, con logo y SVG, verificados con lector), handoff.md actualizado (§2, 4, 5, 6, 13, 14, 16)
+    y la guía para el club `docs/registro-qr-arranque.md`. **Queda la APERTURA**, que depende del club:
+    (1) imprimir el QR y fijar el día, (2) ese día poner `REGISTRO_PUBLICO=1` en Vercel, (3) prueba real
+    de Laura con el QR impreso (registrar, firmar, ver el PDF, anular con motivo), (4) borrar la ficha
+    de prueba 598 (miembros 615/637/689, acudiente 177, 4 firmas, documentos, objetos del bucket).
 
 **Construir / revisar (agente), sin prisa**
 13. **"Olvidé mi contraseña"**: apuntar el SMTP de Supabase a Resend (depende del punto 11). Hoy la clave la
