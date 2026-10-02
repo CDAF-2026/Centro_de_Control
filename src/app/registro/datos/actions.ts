@@ -74,6 +74,9 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     candidatos = busqueda.candidatos.map((c) => c.miembro_id);
   } else {
     // Niño nuevo: ¿la familia ya existe? Por el adulto (correo → cédula) o por la cédula del acudiente.
+    // Si existe, el niño entra como miembro NO titular de esa ficha: "hijo" cuando el titular es el
+    // papá o la mamá (ficha de adulto, como "Agregar hijo"), "hermano" cuando el titular es otro niño.
+    // En la base es lo mismo (modo "hermano"); solo cambia cómo lo nombra la pantalla.
     const adulto = await buscarClienteDeReserva(admin, { email: contactoEmail, documento: mayor ? d.documento : acuDoc });
     let clienteId = adulto?.id ?? null;
     if (!clienteId && acuDoc) {

@@ -89,6 +89,26 @@ describe("registro_aplicar_datos", () => {
     });
   });
 
+  it("hijo de un adulto: el niño entra a la ficha del papá sin que el papá se duplique como acudiente", async () => {
+    await tx(async () => {
+      const r = await client.query(
+        "insert into public.clientes (nombres, apellidos, documento, tipo_documento, fecha_nacimiento, es_menor) values ('Papá', 'Titular QR', '9990000012', 'CC', '1985-01-01', false) returning id",
+      );
+      const papa = Number(r.rows[0].id); // pg devuelve bigint como texto
+      const r2 = await aplicar(
+        await solicitud({ menor: { ...MENOR, documento: "9990000031" }, familia: { ...FAMILIA, celular: "3999999999" }, acudientes: [PADRE], facturacion: {} }),
+        { modo: "hermano", cliente_id: papa },
+      );
+      expect(r2.cliente_id).toBe(papa);
+      const n = await client.query("select count(*)::int as n from public.acudientes where cliente_id = $1", [papa]);
+      expect(n.rows[0].n).toBe(0);
+      const c = await client.query("select celular, acudiente_id from public.clientes where id = $1", [papa]);
+      expect(c.rows[0]).toMatchObject({ celular: "3999999999", acudiente_id: null });
+      const m = await client.query("select count(*)::int as n from public.cliente_miembros where cliente_id = $1 and not es_titular", [papa]);
+      expect(m.rows[0].n).toBe(1);
+    });
+  });
+
   it("un NIT que ya es de OTRA ficha nunca se escribe: va a revisión aunque la ficha no tuviera NIT", async () => {
     await tx(async () => {
       const ajeno = await client.query("select documento from public.clientes where documento is not null and documento ~ '^\\d{6,}$' limit 1");

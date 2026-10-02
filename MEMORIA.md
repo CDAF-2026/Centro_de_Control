@@ -2044,8 +2044,10 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
 - 🧮 **`registro_aplicar_datos(solicitud, decisión)`**: UNA transacción (ficha + acudientes + miembro +
   facturación + auditoría). La DECISIÓN la toma el servidor con la misma `buscarMiembro` del
   consentimiento: *unico* → `actualizar` · *ninguno* → adulto por correo→cédula (`buscarClienteDeReserva`)
-  o cédula del acudiente en `acudientes` → `hermano` en esa ficha, si no `crear` (el niño es el titular, el
-  acudiente principal queda en `clientes.acudiente_id` y el trigger lo ata) · *ambiguo* → no se escribe,
+  o cédula del acudiente en `acudientes` → `hermano` = miembro NO titular de esa ficha (la pantalla lo
+  llama **hijo** si el titular es el papá o la mamá —ficha de adulto, como "Agregar hijo"— y **hermano**
+  si el titular es otro niño; en la base es lo mismo), si no `crear` (el niño es el titular, el acudiente
+  principal queda en `clientes.acudiente_id` y el trigger lo ata) · *ambiguo* → no se escribe,
   queda `en_revision` y se avisa a los revisores.
   · **D1 en SQL**: lo que llega reemplaza lo que había (un campo vacío no borra); `before` completo en
     `audit_log` (`registro.aplicar`). Para el titular se escribe `clientes` y el trigger de 0066 copia.
@@ -2053,6 +2055,9 @@ EDAD .docx`, versión `2026-10`, se firma una vez.
     (`private.nit_en_uso`, misma regla que `choqueNitFacturacion`) → se escribe; si no, cada campo distinto
     va a `registro_cambio` pendiente (sin duplicar). **Nunca** `reatribuirFacturas` desde aquí.
   · **Acudientes** (`private.registro_acudientes`): uno por rol padre/madre (se actualiza, no se duplica).
+    **El papá que ya es TITULAR de la ficha no se crea como acudiente de sí mismo** (migración
+    `20261001160000`, aviso de Laura): si la cédula del acudiente es la del titular se salta la fila y sus
+    datos de contacto van a `clientes`. Así el registro por QR y "Agregar hijo" dejan la ficha igual.
   · Verificado en simulacro y en `tests/registro-aplicar.test.ts` (6, revertidas): crear, hermano,
     sobrescribir con `before`, NIT distinto → 3 pendientes, NIT ajeno → nunca se escribe, menor sin
     acudiente → rechazo, solicitud repetida → rechazo.
