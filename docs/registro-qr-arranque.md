@@ -39,7 +39,7 @@ en el tablón:
 
 | Llega a la bandeja | Cuándo pasa | Qué hacer |
 |---|---|---|
-| **Facturación por aprobar** | La familia eligió **cambiar** la facturación y escribió un NIT o una razón social distinta a la que ya tenía la ficha. (Si la ficha ya tiene facturación, el formulario ofrece "No cambiar la facturación" por defecto, así que solo llega cuando el papá quiso cambiarla) | Comparar "hoy" vs "propuesto". **Aprobar** (y el sistema ata las facturas de Siigo de ese NIT) o **rechazar** con motivo |
+| **Facturación por aprobar** | La ficha ya tenía facturación y la familia escribió un NIT o una razón social **distinta**. Al papá no se le frena: sigue y firma; el cambio queda esperando | Comparar "hoy" vs "propuesto". **Aprobar** (y el sistema ata las facturas de Siigo de ese NIT) o **rechazar** con motivo |
 | **Firmas por asignar** | Dos fichas tienen exactamente el mismo documento y el mismo nombre del niño (hermanos con documento repetido, por ejemplo) | Elegir a qué niño pertenece la firma. El PDF se crea en esa ficha |
 | **Datos por asignar** | Mismo caso, pero con el formulario de datos | Elegir la ficha a la que se aplican, o descartar con motivo |
 

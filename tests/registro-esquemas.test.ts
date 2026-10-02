@@ -17,19 +17,17 @@ const base = {
 };
 
 describe("datosSchema · facturación obligatoria", () => {
-  it("sin elegir a nombre de quién, rechaza; con la opción elegida pero sin datos, señala los cuatro campos", () => {
-    const sin = datosSchema.safeParse(base);
-    expect(sin.success).toBe(false);
-    if (!sin.success) expect(sin.error.issues.map((i) => String(i.path[0]))).toContain("facturaDe");
-    const r = datosSchema.safeParse({ ...base, facturaDe: "acudiente" });
+  it("sin facturación, rechaza y señala sus campos", () => {
+    const r = datosSchema.safeParse(base);
     expect(r.success).toBe(false);
     const campos = r.success ? [] : r.error.issues.map((i) => String(i.path[0]));
-    for (const c of ["facturaTipo", "facturaANombre", "facturaANit", "facturaEmail"]) expect(campos, c).toContain(c);
+    for (const c of ["facturaDe", "facturaTipo", "facturaANombre", "facturaANit", "facturaEmail"]) expect(campos, c).toContain(c);
   });
 
   it("con los datos copiados del acudiente, pasa", () => {
     const r = datosSchema.safeParse({ ...base, facturaDe: "acudiente", facturaTipo: "natural", facturaANombre: "Ana María Pérez", facturaANit: "43.512.880", facturaEmail: "ana@correo.com" });
-    expect(r.success).toBe(true); // el NIT se deja en solo dígitos en la acción (soloDigitos), no aquí
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.facturaANit).toBe("43512880"); // solo dígitos
   });
 
   it("con 'otra persona o empresa' exige el correo de facturas válido", () => {
@@ -54,17 +52,6 @@ describe("capa de lectura del consentimiento", () => {
     const adulto = resumenDelConsentimiento("Ana Pérez", "Sura", true);
     expect(adulto[0]).toContain("Participas");
     expect(adulto[4]).toContain("tus datos");
-  });
-});
-
-describe("datosSchema · 'mantener' la facturación que ya tiene el club", () => {
-  it("con 'mantener' no exige los campos de facturación", () => {
-    const r = datosSchema.safeParse({ ...base, facturaDe: "mantener" });
-    expect(r.success).toBe(true);
-  });
-  it("con cualquier otra opción sí los exige", () => {
-    const r = datosSchema.safeParse({ ...base, facturaDe: "acudiente" });
-    expect(r.success).toBe(false);
   });
 });
 

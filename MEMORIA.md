@@ -2144,15 +2144,14 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   · **Una firma por niño y versión**: si ya hay firma `asignada` con PDF para esa versión, `/registro/listo?ya=1`
     dice que ya estaba firmado y no se crea otra (en las pruebas un niño quedó con dos). Si la firma quedó
     sin PDF (falló a mitad de camino), se retoma esa misma (`upsert` en el bucket) en vez de duplicarla.
-- 💳 **"No cambiar la facturación"** (Laura, 2-oct-2026; reemplaza mi propuesta de "dejarla como la tiene el
-  club", que no le gustó porque el papá no sabe qué tiene el club). Regla: solo se genera un cambio por
-  aprobar cuando la ficha YA tiene facturación **y** el papá quiso cambiarla. Al entrar al paso 4 la
-  pantalla llama a `tieneFacturacion()` (server action: resuelve la ficha con la MISMA `decidirFicha` del
-  envío, devuelve solo sí/no, cuenta un intento del rate limit); si es sí, la pregunta pasa a "¿Quieres
-  cambiar los datos de facturación?" con "No cambiar la facturación" marcada por defecto (`facturaDe =
-  mantener`, sin datos; el SQL no toca nada). El servidor recomprueba: `mantener` sobre una ficha sin NIT →
-  "Necesitamos los datos de facturación" y la pantalla vuelve a ofrecer las opciones. Medido al decidirlo:
-  126 de 517 fichas activas tienen NIT; sin esto, cada una habría generado un cambio por aprobar.
+- 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
+  zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
+  club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación
+  previa se guarda; igual, nada; distinta, **no se pisa** y va a `registro_cambio` con aviso a los
+  revisores, y al papá se le deja seguir. Se construyó y se REVIRTIÓ el mismo día una consulta previa
+  (`tieneFacturacion`) con opción "No cambiar la facturación": **no reproponerla**. Medido: 126 de 517
+  fichas activas tienen NIT, así que la bandeja recibirá cambios de muchas familias que no querían cambiar
+  nada; es el costo aceptado de no mostrarles lo que tiene el club.
 - 🔤 **Mayúscula inicial en los nombres** (`capitalizarNombre`, `src/lib/nombres.ts`, con pruebas): nombres,
   apellidos, acudiente, emergencia, lugar de nacimiento, firmante y nombre de facturación (natural; una
   razón social se deja tal cual). Partículas en minúscula ("María de los Ángeles"), guiones y apóstrofos
