@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { editarValorClase, type ValorClaseState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AcompanantesCampos } from "@/components/acompanantes-campos";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 const init: ValorClaseState = {};
@@ -28,6 +29,8 @@ export function ValorClaseForm({
   claseId,
   valor,
   personas,
+  acompanantes = [],
+  nombresObligatorios = true,
   editable,
   aviso,
   onGuardado,
@@ -35,12 +38,18 @@ export function ValorClaseForm({
   claseId: number;
   valor: number;
   personas: number;
+  /** Los que la tomaron además del titular; se piden si hay más de una persona. */
+  acompanantes?: string[];
+  /** Solo con la clase ya cerrada: pendiente, los exige el cierre. */
+  nombresObligatorios?: boolean;
   editable: boolean;
   aviso: string | null;
   onGuardado?: () => void;
 }) {
   const [state, action, pending] = useActionState(editarValorClase, init);
   const [abierto, setAbierto] = useState(false);
+  // Controlado para que las casillas de nombres aparezcan mientras se escribe.
+  const [personasTxt, setPersonasTxt] = useState(String(personas));
 
   // El callback llega nuevo en cada render del padre; en una ref para que no reinicie
   // el temporizador (si no, el modal podría no cerrarse nunca).
@@ -107,7 +116,8 @@ export function ValorClaseForm({
               Personas
               <Input
                 name="personas"
-                defaultValue={String(personas)}
+                value={personasTxt}
+                onChange={(e) => setPersonasTxt(e.target.value.replace(/[^\d]/g, ""))}
                 inputMode="numeric"
                 placeholder="1"
                 className="max-w-[5rem]"
@@ -119,6 +129,14 @@ export function ValorClaseForm({
             <Button type="button" size="sm" variant="ghost" onClick={() => setAbierto(false)} disabled={pending}>
               Cancelar
             </Button>
+          </div>
+          <div className="mt-2">
+            <AcompanantesCampos
+              personas={Number(personasTxt) || 1}
+              iniciales={acompanantes}
+              obligatorio={nombresObligatorios}
+              compacto
+            />
           </div>
         </form>
       )}

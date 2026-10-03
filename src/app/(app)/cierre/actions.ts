@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreStaff } from "@/lib/staff";
 import { instanteClase } from "@/lib/fecha";
+import { unirAcompanantes, validarAcompanantes } from "@/lib/acompanantes";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/resend";
 import { claseConfirmadaEmail } from "@/lib/email/clase-confirmada";
@@ -80,13 +81,24 @@ export async function cerrarClase(
     clase.tipo !== "academia" && numRaw != null && String(numRaw).trim() !== ""
       ? Math.max(1, Math.floor(Number(numRaw)))
       : null;
+  // Particular: la misma columna guarda a los acompañantes del titular, y solo
+  // se toca cuando llega el nº de personas (no llega en "no se dictó" ni en
+  // no-show, y ahí no hay que borrar lo que ya estaba).
+  let otrosAsistentes: { asistentes_no_registrados: string | null } | Record<string, never> = {};
+  if (clase.tipo === "academia") {
+    otrosAsistentes = { asistentes_no_registrados: noRegistrados };
+  } else if (numAsistentes != null) {
+    const v = validarAcompanantes(formData.getAll("acompanante"), numAsistentes);
+    if ("error" in v) return { error: v.error };
+    otrosAsistentes = { asistentes_no_registrados: unirAcompanantes(v.nombres) };
+  }
   const { error: upErr } = await supabase
     .from("clases")
     .update({
       estado,
       registrada_por: profile.id,
       motivo_cancelacion: estado === "cancelada" ? motivo : null,
-      asistentes_no_registrados: noRegistrados,
+      ...otrosAsistentes,
       ...(numAsistentes != null ? { num_asistentes: numAsistentes } : {}),
     })
     .eq("id", claseId);

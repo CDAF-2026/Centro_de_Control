@@ -5,6 +5,7 @@ import { instanteClase } from "@/lib/fecha";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { nombreStaff } from "@/lib/staff";
+import { leerAcompanantes } from "@/lib/acompanantes";
 import { EliminarClase } from "./eliminar-clase";
 import { CierreForm } from "./cierre-form";
 
@@ -167,6 +168,7 @@ export default async function CerrarClasePage({
           colegio={colegio}
           noRegistrados={clase.asistentes_no_registrados ?? ""}
           numAsistentes={clase.num_asistentes ?? 1}
+          acompanantes={clase.tipo === "academia" ? [] : leerAcompanantes(clase.asistentes_no_registrados)}
           valorFacturado={valorFacturado}
         />
       )}

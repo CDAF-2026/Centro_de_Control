@@ -5,6 +5,7 @@ import { cerrarClase, type CierreState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { AcompanantesCampos } from "@/components/acompanantes-campos";
 
 const SELECT = "border-input bg-background h-9 rounded-md border px-2 text-sm";
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
@@ -28,6 +29,7 @@ export function CierreForm({
   colegio = null,
   noRegistrados,
   numAsistentes,
+  acompanantes = [],
   valorFacturado,
 }: {
   claseId: number;
@@ -44,6 +46,8 @@ export function CierreForm({
   colegio?: string | null;
   noRegistrados: string;
   numAsistentes: number;
+  /** Clase particular: los que la tomaron además del titular (ver lib/acompanantes). */
+  acompanantes?: string[];
   valorFacturado: number | null;
 }) {
   const [state, action, pending] = useActionState<CierreState, FormData>(cerrarClase, {});
@@ -54,6 +58,7 @@ export function CierreForm({
     for (const o of otrosInscritos) inicial[o.id] = estadoPorCliente[o.id] ?? "no";
     return inicial;
   });
+  const [personas, setPersonas] = useState(() => Math.max(1, numAsistentes));
   const [verOtros, setVerOtros] = useState(deportistas.length === 0 && otrosInscritos.length > 0);
   // "No se dictó" saca la clase de la cola para siempre, así que tiene que decir
   // POR QUÉ: un receso sin cargar y un olvido se ven iguales y se arreglan
@@ -218,7 +223,8 @@ export function CierreForm({
           <select
             id="num_asistentes"
             name="num_asistentes"
-            defaultValue={String(Math.max(1, numAsistentes))}
+            value={String(personas)}
+            onChange={(e) => setPersonas(Number(e.target.value))}
             className="border-input bg-background h-11 w-full rounded-md border px-3 text-base"
           >
             <option value="1">1 persona</option>
@@ -231,6 +237,7 @@ export function CierreForm({
           <p className="text-muted-foreground text-xs">
             Para clases compartidas. Define el valor cuando el profesor cobra por nº de personas.
           </p>
+          <AcompanantesCampos personas={personas} iniciales={acompanantes} />
         </div>
       )}
 

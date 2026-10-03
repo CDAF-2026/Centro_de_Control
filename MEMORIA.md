@@ -1538,6 +1538,21 @@ cierro la clase"*.
   solo se pinta tras pulsar "Particular", así que el estado inicial nunca llega al HTML de
   `renderToStaticMarkup`. Lo cubierto es el guardia del servidor. Pruebas en
   `tests/profesor-clase.test.tsx`.
+- 👥 **Acompañantes obligatorios (3-oct-2026, pedido de Laura):** la clase de Simón Mosquera del
+  2-oct estaba para 1 y la tomaron 3. Ahora, con más de 1 persona, aparecen casillas con el nombre
+  de cada acompañante en el cierre (`CierreForm`, **obligatorias**) y en `ValorClaseForm` del
+  calendario, donde son **opcionales mientras la clase está pendiente** (recepción ve que llegaron
+  3 pero no sabe quiénes; el profesor los completa al cerrar) y **obligatorias si ya está cerrada**
+  (no queda otro cierre que los pida). Lo escrito en el calendario sale pre-llenado en el cierre.
+  Se guardan en
+  `clases.asistentes_no_registrados` (un nombre por línea; la columna de los "no inscritos" de
+  academia, sin uso en la particular) → **sin migración**. Lógica en `src/lib/acompanantes.ts`,
+  casillas en `src/components/acompanantes-campos.tsx`, se ven en el modal de `/clases`
+  ("Acompañantes"). Texto libre y no buscador: el profesor no lee `clientes`. **No cambian** el
+  cobro (todo al titular), la liquidación ni el correo. ⚠️ Los acompañantes **no tienen ficha ni
+  consentimiento**: el nombre deja constancia, no los cubre. Al **registrar** la reserva no se
+  piden (la clase aún no pasa); si ya trae 2+ personas, el cierre los exige. En "no se dictó" y
+  no-show no se tocan. Pruebas en `tests/acompanantes.test.tsx`.
 
 💰 **Corregir el valor de una clase particular** (ago-2026, `editarValorClase` en clases/actions.ts +
 `valor-clase-form.tsx`). Se edita desde el **modal de `/clases`**, NO desde `/cierre`: recepción es

@@ -13,6 +13,7 @@ import { ProfesorPicker } from "./profesor-picker";
 import { CourtPicker } from "./court-picker";
 import { FechaPicker } from "./fecha-picker";
 import { courtInfo, type CalEvento } from "./types";
+import { leerAcompanantes } from "@/lib/acompanantes";
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -84,7 +85,7 @@ export default async function ClasesPage({
   const supabase = await createClient();
   let q = supabase
     .from("clases")
-    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, miembro_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado, num_asistentes")
+    .select("id, fecha, hora_inicio, hora_fin, deporte, tipo, estado, cancha, profesor_id, cliente_id, miembro_id, academia_id, easycancha_booking_id, paquete_cliente_id, precio, valor_facturado, num_asistentes, asistentes_no_registrados")
     .gte("fecha", first)
     .lte("fecha", last)
     .order("hora_inicio");
@@ -206,6 +207,10 @@ export default async function ClasesPage({
         ["Fecha y hora", `${c.fecha} · ${hora}${horaFin ? `–${horaFin}` : ""}`],
         ["Profesor", profesor ?? "—"],
         ["Cancha", c.cancha ?? "—"],
+        // Clase compartida: quiénes la tomaron además del titular.
+        ...(c.tipo !== "academia" && c.asistentes_no_registrados
+          ? [["Acompañantes", leerAcompanantes(c.asistentes_no_registrados).join(", ")] as [string, string]]
+          : []),
       ],
       // Clase ya registrada a la que nunca se le puso profesor: el modal ofrece
       // asignarlo. Sin esto la clase existe, se cobra y la liquidación la salta
@@ -243,6 +248,8 @@ export default async function ClasesPage({
               claseId: c.id,
               valor: c.valor_facturado ?? c.precio ?? 0,
               personas: c.num_asistentes ?? 1,
+              acompanantes: leerAcompanantes(c.asistentes_no_registrados),
+              cerrada: c.estado !== "programada",
               editable: esSA || !vencida(c.fecha, c.hora_inicio),
               aviso: vencida(c.fecha, c.hora_inicio)
                 ? esSA

@@ -74,6 +74,8 @@ export function EventoDetalle({
             claseId={ev.particular.claseId}
             valor={ev.particular.valor}
             personas={ev.particular.personas}
+            acompanantes={ev.particular.acompanantes}
+            nombresObligatorios={ev.particular.cerrada}
             editable={ev.particular.editable}
             aviso={ev.particular.aviso}
             onGuardado={onCerrar}

@@ -35,6 +35,10 @@ export type CalEvento = {
      * donde vinieron 2 le paga de menos.
      */
     personas: number;
+    /** Quiénes la tomaron además del titular (ver `src/lib/acompanantes.ts`). */
+    acompanantes: string[];
+    /** Ya cerrada: los nombres son obligatorios aquí porque no habrá otro cierre que los pida. */
+    cerrada: boolean;
     /** Si este usuario puede corregirla AHORA (24 h desde el inicio; el SA siempre). */
     editable: boolean;
     /** Por qué está bloqueada, o la advertencia a mostrar. null = sin nota. */

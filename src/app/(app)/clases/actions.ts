@@ -7,6 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
 import { instanteClase } from "@/lib/fecha";
+import { unirAcompanantes, validarAcompanantes } from "@/lib/acompanantes";
 import { profesoresActivos } from "@/lib/staff";
 import { buscarClienteDeReserva } from "@/lib/clientes-match";
 import { createClaseSchema } from "@/lib/validations/clase";
@@ -303,11 +304,10 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
   if (personas != null && (personas < 1 || personas > 20)) {
     return { error: "El número de personas debe estar entre 1 y 20." };
   }
-
   const supabase = await createClient();
   const { data: clase } = await supabase
     .from("clases")
-    .select("id, tipo, estado, fecha, hora_inicio, paquete_cliente_id, precio, valor_facturado, num_asistentes")
+    .select("id, tipo, estado, fecha, hora_inicio, paquete_cliente_id, precio, valor_facturado, num_asistentes, asistentes_no_registrados")
     .eq("id", claseId)
     .maybeSingle();
   if (!clase) return { error: "No se encontró la clase." };
@@ -319,9 +319,25 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
     return { error: "Pasaron más de 24 h desde la clase y su valor ya cuenta para la liquidación. Pídele el ajuste al superadministrador." };
   }
 
+  // Nombres de los acompañantes (ver lib/acompanantes). Opcionales mientras la
+  // clase está pendiente: quien corrige aquí suele ser recepción, que ve que
+  // llegaron 3 pero no sabe quiénes; el profesor los completa al cerrar
+  // (obligatorios allí). Ya cerrada, no queda otro cierre que los pida → aquí sí.
+  let acompanantes: string | null | undefined;
+  if (personas != null) {
+    const v = validarAcompanantes(formData.getAll("acompanante"), personas, {
+      obligatorio: clase.estado !== "programada",
+    });
+    if ("error" in v) return { error: v.error };
+    acompanantes = unirAcompanantes(v.nombres);
+  }
+
   const { error } = await supabase
     .from("clases")
-    .update({ valor_facturado: valor, ...(personas != null ? { num_asistentes: personas } : {}) })
+    .update({
+      valor_facturado: valor,
+      ...(personas != null ? { num_asistentes: personas, asistentes_no_registrados: acompanantes ?? null } : {}),
+    })
     .eq("id", claseId);
   if (error) return { error: error.message };
 
@@ -329,8 +345,18 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
     action: "clase.editar_valor",
     entity: "clases",
     entityId: String(claseId),
-    before: { valor_facturado: clase.valor_facturado, precio: clase.precio, num_asistentes: clase.num_asistentes },
-    after: { valor_facturado: valor, num_asistentes: personas ?? clase.num_asistentes, estado: clase.estado },
+    before: {
+      valor_facturado: clase.valor_facturado,
+      precio: clase.precio,
+      num_asistentes: clase.num_asistentes,
+      acompanantes: clase.asistentes_no_registrados,
+    },
+    after: {
+      valor_facturado: valor,
+      num_asistentes: personas ?? clase.num_asistentes,
+      acompanantes: personas != null ? acompanantes ?? null : clase.asistentes_no_registrados,
+      estado: clase.estado,
+    },
   });
   revalidatePath("/clases");
   revalidatePath("/cierre");
