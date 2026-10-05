@@ -1944,7 +1944,7 @@ Se borra LA FOTO; **el registro del turno se conserva siempre**, porque es la pr
   hace el cron (`{"ok":true,"vencidas":1,"borradas":1,"olvidadas":1}`), el archivo desapareció, la
   ruta quedó en null, el turno siguió vivo y **las 10 fotos reales del día no se tocaron**.
 
-## 📝 Registro por QR y consentimiento digital (Fases 1–4 construidas el 1 y 2-oct-2026 · falta la apertura)
+## 📝 Registro por QR y consentimiento digital (Fases 1–4 construidas el 1 y 2-oct-2026 · ABIERTO en producción el 5-oct-2026)
 Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-digital.md`** (§2 = las
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
@@ -2258,7 +2258,13 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     confirmada" entregados a clientes reales). O sea que Vercel SÍ tiene `RESEND_API_KEY`/`RESEND_FROM`;
     la nota de DESPLIEGUE.md estaba vieja. Lo único que sigue con la cuenta de Vena Digital es el `.env`
     LOCAL: un correo enviado desde el Mac sale por la cuenta de Vena, no por la del club.
-12. **Registro y consentimiento digital por QR**: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 y esa
+12. ✅ **Registro y consentimiento digital por QR: ABIERTO EN PRODUCCIÓN el lunes 5-oct-2026.** Laura puso
+    `REGISTRO_PUBLICO=1` en Vercel y redesplegó; verificado que `/registro`, `/registro/datos` y
+    `/registro/consentimiento` abren y que `/registro/correo-prueba` da 404. Su prueba real (ficha 663
+    "Laura Salazar", acudiente Marta Leon, firma 0a5715aa…) funcionó de punta a punta y se borró el mismo
+    día con rastro (`audit_log` `cliente.borrar_prueba`, entity_id 663); bandeja, firmas y bucket en cero.
+    Desde aquí TODO lo que llegue es real: no borrar nada sin medir. Lo de abajo es la historia.
+    Antes: EN CONSTRUCCIÓN. Fases 0–3 hechas el 1-oct-2026 y esa
     misma noche el rediseño de las dos pantallas públicas (datos "A · Paso a paso", consentimiento "C ·
     Resumen primero", facturación obligatoria; commit `40e92fc`). La página pública completa existe pero
     está cerrada en producción: falta `REGISTRO_PUBLICO` en Vercel.

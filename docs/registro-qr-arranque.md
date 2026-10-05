@@ -26,9 +26,9 @@ Dirección: **https://alejandrofallacd.com/registro**
 |---|---|---|
 | Imprimir el QR (archivo `qr-registro-logo.png` o el `.svg` para el diseñador) | Club / diseñador | Pendiente |
 | Decidir el día en que se pone el QR en recepción | Club | Pendiente |
-| Prender la página pública (`REGISTRO_PUBLICO=1` en Vercel) **ese mismo día** | Vena Digital | Pendiente |
-| Borrar la ficha de prueba "Niña Prueba QR" | Vena Digital | Pendiente |
-| Prueba real: escanear el QR impreso, registrar un niño de prueba, firmar y verlo en la ficha; luego anular la firma con motivo | Laura | Pendiente |
+| Prender la página pública (`REGISTRO_PUBLICO=1` en Vercel) **ese mismo día** | Vena Digital | Hecho el 5-oct-2026 |
+| Borrar las fichas de prueba | Vena Digital | Hecho (2 y 5-oct-2026) |
+| Prueba real: escanear el QR impreso, registrar un niño de prueba, firmar y verlo en la ficha; luego anular la firma con motivo | Laura | Hecho el 5-oct-2026 |
 
 Mientras la página no esté prendida, el QR lleva a una pantalla que dice **"Estamos
 preparando el registro"**. No pasa nada malo si alguien lo escanea antes.
