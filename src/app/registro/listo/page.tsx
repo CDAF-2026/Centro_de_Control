@@ -17,10 +17,9 @@ export default async function RegistroListoPage({ searchParams }: { searchParams
   const miembro = sesion?.miembros.at(-1) ?? null;
   const ultimo = miembro?.nombre ?? null;
   const firmados = sesion?.miembros.filter((m) => m.firmado).length ?? 0;
-  // Un adulto llega aquí desde el formulario de datos, sin firmar (los mayores de edad no
-  // firman consentimiento; pedido del club, 2-oct-2026): solo se le ofrece volver al inicio.
+  // Un adulto firma en nombre propio (club, 7-oct-2026): no se le ofrece "otro hijo", solo volver al inicio.
   const edad = edadDesde(miembro?.datos?.fechaNacimiento ?? null);
-  const adulto = !miembro?.firmado && edad != null && edad >= 18;
+  const adulto = !!miembro?.mayor || (edad != null && edad >= 18);
 
   return (
     <Cabecera titulo="Registro de deportistas">
@@ -32,7 +31,7 @@ export default async function RegistroListoPage({ searchParams }: { searchParams
         <h2 className="font-heading text-xl font-semibold tracking-tight">¡Listo{ultimo ? `, ${ultimo.split(" ")[0]}${adulto ? "" : " queda registrado"}` : ""}!</h2>
         <p className="text-muted-foreground text-sm">
           {adulto
-            ? "Tus datos quedaron guardados en el Centro Deportivo Alejandro Falla."
+            ? (miembro?.firmado ? "Tu consentimiento firmado quedó guardado en el Centro Deportivo Alejandro Falla." : "Tus datos quedaron guardados en el Centro Deportivo Alejandro Falla.")
             : ya === "1"
             ? "Este consentimiento ya estaba firmado y guardado en la ficha del deportista. No hace falta firmarlo otra vez."
             : "El consentimiento firmado quedó guardado en la ficha del deportista en el Centro Deportivo Alejandro Falla."}

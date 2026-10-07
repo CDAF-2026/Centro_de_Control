@@ -77,12 +77,12 @@ export async function firmarConsentimiento(
   }
   if (!permitido) return { error: "Demasiados intentos desde esta conexión. Espera unos minutos e inténtalo de nuevo." };
 
-  const version = await registroAbierto();
-  if (!version) return { error: "El consentimiento no está disponible en este momento." };
-
-  // D11: con 18 o más firma por sí mismo; el firmante es la persona.
+  // Con 18 o más firma por sí mismo, con el texto de ADULTOS (club, 7-oct-2026); el firmante es la persona.
   const edad = edadDesde(d.fechaNacimiento);
   const mayor = edad != null && edad >= 18;
+  const publico = mayor ? "adultos" : "menores";
+  const version = (await registroAbierto(publico)) ?? (mayor ? await registroAbierto("menores") : null);
+  if (!version) return { error: "El consentimiento no está disponible en este momento." };
   const nombreMenor = `${capitalizarNombre(d.nombres)} ${capitalizarNombre(d.apellidos)}`.trim();
   const firmante = mayor
     ? { nombre: nombreMenor, documento: d.documento, parentesco: null as string | null, celular: d.firmanteCelular || null, email: d.firmanteEmail || null }
@@ -169,7 +169,7 @@ export async function firmarConsentimiento(
       firmante_nombre: firmante.nombre, firmante_documento: firmante.documento,
       firmante_parentesco: firmante.parentesco, firmante_celular: firmante.celular, firmante_email: firmante.email,
       menor_nombre: nombreMenor, menor_documento: d.documento, menor_rh: d.rh || null, eps: d.eps,
-      metodo: d.metodo, ip, user_agent: ua,
+      metodo: d.metodo, ip, user_agent: ua, publico: version.publico,
     },
   });
   if (firmaErr || !firmaNueva) {
@@ -246,7 +246,7 @@ export async function firmarConsentimiento(
     miembro: {
       miembro_id: busqueda.tipo === "unico" ? busqueda.miembro.miembro_id : 0,
       cliente_id: busqueda.tipo === "unico" ? busqueda.miembro.cliente_id : 0,
-      nombre: nombreMenor, firmado: true,
+      nombre: nombreMenor, firmado: true, mayor,
     },
   });
 

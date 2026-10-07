@@ -137,13 +137,13 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
   await anotarEnSesion(sesionId, {
     firmante,
     miembro: {
-      ...miembro, nombre: `${nombres} ${apellidos}`.trim(), firmado: false,
+      ...miembro, nombre: `${nombres} ${apellidos}`.trim(), firmado: false, mayor,
       datos: { nombres, apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh ?? "", confirmado: confirmado || undefined },
     },
   });
 
-  // Un adulto NO firma consentimiento (pedido del club, 2-oct-2026): termina en "Listo".
-  redirect(mayor ? "/registro/listo" : "/registro/consentimiento");
+  // Menor o adulto, sigue a firmar: el adulto firma en nombre propio con su propio texto (club, 7-oct-2026).
+  redirect("/registro/consentimiento");
 }
 
 type Decision = { modo: "crear" | "hermano" | "actualizar"; cliente_id?: number; miembro_id?: number } | null;

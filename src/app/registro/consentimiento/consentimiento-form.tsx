@@ -66,7 +66,7 @@ function Parrafo({ texto, eps }: { texto: string; eps: string }) {
  * resumen orienta y lo dice. La EPS que escriba el papá se refleja en vivo en el
  * párrafo que la nombra, para que lea exactamente lo que va a firmar.
  */
-export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsentimiento; precargado?: Precargado }) {
+export function ConsentimientoForm({ textos, precargado }: { textos: { menores: TextoConsentimiento; adultos: TextoConsentimiento }; precargado?: Precargado }) {
   const [state, action, pending] = useActionState<ConsentimientoState, FormData>(firmarConsentimiento, {});
   const fe = state.fieldErrors ?? {};
   const [fecha, setFecha] = useState(precargado?.menor?.fechaNacimiento ?? "");
@@ -80,16 +80,17 @@ export function ConsentimientoForm({ texto, precargado }: { texto: TextoConsenti
   const [firmaOk, setFirmaOk] = useState(false);
   const onFirma = useCallback((ok: boolean) => setFirmaOk(ok), []);
 
+  const nombreMenor = `${nombres} ${apellidos}`.trim();
+  const edad = edadDesde(fecha);
+  // Con 18 o más firma por sí mismo, con el texto de ADULTOS (club, 7-oct-2026); no se piden acudientes.
+  const mayor = edad != null && edad >= 18;
+  const texto = mayor ? textos.adultos : textos.menores;
+
   const titulos = titulosDelTexto(texto.codigo, texto.parrafos.length);
   const iEps = texto.parrafos.findIndex((p) => p.includes("{{EPS}}"));
   const [abiertos, setAbiertos] = useState<number[]>(() => Array.from(new Set([0, iEps].filter((i) => i >= 0))));
   const todasAbiertas = abiertos.length === texto.parrafos.length;
   const alternar = (i: number) => setAbiertos((a) => (a.includes(i) ? a.filter((x) => x !== i) : [...a, i]));
-
-  const nombreMenor = `${nombres} ${apellidos}`.trim();
-  const edad = edadDesde(fecha);
-  // D11: si ya tiene 18, firma por sí mismo con el mismo texto; no se piden acudientes.
-  const mayor = edad != null && edad >= 18;
   const bloqueado = !!precargado?.menor;
   const resumido = bloqueado && !editando;
   const iniciales = nombreMenor.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "—";

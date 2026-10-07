@@ -916,11 +916,14 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   Al papá nunca se le pregunta ni se le muestra lo que tiene el club (Laura, 2-oct-2026).
 - **Los nombres se guardan con mayúscula inicial** (`capitalizarNombre`, `src/lib/nombres.ts`):
   "laura salazar" → "Laura Salazar". Las razones sociales (jurídica) se dejan como se escriben.
-- **Adultos: datos sí, consentimiento no** (pedido del club, 2-oct-2026). Si la fecha de nacimiento da
-  18 o más, el formulario de datos deja de pedir acudiente (3 pasos, contacto propio, factura "a mi
-  nombre") y al enviar va a `/registro/listo` con solo "Volver al inicio": **no pasa a firmar**. La
-  portada ya no lleva la etiqueta "Solo menores de edad" (Laura la quitó el 7-oct-2026); no hay bloqueo por
-  edad dentro del consentimiento.
+- **Adultos: datos Y consentimiento en nombre propio, con su propio texto** (club, 7-oct-2026; antes,
+  del 2 al 7-oct, no firmaban). Si la fecha de nacimiento da 18 o más, el formulario de datos deja de
+  pedir acudiente (3 pasos, contacto propio, factura "a mi nombre") y sigue a firmar como todos. Hay DOS
+  textos vigentes a la vez, uno por `consentimiento_version.publico` (`menores` = `2026-10`, `adultos` =
+  `2026-10-adultos`; índice único por público; migración `20261007100000`). `textosAbiertos()` carga los
+  dos y la pantalla elige por la edad escrita; `firmarConsentimiento` pasa `publico` al RPC
+  `consentimiento_firmar`, que toma la versión vigente de ESE público (`consentimiento_version_vigente(p_publico)`,
+  default `menores`). El adulto termina en "Listo" con solo "Volver al inicio" (`MiembroSesion.mayor`).
   **Cómo se encuentra la ficha de un adulto** (`decidirFicha` + `buscarAdultoPorCorreo` en `match.ts`):
   por cédula como siempre; si no está (48 de 381 fichas de adultos no tienen cédula), por **correo +
   nombre** → se actualiza el titular de esa ficha (y le queda la cédula); correo sin nombre (la pareja

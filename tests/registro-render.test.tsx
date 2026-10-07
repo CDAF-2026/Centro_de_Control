@@ -30,7 +30,7 @@ const VERSION = {
 let vigente: typeof VERSION | null = null;
 vi.mock("@/lib/registro/version", async (orig) => {
   const real = await orig<typeof import("../src/lib/registro/version")>();
-  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente };
+  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente, textosAbiertos: async () => (vigente ? { menores: vigente, adultos: vigente } : null) };
 });
 let sesion: any = null;
 vi.mock("@/lib/registro/sesion", () => ({

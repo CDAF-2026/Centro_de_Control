@@ -1,4 +1,4 @@
-import { registroAbierto } from "@/lib/registro/version";
+import { textosAbiertos, type VersionConsentimiento } from "@/lib/registro/version";
 import { leerSesion } from "@/lib/registro/sesion";
 import { EnPreparacion } from "../en-preparacion";
 import { FondoClaro } from "../cabecera";
@@ -11,9 +11,15 @@ import { ConsentimientoForm, type Precargado } from "./consentimiento-form";
  * al menor y al firmante; sin ella, se pide todo. El texto llega ya partido en
  * párrafos para que el componente de cliente no tenga que saber del marcador de la EPS.
  */
+const aTexto = (v: VersionConsentimiento) => ({
+  codigo: v.codigo,
+  titulo: v.titulo,
+  parrafos: v.texto.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+});
+
 export default async function ConsentimientoPage() {
-  const version = await registroAbierto();
-  if (!version) return <EnPreparacion />;
+  const versiones = await textosAbiertos();
+  if (!versiones) return <EnPreparacion />;
 
   const sesion = await leerSesion();
   const pendiente = sesion?.miembros.filter((m) => !m.firmado && m.datos).at(-1);
@@ -23,14 +29,7 @@ export default async function ConsentimientoPage() {
 
   return (
     <FondoClaro>
-      <ConsentimientoForm
-        texto={{
-          codigo: version.codigo,
-          titulo: version.titulo,
-          parrafos: version.texto.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
-        }}
-        precargado={precargado}
-      />
+      <ConsentimientoForm textos={{ menores: aTexto(versiones.menores), adultos: aTexto(versiones.adultos) }} precargado={precargado} />
     </FondoClaro>
   );
 }

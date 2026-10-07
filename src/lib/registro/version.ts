@@ -3,16 +3,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/database.types";
 
 export type VersionConsentimiento = Database["public"]["Tables"]["consentimiento_version"]["Row"];
+/** Dos textos distintos (7-oct-2026): el acudiente firma por el menor; el adulto firma en nombre propio. */
+export type PublicoConsentimiento = "menores" | "adultos";
 
 /**
- * La versión vigente del texto, o null = la página pública muestra "En preparación".
- * Es la puerta del despliegue: el código puede estar en producción sin que nadie
- * firme hasta que se abra la versión (Fase 4). Se lee con el cliente de servicio
- * porque el visitante no tiene sesión.
+ * La versión vigente del texto para un público, o null = la página pública muestra
+ * "En preparación". Es la puerta del despliegue: el código puede estar en producción
+ * sin que nadie firme hasta que se abra la versión (Fase 4). Se lee con el cliente de
+ * servicio porque el visitante no tiene sesión.
  */
-export async function versionVigente(): Promise<VersionConsentimiento | null> {
+export async function versionVigente(publico: PublicoConsentimiento = "menores"): Promise<VersionConsentimiento | null> {
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("consentimiento_version_vigente");
+  const { data, error } = await admin.rpc("consentimiento_version_vigente", { p_publico: publico });
   if (error) {
     console.error("[registro] versión vigente:", error.message);
     return null;
@@ -29,9 +31,20 @@ export async function versionVigente(): Promise<VersionConsentimiento | null> {
  *     que el club imprime el QR. Así el código puede estar desplegado y la
  *     versión abierta sin que nadie de afuera llegue al formulario.
  */
-export async function registroAbierto(): Promise<VersionConsentimiento | null> {
+export async function registroAbierto(publico: PublicoConsentimiento = "menores"): Promise<VersionConsentimiento | null> {
   if (process.env.REGISTRO_PUBLICO !== "1") return null;
-  return versionVigente();
+  return versionVigente(publico);
+}
+
+/**
+ * Los dos textos para la pantalla de firma: la edad que escriba la persona decide cuál
+ * se muestra. Sin texto de adultos, el adulto firma con el de menores (como en D11).
+ */
+export async function textosAbiertos(): Promise<{ menores: VersionConsentimiento; adultos: VersionConsentimiento } | null> {
+  const menores = await registroAbierto("menores");
+  if (!menores) return null;
+  const adultos = (await registroAbierto("adultos")) ?? menores;
+  return { menores, adultos };
 }
 
 /** Los párrafos del texto, con la EPS puesta donde va el marcador. */

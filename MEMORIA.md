@@ -1949,8 +1949,8 @@ Plan completo y decisiones de Laura en **`docs/plan-registro-y-consentimiento-di
 decisiones; no reabrirlas). Resumen: un QR abre una página pública (`/registro`, Fase 2–3) donde el papá
 llena la ficha del niño y firma el consentimiento con el dedo; el PDF queda en la ficha. Decisiones que
 mandan: **sobrescribir todo salvo facturación** (un NIT distinto espera aprobación) · **ficha unificada**
-con el Word del club · **adultos actualizan datos pero NO firman** (si la edad da ≥18 el formulario deja de
-pedir acudiente y termina en "Listo" sin pasar al consentimiento; pedido del club, 2-oct-2026) ·
+con el Word del club · **adultos actualizan datos Y firman en nombre propio con SU texto** (`2026-10-adultos`,
+desde el 7-oct-2026; entre el 2 y el 7-oct no firmaban) ·
 revisan **SA y coord. administrativo** · texto definitivo = `Consentimiento informado/insumos/…MENORES DE
 EDAD .docx`, versión `2026-10`, se firma una vez.
 
@@ -2194,6 +2194,21 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   candidatos: se buscan por el documento del menor en `cliente_miembros`. Para VER la bandeja con datos sin
   sesión: sembrar en una prueba, renderizar con `renderToStaticMarkup`, inyectar el CSS de `.next/static/chunks`
   y servir el HTML desde el scratchpad (el middleware redirige hasta `public/`).
+- 🧑‍⚖️ **Adultos firman en nombre propio con su propio texto (club, 7-oct-2026; migración
+  `20261007100000_consentimiento_adultos`)**. Revierte lo del 2-oct ("los adultos no firman"). El club entregó
+  `Consentimiento informado/insumos/CONSENTIMIENTO INFORMADO MAYORES DE EDAD .docx` (10 párrafos, misma
+  estructura que el de menores; el título traía "AALEJANDRO" y se corrigió como en el de menores; el párrafo 3
+  conserva "en nombre propio y en nombre de mi hijo (a)", tal como viene del club: el texto legal se muestra
+  íntegro). Modelo: `consentimiento_version.publico` (`menores` | `adultos`), **una vigente por público**
+  (índice único parcial sobre `publico`), `consentimiento_version_vigente(p_publico default 'menores')` y
+  `consentimiento_firmar` lee `publico` del payload. Versión `2026-10-adultos` ABIERTA desde el 7-oct.
+  Código: `textosAbiertos()` (version.ts) carga los dos textos; la pantalla de firma elige por la edad escrita
+  (`textos.adultos` si ≥18); la acción pide la versión del público; títulos del acordeón para
+  `2026-10-adultos` en `texto.ts` (el resumen de adultos ya existía); `enviarDatos` vuelve a mandar a todos a
+  firmar; `MiembroSesion.mayor` hace que "Listo" ofrezca solo "Volver al inicio" al adulto. La portada ya no
+  lleva "Solo menores de edad" (Laura, 7-oct). El PDF y el correo ya distinguían `firmaPorSiMismo`.
+  ⚠️ El texto de la tarjeta de consentimiento en la portada sigue diciendo "los datos de tu hijo/a" (lo
+  dictó Laura el 2-oct); se le preguntó si lo cambia.
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

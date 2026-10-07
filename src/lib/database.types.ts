@@ -545,10 +545,13 @@ export type Database = {
           vigente_hasta: string | null;
           creado_por: string | null;
           created_at: string;
+          /** 'menores' (firma el acudiente) | 'adultos' (firma en nombre propio). Una vigente por público. */
+          publico: string;
         };
         Insert: {
           id?: number;
           codigo: string;
+          publico?: string;
           titulo: string;
           texto: string;
           texto_sha256?: string;
@@ -560,6 +563,7 @@ export type Database = {
         Update: {
           id?: number;
           codigo?: string;
+          publico?: string;
           titulo?: string;
           texto?: string;
           texto_sha256?: string;
@@ -1773,7 +1777,7 @@ export type Database = {
       // ─── Registro público y consentimiento digital (1-oct-2026) ───
       /** Versión vigente del texto (o null si está "En preparación"). */
       consentimiento_version_vigente: {
-        Args: Record<string, never>;
+        Args: { p_publico?: string };
         Returns: Database["public"]["Tables"]["consentimiento_version"]["Row"] | null;
       };
       /** Solo service_role. Cuenta el intento y dice si esa IP puede seguir (10/10 min · 40/día). */

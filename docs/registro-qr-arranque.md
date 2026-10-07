@@ -9,9 +9,9 @@ celular y, sin descargar nada ni crear usuario:
 
 1. **Actualiza o ingresa los datos** del deportista (4 pasos cortos: el deportista,
    contacto, acudiente, facturación; un adulto no ve el paso del acudiente), o
-2. **Firma el consentimiento informado** con el dedo (o escribiendo su nombre). **Solo
-   menores de edad**: la portada lo dice. Un adulto que llena sus datos termina ahí, sin
-   firmar nada.
+2. **Firma el consentimiento informado** con el dedo (o escribiendo su nombre). Un adulto
+   firma en nombre propio con el texto de mayores de edad; el acudiente firma por el menor con
+   el de menores. La edad que se escribe decide cuál texto sale.
 
 Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), queda
 guardado en la ficha del niño en la plataforma, en la tarjeta **"Consentimientos
@@ -59,7 +59,7 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 | "Me equivoqué en un dato" | Puede volver a escanear y hacerlo de nuevo: lo nuevo reemplaza lo anterior. La firma no se repite: si el niño ya tiene firma vigente, la página lo dice y no crea otra |
 | "Me dice *Revisa el documento: no coincide con el nombre*" | Escribió un documento que en la plataforma es de otra persona (casi siempre su propia cédula en el campo del niño). Que lo corrija. Si insiste en que es correcto, al segundo intento puede marcar "Confirmo…": no se toca ninguna ficha y les llega a **Registros** para revisarlo |
 | "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre** (o "a mi nombre" si es un adulto): el club factura a nombre de esa persona |
-| "Soy adulto, ¿tengo que firmar el consentimiento?" | No. Solo actualiza sus datos con **"Actualizar o ingresar datos"** y al final vuelve al inicio. El consentimiento es solo para menores de edad |
+| "Soy adulto, ¿tengo que firmar el consentimiento?" | Sí, en nombre propio y con el texto de mayores de edad. Llena sus datos y al final firma, igual que los papás por sus hijos |
 | "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
 | "No me llegó el PDF al correo" | Llega solo si escribió su correo al firmar; revisar spam. El PDF siempre está en la ficha y se le puede reenviar desde **Documentos** |
 | "Dice *Demasiados intentos*" | Hay un tope por conexión (60 envíos cada 10 minutos y 400 al día; el wifi del club cuenta como una sola conexión). Esperar unos minutos o hacerlo con datos móviles |

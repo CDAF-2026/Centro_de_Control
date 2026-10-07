@@ -22,7 +22,7 @@ export type DatosMenor = {
   confirmado?: boolean;
 };
 export type MiembroSesion = {
-  miembro_id: number; cliente_id: number; nombre: string; firmado?: boolean; datos?: DatosMenor;
+  miembro_id: number; cliente_id: number; nombre: string; firmado?: boolean; mayor?: boolean; datos?: DatosMenor;
 };
 export type Firmante = { nombre: string; documento: string; parentesco?: string; celular?: string; email?: string };
 
