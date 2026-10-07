@@ -50,7 +50,7 @@ export default async function RegistroPage() {
         <Opcion
           href="/registro/datos"
           titulo="Actualizar o ingresar datos"
-          detalle="Si aún no estás registrado en el sistema del CDAF o si quieres actualizar tus datos."
+          detalle="Elige esta opción si eres nuevo en el Centro Deportivo o si quieres actualizar tus datos."
           icono={<ClipboardList className="size-6" />}
         />
         <Opcion
