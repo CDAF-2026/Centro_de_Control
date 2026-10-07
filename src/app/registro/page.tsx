@@ -5,8 +5,8 @@ import { registroAbierto } from "@/lib/registro/version";
 import { EnPreparacion } from "./en-preparacion";
 
 /**
- * La landing del QR: dos caminos (R1). El consentimiento es SOLO para menores de edad
- * (pedido del club, 2-oct-2026): la tarjeta lo dice; un adulto usa "Actualizar o ingresar datos". Diseño "A · Cancha": la foto de Alejandro
+ * La landing del QR: dos caminos (R1). El consentimiento es solo para menores de edad (un adulto
+ * termina en "Listo" sin firmar); la etiqueta "Solo menores de edad" se quitó a pedido de Laura (7-oct-2026). Diseño "A · Cancha": la foto de Alejandro
  * Falla en blanco y negro se funde con el fondo stadium y el logo lima queda
  * montado sobre su borde. Sin versión vigente del texto no hay nada que hacer aquí.
  */
@@ -57,7 +57,6 @@ export default async function RegistroPage() {
           href="/registro/consentimiento"
           titulo="Firmar consentimiento informado"
           detalle="Si los datos de tu hijo/a ya están actualizados, solo lee y firma el documento."
-          nota="Solo menores de edad"
           icono={<PenLine className="size-6" />}
         />
       </div>
@@ -71,7 +70,7 @@ export default async function RegistroPage() {
   );
 }
 
-function Opcion({ href, titulo, detalle, nota, icono }: { href: string; titulo: string; detalle: string; nota?: string; icono: React.ReactNode }) {
+function Opcion({ href, titulo, detalle, icono }: { href: string; titulo: string; detalle: string; icono: React.ReactNode }) {
   return (
     <Link
       href={href}
@@ -79,7 +78,6 @@ function Opcion({ href, titulo, detalle, nota, icono }: { href: string; titulo: 
     >
       <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-primary text-stadium">{icono}</span>
       <span className="flex flex-col gap-0.5 md:gap-1.5">
-        {nota && <span className="w-fit whitespace-nowrap rounded-full bg-stadium px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{nota}</span>}
         <span className="font-heading text-[17px] font-extrabold leading-tight text-stadium md:text-base">{titulo}</span>
         <span className="text-[13px] leading-snug text-[#5c6b73]">{detalle}</span>
       </span>

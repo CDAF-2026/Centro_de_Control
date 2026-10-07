@@ -919,8 +919,8 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - **Adultos: datos sí, consentimiento no** (pedido del club, 2-oct-2026). Si la fecha de nacimiento da
   18 o más, el formulario de datos deja de pedir acudiente (3 pasos, contacto propio, factura "a mi
   nombre") y al enviar va a `/registro/listo` con solo "Volver al inicio": **no pasa a firmar**. La
-  tarjeta "Firmar consentimiento informado" de la portada dice "Solo menores de edad"; no hay bloqueo por edad
-  dentro del consentimiento (Laura decidió avisar en la portada, no validar).
+  portada ya no lleva la etiqueta "Solo menores de edad" (Laura la quitó el 7-oct-2026); no hay bloqueo por
+  edad dentro del consentimiento.
   **Cómo se encuentra la ficha de un adulto** (`decidirFicha` + `buscarAdultoPorCorreo` en `match.ts`):
   por cédula como siempre; si no está (48 de 381 fichas de adultos no tienen cédula), por **correo +
   nombre** → se actualiza el titular de esa ficha (y le queda la cédula); correo sin nombre (la pareja
