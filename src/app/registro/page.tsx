@@ -56,7 +56,7 @@ export default async function RegistroPage() {
         <Opcion
           href="/registro/consentimiento"
           titulo="Firmar consentimiento informado"
-          detalle="Si los datos de tu hijo/a ya están actualizados, solo lee y firma el documento."
+          detalle="Si tus datos o los de tu hijo/a ya están actualizados, solo lee y firma el documento."
           icono={<PenLine className="size-6" />}
         />
       </div>
