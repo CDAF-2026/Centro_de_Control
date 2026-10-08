@@ -24,7 +24,7 @@ vi.mock("next/headers", () => ({
 
 const VERSION = {
   id: 1, codigo: "2026-10", titulo: "CONSENTIMIENTO DE PRUEBA – CENTRO DEPORTIVO ALEJANDRO FALLA",
-  texto: "Párrafo uno.\n\nAfiliado a la EPS {{EPS}}.", texto_sha256: "x".repeat(64),
+  texto: "Párrafo uno. Declaro que conozco y acepto el reglamento del CENTRO DEPORTIVO AF.\n\nAfiliado a la EPS {{EPS}}.", texto_sha256: "x".repeat(64),
   vigente_desde: "2026-10-01", vigente_hasta: null, creado_por: null, created_at: "",
 };
 let vigente: typeof VERSION | null = null;
@@ -105,6 +105,8 @@ describe("registro público · puerta abierta", () => {
     const html = await render(Page);
     expect(html).toContain('name="aceptoReglamento"');
     expect(html).toContain('href="/registro/reglamento"');
+    // La mención del reglamento dentro del texto legal sale como enlace en pestaña nueva (8-oct-2026).
+    expect(html).toMatch(/<a[^>]*href="\/registro\/reglamento"[^>]*target="_blank"[^>]*>reglamento del CENTRO DEPORTIVO AF<\/a>/);
   });
 
   it("la página del reglamento pinta capítulos y artículos, y ofrece el PDF", async () => {

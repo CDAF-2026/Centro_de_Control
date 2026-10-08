@@ -45,13 +45,30 @@ function Select({ id, name, children, ...rest }: React.ComponentProps<"select">)
 }
 
 /** Un párrafo del texto con la EPS escrita resaltada donde va el marcador. */
+/** "el reglamento del CENTRO DEPORTIVO AF" del texto legal sale como enlace al reglamento (Laura, 8-oct-2026). */
+const REGLAMENTO_RE = /(reglamento del CENTRO DEPORTIVO AF)/i;
+
+function ConEnlaceAlReglamento({ texto }: { texto: string }) {
+  return (
+    <>
+      {texto.split(REGLAMENTO_RE).map((t, i) =>
+        REGLAMENTO_RE.test(t) ? (
+          <Link key={i} href="/registro/reglamento" target="_blank" rel="noopener" className="font-semibold text-foreground underline underline-offset-2">{t}</Link>
+        ) : (
+          <span key={i}>{t}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function Parrafo({ texto, eps }: { texto: string; eps: string }) {
   const partes = texto.split("{{EPS}}");
   return (
     <p className="text-charcoal m-0 text-sm leading-[1.65]">
       {partes.map((p, i) => (
         <span key={i}>
-          {p}
+          <ConEnlaceAlReglamento texto={p} />
           {i < partes.length - 1 && <mark className="bg-primary/50 rounded px-1 font-bold text-foreground">{eps.trim() || "____________"}</mark>}
         </span>
       ))}
