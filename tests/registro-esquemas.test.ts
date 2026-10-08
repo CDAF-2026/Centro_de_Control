@@ -42,6 +42,7 @@ describe("capa de lectura del consentimiento", () => {
     expect(titulosDelTexto("2026-10", 10)).toHaveLength(10);
     expect(titulosDelTexto("2026-10", 10)[3]).toBe("EPS y cobertura en salud");
     expect(titulosDelTexto("2026-10-adultos", 10)[8]).toBe("Fotografías"); // texto de adultos (7-oct-2026)
+    expect(titulosDelTexto("2026-10-adultos-v2", 10)).toEqual(titulosDelTexto("2026-10-adultos", 10)); // v2 sin la academia (8-oct-2026)
     expect(titulosDelTexto("2026-10", 11)).toEqual(Array.from({ length: 11 }, (_, i) => `Parte ${i + 1}`));
     expect(titulosDelTexto("2027-01", 3)).toEqual(["Parte 1", "Parte 2", "Parte 3"]);
   });

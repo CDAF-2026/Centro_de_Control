@@ -9,6 +9,20 @@
  * y al número de párrafos: si el club cambia el texto, la versión nueva sale con
  * títulos genéricos ("Parte 1…") hasta que alguien escriba los suyos aquí.
  */
+// Texto de ADULTOS (firma en nombre propio), mismos diez párrafos (7-oct-2026). La v2 (8-oct-2026, sin
+// la frase de la academia en el último párrafo) conserva la misma estructura.
+const TITULOS_ADULTOS = [
+  "Participación voluntaria",
+  "Salud, preparación y reglamento",
+  "Riesgos y comportamiento",
+  "EPS y cobertura en salud",
+  "Primeros auxilios",
+  "Instrucciones y normas",
+  "Sanciones",
+  "Datos personales e imagen (Ley 1581)",
+  "Fotografías",
+  "Declaración final",
+];
 const TITULOS: Record<string, string[]> = {
   "2026-10": [
     "Participación voluntaria",
@@ -22,19 +36,8 @@ const TITULOS: Record<string, string[]> = {
     "Fotografías de mi hijo(a)",
     "Declaración final",
   ],
-  // Texto de ADULTOS (firma en nombre propio), mismos diez párrafos (7-oct-2026).
-  "2026-10-adultos": [
-    "Participación voluntaria",
-    "Salud, preparación y reglamento",
-    "Riesgos y comportamiento",
-    "EPS y cobertura en salud",
-    "Primeros auxilios",
-    "Instrucciones y normas",
-    "Sanciones",
-    "Datos personales e imagen (Ley 1581)",
-    "Fotografías",
-    "Declaración final",
-  ],
+  "2026-10-adultos": TITULOS_ADULTOS,
+  "2026-10-adultos-v2": TITULOS_ADULTOS,
 };
 
 /** Un título corto por párrafo; genéricos si la versión no tiene los suyos. */

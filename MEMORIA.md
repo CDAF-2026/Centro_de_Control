@@ -2209,6 +2209,14 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   lleva "Solo menores de edad" (Laura, 7-oct). El PDF y el correo ya distinguían `firmaPorSiMismo`.
   ⚠️ El texto de la tarjeta de consentimiento en la portada sigue diciendo "los datos de tu hijo/a" (lo
   dictó Laura el 2-oct); se le preguntó si lo cambia.
+- ✍️ **Primera firma REAL y versión `2026-10-adultos-v2` (8-oct-2026).** Daniela Parra Dunoyer (ficha 100,
+  adulta) firmó a las 7:58 a. m. el texto `2026-10-adultos` (ya sin "mi hijo", todavía con la frase de la
+  academia). Por eso, cuando Laura pidió quitar "…así como declaro conocer las políticas de servicio de la
+  academia…" del último párrafo, **no se editó la versión**: el guard "sin firmas" de las migraciones
+  `20261008110000`/`111000` no cambió nada (correcto), y `20261008112000` cerró `2026-10-adultos`
+  (`vigente_hasta` = 7-oct, sigue valiendo para esa firma) y creó `2026-10-adultos-v2` vigente desde el
+  8-oct. `texto.ts` comparte los títulos entre las dos. Regla confirmada en la práctica: **con una firma
+  encima, el texto no se toca; va versión nueva.**
 - 📜 **Reglamento General del club, aceptado con la firma — opción A (Laura, 8-oct-2026; migración
   `20261008100000_reglamento`)**. El club quería que al firmar también se adhirieran al reglamento (16 páginas,
   3.700 palabras, 8 capítulos, 32 artículos + un anexo que repite el consentimiento). Se propusieron tres
