@@ -43,6 +43,7 @@ export function consentimientoFirmadoEmail(opts: {
           <p style="margin:0 0 14px;font-size:16px;">Hola ${esc(pila)},</p>
           <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">${bienvenida}</p>
           <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">${adjunto}</p>
+          <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">Con tu firma también aceptaste el <a href="https://alejandrofallacd.com/registro/reglamento" style="color:#1a1c1e;font-weight:bold;">Reglamento General del club</a>, que puedes leer cuando quieras.</p>
           <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">Si algún dato cambia o tienes alguna duda, escríbenos o pasa por recepción: estamos para ayudarte.</p>
           <p style="margin:0;font-size:14px;line-height:1.6;">Nos vemos en la cancha 🎾</p>
         </td></tr>

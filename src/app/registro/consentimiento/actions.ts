@@ -6,7 +6,7 @@ import { consentimientoSchema, erroresDeCampo } from "@/lib/registro/esquemas";
 import { buscarMiembro, soloDigitos } from "@/lib/registro/match";
 import { hashIp, ipDelVisitante, navegadorDelVisitante, sha256 } from "@/lib/registro/evidencia";
 import { anotarEnSesion, crearSesion, leerSesion } from "@/lib/registro/sesion";
-import { registroAbierto } from "@/lib/registro/version";
+import { registroAbierto, reglamentoVigente } from "@/lib/registro/version";
 import { generarPdfConsentimiento, fechaHoraBogota } from "@/lib/pdf/consentimiento-pdf";
 import { sendEmail } from "@/lib/email/resend";
 import { consentimientoFirmadoEmail } from "@/lib/email/consentimiento-firmado";
@@ -188,9 +188,11 @@ export async function firmarConsentimiento(
     return { error: GENERICO };
   }
 
+  const reglamento = await reglamentoVigente();
   let pdf: Buffer;
   try {
     pdf = await generarPdfConsentimiento({
+      reglamento: reglamento ? { codigo: reglamento.codigo, texto_sha256: reglamento.texto_sha256 } : null,
       firmaId,
       version: { codigo: version.codigo, titulo: version.titulo, texto: version.texto, texto_sha256: version.texto_sha256 },
       menor: { nombre: nombreMenor, documento: `${d.tipoDocumento} ${d.documento}`, rh: d.rh || null, eps: d.eps },

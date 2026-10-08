@@ -22,6 +22,8 @@ import { parrafosDelTexto } from "@/lib/registro/version";
 export type DatosPdf = {
   firmaId: string;
   version: { codigo: string; titulo: string; texto: string; texto_sha256: string };
+  /** Reglamento General aceptado con la firma (opción A, 8-oct-2026); null en firmas viejas. */
+  reglamento?: { codigo: string; texto_sha256: string } | null;
   menor: { nombre: string; documento: string | null; rh: string | null; eps: string | null };
   firmante: { nombre: string; documento: string; parentesco: string | null; email: string | null; celular: string | null };
   firmaPorSiMismo: boolean;
@@ -98,6 +100,7 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
             <Text style={s.firmaNota}>
               Firma {d.metodo === "escrita" ? "escrita" : "manuscrita"} de {d.firmante.nombre}.{"\n"}
               Firmado electrónicamente el {cuando} (hora de Colombia).
+              {d.reglamento ? `\nCon esta firma acepta además el Reglamento General del club (versión ${d.reglamento.codigo}).` : ""}
             </Text>
           </View>
         </View>
@@ -122,6 +125,9 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
           ["Navegador", d.userAgent ?? "—"],
           ["Versión del texto firmado", d.version.codigo],
           ["Huella SHA-256 del texto", d.version.texto_sha256],
+          ...(d.reglamento
+            ? [["Reglamento General aceptado", `${d.reglamento.codigo} · alejandrofallacd.com/registro/reglamento`], ["Huella SHA-256 del reglamento", d.reglamento.texto_sha256]]
+            : []),
           ["Integridad del archivo", "La huella SHA-256 de este PDF está registrada en la plataforma del club y se muestra en la ficha del deportista."],
         ].map(([k, v]) => (
           <View key={k} style={s.ev}><Text style={s.evk}>{k}</Text><Text style={s.evv}>{v}</Text></View>

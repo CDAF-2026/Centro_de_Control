@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { generarPdfConsentimiento, fechaHoraBogota } from "../src/lib/pdf/consentimiento-pdf";
+import { generarPdfReglamento } from "../src/lib/pdf/reglamento-pdf";
 import { parrafosDelTexto } from "../src/lib/registro/version";
 
 /**
@@ -56,4 +57,13 @@ describe("generarPdfConsentimiento", () => {
     const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
     expect(paginas).toBe(2);
   }, 30_000);
+});
+
+describe("generarPdfReglamento", () => {
+  it("genera un PDF del reglamento con capítulos y artículos", async () => {
+    const pdf = await generarPdfReglamento({ codigo: "reglamento-2026-10", titulo: "REGLAMENTO GENERAL", vigente_desde: "2026-10-08",
+      texto: "Bienvenido.\n\n# CAPÍTULO 1: PRUEBA\n\n## Artículo 1. Uno\n\n" + "Texto del artículo. ".repeat(60) + "\n\n## Artículo 2. Dos\n\nMás texto." });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(5_000);
+  });
 });

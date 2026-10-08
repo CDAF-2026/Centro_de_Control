@@ -706,6 +706,7 @@ export type Database = {
           solicitud_id: string | null;
           sesion_id: string | null;
           version_id: number;
+          reglamento_version_id: number | null;
           cliente_id: number | null;
           miembro_id: number | null;
           estado: FirmaEstado;

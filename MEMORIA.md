@@ -2209,6 +2209,27 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   lleva "Solo menores de edad" (Laura, 7-oct). El PDF y el correo ya distinguían `firmaPorSiMismo`.
   ⚠️ El texto de la tarjeta de consentimiento en la portada sigue diciendo "los datos de tu hijo/a" (lo
   dictó Laura el 2-oct); se le preguntó si lo cambia.
+- 📜 **Reglamento General del club, aceptado con la firma — opción A (Laura, 8-oct-2026; migración
+  `20261008100000_reglamento`)**. El club quería que al firmar también se adhirieran al reglamento (16 páginas,
+  3.700 palabras, 8 capítulos, 32 artículos + un anexo que repite el consentimiento). Se propusieron tres
+  caminos y Laura eligió **A: casilla + reglamento a un toque**, sin meter el texto en la pantalla de firma.
+  · Se guarda en `consentimiento_version` con `publico = 'reglamento'` (`reglamento-2026-10`, vigente desde el
+    8-oct; una vigente a la vez por el índice único por público; huella por trigger). El texto lleva marcas de
+    estructura ("# " capítulo, "## " artículo) y `parsearReglamento()` (`src/lib/registro/reglamento.ts`) lo
+    convierte en capítulos/artículos. **El ANEXO 1 del Word no se cargó**: duplica el consentimiento.
+  · `/registro/reglamento` (`reglamento-vista.tsx`): capítulos como tarjetas, artículos plegables con el mismo
+    estilo del acordeón del consentimiento, "Abrir todo" y botón PDF (`/registro/reglamento/pdf`,
+    `src/lib/pdf/reglamento-pdf.tsx`, 5 páginas, 72 KB). No depende de `REGISTRO_PUBLICO`: se puede compartir sola.
+  · En la pantalla de firma, segunda casilla obligatoria **"Conozco y acepto el Reglamento General del Centro
+    Deportivo Alejandro Falla"** (enlace en pestaña nueva; `aceptoReglamento` en `consentimientoSchema`).
+    `consentimiento_firmar` guarda `consentimiento_firma.reglamento_version_id` (vigente al firmar; null en las
+    firmas anteriores) y lo escribe en el `audit_log`. El PDF de la firma lo nombra bajo la firma ("Con esta
+    firma acepta además el Reglamento General… versión X") y en la evidencia (código + huella SHA-256); el
+    correo lleva el enlace.
+  · Pruebas: `tests/registro-reglamento.test.ts` (parser, `partirCapitulo`, casilla obligatoria),
+    `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
+  · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
+    hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

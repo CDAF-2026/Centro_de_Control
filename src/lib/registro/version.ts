@@ -4,7 +4,7 @@ import type { Database } from "@/lib/database.types";
 
 export type VersionConsentimiento = Database["public"]["Tables"]["consentimiento_version"]["Row"];
 /** Dos textos distintos (7-oct-2026): el acudiente firma por el menor; el adulto firma en nombre propio. */
-export type PublicoConsentimiento = "menores" | "adultos";
+export type PublicoConsentimiento = "menores" | "adultos" | "reglamento";
 
 /**
  * La versión vigente del texto para un público, o null = la página pública muestra
@@ -53,4 +53,12 @@ export function parrafosDelTexto(texto: string, eps: string | null): string[] {
     .split(/\n\s*\n/)
     .map((p) => p.trim().replace(/\{\{EPS\}\}/g, eps?.trim() || "____________"))
     .filter(Boolean);
+}
+
+/**
+ * El Reglamento General vigente (opción A, 8-oct-2026). No depende de `REGISTRO_PUBLICO`: es
+ * información pública del club y la página /registro/reglamento se puede compartir sola.
+ */
+export async function reglamentoVigente(): Promise<VersionConsentimiento | null> {
+  return versionVigente("reglamento");
 }

@@ -289,6 +289,15 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
       </label>
       {fe.acepto && <p className="text-destructive -mt-1 text-sm">{fe.acepto}</p>}
 
+      {/* Reglamento General (opción A, Laura, 8-oct-2026): se acepta aquí y se lee a un toque */}
+      <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
+        <input type="checkbox" name="aceptoReglamento" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
+        <span className="text-sm leading-relaxed">
+          Conozco y acepto el <Link href="/registro/reglamento" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento General del Centro Deportivo Alejandro Falla</Link>.
+        </span>
+      </label>
+      {fe.aceptoReglamento && <p className="text-destructive -mt-1 text-sm">{fe.aceptoReglamento}</p>}
+
       {/* Firma */}
       <section className={cn(CARD, "space-y-3 p-5")}>
         <div className="flex items-baseline justify-between gap-3">

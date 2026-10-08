@@ -13,6 +13,9 @@ celular y, sin descargar nada ni crear usuario:
    firma en nombre propio con el texto de mayores de edad; el acudiente firma por el menor con
    el de menores. La edad que se escribe decide cuál texto sale.
 
+Al firmar, la persona marca dos casillas: **"Apruebo"** el consentimiento y **"Conozco y acepto el
+Reglamento General"** (el reglamento se abre a un toque desde ahí y vive en
+https://alejandrofallacd.com/registro/reglamento, con descarga en PDF; se puede compartir solo).
 Al firmar se genera un PDF con la firma y la evidencia (fecha, hora, dispositivo), queda
 guardado en la ficha del niño en la plataforma, en la tarjeta **"Consentimientos
 informados"**, y **el papá recibe una copia en su correo** (si lo escribió). Un PDF por cada niño; si tiene hermanos, se firma uno por cada uno (la
@@ -61,6 +64,7 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 | "Me pide facturación y yo no facturo a nombre de una empresa" | Elige **la madre** o **el padre** (o "a mi nombre" si es un adulto): el club factura a nombre de esa persona |
 | "Soy adulto, ¿tengo que firmar el consentimiento?" | Sí, en nombre propio y con el texto de mayores de edad. Llena sus datos y al final firma, igual que los papás por sus hijos |
 | "Lo hice desde el computador" | Funciona igual; la firma se puede dibujar con el ratón o escribir el nombre |
+| "¿Dónde está el reglamento del club?" | https://alejandrofallacd.com/registro/reglamento (se lee por capítulos y se descarga en PDF). Al firmar el consentimiento ya quedó aceptado |
 | "No me llegó el PDF al correo" | Llega solo si escribió su correo al firmar; revisar spam. El PDF siempre está en la ficha y se le puede reenviar desde **Documentos** |
 | "Dice *Demasiados intentos*" | Hay un tope por conexión (60 envíos cada 10 minutos y 400 al día; el wifi del club cuenta como una sola conexión). Esperar unos minutos o hacerlo con datos móviles |
 

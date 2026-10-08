@@ -41,6 +41,8 @@ export const consentimientoSchema = z.object({
   // cuando el documento coincide con alguien de otro nombre (ver match.ts).
   confirmoDocumento: z.string().max(5).optional(),
   acepto: z.literal("on", { message: "Debes aprobar el consentimiento" }),
+  // Reglamento General del club, a un toque desde la casilla (opción A, 8-oct-2026).
+  aceptoReglamento: z.literal("on", { message: "Debes aceptar el reglamento del club" }),
   metodo: z.enum(["dibujada", "escrita"]),
   firmaPng: firmaPngSchema,
 });

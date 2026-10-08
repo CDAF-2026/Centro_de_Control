@@ -30,7 +30,8 @@ const VERSION = {
 let vigente: typeof VERSION | null = null;
 vi.mock("@/lib/registro/version", async (orig) => {
   const real = await orig<typeof import("../src/lib/registro/version")>();
-  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente, textosAbiertos: async () => (vigente ? { menores: vigente, adultos: vigente } : null) };
+  const REGLAMENTO = { ...VERSION, id: 3, codigo: "reglamento-2026-10", publico: "reglamento", titulo: "REGLAMENTO GENERAL DE PRUEBA", texto: "Bienvenido.\n\n# CAPÍTULO 1: PRUEBA\n\n## Artículo 1. Uno\n\nTexto del artículo uno." };
+  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente, textosAbiertos: async () => (vigente ? { menores: vigente, adultos: vigente } : null), reglamentoVigente: async () => (vigente ? REGLAMENTO : null) };
 });
 let sesion: any = null;
 vi.mock("@/lib/registro/sesion", () => ({
@@ -96,6 +97,25 @@ describe("registro público · puerta abierta", () => {
     // El botón arranca deshabilitado: sin firma válida no se envía.
     expect(html).toMatch(/Firmar el consentimiento<\/button>/);
     expect(html).toMatch(/disabled=""[^>]*>Firmar el consentimiento|<button[^>]*disabled=""[^>]*>[^<]*Firmar/);
+  });
+
+  it("el consentimiento exige aceptar el Reglamento General con enlace a su página (opción A)", async () => {
+    vigente = VERSION;
+    const { default: Page } = await import("../src/app/registro/consentimiento/page");
+    const html = await render(Page);
+    expect(html).toContain('name="aceptoReglamento"');
+    expect(html).toContain('href="/registro/reglamento"');
+  });
+
+  it("la página del reglamento pinta capítulos y artículos, y ofrece el PDF", async () => {
+    vigente = VERSION;
+    const { default: Page } = await import("../src/app/registro/reglamento/page");
+    const html = await render(Page);
+    const t = texto(html);
+    expect(t).toContain("Reglamento General");
+    expect(t).toContain("Capítulo 1");
+    expect(t).toContain("Artículo 1. Uno");
+    expect(html).toContain('href="/registro/reglamento/pdf"');
   });
 
   it("el layout público no trae menú ni encabezado de la app", async () => {

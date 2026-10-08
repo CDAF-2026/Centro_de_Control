@@ -931,6 +931,17 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - **Bandeja `/clientes/registros` = cola única** (2-oct-2026): contadores + pendientes por antigüedad con la
   decisión en la tarjeta (`decidirCambios` aprueba o rechaza TODOS los campos de facturación de una ficha;
   candidatos como radio para firmas/datos ambiguos) + historial con `?filtro=`. Ver MEMORIA.
+- **Reglamento General aceptado con la firma (opción A, Laura, 8-oct-2026; migración `20261008100000`).**
+  Vive en `consentimiento_version` con `publico = 'reglamento'` (`reglamento-2026-10`, una vigente, huella por
+  trigger; texto con marcas `# capítulo` / `## artículo`, parseado por `src/lib/registro/reglamento.ts`; el
+  ANEXO del Word NO se cargó porque repite el consentimiento). Pantalla pública `/registro/reglamento`
+  (capítulos, artículos plegables, "Abrir todo", PDF en `/registro/reglamento/pdf`; no depende de
+  `REGISTRO_PUBLICO`). En la firma hay una segunda casilla obligatoria "Conozco y acepto el Reglamento…"
+  (`aceptoReglamento` en el esquema) con enlace en pestaña nueva; `consentimiento_firmar` guarda
+  `consentimiento_firma.reglamento_version_id` (null en firmas anteriores); el PDF de la firma lo nombra bajo
+  la firma y en la evidencia (código + huella), y el correo lleva el enlace. Para cambiar el reglamento: nueva
+  versión `publico='reglamento'`, cerrar la vieja con `vigente_hasta`. El club debe corregir en el Word:
+  "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28", falta el 16.
 - **Copia del PDF al correo del firmante** (D5, 2-oct-2026): tras `consentimiento_adjuntar`, si el
   firmante escribió correo, `sendEmail` (Resend, cuenta del club en Vercel) le manda el PDF adjunto
   con la plantilla `src/lib/email/consentimiento-firmado.ts` (texto corto; sin copia al club). Si
