@@ -264,3 +264,22 @@
     line-height: 40px;
   }
 }
+
+/* iOS Safari: un <input type="date"> ignora el ancho del contenedor y se desborda (visto en el
+   formulario público, 8-oct-2026). Se quita la apariencia nativa y se fuerza el ancho; el valor,
+   que iOS centra y achata, vuelve a la izquierda con altura de línea normal. */
+input[type="date"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
