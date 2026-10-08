@@ -935,7 +935,7 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
   Vive en `consentimiento_version` con `publico = 'reglamento'` (`reglamento-2026-10`, una vigente, huella por
   trigger; texto con marcas `# capítulo` / `## artículo`, parseado por `src/lib/registro/reglamento.ts`; el
   ANEXO del Word NO se cargó porque repite el consentimiento). Pantalla pública `/registro/reglamento`
-  (capítulos, artículos plegables, "Abrir todo", PDF en `/registro/reglamento/pdf`; no depende de
+  (capítulos, artículos plegables de a uno, PDF en `/registro/reglamento/pdf`; no depende de
   `REGISTRO_PUBLICO`). En la firma hay una segunda casilla obligatoria "Conozco y acepto el Reglamento…"
   (`aceptoReglamento` en el esquema) con enlace en pestaña nueva; `consentimiento_firmar` guarda
   `consentimiento_firma.reglamento_version_id` (null en firmas anteriores); el PDF de la firma lo nombra bajo

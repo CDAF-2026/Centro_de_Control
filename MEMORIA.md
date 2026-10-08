@@ -2226,6 +2226,10 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     firmas anteriores) y lo escribe en el `audit_log`. El PDF de la firma lo nombra bajo la firma ("Con esta
     firma acepta además el Reglamento General… versión X") y en la evidencia (código + huella SHA-256); el
     correo lleva el enlace.
+  · **Acordeones de UNA parte a la vez** (Laura, 8-oct-2026, tras ver en el celular la primera y la de la EPS
+    abiertas a la vez): en el consentimiento arranca abierta solo la primera parte y abrir otra cierra la
+    anterior; en el reglamento, solo el primer artículo. Se quitó "Abrir todo" de los dos (el PDF sirve para
+    leerlo entero). Motivo: que la persona vea por dónde va y no deje partes sin desplegar.
   · Pruebas: `tests/registro-reglamento.test.ts` (parser, `partirCapitulo`, casilla obligatoria),
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no

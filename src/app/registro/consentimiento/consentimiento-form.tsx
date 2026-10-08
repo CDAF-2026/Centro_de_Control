@@ -87,10 +87,10 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
   const texto = mayor ? textos.adultos : textos.menores;
 
   const titulos = titulosDelTexto(texto.codigo, texto.parrafos.length);
-  const iEps = texto.parrafos.findIndex((p) => p.includes("{{EPS}}"));
-  const [abiertos, setAbiertos] = useState<number[]>(() => Array.from(new Set([0, iEps].filter((i) => i >= 0))));
-  const todasAbiertas = abiertos.length === texto.parrafos.length;
-  const alternar = (i: number) => setAbiertos((a) => (a.includes(i) ? a.filter((x) => x !== i) : [...a, i]));
+  // Una sola parte abierta a la vez (Laura, 8-oct-2026): arranca la primera; abrir otra cierra la anterior,
+  // para que la persona vea por dónde va. Antes se abrían la primera y la de la EPS, con un botón de abrir todas.
+  const [abiertoIdx, setAbiertoIdx] = useState<number | null>(0);
+  const alternar = (i: number) => setAbiertoIdx((a) => (a === i ? null : i));
   const bloqueado = !!precargado?.menor;
   const resumido = bloqueado && !editando;
   const iniciales = nombreMenor.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "—";
@@ -244,7 +244,7 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
           <p className="font-heading text-muted-foreground text-[11px] font-bold uppercase tracking-wide">{texto.titulo}</p>
         </div>
         {texto.parrafos.map((p, i) => {
-          const abierto = abiertos.includes(i);
+          const abierto = abiertoIdx === i;
           return (
             <div key={i} className={cn("border-t transition-colors", abierto && "bg-primary/10 border-l-4 border-l-primary")}>
               <button type="button" aria-expanded={abierto} aria-controls={`parte-${i}`} onClick={() => alternar(i)}
@@ -261,11 +261,6 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
             </div>
           );
         })}
-        <div className="flex items-center justify-end border-t px-5 py-3.5">
-          <button type="button" onClick={() => setAbiertos(todasAbiertas ? [] : texto.parrafos.map((_, i) => i))} className="text-[#46530a] text-[13px] font-semibold hover:underline">
-            {todasAbiertas ? "Cerrar todo" : "Abrir todo"}
-          </button>
-        </div>
       </section>
 
       {/* Documento de alguien con otro nombre: al segundo intento puede confirmar (va a revisión). */}

@@ -11,10 +11,9 @@ const CARD = "bg-card rounded-2xl shadow-sm ring-1 ring-foreground/[0.06]";
 
 /** Capítulos como tarjetas; cada artículo se pliega. Misma gramática visual que el consentimiento. */
 export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { titulo: string; codigo: string; vigenteDesde: string | null; reglamento: Reglamento }) {
-  const [abiertos, setAbiertos] = useState<string[]>([]);
-  const todas = reglamento.capitulos.flatMap((c, ci) => c.articulos.map((_, ai) => `${ci}-${ai}`));
-  const todasAbiertas = abiertos.length === todas.length && todas.length > 0;
-  const alternar = (k: string) => setAbiertos((a) => (a.includes(k) ? a.filter((x) => x !== k) : [...a, k]));
+  // Un solo artículo abierto a la vez (Laura, 8-oct-2026): arranca el primero; abrir otro cierra el anterior.
+  const [abiertoKey, setAbiertoKey] = useState<string | null>("0-0");
+  const alternar = (k: string) => setAbiertoKey((a) => (a === k ? null : k));
 
   return (
     <>
@@ -34,9 +33,6 @@ export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <span className="text-muted-foreground text-xs">Versión {codigo}{vigenteDesde ? ` · vigente desde ${vigenteDesde}` : ""}</span>
           <div className="flex items-center gap-4">
-            <button type="button" onClick={() => setAbiertos(todasAbiertas ? [] : todas)} className="text-[#46530a] text-[13px] font-semibold hover:underline">
-              {todasAbiertas ? "Cerrar todo" : "Abrir todo"}
-            </button>
             <a href="/registro/reglamento/pdf" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stadium px-3 text-[13px] font-semibold text-primary">
               <Download className="size-4" /> PDF
             </a>
@@ -57,7 +53,7 @@ export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { 
             </div>
             {cap.articulos.map((art, ai) => {
               const k = `${ci}-${ai}`;
-              const abierto = abiertos.includes(k);
+              const abierto = abiertoKey === k;
               return (
                 <div key={k} className={cn("border-t transition-colors", abierto && "bg-primary/10 border-l-4 border-l-primary")}>
                   <button type="button" aria-expanded={abierto} aria-controls={`art-${k}`} onClick={() => alternar(k)}
