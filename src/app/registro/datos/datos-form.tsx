@@ -56,10 +56,39 @@ const CAMPOS: Record<ClavePaso, (campo: string) => boolean> = {
   facturacion: (c) => c.startsWith("factura") || c === "acepto_datos",
 };
 
-/** El acudiente: UNO solo en la página pública (Laura, 2-oct-2026), con su parentesco. */
+type Rol = "madre" | "padre" | "otro";
+type DatosAcudiente = { parentesco: string; nombre: string; documento: string; telefono: string; email: string };
+const ACUDIENTE_VACIO: DatosAcudiente = { parentesco: "", nombre: "", documento: "", telefono: "", email: "" };
+
+/**
+ * El acudiente: UNO solo en la página pública (Laura, 2-oct-2026), con su parentesco.
+ * Madre, Padre y Otro familiar son PERSONAS distintas: cada opción guarda sus propios datos
+ * (Laura, 16-oct-2026). Antes, al pasar de Madre a Padre quedaban el nombre y la cédula de
+ * la madre, y el padre se guardaba con la cédula de ella. La precarga del recorrido (R9)
+ * llena solo la opción de quien ya firmó; se envía la opción marcada.
+ */
 function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?: string }; errores: Record<string, string> }) {
   const n = (c: string) => `acudiente${c}`;
-  const [rol, setRol] = useState(inicial?.rol ?? "madre");
+  const rolInicial: Rol = inicial?.rol === "padre" || inicial?.rol === "otro" ? inicial.rol : "madre";
+  const [rol, setRol] = useState<Rol>(rolInicial);
+  const [datos, setDatos] = useState<Record<Rol, DatosAcudiente>>(() => {
+    const base = { madre: { ...ACUDIENTE_VACIO }, padre: { ...ACUDIENTE_VACIO }, otro: { ...ACUDIENTE_VACIO } };
+    if (inicial) {
+      base[rolInicial] = {
+        parentesco: rolInicial === "otro" ? inicial.parentesco ?? "" : "",
+        nombre: inicial.nombre ?? "",
+        documento: inicial.documento ?? "",
+        telefono: inicial.celular ?? "",
+        email: inicial.email ?? "",
+      };
+    }
+    return base;
+  });
+  const d = datos[rol];
+  const cambiar = (campo: keyof DatosAcudiente) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setDatos((prev) => ({ ...prev, [rol]: { ...prev[rol], [campo]: v } }));
+  };
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <input type="hidden" name={n("Rol")} value={rol} />
@@ -75,21 +104,21 @@ function Acudiente({ inicial, errores }: { inicial?: Partial<Firmante> & { rol?:
       {rol === "otro" && (
         <div className="md:col-span-2">
           <Campo label="Parentesco" name={n("Parentesco")}>
-            <Input id={n("Parentesco")} name={n("Parentesco")} defaultValue={inicial?.parentesco ?? ""} placeholder="Abuela, tío…" className={INPUT} />
+            <Input id={n("Parentesco")} name={n("Parentesco")} value={d.parentesco} onChange={cambiar("parentesco")} placeholder="Abuela, tío…" className={INPUT} />
           </Campo>
         </div>
       )}
       <Campo label="Nombre completo" name={n("Nombre")} error={errores[n("Nombre")]}>
-        <Input id={n("Nombre")} name={n("Nombre")} required defaultValue={inicial?.nombre ?? ""} autoComplete="name" className={INPUT} />
+        <Input id={n("Nombre")} name={n("Nombre")} required value={d.nombre} onChange={cambiar("nombre")} autoComplete="name" className={INPUT} />
       </Campo>
       <Campo label="Cédula" name={n("Documento")} error={errores[n("Documento")]}>
-        <Input id={n("Documento")} name={n("Documento")} inputMode="numeric" required defaultValue={inicial?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+        <Input id={n("Documento")} name={n("Documento")} inputMode="numeric" required value={d.documento} onChange={cambiar("documento")} className={INPUT} placeholder="Sin puntos" />
       </Campo>
       <Campo label="Celular" name={n("Telefono")} error={errores[n("Telefono")]}>
-        <Input id={n("Telefono")} name={n("Telefono")} inputMode="tel" required defaultValue={inicial?.celular ?? ""} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
+        <Input id={n("Telefono")} name={n("Telefono")} inputMode="tel" required value={d.telefono} onChange={cambiar("telefono")} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
       </Campo>
       <Campo label="Correo" name={n("Email")} error={errores[n("Email")]}>
-        <Input id={n("Email")} name={n("Email")} type="email" required defaultValue={inicial?.email ?? ""} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
+        <Input id={n("Email")} name={n("Email")} type="email" required value={d.email} onChange={cambiar("email")} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
       </Campo>
     </div>
   );
