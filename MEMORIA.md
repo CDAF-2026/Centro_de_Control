@@ -2242,6 +2242,16 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- 📋 **"Usar los datos del contacto de emergencia" en el paso de acudientes — EN PRODUCCIÓN desde el
+  16-oct-2026** (commit `b2ff7c6`; pedido de la clienta en dos audios). Es un botón, no una casilla, y aparece
+  si el paso 2 trae el nombre del contacto de emergencia. Copia nombre, celular y parentesco, y marca Madre,
+  Padre u Otro familiar con `rolDesdeParentesco` (`src/lib/registro/acudiente.ts`: mamá/mami/madre → madre,
+  papá/papi/padre → padre, lo demás → otro con ese parentesco). Cada opción guarda sus propios datos. La
+  **cédula** y el **correo** se escriben (el paso 2 de un menor no pide correo). Quedan resaltados en amarillo
+  con la nota "Solo falta la cédula y el correo", y el cursor salta a la cédula, para que nadie llegue al error
+  del navegador. **Decidido con Laura: NO pedir cédula en el contacto de emergencia** (no ahorra trabajo, se
+  la pediría a quien no firma, no hay columna para guardarla y la Ley 1581 pide no recoger datos sin
+  finalidad).
 - ✍️ **SIN CASILLAS: firmar es aceptar todo — EN PRODUCCIÓN desde el 16-oct-2026** (migraciones
   `20261016150000_consentimiento_sin_casillas` + `…160000_…_abrir`; commit `a3d9a1b`). El club no quiere
   ninguna casilla para marcar. Se quitaron "Apruebo", "Conozco y acepto el Reglamento General", la de
