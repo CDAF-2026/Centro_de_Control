@@ -24,7 +24,8 @@ export async function GET(req: Request) {
   const pdf = await generarPdfConsentimiento({
     firmaId: "00000000-0000-0000-0000-00000000demo",
     version: { codigo: version.codigo, titulo: version.titulo, texto: version.texto, texto_sha256: version.texto_sha256 },
-    menor: { nombre: "Mariana Gómez Pérez", documento: "TI 1023456789", rh: "O+", eps: "Sura" },
+    menor: { nombre: "Mariana Gómez Pérez", documento: "TI 1023456789", fechaNacimiento: "2014-03-09", rh: "O+", eps: "Sura" },
+    autoriza: { salud: true, imagen: false, informacion: true }, calidad: "madre",
     firmante: { nombre: "Ana María Pérez", documento: "43512880", parentesco: "Madre", email: a, celular: "3001234567" },
     firmaPorSiMismo: false, firmadoEl, metodo: "dibujada", ip: "127.0.0.1", userAgent: "prueba", firmaPng: PNG,
   });

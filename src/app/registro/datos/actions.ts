@@ -97,7 +97,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
       ];
 
   const payload: Json = {
-    menor: { nombres, apellidos, tipo_documento: d.tipoDocumento, documento: d.documento, fecha_nacimiento: d.fechaNacimiento, lugar_nacimiento: capitalizarNombre(d.lugarNacimiento) || null, eps: d.eps, rh: d.rh || null, deportes },
+    menor: { nombres, apellidos, tipo_documento: d.tipoDocumento, documento: d.documento, fecha_nacimiento: d.fechaNacimiento, lugar_nacimiento: capitalizarNombre(d.lugarNacimiento) || null, eps: d.eps || null, rh: d.rh || null, deportes },
     familia: { direccion: d.direccion || null, celular: contactoCel || null, email: contactoEmail.toLowerCase() || null, emergencia_nombre: capitalizarNombre(d.emergenciaNombre) || null, emergencia_celular: d.emergenciaCelular || null, emergencia_parentesco: capitalizarNombre(d.emergenciaParentesco) || null },
     acudientes,
     // La facturación siempre viaja (es obligatoria). Si la ficha ya tenía otra, el SQL no la
@@ -138,7 +138,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     firmante,
     miembro: {
       ...miembro, nombre: `${nombres} ${apellidos}`.trim(), firmado: false, mayor,
-      datos: { nombres, apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh ?? "", confirmado: confirmado || undefined },
+      datos: { nombres, apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps ?? "", rh: d.rh ?? "", confirmado: confirmado || undefined },
     },
   });
 

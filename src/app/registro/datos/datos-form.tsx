@@ -265,7 +265,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             </div>
           )}
           <Campo label="Lugar de nacimiento" name="lugarNacimiento" error={fe.lugarNacimiento}><Input id="lugarNacimiento" name="lugarNacimiento" placeholder="Ciudad" className={INPUT} /></Campo>
-          <Campo label="EPS" name="eps" error={fe.eps}><Input id="eps" name="eps" required placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} /></Campo>
+          <Campo label="EPS" name="eps" error={fe.eps}><Input id="eps" name="eps" placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} /></Campo>
           <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>
             <Select id="rh" name="rh" defaultValue="">
               <option value="">—</option>
@@ -384,7 +384,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
           <label className="bg-background flex cursor-pointer items-start gap-3 rounded-[14px] px-4 py-3.5 text-sm">
             <input type="checkbox" name="acepto_datos" required className="accent-lime mt-0.5 size-5" />
-            <span className="text-charcoal leading-relaxed">Autorizo al Centro Deportivo Alejandro Falla el tratamiento de estos datos para la gestión de las actividades deportivas, conforme a la Ley 1581 de 2012.</span>
+            <span className="text-charcoal leading-relaxed">Autorizo al Centro Deportivo Alejandro Falla el tratamiento de estos datos para las finalidades del numeral 8 del consentimiento informado, conforme a la Ley 1581 de 2012.</span>
           </label>
           {fe.acepto_datos && <p className="text-destructive text-sm">{fe.acepto_datos}</p>}
         </section>

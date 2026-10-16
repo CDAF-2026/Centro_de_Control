@@ -15,7 +15,7 @@ export default async function ReglamentoPage() {
   if (!v) return <EnPreparacion />;
   return (
     <FondoClaro>
-      <ReglamentoVista titulo={v.titulo} codigo={v.codigo} vigenteDesde={v.vigente_desde} reglamento={parsearReglamento(v.texto)} />
+      <ReglamentoVista nombre="Reglamento General" pdfHref="/registro/reglamento/pdf" titulo={v.titulo} codigo={v.codigo} vigenteDesde={v.vigente_desde} reglamento={parsearReglamento(v.texto)} />
     </FondoClaro>
   );
 }

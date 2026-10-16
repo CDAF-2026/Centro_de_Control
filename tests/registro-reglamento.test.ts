@@ -38,8 +38,8 @@ describe("parsearReglamento", () => {
     expect(r.capitulos[1].articulos[0].parrafos).toEqual(["Doce horas."]);
   });
   it("partirCapitulo saca el número y el nombre en minúsculas con inicial", () => {
-    expect(partirCapitulo("CAPÍTULO 3: ACADEMIAS DE TENIS Y PÁDEL")).toEqual({ numero: "3", nombre: "Academias de tenis y pádel" });
-    expect(partirCapitulo("CAPÍTULO 7 – DISPOSICIONES COMPLEMENTARIAS")).toEqual({ numero: "7", nombre: "Disposiciones complementarias" });
+    expect(partirCapitulo("CAPÍTULO 3: ACADEMIAS DE TENIS Y PÁDEL")).toEqual({ tipo: "Capítulo", numero: "3", nombre: "Academias de tenis y pádel" });
+    expect(partirCapitulo("CAPÍTULO 7 – DISPOSICIONES COMPLEMENTARIAS")).toEqual({ tipo: "Capítulo", numero: "7", nombre: "Disposiciones complementarias" });
     expect(partirCapitulo("CAPÍTULO 5 USO DEL PARQUE Y ZONAS COMUNES").numero).toBe("5");
   });
 });

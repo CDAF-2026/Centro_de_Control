@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { generarPdfConsentimiento, fechaHoraBogota } from "../src/lib/pdf/consentimiento-pdf";
 import { generarPdfReglamento } from "../src/lib/pdf/reglamento-pdf";
-import { parrafosDelTexto } from "../src/lib/registro/version";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 /**
  * El PDF del consentimiento (plan §4.7). Se genera de verdad con datos inventados y
@@ -14,17 +15,6 @@ import { parrafosDelTexto } from "../src/lib/registro/version";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
 const TEXTO = "Primer párrafo con tildes: niño, pádel, atención.\n\nAfiliado a la EPS {{EPS}}. Segundo párrafo.\n\n" + "Párrafo largo ".repeat(80);
-
-describe("parrafosDelTexto", () => {
-  it("parte por línea en blanco y rellena la EPS", () => {
-    const p = parrafosDelTexto(TEXTO, "Sura");
-    expect(p).toHaveLength(3);
-    expect(p[1]).toContain("EPS Sura.");
-  });
-  it("sin EPS deja la raya", () => {
-    expect(parrafosDelTexto("EPS {{EPS}}.", null)[0]).toBe("EPS ____________.");
-  });
-});
 
 describe("fechaHoraBogota", () => {
   it("formatea en hora de Colombia, sin el espacio fino de Node", () => {
@@ -56,6 +46,34 @@ describe("generarPdfConsentimiento", () => {
     // Dos páginas con un texto corto: cada una es un objeto /Type /Page.
     const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
     expect(paginas).toBe(2);
+  }, 30_000);
+});
+
+describe("generarPdfConsentimiento · documento de oct-2026", () => {
+  // El texto real, leído de la migración que lo cargó.
+  const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016100000_documentos_definitivos.sql"), "utf8");
+  const texto = sql.match(/'2026-10-v2', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+  it("genera el PDF con la ficha, los numerales, las autorizaciones y los dos reglamentos", async () => {
+    const pdf = await generarPdfConsentimiento({
+      firmaId: "00000000-0000-0000-0000-000000000002",
+      version: { codigo: "2026-10-v2", titulo: "CONSENTIMIENTO INFORMADO, FICHA PERSONAL Y AUTORIZACIÓN DE TRATAMIENTO DE DATOS", texto, texto_sha256: "b".repeat(64) },
+      reglamento: { codigo: "reglamento-2026-10-v2", texto_sha256: "c".repeat(64) },
+      academias: { codigo: "academias-2026-10", texto_sha256: "d".repeat(64) },
+      autoriza: { salud: false, imagen: true, informacion: false },
+      calidad: "madre",
+      menor: { nombre: "Niño Prueba", documento: "TI 9990000001", fechaNacimiento: "2014-03-09", rh: null, eps: null },
+      firmante: { nombre: "Mamá Prueba", documento: "9990000002", parentesco: "Madre", email: null, celular: null },
+      firmaPorSiMismo: false,
+      firmadoEl: "2026-10-16T20:12:00Z",
+      metodo: "escrita",
+      ip: "181.1.1.1",
+      userAgent: "Prueba/1.0",
+      firmaPng: PNG,
+    });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.length).toBeLessThan(250_000);
+    const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+    expect(paginas).toBeGreaterThanOrEqual(2);
   }, 30_000);
 });
 

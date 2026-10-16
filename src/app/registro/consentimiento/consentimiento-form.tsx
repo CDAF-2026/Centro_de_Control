@@ -10,10 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { edadDesde } from "@/lib/validations/cliente";
-import { resumenDelConsentimiento, titulosDelTexto } from "@/lib/registro/texto";
+import { calidadDelFirmante, partirConsentimiento, rellenar, resumenDelConsentimiento, type ValoresTexto } from "@/lib/registro/texto";
 import { TIPOS_DOCUMENTO, RH_VALORES, tipoDocumentoPorEdad } from "@/app/(app)/clientes/documento";
 
-export type TextoConsentimiento = { codigo: string; titulo: string; parrafos: string[] };
+/** Una versión del texto tal como llega de la base: el formulario la parte (entrada, numerales, autorizaciones). */
+export type TextoConsentimiento = { id: number; codigo: string; titulo: string; texto: string };
+/** El Reglamento de Academias vigente: casilla propia cuando se firma por un menor (16-oct-2026). */
+export type ReglamentoAcademias = { id: number; codigo: string };
 
 /** Un dato de la sesión del recorrido: viene de "Actualizar datos" (Fase 3) y evita volver a pedirlo. */
 export type Precargado = {
@@ -44,9 +47,12 @@ function Select({ id, name, children, ...rest }: React.ComponentProps<"select">)
   );
 }
 
-/** Un párrafo del texto con la EPS escrita resaltada donde va el marcador. */
-/** "el reglamento del CENTRO DEPORTIVO AF" del texto legal sale como enlace al reglamento (Laura, 8-oct-2026). */
-const REGLAMENTO_RE = /(reglamento del CENTRO DEPORTIVO AF)/i;
+/**
+ * La mención del reglamento en el texto legal sale como enlace al reglamento (Laura, 8-oct-2026):
+ * "el reglamento del CENTRO DEPORTIVO AF" en los textos viejos, "el Reglamento General del CENTRO
+ * DEPORTIVO AF" / "del centro" en los de oct-2026.
+ */
+const REGLAMENTO_RE = /(Reglamento General del (?:CENTRO DEPORTIVO AF|centro)|reglamento del CENTRO DEPORTIVO AF)/i;
 
 function ConEnlaceAlReglamento({ texto }: { texto: string }) {
   return (
@@ -62,17 +68,35 @@ function ConEnlaceAlReglamento({ texto }: { texto: string }) {
   );
 }
 
-function Parrafo({ texto, eps }: { texto: string; eps: string }) {
+/** Un párrafo del texto con la EPS escrita resaltada donde va el marcador (textos viejos) y los demás marcadores puestos. */
+function Parrafo({ texto, valores }: { texto: string; valores: ValoresTexto }) {
   const partes = texto.split("{{EPS}}");
   return (
     <p className="text-charcoal m-0 text-sm leading-[1.65]">
       {partes.map((p, i) => (
         <span key={i}>
-          <ConEnlaceAlReglamento texto={p} />
-          {i < partes.length - 1 && <mark className="bg-primary/50 rounded px-1 font-bold text-foreground">{eps.trim() || "____________"}</mark>}
+          <ConEnlaceAlReglamento texto={rellenar(p, valores)} />
+          {i < partes.length - 1 && <mark className="bg-primary/50 rounded px-1 font-bold text-foreground">{valores.eps?.trim() || "____________"}</mark>}
         </span>
       ))}
     </p>
+  );
+}
+
+/** SÍ / NO de una autorización del documento de oct-2026: obligatorio elegir una de las dos. */
+function SiNo({ name, valor, onCambio }: { name: string; valor: string; onCambio: (v: string) => void }) {
+  return (
+    <div role="radiogroup" className="grid shrink-0 grid-cols-2 gap-1.5">
+      {(["si", "no"] as const).map((v) => (
+        <label key={v} className={cn(
+          "flex h-10 min-w-[64px] cursor-pointer items-center justify-center rounded-[10px] border-[1.5px] text-sm font-bold transition-colors",
+          valor === v ? "border-stadium bg-stadium text-primary" : "border-input bg-card text-charcoal",
+        )}>
+          <input type="radio" name={name} value={v} required checked={valor === v} onChange={() => onCambio(v)} className="sr-only" />
+          {v === "si" ? "Sí" : "No"}
+        </label>
+      ))}
+    </div>
   );
 }
 
@@ -83,7 +107,11 @@ function Parrafo({ texto, eps }: { texto: string; eps: string }) {
  * resumen orienta y lo dice. La EPS que escriba el papá se refleja en vivo en el
  * párrafo que la nombra, para que lea exactamente lo que va a firmar.
  */
-export function ConsentimientoForm({ textos, precargado }: { textos: { menores: TextoConsentimiento; adultos: TextoConsentimiento }; precargado?: Precargado }) {
+export function ConsentimientoForm({ textos, academias, precargado }: {
+  textos: { menores: TextoConsentimiento; adultos: TextoConsentimiento };
+  academias?: ReglamentoAcademias | null;
+  precargado?: Precargado;
+}) {
   const [state, action, pending] = useActionState<ConsentimientoState, FormData>(firmarConsentimiento, {});
   const fe = state.fieldErrors ?? {};
   const [fecha, setFecha] = useState(precargado?.menor?.fechaNacimiento ?? "");
@@ -92,6 +120,9 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
   const [nombres, setNombres] = useState(precargado?.menor?.nombres ?? "");
   const [apellidos, setApellidos] = useState(precargado?.menor?.apellidos ?? "");
   const [nombreFirmante, setNombreFirmante] = useState(precargado?.firmante?.nombre ?? "");
+  const [documento, setDocumento] = useState(precargado?.menor?.documento ?? "");
+  const [docFirmante, setDocFirmante] = useState(precargado?.firmante?.documento ?? "");
+  const [autoriza, setAutoriza] = useState<Record<string, string>>({});
   const [parentesco, setParentesco] = useState(precargado?.firmante?.parentesco ?? "");
   const [editando, setEditando] = useState(false);
   const [firmaOk, setFirmaOk] = useState(false);
@@ -103,7 +134,11 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
   const mayor = edad != null && edad >= 18;
   const texto = mayor ? textos.adultos : textos.menores;
 
-  const titulos = titulosDelTexto(texto.codigo, texto.parrafos.length);
+  const partido = partirConsentimiento(texto.codigo, texto.texto);
+  // Lo que se escribe en "Yo, …, identificado(a) con …, en calidad de …" mientras la persona llena los campos.
+  const valores: ValoresTexto = mayor
+    ? { firmante: nombreMenor, documento: documento ? `${tipoDoc} ${documento}`.trim() : "", eps }
+    : { firmante: nombreFirmante, documento: docFirmante, calidad: calidadDelFirmante(parentesco), eps };
   // Una sola parte abierta a la vez (Laura, 8-oct-2026): arranca la primera; abrir otra cierra la anterior,
   // para que la persona vea por dónde va. Antes se abrían la primera y la de la EPS, con un botón de abrir todas.
   const [abiertoIdx, setAbiertoIdx] = useState<number | null>(0);
@@ -189,11 +224,11 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
             {bloqueado && <input type="hidden" name="tipoDocumento" value={tipoDoc} />}
           </Campo>
           <Campo label="Documento" name="documento" error={fe.documento}>
-            <Input id="documento" name="documento" inputMode="numeric" required readOnly={bloqueado} defaultValue={precargado?.menor?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+            <Input id="documento" name="documento" inputMode="numeric" required readOnly={bloqueado} value={documento} onChange={(e) => setDocumento(e.target.value)} className={INPUT} placeholder="Sin puntos" />
           </Campo>
         </div>
         <Campo label="EPS" name="eps" error={fe.eps}>
-          <Input id="eps" name="eps" required value={eps} onChange={(e) => setEps(e.target.value)} placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} />
+          <Input id="eps" name="eps" required={!partido.autorizaciones} value={eps} onChange={(e) => setEps(e.target.value)} placeholder="Sura, Nueva EPS, Salud Total…" className={INPUT} />
         </Campo>
         <Campo label="RH (grupo sanguíneo)" name="rh" error={fe.rh}>
           <Select id="rh" name="rh" defaultValue={precargado?.menor?.rh ?? ""}>
@@ -213,7 +248,7 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
             </Campo>
             <div className="grid grid-cols-[1fr_130px] gap-3">
               <Campo label="Cédula" name="firmanteDocumento" error={fe.firmanteDocumento}>
-                <Input id="firmanteDocumento" name="firmanteDocumento" inputMode="numeric" required={!mayor} defaultValue={precargado?.firmante?.documento ?? ""} className={INPUT} placeholder="Sin puntos" />
+                <Input id="firmanteDocumento" name="firmanteDocumento" inputMode="numeric" required={!mayor} value={docFirmante} onChange={(e) => setDocFirmante(e.target.value)} className={INPUT} placeholder="Sin puntos" />
               </Campo>
               <Campo label="Parentesco" name="firmanteParentesco" error={fe.firmanteParentesco}>
                 <Select id="firmanteParentesco" name="firmanteParentesco" value={parentesco} onChange={(e) => setParentesco(e.target.value)}>
@@ -245,7 +280,7 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">A continuación encontrarás los puntos principales del consentimiento informado del Centro Deportivo Alejandro Falla. Te recomendamos leer el documento completo antes de firmar.</p>
         <ul className="m-0 list-none space-y-3 p-0">
-          {resumenDelConsentimiento(nombreMenor, eps, mayor).map((linea, i) => (
+          {resumenDelConsentimiento(nombreMenor, eps, mayor, !!partido.autorizaciones).map((linea, i) => (
             <li key={i} className="flex items-start gap-3 text-sm leading-[1.55]">
               <Check className="mt-0.5 size-[18px] shrink-0 text-[#46530a]" strokeWidth={2.6} />
               <span>{linea}</span>
@@ -260,25 +295,55 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
           <h2 className="font-heading text-[19px] font-extrabold tracking-tight">El documento completo</h2>
           <p className="font-heading text-muted-foreground text-[11px] font-bold uppercase tracking-wide">{texto.titulo}</p>
         </div>
-        {texto.parrafos.map((p, i) => {
+        {partido.entrada.map((p, i) => (
+          <div key={`e${i}`} className="border-t px-5 py-4">
+            <Parrafo texto={p} valores={valores} />
+          </div>
+        ))}
+        {partido.partes.map((parte, i) => {
           const abierto = abiertoIdx === i;
           return (
             <div key={i} className={cn("border-t transition-colors", abierto && "bg-primary/10 border-l-4 border-l-primary")}>
               <button type="button" aria-expanded={abierto} aria-controls={`parte-${i}`} onClick={() => alternar(i)}
                 className={cn("flex w-full items-center justify-between gap-3 py-4 pr-5 text-left text-sm font-bold", abierto ? "pl-4" : "pl-5")}>
                 <span className="flex items-center gap-2.5">
-                  <span className={cn("font-heading flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold", abierto ? "bg-stadium text-primary" : "bg-muted text-muted-foreground")}>{i + 1}</span>
-                  {titulos[i]}
+                  <span className={cn("font-heading flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold", abierto ? "bg-stadium text-primary" : "bg-muted text-muted-foreground")}>{parte.numero || i + 1}</span>
+                  {parte.titulo}
                 </span>
                 {abierto ? <ChevronUp className="size-[18px] shrink-0" /> : <ChevronDown className="text-muted-foreground size-[18px] shrink-0" />}
               </button>
-              <div id={`parte-${i}`} hidden={!abierto} className="pb-5 pl-[48px] pr-5">
-                <Parrafo texto={p} eps={eps} />
+              <div id={`parte-${i}`} hidden={!abierto} className="space-y-2.5 pb-5 pl-[48px] pr-5">
+                {parte.parrafos.map((p, j) => <Parrafo key={j} texto={p} valores={valores} />)}
               </div>
             </div>
           );
         })}
       </section>
+
+      {/* Autorizaciones SÍ/NO del documento de oct-2026: van en el texto firmado y se guardan en la firma */}
+      {partido.autorizaciones && (
+        <section className={cn(CARD, "space-y-4 p-5")}>
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Autorizaciones</h2>
+          {partido.autorizaciones.intro.map((p, i) => (
+            <p key={i} className="text-charcoal m-0 text-sm leading-[1.6]">{p}</p>
+          ))}
+          <div className="divide-y">
+            {partido.autorizaciones.opciones.map((o) => (
+              <div key={o.clave} className="flex items-start justify-between gap-4 py-3.5 first:pt-1">
+                <p className="m-0 text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</p>
+                <SiNo name={`autoriza_${o.clave}`} valor={autoriza[o.clave] ?? ""} onCambio={(v) => setAutoriza((a) => ({ ...a, [o.clave]: v }))} />
+              </div>
+            ))}
+          </div>
+          {partido.autorizaciones.opciones.map((o) => fe[`autoriza_${o.clave}`] && (
+            <p key={o.clave} className="text-destructive m-0 text-sm">{fe[`autoriza_${o.clave}`]}</p>
+          ))}
+          {partido.autorizaciones.cierre.map((p, i) => (
+            <p key={i} className="text-muted-foreground m-0 text-xs leading-relaxed">{p}</p>
+          ))}
+        </section>
+      )}
+      <input type="hidden" name="versionId" value={texto.id} />
 
       {/* Documento de alguien con otro nombre: al segundo intento puede confirmar (va a revisión). */}
       {precargado?.menor?.confirmado && <input type="hidden" name="confirmoDocumento" value="on" />}
@@ -309,6 +374,20 @@ export function ConsentimientoForm({ textos, precargado }: { textos: { menores: 
         </span>
       </label>
       {fe.aceptoReglamento && <p className="text-destructive -mt-1 text-sm">{fe.aceptoReglamento}</p>}
+
+      {/* Reglamento de Academias (16-oct-2026): solo cuando se firma por un menor */}
+      {!mayor && academias && (
+        <>
+          <input type="hidden" name="academiasId" value={academias.id} />
+          <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
+            <input type="checkbox" name="aceptoAcademias" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
+            <span className="text-sm leading-relaxed">
+              Conozco y acepto el <Link href="/registro/reglamento-academias" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento de las Academias de Tenis y Pádel</Link>.
+            </span>
+          </label>
+          {fe.aceptoAcademias && <p className="text-destructive -mt-1 text-sm">{fe.aceptoAcademias}</p>}
+        </>
+      )}
 
       {/* Firma */}
       <section className={cn(CARD, "space-y-3 p-5")}>

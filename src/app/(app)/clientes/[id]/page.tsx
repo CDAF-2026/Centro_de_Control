@@ -91,7 +91,7 @@ export default async function ClienteDetallePage({
   // la firma no. Para cada miembro activo, la más reciente asignada.
   const { data: firmasRaw } = await supabase
     .from("consentimiento_firma")
-    .select("id, miembro_id, firmante_nombre, firmante_parentesco, firmado_el, pdf_path, pdf_sha256, metodo")
+    .select("id, miembro_id, firmante_nombre, firmante_parentesco, firmado_el, pdf_path, pdf_sha256, metodo, autoriza_salud, autoriza_imagen, autoriza_informacion")
     .eq("cliente_id", Number(id))
     .eq("estado", "asignada")
     .order("firmado_el", { ascending: false });
@@ -463,11 +463,21 @@ export default async function ClienteDetallePage({
                 <div className="min-w-0">
                   <p className="font-medium">{miembro.nombres} {miembro.apellidos}</p>
                   {firma ? (
+                    <>
                     <p className="text-muted-foreground text-xs">
                       Firmado el {fechaHoraCorta(firma.firmado_el)} por {firma.firmante_nombre}
                       {firma.firmante_parentesco ? ` (${firma.firmante_parentesco.toLowerCase()})` : ""} · firma {firma.metodo}
                       {firma.pdf_sha256 ? ` · huella ${firma.pdf_sha256.slice(0, 10)}…` : ""}
                     </p>
+                    {firma.autoriza_salud != null && (
+                      // Las tres autorizaciones SÍ/NO del documento de oct-2026 (null en las firmas anteriores).
+                      <p className="text-muted-foreground text-xs">
+                        Datos de salud: <strong className="text-foreground">{firma.autoriza_salud ? "Sí" : "No"}</strong>
+                        {" · "}Fotos y videos: <strong className="text-foreground">{firma.autoriza_imagen ? "Sí" : "No"}</strong>
+                        {" · "}Información del centro: <strong className="text-foreground">{firma.autoriza_informacion ? "Sí" : "No"}</strong>
+                      </p>
+                    )}
+                    </>
                   ) : (
                     <p className="text-muted-foreground text-xs">Nadie ha firmado por este deportista todavía.</p>
                   )}

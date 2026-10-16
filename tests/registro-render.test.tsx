@@ -28,10 +28,12 @@ const VERSION = {
   vigente_desde: "2026-10-01", vigente_hasta: null, creado_por: null, created_at: "",
 };
 let vigente: typeof VERSION | null = null;
+// El Reglamento de Academias (16-oct-2026): se prueba con y sin él.
+let academias: any = null;
 vi.mock("@/lib/registro/version", async (orig) => {
   const real = await orig<typeof import("../src/lib/registro/version")>();
   const REGLAMENTO = { ...VERSION, id: 3, codigo: "reglamento-2026-10", publico: "reglamento", titulo: "REGLAMENTO GENERAL DE PRUEBA", texto: "Bienvenido.\n\n# CAPÍTULO 1: PRUEBA\n\n## Artículo 1. Uno\n\nTexto del artículo uno." };
-  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente, textosAbiertos: async () => (vigente ? { menores: vigente, adultos: vigente } : null), reglamentoVigente: async () => (vigente ? REGLAMENTO : null) };
+  return { ...real, versionVigente: async () => vigente, registroAbierto: async () => vigente, textosAbiertos: async () => (vigente ? { menores: vigente, adultos: vigente } : null), reglamentoVigente: async () => (vigente ? REGLAMENTO : null), reglamentoAcademiasVigente: async () => (vigente ? academias : null) };
 });
 let sesion: any = null;
 vi.mock("@/lib/registro/sesion", () => ({
@@ -107,6 +109,49 @@ describe("registro público · puerta abierta", () => {
     expect(html).toContain('href="/registro/reglamento"');
     // La mención del reglamento dentro del texto legal sale como enlace en pestaña nueva (8-oct-2026).
     expect(html).toMatch(/<a[^>]*href="\/registro\/reglamento"[^>]*target="_blank"[^>]*>reglamento del CENTRO DEPORTIVO AF<\/a>/);
+  });
+
+  it("con el documento de oct-2026: entrada con quien firma, autorizaciones SÍ/NO y casilla de academias", async () => {
+    const { readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016100000_documentos_definitivos.sql"), "utf8");
+    const txt = sql.match(/'2026-10-v2', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+    vigente = { ...VERSION, id: 5, codigo: "2026-10-v2", texto: txt };
+    academias = { ...VERSION, id: 8, codigo: "academias-2026-10", publico: "academias", titulo: "REGLAMENTO ACADEMIAS", texto: "## 1. Puntualidad\n\nLlegar a tiempo." };
+    try {
+      const { default: Page } = await import("../src/app/registro/consentimiento/page");
+      const html = await render(Page);
+      const t = texto(html);
+      expect(t).toContain("Yo, ____________, identificado(a) con cédula ____________, en calidad de padre, madre o representante legal");
+      expect(t).toContain("Participación voluntaria");
+      expect(t).toContain("Autorizaciones");
+      for (const k of ["salud", "imagen", "informacion"]) expect(html).toContain(`name="autoriza_${k}"`);
+      expect(html).toContain('name="versionId" value="5"');
+      expect(html).toContain('name="aceptoAcademias"');
+      expect(html).toContain('name="academiasId" value="8"');
+      expect(html).toContain('href="/registro/reglamento-academias"');
+      // La EPS ya no es obligatoria con este texto.
+      expect(html).not.toMatch(/<input[^>]*id="eps"[^>]*required/);
+      expect(html).toMatch(/<a[^>]*href="\/registro\/reglamento"[^>]*target="_blank"[^>]*>Reglamento General del CENTRO DEPORTIVO AF<\/a>/);
+    } finally {
+      academias = null;
+    }
+  });
+
+  it("la página del Reglamento de Academias pinta sus puntos y ofrece el PDF", async () => {
+    vigente = VERSION;
+    academias = { ...VERSION, id: 8, codigo: "academias-2026-10", publico: "academias", titulo: "REGLAMENTO ACADEMIAS", texto: "Objetivo.\n\n## 1. Puntualidad\n\nLlegar a tiempo." };
+    try {
+      const { default: Page } = await import("../src/app/registro/reglamento-academias/page");
+      const html = await render(Page);
+      const t = texto(html);
+      expect(t).toContain("Reglamento de Academias");
+      expect(t).toContain("1. Puntualidad");
+      expect(t).not.toContain("Capítulo");
+      expect(html).toContain('href="/registro/reglamento-academias/pdf"');
+    } finally {
+      academias = null;
+    }
   });
 
   it("la página del reglamento pinta capítulos y artículos, y ofrece el PDF", async () => {

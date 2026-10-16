@@ -2242,6 +2242,42 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- ⚖️ **Documentos DEFINITIVOS revisados por el abogado del club (16-oct-2026; migración
+  `20261016100000_documentos_definitivos`)**. Fuente: `Consentimiento informado/insumos/Nuevos documentos/`
+  (consentimiento + ficha personal ÚNICO, Reglamento General nuevo, Reglamento de Academias nuevo).
+  Decisiones de Laura (16-oct): un solo documento; para adultos el mismo texto pero **en nombre propio**
+  (redactado por el agente a partir del de menores: sin "mi hijo(a)", sin "representante", sin la frase de no
+  publicar el nombre del menor); las tres **autorizaciones SÍ/NO** del documento (datos de salud, fotos y
+  videos, información del centro) van en la pantalla de firma, se guardan en la firma
+  (`consentimiento_firma.autoriza_salud/_imagen/_informacion`), salen en el PDF y en la ficha; **EPS y RH
+  pasan a ser voluntarios** en los dos formularios y, con NO en datos de salud, no se guardan en la firma y
+  se borran de la ficha del deportista (`audit_log` `registro.sin_datos_salud`, sin los valores); **un solo
+  acudiente** se mantiene (el documento pide padre y madre, Laura no lo cambió); el **Reglamento de
+  Academias** se acepta con su propia casilla SOLO al firmar por un menor (`academias_version_id`) y tiene
+  página `/registro/reglamento-academias` + PDF; el **Anexo 1** del Reglamento General ahora SÍ se muestra al
+  final de su página, solo para leer (opción 2 de Laura), sin su SÍ/NO de imagen y sin el cierre
+  "ATENTAMENTE…". El anexo trae tres cosas que el consentimiento no dice: seguro personal, daños a las
+  instalaciones y eventos fuera del club.
+  · Formato del texto nuevo (lo parte `partirConsentimiento` en `src/lib/registro/texto.ts`, con pruebas que
+    leen la MISMA migración): entrada "Yo, {{FIRMANTE}}, identificado(a) con … {{DOCUMENTO}}, en calidad de
+    {{CALIDAD}}…", numerales "N. Título. texto" (párrafos del mismo numeral con salto simple) y el bloque
+    `AUTORIZACIONES` con `[salud]`/`[imagen]`/`[informacion]`. Los textos viejos siguen funcionando igual.
+  · Versiones: `2026-10-v2` (menores), `2026-10-adultos-v3`, `reglamento-2026-10-v2`, `academias-2026-10`.
+    **Nacieron EN PREPARACIÓN** (`vigente_desde` null): producción sigue con las viejas hasta el "cambio".
+  · `consentimiento_firmar` acepta los ids de versión que mostró la pantalla (`version_id`,
+    `reglamento_version_id`, `academias_version_id`; válidos si están vigentes o en preparación, nunca
+    cerrados) y las autorizaciones. Sin ids se comporta como antes (verificado con reversión: el código viejo
+    de producción firma igual). La acción rechaza si la versión cambió entre leer y firmar.
+  · **Revisión local**: `REGISTRO_VERSIONES_PREVIA=1` en el `.env` (solo fuera de producción) hace que cada
+    público muestre su versión en preparación. Ojo: firmar en local escribe en la base REAL.
+  · ✅ **EN PRODUCCIÓN desde el 16-oct-2026** (Laura aprobó tras 2 pruebas en local): push del código y,
+    con el despliegue ya listo, `20261016110000_documentos_definitivos_abrir` cerró las versiones viejas
+    (`vigente_hasta` = 15-oct; siguen valiendo para sus firmas) y abrió las 4 nuevas. Las 2 fichas de prueba
+    (690 Roberto Turizo, 691 Laura Salazar) se borraron con firmas, documentos, solicitudes, cambios, la nota
+    automática y los archivos del bucket (`audit_log` `cliente.borrar_prueba`). `REGISTRO_VERSIONES_PREVIA`
+    quedó fuera del `.env`.
+  · ⚠️ La firma de la ficha del adulto dice "identificado(a) con CC 123…" (tipo + número), la del menor
+    "con cédula 123…" (el acudiente siempre firma con cédula).
 - 💳 **Facturación: el papá SIEMPRE la escribe; no se le ofrece "no cambiar"** (Laura, 2-oct-2026,
   zanjado). Propuse dos veces una opción para no tocar la facturación existente (el papá no ve lo que el
   club tiene) y la rechazó las dos: la regla es la que ya hacía el SQL desde la Fase 3 — sin facturación

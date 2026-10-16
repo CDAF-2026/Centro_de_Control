@@ -30,10 +30,14 @@ export function parsearReglamento(texto: string): Reglamento {
   return out;
 }
 
-/** "CAPÍTULO 3: ACADEMIAS DE TENIS Y PÁDEL" → { numero: "3", nombre: "Academias de tenis y pádel" }. */
-export function partirCapitulo(titulo: string): { numero: string; nombre: string } {
-  const m = titulo.match(/^CAP[ÍI]TULO\s+(\d+)\s*[:.–-]?\s*(.*)$/i);
-  if (!m) return { numero: "", nombre: titulo };
-  const nombre = m[2].trim().toLocaleLowerCase("es").replace(/^\p{L}/u, (c) => c.toLocaleUpperCase("es"));
-  return { numero: m[1], nombre };
+/**
+ * "CAPÍTULO 3: ACADEMIAS DE TENIS Y PÁDEL" → { tipo: "Capítulo", numero: "3", nombre: "Academias de tenis y pádel" }.
+ * "ANEXO 1 – DECLARACIÓN DE…" → { tipo: "Anexo", numero: "1", … } (Reglamento General de oct-2026).
+ * Un título vacío (el Reglamento de Academias no tiene capítulos) → todo vacío.
+ */
+export function partirCapitulo(titulo: string): { tipo: "Capítulo" | "Anexo" | ""; numero: string; nombre: string } {
+  const m = titulo.match(/^(CAP[ÍI]TULO|ANEXO)\s+(\d+)\s*[:.–-]?\s*(.*)$/i);
+  if (!m) return { tipo: "", numero: "", nombre: titulo };
+  const nombre = m[3].trim().toLocaleLowerCase("es").replace(/^\p{L}/u, (c) => c.toLocaleUpperCase("es"));
+  return { tipo: /^anexo/i.test(m[1]) ? "Anexo" : "Capítulo", numero: m[2], nombre };
 }

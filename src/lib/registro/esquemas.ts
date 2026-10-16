@@ -27,7 +27,9 @@ export const consentimientoSchema = z.object({
   tipoDocumento: z.enum(["RC", "TI", "CC", "CE", "PP", "PPT"]),
   documento: soloDigitos(20),
   fechaNacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
-  eps: texto(80).min(2, "Escribe la EPS"),
+  // La EPS y el RH son de entrega voluntaria desde el documento de oct-2026 (numeral 8). Con un texto
+  // viejo (sin autorizaciones) la acción la sigue exigiendo.
+  eps: texto(80).optional(),
   rh: z.enum(["", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]).optional(),
 
   // Quien firma (vacío cuando firma por sí mismo; el servidor lo completa)
@@ -43,6 +45,15 @@ export const consentimientoSchema = z.object({
   acepto: z.literal("on", { message: "Debes aprobar el consentimiento" }),
   // Reglamento General del club, a un toque desde la casilla (opción A, 8-oct-2026).
   aceptoReglamento: z.literal("on", { message: "Debes aceptar el reglamento del club" }),
+  // La versión que la pantalla mostró (16-oct-2026): se firma esa y no otra.
+  versionId: z.coerce.number().int().positive().optional(),
+  // Reglamento de Academias: casilla propia cuando se firma por un menor (la acción la exige).
+  academiasId: z.coerce.number().int().positive().optional(),
+  aceptoAcademias: z.literal("on").optional(),
+  // Las tres autorizaciones SÍ/NO del documento de oct-2026 (la acción las exige si el texto las trae).
+  autoriza_salud: z.enum(["si", "no"]).optional(),
+  autoriza_imagen: z.enum(["si", "no"]).optional(),
+  autoriza_informacion: z.enum(["si", "no"]).optional(),
   metodo: z.enum(["dibujada", "escrita"]),
   firmaPng: firmaPngSchema,
 });
@@ -83,7 +94,7 @@ export const datosSchema = z.object({
   documento: soloDigitos(20),
   fechaNacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
   lugarNacimiento: texto(80).optional(),
-  eps: texto(80).min(2, "Escribe la EPS"),
+  eps: texto(80).optional(), // voluntaria (consentimiento de oct-2026, numeral 8)
   rh: z.enum(["", "O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"]).optional(),
 
   // Familia

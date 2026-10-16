@@ -3,7 +3,7 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 import React from "react";
 import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { parrafosDelTexto } from "@/lib/registro/version";
+import { partirConsentimiento, rellenar, type ValoresTexto } from "@/lib/registro/texto";
 
 /**
  * El PDF del consentimiento firmado (plan §4.7).
@@ -24,7 +24,13 @@ export type DatosPdf = {
   version: { codigo: string; titulo: string; texto: string; texto_sha256: string };
   /** Reglamento General aceptado con la firma (opción A, 8-oct-2026); null en firmas viejas. */
   reglamento?: { codigo: string; texto_sha256: string } | null;
-  menor: { nombre: string; documento: string | null; rh: string | null; eps: string | null };
+  /** Reglamento de Academias aceptado (firmas por menores, desde el 16-oct-2026). */
+  academias?: { codigo: string; texto_sha256: string } | null;
+  /** SÍ/NO del documento de oct-2026; null con los textos viejos. */
+  autoriza?: { salud: boolean; imagen: boolean; informacion: boolean } | null;
+  /** "padre" / "madre" / "representante legal" para el "en calidad de" del texto nuevo. */
+  calidad?: string | null;
+  menor: { nombre: string; documento: string | null; fechaNacimiento?: string | null; rh: string | null; eps: string | null };
   firmante: { nombre: string; documento: string; parentesco: string | null; email: string | null; celular: string | null };
   firmaPorSiMismo: boolean;
   firmadoEl: string; // ISO (hora del servidor)
@@ -50,6 +56,10 @@ const s = StyleSheet.create({
   firmaNota: { fontSize: 7.5, color: "#5c6b73", flex: 1 },
   pie: { position: "absolute", bottom: 24, left: 44, right: 44, fontSize: 6.8, color: "#8a9399", textAlign: "center" },
   h2: { fontSize: 12, fontFamily: "Helvetica-Bold", marginBottom: 10 },
+  parte: { fontSize: 8, fontFamily: "Helvetica-Bold", marginTop: 6, marginBottom: 4, letterSpacing: 0.4 },
+  b: { fontFamily: "Helvetica-Bold" },
+  op: { flexDirection: "row", marginBottom: 4, gap: 6 },
+  marca: { width: 30, fontFamily: "Helvetica-Bold", textAlign: "center", borderWidth: 0.8, borderColor: "#1a1c1e", borderRadius: 2, paddingVertical: 1 },
   ev: { flexDirection: "row", marginBottom: 6, borderBottomWidth: 0.5, borderBottomColor: "#e2e5e4", paddingBottom: 4 },
   evk: { width: 170, color: "#5c6b73" },
   evv: { flex: 1 },
@@ -63,9 +73,21 @@ export function fechaHoraBogota(iso: string): string {
   return f.format(new Date(iso)).replace(/ /g, " ");
 }
 
+/** "2014-03-09" → "9 de marzo de 2014". */
+function fechaLarga(iso: string): string {
+  const [y, m, dd] = iso.split("-").map(Number);
+  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  return `${dd} de ${meses[m - 1]} de ${y}`;
+}
+
 function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
-  const parrafos = parrafosDelTexto(d.version.texto, d.menor.eps);
+  const partido = partirConsentimiento(d.version.codigo, d.version.texto);
+  const nuevo = !!partido.autorizaciones;
+  const valores: ValoresTexto = d.firmaPorSiMismo
+    ? { firmante: d.firmante.nombre, documento: d.menor.documento ?? "", eps: d.menor.eps ?? "" }
+    : { firmante: d.firmante.nombre, documento: d.firmante.documento, calidad: d.calidad ?? "", eps: d.menor.eps ?? "" };
   const cuando = fechaHoraBogota(d.firmadoEl);
+  const respuesta: Record<string, boolean | undefined> = { salud: d.autoriza?.salud, imagen: d.autoriza?.imagen, informacion: d.autoriza?.informacion };
   return (
     <Document title={`Consentimiento informado · ${d.menor.nombre}`} author="Centro Deportivo Alejandro Falla" language="es">
       <Page size="LETTER" style={s.page}>
@@ -77,15 +99,59 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
           {logo && <Image src={logo} style={s.logo} />}
         </View>
         <Text style={s.titulo}>{d.version.titulo}</Text>
-        {parrafos.map((p, i) => (
-          <Text key={i} style={s.p}>{p}</Text>
-        ))}
 
-        <View style={s.datos}>
-          <View style={s.fila}><Text style={s.k}>{d.firmaPorSiMismo ? "Nombre" : "Nombre del menor"}</Text><Text style={s.v}>{d.menor.nombre}</Text></View>
-          <View style={s.fila}><Text style={s.k}>Documento de identidad</Text><Text style={s.v}>{d.menor.documento ?? "—"}</Text></View>
-          <View style={s.fila}><Text style={s.k}>RH</Text><Text style={s.v}>{d.menor.rh ?? "—"}</Text></View>
-          <View style={s.fila}><Text style={s.k}>EPS</Text><Text style={s.v}>{d.menor.eps ?? "—"}</Text></View>
+        {nuevo && (
+          <>
+            <Text style={s.parte}>PARTE 1. FICHA PERSONAL</Text>
+            <View style={{ marginBottom: 6 }}>
+              <View style={s.fila}><Text style={s.k}>{d.firmaPorSiMismo ? "Nombre" : "Deportista"}</Text><Text style={s.v}>{d.menor.nombre}</Text></View>
+              <View style={s.fila}><Text style={s.k}>Documento de identidad</Text><Text style={s.v}>{d.menor.documento ?? "—"}</Text></View>
+              {d.menor.fechaNacimiento && (
+                <View style={s.fila}><Text style={s.k}>Fecha de nacimiento</Text><Text style={s.v}>{fechaLarga(d.menor.fechaNacimiento)}</Text></View>
+              )}
+              <View style={s.fila}><Text style={s.k}>EPS</Text><Text style={s.v}>{d.menor.eps ?? "—"}</Text></View>
+              <View style={s.fila}><Text style={s.k}>RH</Text><Text style={s.v}>{d.menor.rh ?? "—"}</Text></View>
+              <Text style={{ fontSize: 7, color: "#5c6b73", marginTop: 2 }}>La ficha completa (contacto, padres y facturación) está en la plataforma del club.</Text>
+            </View>
+            <Text style={s.parte}>PARTE 2. CONSENTIMIENTO INFORMADO</Text>
+          </>
+        )}
+        {partido.entrada.map((p, i) => (
+          <Text key={`e${i}`} style={s.p}>{rellenar(p, valores)}</Text>
+        ))}
+        {partido.partes.map((parte, i) => (
+          <View key={i}>
+            {parte.parrafos.map((p, j) => (
+              <Text key={j} style={s.p}>
+                {j === 0 && parte.numero ? <Text style={s.b}>{parte.numero}. {parte.titulo}. </Text> : null}
+                {rellenar(p, valores)}
+              </Text>
+            ))}
+          </View>
+        ))}
+        {partido.autorizaciones && (
+          <View wrap={false}>
+            <Text style={s.parte}>AUTORIZACIONES</Text>
+            {partido.autorizaciones.intro.map((p, i) => <Text key={i} style={s.p}>{p}</Text>)}
+            {partido.autorizaciones.opciones.map((o) => (
+              <View key={o.clave} style={s.op}>
+                <Text style={s.marca}>{respuesta[o.clave] === undefined ? "—" : respuesta[o.clave] ? "SÍ" : "NO"}</Text>
+                <Text style={{ flex: 1, textAlign: "justify" }}><Text style={s.b}>{o.titulo}. </Text>{o.texto}</Text>
+              </View>
+            ))}
+            {partido.autorizaciones.cierre.map((p, i) => <Text key={i} style={s.p}>{p}</Text>)}
+          </View>
+        )}
+
+        <View style={s.datos} wrap={false}>
+          {!nuevo && (
+            <>
+              <View style={s.fila}><Text style={s.k}>{d.firmaPorSiMismo ? "Nombre" : "Nombre del menor"}</Text><Text style={s.v}>{d.menor.nombre}</Text></View>
+              <View style={s.fila}><Text style={s.k}>Documento de identidad</Text><Text style={s.v}>{d.menor.documento ?? "—"}</Text></View>
+              <View style={s.fila}><Text style={s.k}>RH</Text><Text style={s.v}>{d.menor.rh ?? "—"}</Text></View>
+              <View style={s.fila}><Text style={s.k}>EPS</Text><Text style={s.v}>{d.menor.eps ?? "—"}</Text></View>
+            </>
+          )}
           {!d.firmaPorSiMismo && (
             <>
               <View style={s.fila}><Text style={s.k}>Nombre del representante legal</Text><Text style={s.v}>{d.firmante.nombre}</Text></View>
@@ -101,6 +167,7 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
               Firma {d.metodo === "escrita" ? "escrita" : "manuscrita"} de {d.firmante.nombre}.{"\n"}
               Firmado electrónicamente el {cuando} (hora de Colombia).
               {d.reglamento ? `\nCon esta firma acepta además el Reglamento General del club (versión ${d.reglamento.codigo}).` : ""}
+              {d.academias ? `\nY el Reglamento de las Academias de Tenis y Pádel (versión ${d.academias.codigo}).` : ""}
             </Text>
           </View>
         </View>
@@ -127,6 +194,12 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
           ["Huella SHA-256 del texto", d.version.texto_sha256],
           ...(d.reglamento
             ? [["Reglamento General aceptado", `${d.reglamento.codigo} · alejandrofallacd.com/registro/reglamento`], ["Huella SHA-256 del reglamento", d.reglamento.texto_sha256]]
+            : []),
+          ...(d.academias
+            ? [["Reglamento de Academias aceptado", `${d.academias.codigo} · alejandrofallacd.com/registro/reglamento-academias`], ["Huella SHA-256 del reglamento de academias", d.academias.texto_sha256]]
+            : []),
+          ...(d.autoriza
+            ? [["Autorizaciones", `Datos de salud: ${d.autoriza.salud ? "SÍ" : "NO"} · Fotos y videos: ${d.autoriza.imagen ? "SÍ" : "NO"} · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
             : []),
           ["Integridad del archivo", "La huella SHA-256 de este PDF está registrada en la plataforma del club y se muestra en la ficha del deportista."],
         ].map(([k, v]) => (

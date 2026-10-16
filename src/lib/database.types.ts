@@ -707,6 +707,8 @@ export type Database = {
           sesion_id: string | null;
           version_id: number;
           reglamento_version_id: number | null;
+          /** Reglamento de Academias aceptado (solo firmas por menores, desde el documento de oct-2026). */
+          academias_version_id: number | null;
           cliente_id: number | null;
           miembro_id: number | null;
           estado: FirmaEstado;
@@ -731,6 +733,10 @@ export type Database = {
           anulada_por: string | null;
           anulada_el: string | null;
           motivo_anulacion: string | null;
+          /** SÍ/NO del documento de oct-2026 (null en firmas anteriores). */
+          autoriza_salud: boolean | null;
+          autoriza_imagen: boolean | null;
+          autoriza_informacion: boolean | null;
           created_at: string;
         };
         // Se escribe solo por RPC (consentimiento_firmar / _adjuntar / _anular).

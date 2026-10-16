@@ -9,8 +9,18 @@ import { partirCapitulo, type Reglamento } from "@/lib/registro/reglamento";
 
 const CARD = "bg-card rounded-2xl shadow-sm ring-1 ring-foreground/[0.06]";
 
-/** Capítulos como tarjetas; cada artículo se pliega. Misma gramática visual que el consentimiento. */
-export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { titulo: string; codigo: string; vigenteDesde: string | null; reglamento: Reglamento }) {
+/**
+ * Capítulos como tarjetas; cada artículo se pliega. Misma gramática visual que el consentimiento.
+ * La usan el Reglamento General (`/registro/reglamento`) y el de Academias (`/registro/reglamento-academias`).
+ */
+export function ReglamentoVista({ nombre, pdfHref, titulo, codigo, vigenteDesde, reglamento }: {
+  nombre: string;
+  pdfHref: string;
+  titulo: string;
+  codigo: string;
+  vigenteDesde: string | null;
+  reglamento: Reglamento;
+}) {
   // Un solo artículo abierto a la vez (Laura, 8-oct-2026): arranca el primero; abrir otro cierra el anterior.
   const [abiertoKey, setAbiertoKey] = useState<string | null>("0-0");
   const alternar = (k: string) => setAbiertoKey((a) => (a === k ? null : k));
@@ -24,7 +34,7 @@ export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { 
           </Link>
           <div className="min-w-0">
             <p className="cdaf-eyebrow text-[11px] text-[#46530a]">Centro Deportivo Alejandro Falla</p>
-            <h1 className="font-heading text-[19px] font-extrabold leading-tight tracking-tight">Reglamento General</h1>
+            <h1 className="font-heading text-[19px] font-extrabold leading-tight tracking-tight">{nombre}</h1>
           </div>
         </div>
         {reglamento.preambulo.map((p, i) => (
@@ -33,7 +43,7 @@ export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <span className="text-muted-foreground text-xs">Versión {codigo}{vigenteDesde ? ` · vigente desde ${vigenteDesde}` : ""}</span>
           <div className="flex items-center gap-4">
-            <a href="/registro/reglamento/pdf" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stadium px-3 text-[13px] font-semibold text-primary">
+            <a href={pdfHref} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-stadium px-3 text-[13px] font-semibold text-primary">
               <Download className="size-4" /> PDF
             </a>
           </div>
@@ -41,16 +51,18 @@ export function ReglamentoVista({ titulo, codigo, vigenteDesde, reglamento }: { 
       </section>
 
       {reglamento.capitulos.map((cap, ci) => {
-        const { numero, nombre } = partirCapitulo(cap.titulo);
+        const cab = partirCapitulo(cap.titulo);
         return (
           <section key={ci} className={cn(CARD, "overflow-hidden")}>
-            <div className="space-y-2 px-5 pb-4 pt-5">
-              <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{numero ? `Capítulo ${numero}` : "Capítulo"}</p>
-              <h2 className="font-heading text-[17px] font-extrabold leading-tight tracking-tight">{nombre}</h2>
-              {cap.intro.map((p, i) => (
-                <p key={i} className="text-muted-foreground text-sm leading-relaxed">{p}</p>
-              ))}
-            </div>
+            {(cap.titulo || cap.intro.length > 0) && (
+              <div className="space-y-2 px-5 pb-4 pt-5">
+                {cab.tipo && <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{`${cab.tipo} ${cab.numero}`}</p>}
+                {cab.nombre && <h2 className="font-heading text-[17px] font-extrabold leading-tight tracking-tight">{cab.nombre}</h2>}
+                {cap.intro.map((p, i) => (
+                  <p key={i} className="text-muted-foreground text-sm leading-relaxed">{p}</p>
+                ))}
+              </div>
+            )}
             {cap.articulos.map((art, ai) => {
               const k = `${ci}-${ai}`;
               const abierto = abiertoKey === k;

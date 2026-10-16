@@ -6,7 +6,8 @@ import { consentimientoSchema, erroresDeCampo } from "@/lib/registro/esquemas";
 import { buscarMiembro, soloDigitos } from "@/lib/registro/match";
 import { hashIp, ipDelVisitante, navegadorDelVisitante, sha256 } from "@/lib/registro/evidencia";
 import { anotarEnSesion, crearSesion, leerSesion } from "@/lib/registro/sesion";
-import { registroAbierto, reglamentoVigente } from "@/lib/registro/version";
+import { registroAbierto, reglamentoAcademiasVigente, reglamentoVigente } from "@/lib/registro/version";
+import { calidadDelFirmante, CLAVES_AUTORIZACION, partirConsentimiento } from "@/lib/registro/texto";
 import { generarPdfConsentimiento, fechaHoraBogota } from "@/lib/pdf/consentimiento-pdf";
 import { sendEmail } from "@/lib/email/resend";
 import { consentimientoFirmadoEmail } from "@/lib/email/consentimiento-firmado";
@@ -83,6 +84,38 @@ export async function firmarConsentimiento(
   const publico = mayor ? "adultos" : "menores";
   const version = (await registroAbierto(publico)) ?? (mayor ? await registroAbierto("menores") : null);
   if (!version) return { error: "El consentimiento no está disponible en este momento." };
+  // Se firma el texto que la pantalla mostró: si entre tanto se abrió otra versión, se pide volver a leer.
+  const CAMBIO = "El texto del consentimiento se actualizó mientras lo leías. Recarga la página y vuelve a leerlo antes de firmar.";
+  if (d.versionId && d.versionId !== version.id) return { error: CAMBIO };
+
+  // Documento de oct-2026: tres autorizaciones SÍ/NO obligatorias, y la EPS pasa a ser voluntaria.
+  const partido = partirConsentimiento(version.codigo, version.texto);
+  const conAutorizaciones = !!partido.autorizaciones;
+  if (conAutorizaciones) {
+    const faltan = CLAVES_AUTORIZACION.filter((k) => !d[`autoriza_${k}`]);
+    if (faltan.length) {
+      return { error: "Marca Sí o No en cada autorización.", fieldErrors: Object.fromEntries(faltan.map((k) => [`autoriza_${k}`, "Elige Sí o No"])) };
+    }
+  } else if (!d.eps || d.eps.length < 2) {
+    return { error: "Revisa los campos marcados.", fieldErrors: { eps: "Escribe la EPS" } };
+  }
+  const autoriza = conAutorizaciones
+    ? { salud: d.autoriza_salud === "si", imagen: d.autoriza_imagen === "si", informacion: d.autoriza_informacion === "si" }
+    : null;
+  // Sin autorización de datos de salud, la EPS y el RH no se guardan (numeral 8).
+  const sinSalud = autoriza ? !autoriza.salud : false;
+  const eps = sinSalud ? null : d.eps || null;
+  const rh = sinSalud ? null : d.rh || null;
+
+  // Reglamento de Academias (16-oct-2026): quien firma por un menor lo acepta con su propia casilla.
+  const academias = mayor ? null : await reglamentoAcademiasVigente();
+  if (academias) {
+    if (d.academiasId && d.academiasId !== academias.id) return { error: CAMBIO };
+    if (d.aceptoAcademias !== "on") {
+      return { error: "Revisa los campos marcados.", fieldErrors: { aceptoAcademias: "Debes aceptar el reglamento de las academias" } };
+    }
+  }
+  const reglamento = await reglamentoVigente();
   const nombreMenor = `${capitalizarNombre(d.nombres)} ${capitalizarNombre(d.apellidos)}`.trim();
   const firmante = mayor
     ? { nombre: nombreMenor, documento: d.documento, parentesco: null as string | null, celular: d.firmanteCelular || null, email: d.firmanteEmail || null }
@@ -140,8 +173,9 @@ export async function firmarConsentimiento(
 
   // La solicitud, tal cual llegó (sin la imagen: pesa y ya va al bucket).
   const payload: Json = {
-    menor: { nombres: d.nombres, apellidos: d.apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps: d.eps, rh: d.rh || null },
+    menor: { nombres: d.nombres, apellidos: d.apellidos, tipoDocumento: d.tipoDocumento, documento: d.documento, fechaNacimiento: d.fechaNacimiento, eps, rh },
     firmante,
+    autoriza,
     busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : { tipo: busqueda.tipo, candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
   };
   const { data: sol, error: solErr } = await admin
@@ -168,8 +202,10 @@ export async function firmarConsentimiento(
       miembro_id: busqueda.tipo === "unico" ? busqueda.miembro.miembro_id : null,
       firmante_nombre: firmante.nombre, firmante_documento: firmante.documento,
       firmante_parentesco: firmante.parentesco, firmante_celular: firmante.celular, firmante_email: firmante.email,
-      menor_nombre: nombreMenor, menor_documento: d.documento, menor_rh: d.rh || null, eps: d.eps,
+      menor_nombre: nombreMenor, menor_documento: d.documento, menor_rh: rh, eps,
       metodo: d.metodo, ip, user_agent: ua, publico: version.publico,
+      version_id: version.id, reglamento_version_id: reglamento?.id ?? null, academias_version_id: academias?.id ?? null,
+      autoriza_salud: autoriza?.salud ?? null, autoriza_imagen: autoriza?.imagen ?? null, autoriza_informacion: autoriza?.informacion ?? null,
     },
   });
   if (firmaErr || !firmaNueva) {
@@ -188,14 +224,16 @@ export async function firmarConsentimiento(
     return { error: GENERICO };
   }
 
-  const reglamento = await reglamentoVigente();
   let pdf: Buffer;
   try {
     pdf = await generarPdfConsentimiento({
       reglamento: reglamento ? { codigo: reglamento.codigo, texto_sha256: reglamento.texto_sha256 } : null,
+      academias: academias ? { codigo: academias.codigo, texto_sha256: academias.texto_sha256 } : null,
+      autoriza,
+      calidad: mayor ? null : calidadDelFirmante(firmante.parentesco),
       firmaId,
       version: { codigo: version.codigo, titulo: version.titulo, texto: version.texto, texto_sha256: version.texto_sha256 },
-      menor: { nombre: nombreMenor, documento: `${d.tipoDocumento} ${d.documento}`, rh: d.rh || null, eps: d.eps },
+      menor: { nombre: nombreMenor, documento: `${d.tipoDocumento} ${d.documento}`, fechaNacimiento: d.fechaNacimiento, rh, eps },
       firmante: { nombre: firmante.nombre, documento: firmante.documento, parentesco: firmante.parentesco, email: firmante.email, celular: firmante.celular },
       firmaPorSiMismo: mayor,
       firmadoEl: firma?.firmado_el ?? new Date().toISOString(),
@@ -224,9 +262,25 @@ export async function firmarConsentimiento(
   // en la ficha: se registra y se sigue. Sin correo escrito, no se envía nada.
   if (firmante.email) {
     const firmadoEl = firma?.firmado_el ?? new Date().toISOString();
-    const correo = consentimientoFirmadoEmail({ firmante: firmante.nombre, menor: nombreMenor, fechaTexto: fechaHoraBogota(firmadoEl), firmaPorSiMismo: mayor });
+    const correo = consentimientoFirmadoEmail({ firmante: firmante.nombre, menor: nombreMenor, fechaTexto: fechaHoraBogota(firmadoEl), firmaPorSiMismo: mayor, academias: !!academias });
     const envio = await sendEmail({ to: firmante.email, subject: correo.subject, html: correo.html, attachments: [{ filename: correo.filename, content: pdf }] });
     if (!envio.ok) console.error("[registro] correo:", firmaId, envio.error);
+  }
+
+  // Sin autorización de datos de salud, tampoco quedan en la ficha (numeral 8: puede revocarla y pedir que
+  // se borren). El titular se escribe en `clientes` y el trigger de 0066 lo copia a su miembro.
+  if (sinSalud && busqueda.tipo === "unico") {
+    const m = busqueda.miembro;
+    const { error: saludErr } = m.es_titular
+      ? await admin.from("clientes").update({ eps: null, rh: null }).eq("id", m.cliente_id)
+      : await admin.from("cliente_miembros").update({ eps: null, rh: null }).eq("id", m.miembro_id);
+    if (saludErr) console.error("[registro] quitar datos de salud:", firmaId, saludErr.message);
+    else {
+      await logAuditSistema({
+        action: "registro.sin_datos_salud", entity: "cliente_miembros", entityId: String(m.miembro_id),
+        after: { firma: firmaId, motivo: "No autorizó el tratamiento de la EPS y el RH" },
+      });
+    }
   }
 
   if (busqueda.tipo === "documento_ajeno") {
