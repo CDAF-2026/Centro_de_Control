@@ -2242,6 +2242,19 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- 📸 **Fotos OBLIGATORIAS con un solo chulito — EN PRODUCCIÓN desde el 16-oct-2026** (migraciones
+  `20261016130000_autorizacion_imagen_obligatoria` + `…140000_…_abrir`; commit `2f4d1b8`). El club decidió
+  que el uso de fotos y videos sea condición para participar (en clase se toman fotos de grupo) y el abogado
+  aprobó la propuesta `Consentimiento informado/para-abogado-16-oct/Propuesta ajuste autorización de
+  imagen.docx`. Versiones vigentes: `2026-10-v3` (id 9), `2026-10-adultos-v4` (id 10),
+  `reglamento-2026-10-v3` (id 11, solo cambia el 2.º párrafo del art. 22); academias sigue en
+  `academias-2026-10`. Las v2/adultos-v3/reglamento-v2 quedaron con `vigente_hasta = 16-oct` (se abrieron y
+  cerraron el mismo día). Por eso `consentimiento_version_vigente` ahora desempata: primero la que sigue
+  abierta, luego la más reciente. En el texto, el bloque se llama **"AUTORIZACIÓN"** (singular):
+  `partirConsentimiento` devuelve `autorizaciones.unica = true`, la pantalla quita los SÍ/NO, la autorización
+  va con el chulito "Apruebo", y solo `[informacion]` queda como casilla opcional. En la firma:
+  `autoriza_imagen = true` siempre, `autoriza_salud` = escribió la EPS o el RH (si no los escribe, se borran de
+  la ficha con el motivo "No entregó la EPS ni el RH") y `autoriza_informacion` = la casilla.
 - ⚖️ **Documentos DEFINITIVOS revisados por el abogado del club (16-oct-2026; migración
   `20261016100000_documentos_definitivos`)**. Fuente: `Consentimiento informado/insumos/Nuevos documentos/`
   (consentimiento + ficha personal ÚNICO, Reglamento General nuevo, Reglamento de Academias nuevo).
@@ -2387,16 +2400,6 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     clase": **Melissa Hurtado** (miembro 604, una de las 15 niñas demo del 30-sep) está matriculada en
     Recreativa Tenis (inscripción 235) **sin ningún día**. Es un dato, no código: hay que ponerla en su
     clase o retirarla desde `/academias`; con eso la prueba vuelve a verde.
-21. **Autorización de fotos OBLIGATORIA: esperando al abogado** (16-oct-2026). El club decidió que las fotos
-    sean condición para participar y que el papá acepte todo con UN solo chulito, como en la primera versión.
-    Se redactó la propuesta para el abogado: `Consentimiento informado/para-abogado-16-oct/Propuesta ajuste
-    autorización de imagen.docx`. Cambia el numeral 8 (la EPS y el RH siguen siendo voluntarios: la ley no deja
-    exigirlos; si se escriben, quedan autorizados con la firma), el numeral 9 (las fotos pasan a ser condición;
-    si alguien revoca, no se publica material individual), el bloque AUTORIZACIONES (sin SÍ/NO: una casilla
-    obligatoria y otra opcional para "Información del centro") y el 2.º párrafo del art. 22 del Reglamento
-    General. **No construir hasta que el abogado apruebe el texto.** Cuando llegue: versiones nuevas en
-    `consentimiento_version` (menores, adultos y reglamento), pantalla con una casilla obligatoria más una
-    opcional, `autoriza_imagen` = true siempre, revisión en local y luego producción.
 20. **El reporte de horas se usa para pagar DESDE OCTUBRE de 2026** (Laura, 1-oct-2026): el club apenas se
     está adaptando a marcar y desde octubre lo usará "más juiciosamente". **Septiembre NO se paga con el
     reporte**, así que sus turnos con la salida en otro día (Juan Fernando 1→21-sep ≈ 480 h; Camila 1 y
