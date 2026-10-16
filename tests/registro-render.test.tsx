@@ -138,6 +138,26 @@ describe("registro público · puerta abierta", () => {
     }
   });
 
+  it("con fotos obligatorias (v3): un solo chulito y solo la casilla opcional de información", async () => {
+    const { readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016130000_autorizacion_imagen_obligatoria.sql"), "utf8");
+    const txt = sql.match(/'2026-10-v3', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+    vigente = { ...VERSION, id: 9, codigo: "2026-10-v3", texto: txt };
+    const { default: Page } = await import("../src/app/registro/consentimiento/page");
+    const html = await render(Page);
+    const t = texto(html);
+    expect(t).toContain("Autorización");
+    expect(t).toContain("incluida la autorización de sus datos y del uso de fotos y videos");
+    expect(html).not.toContain('name="autoriza_salud"');
+    expect(html).not.toContain('name="autoriza_imagen"');
+    // "Información del centro" es una casilla voluntaria, no un SÍ/NO obligatorio.
+    expect(html).toMatch(/<input[^>]*type="checkbox"[^>]*name="autoriza_informacion"/);
+    expect(html).not.toMatch(/<input[^>]*name="autoriza_informacion"[^>]*required/);
+    expect(html).not.toMatch(/<input[^>]*id="eps"[^>]*required/);
+    expect(html).toContain('name="versionId" value="9"');
+  });
+
   it("la página del Reglamento de Academias pinta sus puntos y ofrece el PDF", async () => {
     vigente = VERSION;
     academias = { ...VERSION, id: 8, codigo: "academias-2026-10", publico: "academias", titulo: "REGLAMENTO ACADEMIAS", texto: "Objetivo.\n\n## 1. Puntualidad\n\nLlegar a tiempo." };

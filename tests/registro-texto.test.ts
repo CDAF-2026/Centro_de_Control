@@ -49,6 +49,45 @@ describe("consentimiento de oct-2026 (adultos)", () => {
   });
 });
 
+/** Fotos obligatorias con un solo chulito (16-oct-2026): la migración que cargó v3 / adultos-v4. */
+const SQL3 = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016130000_autorizacion_imagen_obligatoria.sql"), "utf8");
+function textoDe3(codigo: string): string {
+  const m = SQL3.match(new RegExp(`'${codigo}', '[a-z]+',\\s*'[^']*',\\s*\\$texto\\$([\\s\\S]*?)\\$texto\\$`));
+  if (!m) throw new Error(`No está ${codigo} en la migración`);
+  return m[1];
+}
+
+describe("consentimiento con fotos obligatorias (v3 / adultos-v4)", () => {
+  for (const [codigo, base] of [["2026-10-v3", "2026-10-v2"], ["2026-10-adultos-v4", "2026-10-adultos-v3"]] as const) {
+    const t = textoDe3(codigo);
+    const p = partirConsentimiento(codigo, t);
+    it(`${codigo}: bloque AUTORIZACIÓN único, con solo "Información del centro" como casilla opcional`, () => {
+      expect(p.partes).toHaveLength(10);
+      expect(p.autorizaciones?.unica).toBe(true);
+      expect(p.autorizaciones?.opciones.map((o) => o.clave)).toEqual(["informacion"]);
+      expect(p.autorizaciones?.opciones[0].titulo).toBe("Información del centro (opcional)");
+      expect(p.autorizaciones?.intro[0]).toMatch(/^Con mi firma acepto el consentimiento informado y el Reglamento General/);
+      expect(p.autorizaciones?.cierre).toEqual([]);
+    });
+    it(`${codigo}: las fotos son condición y la EPS y el RH siguen siendo voluntarios`, () => {
+      expect(p.partes[8].parrafos[0]).toContain("es una condición para participar");
+      expect(t).not.toContain("Si no lo autorizo");
+      expect(p.partes[7].parrafos.join(" ")).toContain("Entregarlos es voluntario y se pueden dejar en blanco");
+    });
+    it(`${codigo}: los numerales 1 a 7 y 10 no cambian frente a la versión anterior`, () => {
+      const antes = partirConsentimiento(base, textoDe(base));
+      for (const i of [0, 1, 2, 3, 4, 5, 6, 9]) expect(p.partes[i]).toEqual(antes.partes[i]);
+      expect(p.entrada).toEqual(antes.entrada);
+    });
+  }
+  it("el resumen dice que las fotos son condición y que la EPS y el RH son opcionales", () => {
+    const r = resumenDelConsentimiento("Ana Gómez", "", false, "unica").join(" ");
+    expect(r).toContain("condición para participar");
+    expect(r).toContain("La EPS y el RH son opcionales");
+    expect(r).not.toContain("SÍ o NO");
+  });
+});
+
 describe("textos anteriores", () => {
   it("siguen partiéndose un párrafo por parte, con sus títulos y sin autorizaciones", () => {
     const viejo = Array.from({ length: 10 }, (_, i) => `Párrafo ${i + 1}.`).join("\n\n");

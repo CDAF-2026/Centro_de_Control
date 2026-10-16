@@ -77,6 +77,32 @@ describe("generarPdfConsentimiento · documento de oct-2026", () => {
   }, 30_000);
 });
 
+describe("generarPdfConsentimiento · fotos obligatorias (v3)", () => {
+  const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016130000_autorizacion_imagen_obligatoria.sql"), "utf8");
+  const texto = sql.match(/'2026-10-v3', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+  it("genera el PDF con el bloque AUTORIZACIÓN y la casilla de información", async () => {
+    const pdf = await generarPdfConsentimiento({
+      firmaId: "00000000-0000-0000-0000-000000000003",
+      version: { codigo: "2026-10-v3", titulo: "CONSENTIMIENTO INFORMADO, FICHA PERSONAL Y AUTORIZACIÓN DE TRATAMIENTO DE DATOS", texto, texto_sha256: "e".repeat(64) },
+      reglamento: { codigo: "reglamento-2026-10-v3", texto_sha256: "c".repeat(64) },
+      academias: { codigo: "academias-2026-10", texto_sha256: "d".repeat(64) },
+      autoriza: { salud: true, imagen: true, informacion: true },
+      calidad: "padre",
+      menor: { nombre: "Niño Prueba", documento: "TI 9990000001", fechaNacimiento: "2014-03-09", rh: "O+", eps: "Sura" },
+      firmante: { nombre: "Papá Prueba", documento: "9990000002", parentesco: "Padre", email: null, celular: null },
+      firmaPorSiMismo: false,
+      firmadoEl: "2026-10-16T20:12:00Z",
+      metodo: "escrita",
+      ip: "181.1.1.1",
+      userAgent: "Prueba/1.0",
+      firmaPng: PNG,
+    });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    const paginas = pdf.toString("latin1").match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+    expect(paginas).toBeGreaterThanOrEqual(2);
+  }, 30_000);
+});
+
 describe("generarPdfReglamento", () => {
   it("genera un PDF del reglamento con capítulos y artículos", async () => {
     const pdf = await generarPdfReglamento({ codigo: "reglamento-2026-10", titulo: "REGLAMENTO GENERAL", vigente_desde: "2026-10-08",

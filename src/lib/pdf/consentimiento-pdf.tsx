@@ -131,11 +131,11 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
         ))}
         {partido.autorizaciones && (
           <View wrap={false}>
-            <Text style={s.parte}>AUTORIZACIONES</Text>
+            <Text style={s.parte}>{partido.autorizaciones.unica ? "AUTORIZACIÓN" : "AUTORIZACIONES"}</Text>
             {partido.autorizaciones.intro.map((p, i) => <Text key={i} style={s.p}>{p}</Text>)}
             {partido.autorizaciones.opciones.map((o) => (
               <View key={o.clave} style={s.op}>
-                <Text style={s.marca}>{respuesta[o.clave] === undefined ? "—" : respuesta[o.clave] ? "SÍ" : "NO"}</Text>
+                <Text style={s.marca}>{respuesta[o.clave] === undefined ? "—" : partido.autorizaciones!.unica ? (respuesta[o.clave] ? "X" : " ") : respuesta[o.clave] ? "SÍ" : "NO"}</Text>
                 <Text style={{ flex: 1, textAlign: "justify" }}><Text style={s.b}>{o.titulo}. </Text>{o.texto}</Text>
               </View>
             ))}
@@ -198,7 +198,9 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
           ...(d.academias
             ? [["Reglamento de Academias aceptado", `${d.academias.codigo} · alejandrofallacd.com/registro/reglamento-academias`], ["Huella SHA-256 del reglamento de academias", d.academias.texto_sha256]]
             : []),
-          ...(d.autoriza
+          ...(d.autoriza && partido.autorizaciones?.unica
+            ? [["Autorización", `Aceptada con la firma: datos (numeral 8${d.autoriza.salud ? ", con EPS y RH" : ", sin EPS ni RH"}) y fotos y videos (numeral 9) · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
+            : d.autoriza
             ? [["Autorizaciones", `Datos de salud: ${d.autoriza.salud ? "SÍ" : "NO"} · Fotos y videos: ${d.autoriza.imagen ? "SÍ" : "NO"} · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
             : []),
           ["Integridad del archivo", "La huella SHA-256 de este PDF está registrada en la plataforma del club y se muestra en la ficha del deportista."],

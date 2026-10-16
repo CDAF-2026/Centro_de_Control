@@ -91,15 +91,20 @@ export async function firmarConsentimiento(
   // Documento de oct-2026: tres autorizaciones SÍ/NO obligatorias, y la EPS pasa a ser voluntaria.
   const partido = partirConsentimiento(version.codigo, version.texto);
   const conAutorizaciones = !!partido.autorizaciones;
-  if (conAutorizaciones) {
+  // Desde v3 (16-oct-2026) hay UNA sola aceptación (el chulito "Apruebo"): las fotos van incluidas, la EPS y
+  // el RH quedan autorizados si se escriben (numeral 8) y solo "Información del centro" es una casilla opcional.
+  const unica = !!partido.autorizaciones?.unica;
+  if (conAutorizaciones && !unica) {
     const faltan = CLAVES_AUTORIZACION.filter((k) => !d[`autoriza_${k}`]);
     if (faltan.length) {
       return { error: "Marca Sí o No en cada autorización.", fieldErrors: Object.fromEntries(faltan.map((k) => [`autoriza_${k}`, "Elige Sí o No"])) };
     }
-  } else if (!d.eps || d.eps.length < 2) {
+  } else if (!conAutorizaciones && (!d.eps || d.eps.length < 2)) {
     return { error: "Revisa los campos marcados.", fieldErrors: { eps: "Escribe la EPS" } };
   }
-  const autoriza = conAutorizaciones
+  const autoriza = unica
+    ? { salud: !!(d.eps || d.rh), imagen: true, informacion: d.autoriza_informacion === "si" }
+    : conAutorizaciones
     ? { salud: d.autoriza_salud === "si", imagen: d.autoriza_imagen === "si", informacion: d.autoriza_informacion === "si" }
     : null;
   // Sin autorización de datos de salud, la EPS y el RH no se guardan (numeral 8).
@@ -278,7 +283,7 @@ export async function firmarConsentimiento(
     else {
       await logAuditSistema({
         action: "registro.sin_datos_salud", entity: "cliente_miembros", entityId: String(m.miembro_id),
-        after: { firma: firmaId, motivo: "No autorizó el tratamiento de la EPS y el RH" },
+        after: { firma: firmaId, motivo: unica ? "No entregó la EPS ni el RH" : "No autorizó el tratamiento de la EPS y el RH" },
       });
     }
   }

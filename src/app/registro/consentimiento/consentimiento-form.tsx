@@ -135,6 +135,8 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
   const texto = mayor ? textos.adultos : textos.menores;
 
   const partido = partirConsentimiento(texto.codigo, texto.texto);
+  // Desde v3 (16-oct-2026): fotos obligatorias y un solo chulito; solo "Información del centro" es opcional.
+  const unica = !!partido.autorizaciones?.unica;
   // Lo que se escribe en "Yo, …, identificado(a) con …, en calidad de …" mientras la persona llena los campos.
   const valores: ValoresTexto = mayor
     ? { firmante: nombreMenor, documento: documento ? `${tipoDoc} ${documento}`.trim() : "", eps }
@@ -280,7 +282,7 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">A continuación encontrarás los puntos principales del consentimiento informado del Centro Deportivo Alejandro Falla. Te recomendamos leer el documento completo antes de firmar.</p>
         <ul className="m-0 list-none space-y-3 p-0">
-          {resumenDelConsentimiento(nombreMenor, eps, mayor, !!partido.autorizaciones).map((linea, i) => (
+          {resumenDelConsentimiento(nombreMenor, eps, mayor, unica ? "unica" : !!partido.autorizaciones).map((linea, i) => (
             <li key={i} className="flex items-start gap-3 text-sm leading-[1.55]">
               <Check className="mt-0.5 size-[18px] shrink-0 text-[#46530a]" strokeWidth={2.6} />
               <span>{linea}</span>
@@ -320,8 +322,27 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         })}
       </section>
 
-      {/* Autorizaciones SÍ/NO del documento de oct-2026: van en el texto firmado y se guardan en la firma */}
-      {partido.autorizaciones && (
+      {/* Desde v3: la autorización va con el chulito "Apruebo"; las opciones son casillas voluntarias */}
+      {partido.autorizaciones?.unica && (
+        <section className={cn(CARD, "space-y-4 p-5")}>
+          <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Autorización</h2>
+          {partido.autorizaciones.intro.map((p, i) => (
+            <p key={i} className="text-charcoal m-0 text-sm leading-[1.6]">{p}</p>
+          ))}
+          {partido.autorizaciones.opciones.map((o) => (
+            <label key={o.clave} className="flex cursor-pointer items-start gap-3 rounded-[12px] border-[1.5px] px-4 py-3.5">
+              <input type="checkbox" name={`autoriza_${o.clave}`} value="si" className="accent-lime mt-0.5 size-[22px] shrink-0" />
+              <span className="text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</span>
+            </label>
+          ))}
+          {partido.autorizaciones.cierre.map((p, i) => (
+            <p key={i} className="text-muted-foreground m-0 text-xs leading-relaxed">{p}</p>
+          ))}
+        </section>
+      )}
+
+      {/* Autorizaciones SÍ/NO del documento de oct-2026 (v2): van en el texto firmado y se guardan en la firma */}
+      {partido.autorizaciones && !partido.autorizaciones.unica && (
         <section className={cn(CARD, "space-y-4 p-5")}>
           <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Autorizaciones</h2>
           {partido.autorizaciones.intro.map((p, i) => (
@@ -361,7 +382,7 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         <input type="checkbox" name="acepto" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
         <span className="text-sm leading-relaxed">
           <strong>Apruebo.</strong> Leí el consentimiento completo y lo acepto{mayor ? "" : " en nombre de mi hijo(a)"}
-          {nombreMenor ? ` (${nombreMenor})` : ""}.
+          {nombreMenor ? ` (${nombreMenor})` : ""}{unica ? `, incluida la autorización de ${mayor ? "mis datos" : "sus datos"} y del uso de fotos y videos` : ""}.
         </span>
       </label>
       {fe.acepto && <p className="text-destructive -mt-1 text-sm">{fe.acepto}</p>}
