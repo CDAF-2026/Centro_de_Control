@@ -2242,6 +2242,13 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- ⚠️ **Pruebas del registro con datos REALES caen en fichas reales** (16-oct-2026). Si el acudiente de prueba
+  usa la cédula (o el correo) de un papá que ya existe, el registro reconoce la familia y mete al niño como
+  hermano, y además reemplaza el contacto, la dirección, la emergencia y el nombre de facturación de esa ficha.
+  Le pasó a la ficha 379 (Betancur Gallo): dos pruebas de "Laura Salazar" usaron la cédula de Andrés
+  Betancur. Se borraron y la ficha se restauró desde el `before` del `audit_log` 3058 (rastro
+  `cliente.borrar_prueba` de la 379). **Para probar: cédulas y correos inventados.** Antes de borrar una
+  prueba, revisar si su `cliente_id` es una ficha nueva o una que ya existía.
 - 📸 **Fotos OBLIGATORIAS con un solo chulito — EN PRODUCCIÓN desde el 16-oct-2026** (migraciones
   `20261016130000_autorizacion_imagen_obligatoria` + `…140000_…_abrir`; commit `2f4d1b8`). El club decidió
   que el uso de fotos y videos sea condición para participar (en clase se toman fotos de grupo) y el abogado
