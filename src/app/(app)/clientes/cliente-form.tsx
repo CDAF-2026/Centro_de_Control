@@ -29,6 +29,8 @@ export type ClienteEditable = {
   emergencia_nombre: string | null;
   emergencia_celular: string | null;
   emergencia_parentesco: string | null;
+  emergencia_documento: string | null;
+  emergencia_email: string | null;
   factura_a_nombre: string | null;
   factura_a_nit: string | null;
   factura_tipo: string | null;
@@ -129,6 +131,8 @@ export function ClienteForm({
     nombre: cliente?.emergencia_nombre ?? "",
     celular: cliente?.emergencia_celular ?? "",
     parentesco: cliente?.emergencia_parentesco ?? "",
+    documento: cliente?.emergencia_documento ?? "",
+    email: cliente?.emergencia_email ?? "",
   });
   const [acu, setAcu] = useState({
     nombre: acudiente?.nombre ?? "",
@@ -152,7 +156,9 @@ export function ClienteForm({
     (cliente?.emergencia_nombre ?? "") !== "" &&
     (cliente?.emergencia_nombre ?? "") === (acudiente?.nombre ?? "") &&
     (cliente?.emergencia_celular ?? "") === (acudiente?.telefono ?? "") &&
-    (cliente?.emergencia_parentesco ?? "") === (acudiente?.parentesco ?? "");
+    (cliente?.emergencia_parentesco ?? "") === (acudiente?.parentesco ?? "") &&
+    (!cliente?.emergencia_documento || cliente.emergencia_documento === (acudiente?.documento ?? "")) &&
+    (!cliente?.emergencia_email || cliente.emergencia_email === (acudiente?.email ?? ""));
   const [mismos, setMismos] = useState(yaCoinciden);
 
   // Facturación: al elegir un nombre conocido de Siigo, se autocompleta su NIT.
@@ -165,12 +171,16 @@ export function ClienteForm({
     setFact((s) => ({ nombre: v, nit: match ? match.nit : s.nit }));
   };
 
-  // El contacto de emergencia se llena primero; el acudiente lo copia. El documento no se copia
-  // porque la emergencia no lo tiene: se sigue escribiendo aparte.
+  // El contacto de emergencia se llena primero; el acudiente lo copia. Documento y correo (desde el
+  // 16-oct-2026) solo se copian si la emergencia los tiene: así una ficha vieja no pierde el documento.
   const espejo = mismos && menor;
   const acuNombre = espejo ? emer.nombre : acu.nombre;
   const acuTelefono = espejo ? emer.celular : acu.telefono;
   const acuParentesco = espejo ? emer.parentesco : acu.parentesco;
+  const espejoDoc = espejo && !!emer.documento.trim();
+  const espejoEmail = espejo && !!emer.email.trim();
+  const acuDocumento = espejoDoc ? emer.documento : acu.documento;
+  const acuEmail = espejoEmail ? emer.email : acu.email;
 
   return (
     <form action={action} className="space-y-4">
@@ -224,6 +234,12 @@ export function ClienteForm({
           <Field label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}
             value={emer.parentesco} onChange={(v) => setEmer((s) => ({ ...s, parentesco: v }))} />
         </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Cédula" name="emergenciaDocumento" error={fe.emergenciaDocumento}
+            value={emer.documento} onChange={(v) => setEmer((s) => ({ ...s, documento: v }))} />
+          <Field label="Correo" name="emergenciaEmail" type="email" error={fe.emergenciaEmail}
+            value={emer.email} onChange={(v) => setEmer((s) => ({ ...s, email: v }))} />
+        </div>
       </fieldset>
 
       {menor && (
@@ -245,20 +261,20 @@ export function ClienteForm({
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Documento" name="acudienteDocumento"
-                value={acu.documento} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
+                value={acuDocumento} readOnly={espejoDoc} onChange={(v) => setAcu((s) => ({ ...s, documento: v }))} />
               <Field label="Teléfono" name="acudienteTelefono"
                 value={acuTelefono} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, telefono: v }))} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Correo" name="acudienteEmail" type="email" error={fe.acudienteEmail}
-                value={acu.email} onChange={(v) => setAcu((s) => ({ ...s, email: v }))} />
+                value={acuEmail} readOnly={espejoEmail} onChange={(v) => setAcu((s) => ({ ...s, email: v }))} />
               <Field label="Parentesco" name="acudienteParentesco"
                 value={acuParentesco} readOnly={espejo} onChange={(v) => setAcu((s) => ({ ...s, parentesco: v }))} />
             </div>
             {espejo && (
               <p className="text-muted-foreground text-xs">
-                Se guardarán el nombre, el teléfono y el parentesco del contacto de emergencia. El documento y el
-                correo del acudiente se escriben aparte. Desmarca la casilla para editarlos por separado.
+                Se guardarán los datos del contacto de emergencia. Si le falta la cédula o el correo, esos se
+                escriben aquí. Desmarca la casilla para editarlos por separado.
               </p>
             )}
           </div>

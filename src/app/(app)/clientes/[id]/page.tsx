@@ -36,7 +36,7 @@ export default async function ClienteDetallePage({
   const { data: cliente } = await supabase
     .from("clientes")
     .select(
-      "id, nombres, apellidos, documento, tipo_documento, eps, rh, fecha_nacimiento, lugar_nacimiento, direccion, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, factura_a_nombre, factura_a_nit, factura_tipo, factura_email, deportes, estado, acudiente_id",
+      "id, nombres, apellidos, documento, tipo_documento, eps, rh, fecha_nacimiento, lugar_nacimiento, direccion, es_menor, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, emergencia_documento, emergencia_email, factura_a_nombre, factura_a_nit, factura_tipo, factura_email, deportes, estado, acudiente_id",
     )
     .eq("id", Number(id))
     .single();
@@ -333,7 +333,8 @@ export default async function ClienteDetallePage({
           <Dato
             label="Contacto de emergencia"
             valor={
-              [cliente.emergencia_nombre, cliente.emergencia_celular, cliente.emergencia_parentesco]
+              [cliente.emergencia_nombre, cliente.emergencia_parentesco, cliente.emergencia_celular,
+                cliente.emergencia_documento ? `CC ${cliente.emergencia_documento}` : null, cliente.emergencia_email]
                 .filter(Boolean)
                 .join(" · ") || null
             }

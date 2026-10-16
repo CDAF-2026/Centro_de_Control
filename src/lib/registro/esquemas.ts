@@ -104,6 +104,10 @@ export const datosSchema = z.object({
   emergenciaNombre: texto(120).optional(),
   emergenciaCelular: texto(20).optional(),
   emergenciaParentesco: texto(40).optional(),
+  // Cédula y correo del contacto de emergencia (16-oct-2026): opcionales; con ellos el botón del paso de
+  // acudientes copia los cinco datos.
+  emergenciaDocumento: texto(20).optional(),
+  emergenciaEmail: z.string().trim().max(120).email("Correo inválido").optional().or(z.literal("")),
 
   // Acudiente principal (quien diligencia y firma) y segundo acudiente
   acudienteRol: acudienteSchema.rol,

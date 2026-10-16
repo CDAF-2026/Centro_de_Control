@@ -387,6 +387,8 @@ export type Database = {
           emergencia_nombre: string | null;
           emergencia_celular: string | null;
           emergencia_parentesco: string | null;
+          emergencia_documento: string | null;
+          emergencia_email: string | null;
           factura_a_nombre: string | null;
           factura_a_nit: string | null;
           factura_tipo: FacturaTipo | null;
@@ -414,6 +416,8 @@ export type Database = {
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
+          emergencia_documento?: string | null;
+          emergencia_email?: string | null;
           factura_a_nombre?: string | null;
           factura_a_nit?: string | null;
           factura_tipo?: FacturaTipo | null;
@@ -441,6 +445,8 @@ export type Database = {
           emergencia_nombre?: string | null;
           emergencia_celular?: string | null;
           emergencia_parentesco?: string | null;
+          emergencia_documento?: string | null;
+          emergencia_email?: string | null;
           factura_a_nombre?: string | null;
           factura_a_nit?: string | null;
           factura_tipo?: FacturaTipo | null;

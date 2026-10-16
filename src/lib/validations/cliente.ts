@@ -23,6 +23,8 @@ export const createClienteSchema = z.object({
   emergenciaNombre: z.string().trim().optional(),
   emergenciaCelular: z.string().trim().optional(),
   emergenciaParentesco: z.string().trim().optional(),
+  emergenciaDocumento: z.string().trim().optional(),
+  emergenciaEmail: z.string().trim().email("Email inválido").optional().or(z.literal("")),
   // Acudiente principal (= clientes.acudiente_id). Obligatorio para menores.
   acudienteNombre: acudienteCampos.nombre,
   acudienteDocumento: acudienteCampos.documento,

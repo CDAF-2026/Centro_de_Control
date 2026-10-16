@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, Copy } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import { enviarDatos, type DatosState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ const TITULO: Record<ClavePaso, string> = { deportista: "El deportista", familia
 /** Qué campos viven en cada paso: con un error del servidor se salta al paso que lo tiene. */
 const CAMPOS: Record<ClavePaso, (campo: string) => boolean> = {
   deportista: (c) => ["nombres", "apellidos", "fechaNacimiento", "tipoDocumento", "documento", "lugarNacimiento", "eps", "rh", "deportes"].includes(c),
-  familia: (c) => ["direccion", "celular", "email", "emergenciaNombre", "emergenciaCelular", "emergenciaParentesco"].includes(c),
+  familia: (c) => ["direccion", "celular", "email", "emergenciaNombre", "emergenciaCelular", "emergenciaParentesco", "emergenciaDocumento", "emergenciaEmail"].includes(c),
   acudientes: (c) => c.startsWith("acudiente"),
   facturacion: (c) => c.startsWith("factura") || c === "acepto_datos",
 };
@@ -67,11 +67,13 @@ const ACUDIENTE_VACIO: DatosAcudiente = { parentesco: "", nombre: "", documento:
  * (Laura, 16-oct-2026). Antes, al pasar de Madre a Padre quedaban el nombre y la cédula de
  * la madre, y el padre se guardaba con la cédula de ella. La precarga del recorrido (R9)
  * llena solo la opción de quien ya firmó; se envía la opción marcada.
- * "Usar los datos del contacto de emergencia" (pedido de la clienta, 16-oct-2026): copia nombre, celular y
- * parentesco del paso 2 y marca la opción que corresponde. La cédula y el correo se escriben (el paso 2 de un
- * menor no pide correo).
+ * "Usar los datos del contacto de emergencia" (pedido de la clienta, 16-oct-2026): copia nombre, celular,
+ * cédula, correo y parentesco del paso 2 y marca la opción que corresponde. Sin resaltar nada: a la clienta no
+ * le gustó que los campos se vieran como pendientes; si algo falta, el cursor queda ahí.
+ * Es una CASILLA bien visible, como la de la ficha de clientes (Laura, 16-oct-2026): no es una aceptación sino
+ * un atajo. Al quitarla, vuelve lo que había antes de activarla.
  */
-type ContactoEmergencia = { nombre: string; celular: string; parentesco: string };
+type ContactoEmergencia = { nombre: string; celular: string; parentesco: string; documento: string; email: string };
 function Acudiente({ inicial, errores, contacto }: {
   inicial?: Partial<Firmante> & { rol?: string };
   errores: Record<string, string>;
@@ -80,8 +82,6 @@ function Acudiente({ inicial, errores, contacto }: {
   const n = (c: string) => `acudiente${c}`;
   const rolInicial: Rol = inicial?.rol === "padre" || inicial?.rol === "otro" ? inicial.rol : "madre";
   const [rol, setRol] = useState<Rol>(rolInicial);
-  // Tras "Usar los datos…": la cédula queda resaltada con una nota (no un error) mientras siga vacía.
-  const [copiado, setCopiado] = useState(false);
   const [datos, setDatos] = useState<Record<Rol, DatosAcudiente>>(() => {
     const base = { madre: { ...ACUDIENTE_VACIO }, padre: { ...ACUDIENTE_VACIO }, otro: { ...ACUDIENTE_VACIO } };
     if (inicial) {
@@ -96,22 +96,36 @@ function Acudiente({ inicial, errores, contacto }: {
     return base;
   });
   const d = datos[rol];
+  const [mismos, setMismos] = useState(false);
+  const [respaldo, setRespaldo] = useState<{ rol: Rol; datos: Record<Rol, DatosAcudiente> } | null>(null);
+  const alternarMismos = (activar: boolean) => {
+    setMismos(activar);
+    if (activar) {
+      setRespaldo({ rol, datos });
+      usarContacto();
+    } else if (respaldo) {
+      setRol(respaldo.rol);
+      setDatos(respaldo.datos);
+      setRespaldo(null);
+    }
+  };
   const usarContacto = () => {
     if (!contacto) return;
     const r = rolDesdeParentesco(contacto.parentesco);
     setRol(r);
-    setCopiado(true);
-    setDatos((prev) => ({
-      ...prev,
-      [r]: {
-        ...prev[r],
-        nombre: contacto.nombre,
-        telefono: contacto.celular || prev[r].telefono,
-        parentesco: r === "otro" ? contacto.parentesco : prev[r].parentesco,
-      },
-    }));
-    // La cédula no viene del contacto de emergencia: el cursor salta ahí para que no se la salten.
-    requestAnimationFrame(() => document.getElementById(n("Documento"))?.focus());
+    const nuevo: DatosAcudiente = {
+      ...datos[r],
+      nombre: contacto.nombre,
+      telefono: contacto.celular || datos[r].telefono,
+      documento: contacto.documento || datos[r].documento,
+      email: contacto.email || datos[r].email,
+      parentesco: r === "otro" ? contacto.parentesco : datos[r].parentesco,
+    };
+    setDatos((prev) => ({ ...prev, [r]: nuevo }));
+    // Si algo no venía del contacto de emergencia, el cursor queda en el primer campo vacío.
+    const vacio = (["documento", "telefono", "email"] as const).find((k) => !nuevo[k].trim());
+    const id = { documento: "Documento", telefono: "Telefono", email: "Email" } as const;
+    if (vacio) requestAnimationFrame(() => document.getElementById(n(id[vacio]))?.focus());
   };
   const cambiar = (campo: keyof DatosAcudiente) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
@@ -121,14 +135,16 @@ function Acudiente({ inicial, errores, contacto }: {
     <div className="grid gap-5 md:grid-cols-2">
       <input type="hidden" name={n("Rol")} value={rol} />
       {contacto?.nombre && (
-        <button type="button" onClick={usarContacto}
-          className="border-input bg-background hover:bg-muted flex w-full items-center gap-3 rounded-[12px] border-[1.5px] px-4 py-3 text-left transition-colors md:col-span-2">
-          <Copy className="text-muted-foreground size-[18px] shrink-0" />
+        <label className={cn(
+          "flex w-full cursor-pointer items-center gap-3 rounded-[14px] border-[1.5px] px-4 py-3.5 transition-colors md:col-span-2",
+          mismos ? "border-[#c9d65a] bg-[#fbfce9]" : "border-[#c9d65a] bg-[#fdfdf3] hover:bg-[#fbfce9]",
+        )}>
+          <input type="checkbox" checked={mismos} onChange={(e) => alternarMismos(e.target.checked)} className="accent-lime size-[22px] shrink-0" />
           <span className="min-w-0">
-            <span className="text-charcoal block text-sm font-semibold">Usar los datos del contacto de emergencia</span>
-            <span className="text-muted-foreground block truncate text-xs">{contacto.nombre}{contacto.parentesco ? ` · ${contacto.parentesco}` : ""}</span>
+            <span className="text-charcoal block text-[15px] font-semibold">Usar los mismos datos del contacto de emergencia</span>
+            <span className="text-muted-foreground block truncate text-[13px]">{contacto.nombre}{contacto.parentesco ? ` · ${contacto.parentesco}` : ""}</span>
           </span>
-        </button>
+        </label>
       )}
       <fieldset className="space-y-1.5 md:col-span-2">
         <legend className="text-[13px] font-semibold text-charcoal">Es</legend>
@@ -151,16 +167,13 @@ function Acudiente({ inicial, errores, contacto }: {
       </Campo>
       <Campo label="Cédula" name={n("Documento")} error={errores[n("Documento")]}>
         <Input id={n("Documento")} name={n("Documento")} inputMode="numeric" required value={d.documento} onChange={cambiar("documento")}
-          className={cn(INPUT, copiado && !d.documento.trim() && "border-[#f2b53d] bg-[#fdf6e3]")} placeholder="Sin puntos" />
-        {copiado && !d.documento.trim() && !errores[n("Documento")] && (
-          <p className="text-[13px] font-semibold text-[#8a6d0b]">Solo falta la cédula{d.email.trim() ? "" : " y el correo"}.</p>
-        )}
+          className={INPUT} placeholder="Sin puntos" />
       </Campo>
       <Campo label="Celular" name={n("Telefono")} error={errores[n("Telefono")]}>
         <Input id={n("Telefono")} name={n("Telefono")} inputMode="tel" required value={d.telefono} onChange={cambiar("telefono")} autoComplete="tel" className={INPUT} placeholder="300 000 0000" />
       </Campo>
       <Campo label="Correo" name={n("Email")} error={errores[n("Email")]}>
-        <Input id={n("Email")} name={n("Email")} type="email" required value={d.email} onChange={cambiar("email")} autoComplete="email" className={cn(INPUT, copiado && !d.email.trim() && "border-[#f2b53d] bg-[#fdf6e3]")} placeholder="nombre@correo.com" />
+        <Input id={n("Email")} name={n("Email")} type="email" required value={d.email} onChange={cambiar("email")} autoComplete="email" className={INPUT} placeholder="nombre@correo.com" />
       </Campo>
     </div>
   );
@@ -375,6 +388,10 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             <Campo label="Celular" name="emergenciaCelular" error={fe.emergenciaCelular}><Input id="emergenciaCelular" name="emergenciaCelular" inputMode="tel" className={INPUT} placeholder="300 000 0000" /></Campo>
             <Campo label="Parentesco" name="emergenciaParentesco" error={fe.emergenciaParentesco}><Input id="emergenciaParentesco" name="emergenciaParentesco" placeholder="Tío, abuela…" className={INPUT} /></Campo>
           </div>
+          {/* Cédula y correo (16-oct-2026): opcionales; si el contacto es también quien responde, el botón del
+              paso siguiente los copia y no hay que escribir nada más. */}
+          <Campo label="Cédula" name="emergenciaDocumento" error={fe.emergenciaDocumento}><Input id="emergenciaDocumento" name="emergenciaDocumento" inputMode="numeric" className={INPUT} placeholder="Sin puntos" /></Campo>
+          <Campo label="Correo" name="emergenciaEmail" error={fe.emergenciaEmail}><Input id="emergenciaEmail" name="emergenciaEmail" type="email" className={INPUT} placeholder="nombre@correo.com" /></Campo>
           </div>
         </section>
 
@@ -384,7 +401,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             <Encabezado pregunta="¿Quién responde por el deportista?" detalle="Escribe los datos del padre, de la madre o del familiar que está a cargo. Esta persona firma el consentimiento y recibe la información del club." />
             <input type="hidden" name="acudientesVisibles" value="1" />
             <Acudiente errores={fe} inicial={firmante ? { ...firmante, rol: firmante.parentesco === "Madre" ? "madre" : firmante.parentesco === "Padre" ? "padre" : "otro" } : undefined}
-              contacto={{ nombre: snap.emergenciaNombre ?? "", celular: snap.emergenciaCelular ?? "", parentesco: snap.emergenciaParentesco ?? "" }} />
+              contacto={{ nombre: snap.emergenciaNombre ?? "", celular: snap.emergenciaCelular ?? "", parentesco: snap.emergenciaParentesco ?? "", documento: snap.emergenciaDocumento ?? "", email: snap.emergenciaEmail ?? "" }} />
           </section>
         )}
 

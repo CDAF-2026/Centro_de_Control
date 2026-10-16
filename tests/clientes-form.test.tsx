@@ -41,7 +41,7 @@ const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " 
 const MENOR = {
   id: 1, nombres: "Luciana", apellidos: "Prueba", documento: null, tipo_documento: null,
   fecha_nacimiento: `${new Date().getFullYear() - 7}-01-01`, celular: null, email: null, eps: null, rh: null,
-  emergencia_nombre: "Noraima Henao", emergencia_celular: "3180799236", emergencia_parentesco: "Mamá",
+  emergencia_nombre: "Noraima Henao", emergencia_celular: "3180799236", emergencia_parentesco: "Mamá", emergencia_documento: null, emergencia_email: null,
   factura_a_nombre: null, factura_a_nit: null, factura_tipo: null, factura_email: null, deportes: ["tenis"],
 };
 
@@ -68,6 +68,18 @@ describe("formulario de cliente", () => {
     expect(html).not.toMatch(/name="acudienteDocumento"[^>]*readOnly=""|readOnly=""[^>]*name="acudienteDocumento"/);
     // La casilla vieja (en la emergencia, copiando al revés) ya no existe.
     expect(t).not.toContain("Usar los mismos datos del acudiente");
+  });
+
+  it("menor: con cédula y correo en la emergencia (16-oct-2026), la casilla también los copia", async () => {
+    const { ClienteForm } = await import("../src/app/(app)/clientes/cliente-form");
+    const acu = { nombre: "Noraima Henao", documento: "1038406746", telefono: "3180799236", parentesco: "Mamá", email: "nora@correo.com" };
+    const cli = { ...MENOR, emergencia_documento: "1038406746", emergencia_email: "nora@correo.com" };
+    const html = renderToStaticMarkup(<ClienteForm cliente={cli} acudiente={acu} />);
+    expect(html).toContain('name="emergenciaDocumento"');
+    expect(html).toContain('name="emergenciaEmail"');
+    expect(html).toMatch(/<input type="checkbox" class="accent-lime size-4" checked=""\/>Usar los mismos/);
+    expect(html).toMatch(/name="acudienteDocumento"[^>]*readOnly=""|readOnly=""[^>]*name="acudienteDocumento"/);
+    expect(html).toMatch(/name="acudienteEmail"[^>]*readOnly=""|readOnly=""[^>]*name="acudienteEmail"/);
   });
 
   it("adulto: no hay bloque de acudiente ni casilla", async () => {

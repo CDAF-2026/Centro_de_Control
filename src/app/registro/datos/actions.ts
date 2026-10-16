@@ -98,7 +98,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
 
   const payload: Json = {
     menor: { nombres, apellidos, tipo_documento: d.tipoDocumento, documento: d.documento, fecha_nacimiento: d.fechaNacimiento, lugar_nacimiento: capitalizarNombre(d.lugarNacimiento) || null, eps: d.eps || null, rh: d.rh || null, deportes },
-    familia: { direccion: d.direccion || null, celular: contactoCel || null, email: contactoEmail.toLowerCase() || null, emergencia_nombre: capitalizarNombre(d.emergenciaNombre) || null, emergencia_celular: d.emergenciaCelular || null, emergencia_parentesco: capitalizarNombre(d.emergenciaParentesco) || null },
+    familia: { direccion: d.direccion || null, celular: contactoCel || null, email: contactoEmail.toLowerCase() || null, emergencia_nombre: capitalizarNombre(d.emergenciaNombre) || null, emergencia_celular: d.emergenciaCelular || null, emergencia_parentesco: capitalizarNombre(d.emergenciaParentesco) || null, emergencia_documento: soloDigitos(d.emergenciaDocumento) || null, emergencia_email: d.emergenciaEmail?.toLowerCase() || null },
     acudientes,
     // La facturación siempre viaja (es obligatoria). Si la ficha ya tenía otra, el SQL no la
     // pisa: cada campo distinto va a `registro_cambio` y se avisa a los revisores (D1).

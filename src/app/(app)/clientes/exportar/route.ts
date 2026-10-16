@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 
 // Mismas columnas que la plantilla de importación (round-trip) + deportes y estado.
 const HEADER =
-  "nombres,apellidos,documento,fecha_nacimiento,celular,email,emergencia_nombre,emergencia_celular,emergencia_parentesco,acudiente_nombre,acudiente_documento,acudiente_telefono,acudiente_parentesco,deportes,estado";
+  "nombres,apellidos,documento,fecha_nacimiento,celular,email,emergencia_nombre,emergencia_celular,emergencia_parentesco,emergencia_documento,emergencia_email,acudiente_nombre,acudiente_documento,acudiente_telefono,acudiente_parentesco,deportes,estado";
 
 // ⚠️ El embed lleva el nombre de la FK: desde la ficha unificada (1-oct-2026) hay DOS
 // relaciones entre clientes y acudientes (clientes.acudiente_id → acudientes, y
 // acudientes.cliente_id → clientes), y sin desambiguar PostgREST responde "more than
 // one relationship was found" — medido. Aquí se exporta el PRINCIPAL, como siempre.
 const SELECT =
-  "nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, deportes, estado, acudientes!clientes_acudiente_id_fkey ( nombre, documento, telefono, parentesco )";
+  "nombres, apellidos, documento, fecha_nacimiento, celular, email, emergencia_nombre, emergencia_celular, emergencia_parentesco, emergencia_documento, emergencia_email, deportes, estado, acudientes!clientes_acudiente_id_fkey ( nombre, documento, telefono, parentesco )";
 
 /** Escapa un valor para CSV (comillas, comas y saltos de línea). */
 function esc(v: unknown): string {
@@ -60,6 +60,8 @@ export async function GET(request: Request) {
           c.emergencia_nombre,
           c.emergencia_celular,
           c.emergencia_parentesco,
+          c.emergencia_documento,
+          c.emergencia_email,
           acu?.nombre,
           acu?.documento,
           acu?.telefono,
