@@ -15,7 +15,7 @@ import { TIPOS_DOCUMENTO, RH_VALORES, tipoDocumentoPorEdad } from "@/app/(app)/c
 
 /** Una versión del texto tal como llega de la base: el formulario la parte (entrada, numerales, autorizaciones). */
 export type TextoConsentimiento = { id: number; codigo: string; titulo: string; texto: string };
-/** El Reglamento de Academias vigente: casilla propia cuando se firma por un menor (16-oct-2026). */
+/** El Reglamento de Academias vigente: se acepta al firmar por un menor (16-oct-2026). */
 export type ReglamentoAcademias = { id: number; codigo: string };
 
 /** Un dato de la sesión del recorrido: viene de "Actualizar datos" (Fase 3) y evita volver a pedirlo. */
@@ -322,7 +322,7 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         })}
       </section>
 
-      {/* Desde v3: la autorización va con el chulito "Apruebo"; las opciones son casillas voluntarias */}
+      {/* Desde v3: la autorización se acepta con la firma. En v3 "Información del centro" era casilla opcional; desde v4 va incluida y no hay casillas */}
       {partido.autorizaciones?.unica && (
         <section className={cn(CARD, "space-y-4 p-5")}>
           <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Autorización</h2>
@@ -368,45 +368,25 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
 
       {/* Documento de alguien con otro nombre: al segundo intento puede confirmar (va a revisión). */}
       {precargado?.menor?.confirmado && <input type="hidden" name="confirmoDocumento" value="on" />}
+      {/* Sin casillas (club, 16-oct-2026): el aviso pide revisar y, si está bien, volver a firmar confirma. */}
       {state.documentoDudoso && (
-        <div className={cn(CARD, "p-1")}>
-          <label className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm">
-              <input type="checkbox" name="confirmoDocumento" className="accent-lime mt-0.5 size-5 shrink-0" />
-              <span className="text-charcoal leading-relaxed">Confirmo que el documento y el nombre son correctos.</span>
-            </label>
+        <div className={cn(CARD, "border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm")}>
+          <input type="hidden" name="confirmoDocumento" value="on" />
+          <p className="text-charcoal m-0 leading-relaxed">Revisa que el documento y el nombre estén bien escritos. Si son correctos, firma de nuevo y lo revisamos en el club.</p>
         </div>
       )}
 
-      {/* Apruebo */}
-      <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
-        <input type="checkbox" name="acepto" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
-        <span className="text-sm leading-relaxed">
-          <strong>Apruebo.</strong> Leí el consentimiento completo y lo acepto{mayor ? "" : " en nombre de mi hijo(a)"}
-          {nombreMenor ? ` (${nombreMenor})` : ""}{unica ? `, incluida la autorización de ${mayor ? "mis datos" : "sus datos"} y del uso de fotos y videos` : ""}.
-        </span>
-      </label>
-      {fe.acepto && <p className="text-destructive -mt-1 text-sm">{fe.acepto}</p>}
-
-      {/* Reglamento General (opción A, Laura, 8-oct-2026): se acepta aquí y se lee a un toque */}
-      <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
-        <input type="checkbox" name="aceptoReglamento" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
-        <span className="text-sm leading-relaxed">
-          Conozco y acepto el <Link href="/registro/reglamento" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento General del Centro Deportivo Alejandro Falla</Link>.
-        </span>
-      </label>
-      {fe.aceptoReglamento && <p className="text-destructive -mt-1 text-sm">{fe.aceptoReglamento}</p>}
-
-      {/* Reglamento de Academias (16-oct-2026): solo cuando se firma por un menor */}
+      {/*
+        Sin casillas (club, 16-oct-2026): FIRMAR es aceptar. El texto de arriba de la firma lo dice y el
+        documento firmado también ("Con mi firma acepto…"). Los campos ocultos mantienen el contrato con el
+        servidor (acepto, reglamento y academias) y quedan atados a la firma, que sigue siendo obligatoria.
+      */}
+      <input type="hidden" name="acepto" value="on" />
+      <input type="hidden" name="aceptoReglamento" value="on" />
       {!mayor && academias && (
         <>
           <input type="hidden" name="academiasId" value={academias.id} />
-          <label className={cn(CARD, "flex cursor-pointer items-start gap-3 border-[1.5px] border-[#c9d65a] bg-[#fbfce9] px-4.5 py-4")}>
-            <input type="checkbox" name="aceptoAcademias" required className="accent-lime mt-0.5 size-[22px] shrink-0" />
-            <span className="text-sm leading-relaxed">
-              Conozco y acepto el <Link href="/registro/reglamento-academias" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento de las Academias de Tenis y Pádel</Link>.
-            </span>
-          </label>
-          {fe.aceptoAcademias && <p className="text-destructive -mt-1 text-sm">{fe.aceptoAcademias}</p>}
+          <input type="hidden" name="aceptoAcademias" value="on" />
         </>
       )}
 
@@ -416,6 +396,17 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
           <h2 className="font-heading text-[19px] font-extrabold tracking-tight">Tu firma</h2>
           <span className="text-muted-foreground truncate text-xs">{mayor ? nombreMenor : nombreFirmante}</span>
         </div>
+        <p className="text-charcoal m-0 text-sm leading-relaxed">
+          Al firmar, aceptas{mayor ? "" : ` en nombre de ${nombreMenor || "tu hijo(a)"}`} el consentimiento informado,
+          incluida la autorización de datos, fotos y videos e información del centro, el{" "}
+          <Link href="/registro/reglamento" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento General</Link>
+          {!mayor && academias ? (
+            <> y el <Link href="/registro/reglamento-academias" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento de las Academias de Tenis y Pádel</Link></>
+          ) : null}.
+        </p>
+        {(fe.acepto || fe.aceptoReglamento || fe.aceptoAcademias) && (
+          <p className="text-destructive text-sm">{fe.acepto || fe.aceptoReglamento || fe.aceptoAcademias}</p>
+        )}
         <FirmaPad nombreSugerido={mayor ? nombreMenor : nombreFirmante} onCambio={onFirma} />
         {fe.firmaPng && <p className="text-destructive text-sm">{fe.firmaPng}</p>}
       </section>

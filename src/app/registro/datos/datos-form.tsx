@@ -284,13 +284,12 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
             </Campo>
           </div>
           {/* Segundo intento con un documento que es de alguien de otro nombre: puede confirmar y
-              el envío va a revisión sin tocar a nadie (Laura, 2-oct-2026). */}
+              el envío va a revisión sin tocar a nadie (Laura, 2-oct-2026). Sin casillas (16-oct-2026):
+              volver a enviar es confirmar. */}
           {state.documentoDudoso && (
-            <div className="md:col-span-2">
-            <label className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm">
-              <input type="checkbox" name="confirmoDocumento" className="accent-lime mt-0.5 size-5 shrink-0" />
-              <span className="text-charcoal leading-relaxed">Confirmo que el documento y el nombre son correctos.</span>
-            </label>
+            <div className="md:col-span-2 rounded-[14px] border-[1.5px] border-[#f2b53d] bg-[#fdf6e3] px-4 py-3.5 text-sm">
+              <input type="hidden" name="confirmoDocumento" value="on" />
+              <p className="text-charcoal m-0 leading-relaxed">Revisa que el documento y el nombre estén bien escritos. Si son correctos, vuelve a enviar y lo revisamos en el club.</p>
             </div>
           )}
           <Campo label="Lugar de nacimiento" name="lugarNacimiento" error={fe.lugarNacimiento}><Input id="lugarNacimiento" name="lugarNacimiento" placeholder="Ciudad" className={INPUT} /></Campo>
@@ -411,10 +410,9 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
           )}
           </div>
 
-          <label className="bg-background flex cursor-pointer items-start gap-3 rounded-[14px] px-4 py-3.5 text-sm">
-            <input type="checkbox" name="acepto_datos" required className="accent-lime mt-0.5 size-5" />
-            <span className="text-charcoal leading-relaxed">Autorizo al Centro Deportivo Alejandro Falla el tratamiento de estos datos para las finalidades del numeral 8 del consentimiento informado, conforme a la Ley 1581 de 2012.</span>
-          </label>
+          {/* Sin casillas (club, 16-oct-2026): continuar es autorizar; el texto lo dice antes del botón. */}
+          <input type="hidden" name="acepto_datos" value="on" />
+          <p className="bg-background text-charcoal m-0 rounded-[14px] px-4 py-3.5 text-sm leading-relaxed">Al tocar «Guardar y pasar a firmar», autorizas al Centro Deportivo Alejandro Falla el tratamiento de estos datos para las finalidades del numeral 8 del consentimiento informado, conforme a la Ley 1581 de 2012.</p>
           {fe.acepto_datos && <p className="text-destructive text-sm">{fe.acepto_datos}</p>}
         </section>
 

@@ -138,6 +138,39 @@ describe("registro público · puerta abierta", () => {
     }
   });
 
+  it("sin casillas (v4): firmar es aceptar; no hay ningún checkbox visible", async () => {
+    const { readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016150000_consentimiento_sin_casillas.sql"), "utf8");
+    const txt = sql.match(/'2026-10-v4', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+    vigente = { ...VERSION, id: 12, codigo: "2026-10-v4", texto: txt };
+    academias = { ...VERSION, id: 8, codigo: "academias-2026-10", publico: "academias", titulo: "REGLAMENTO ACADEMIAS", texto: "## 1. Puntualidad\n\nLlegar a tiempo." };
+    try {
+      const { default: Page } = await import("../src/app/registro/consentimiento/page");
+      const html = await render(Page);
+      const t = texto(html);
+      expect(html).not.toContain('type="checkbox"');
+      expect(t).toContain("Al firmar, aceptas en nombre de tu hijo(a) el consentimiento informado, incluida la autorización de datos, fotos y videos e información del centro");
+      expect(html).toMatch(/<a[^>]*href="\/registro\/reglamento-academias"[^>]*>Reglamento de las Academias de Tenis y Pádel<\/a>/);
+      // El contrato con el servidor sigue: van ocultos y atados a la firma.
+      for (const n of ["acepto", "aceptoReglamento", "aceptoAcademias"]) expect(html).toMatch(new RegExp(`<input type="hidden" name="${n}" value="on"`));
+      expect(html).toContain('name="academiasId" value="8"');
+      expect(html).not.toContain('name="autoriza_informacion"');
+    } finally {
+      academias = null;
+    }
+  });
+
+  it("actualizar datos no tiene casillas de aceptación (solo los deportes, que son botones)", async () => {
+    vigente = VERSION;
+    const { default: Page } = await import("../src/app/registro/datos/page");
+    const html = await render(Page);
+    const casillas = html.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];
+    expect(casillas.every((c) => c.includes('name="deportes"'))).toBe(true);
+    expect(html).toMatch(/<input type="hidden" name="acepto_datos" value="on"/);
+    expect(texto(html)).toContain("autorizas al Centro Deportivo Alejandro Falla el tratamiento de estos datos");
+  });
+
   it("con fotos obligatorias (v3): un solo chulito y solo la casilla opcional de información", async () => {
     const { readFileSync } = await import("node:fs");
     const path = await import("node:path");
@@ -148,7 +181,7 @@ describe("registro público · puerta abierta", () => {
     const html = await render(Page);
     const t = texto(html);
     expect(t).toContain("Autorización");
-    expect(t).toContain("incluida la autorización de sus datos y del uso de fotos y videos");
+    expect(t).toContain("Al firmar, aceptas en nombre de tu hijo(a) el consentimiento informado");
     expect(html).not.toContain('name="autoriza_salud"');
     expect(html).not.toContain('name="autoriza_imagen"');
     // "Información del centro" es una casilla voluntaria, no un SÍ/NO obligatorio.

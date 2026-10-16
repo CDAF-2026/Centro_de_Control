@@ -88,6 +88,37 @@ describe("consentimiento con fotos obligatorias (v3 / adultos-v4)", () => {
   });
 });
 
+/** Sin casillas (16-oct-2026): v4 / adultos-v5. */
+const SQL4 = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261016150000_consentimiento_sin_casillas.sql"), "utf8");
+function textoDe4(codigo: string): string {
+  const m = SQL4.match(new RegExp(`'${codigo}', '[a-z]+',\\s*'[^']*',\\s*\\$texto\\$([\\s\\S]*?)\\$texto\\$`));
+  if (!m) throw new Error(`No está ${codigo} en la migración`);
+  return m[1];
+}
+
+describe("consentimiento sin casillas (v4 / adultos-v5)", () => {
+  for (const [codigo, base] of [["2026-10-v4", "2026-10-v3"], ["2026-10-adultos-v5", "2026-10-adultos-v4"]] as const) {
+    const t = textoDe4(codigo);
+    const p = partirConsentimiento(codigo, t);
+    it(`${codigo}: todo se acepta con la firma, sin opciones que marcar`, () => {
+      expect(p.autorizaciones?.unica).toBe(true);
+      expect(p.autorizaciones?.opciones).toEqual([]);
+      expect(p.autorizaciones?.intro).toHaveLength(1);
+      expect(p.autorizaciones?.intro[0]).toMatch(/^Con mi firma acepto/);
+      expect(p.autorizaciones?.intro[0]).toContain("y (c) recibir información de eventos, torneos y promociones del centro por WhatsApp o correo. Puedo pedir en cualquier momento que no me envíen más esta información");
+    });
+    it(`${codigo}: la entrada y los diez numerales son los mismos de la versión anterior`, () => {
+      const antes = partirConsentimiento(base, textoDe3(base));
+      expect(p.entrada).toEqual(antes.entrada);
+      expect(p.partes).toEqual(antes.partes);
+    });
+  }
+  it("en menores acepta también el Reglamento de las Academias; en adultos no", () => {
+    expect(textoDe4("2026-10-v4")).toContain("el Reglamento General y el Reglamento de las Academias de Tenis y Pádel del CENTRO DEPORTIVO AF");
+    expect(textoDe4("2026-10-adultos-v5")).not.toContain("Academias");
+  });
+});
+
 describe("textos anteriores", () => {
   it("siguen partiéndose un párrafo por parte, con sus títulos y sin autorizaciones", () => {
     const viejo = Array.from({ length: 10 }, (_, i) => `Párrafo ${i + 1}.`).join("\n\n");

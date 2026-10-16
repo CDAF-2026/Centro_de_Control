@@ -91,8 +91,8 @@ export async function firmarConsentimiento(
   // Documento de oct-2026: tres autorizaciones SÍ/NO obligatorias, y la EPS pasa a ser voluntaria.
   const partido = partirConsentimiento(version.codigo, version.texto);
   const conAutorizaciones = !!partido.autorizaciones;
-  // Desde v3 (16-oct-2026) hay UNA sola aceptación (el chulito "Apruebo"): las fotos van incluidas, la EPS y
-  // el RH quedan autorizados si se escriben (numeral 8) y solo "Información del centro" es una casilla opcional.
+  // Desde v3 (16-oct-2026) hay UNA sola aceptación, la firma: las fotos van incluidas y la EPS y el RH quedan
+  // autorizados si se escriben (numeral 8). "Información del centro" fue casilla opcional en v3; desde v4, incluida.
   const unica = !!partido.autorizaciones?.unica;
   if (conAutorizaciones && !unica) {
     const faltan = CLAVES_AUTORIZACION.filter((k) => !d[`autoriza_${k}`]);
@@ -103,7 +103,12 @@ export async function firmarConsentimiento(
     return { error: "Revisa los campos marcados.", fieldErrors: { eps: "Escribe la EPS" } };
   }
   const autoriza = unica
-    ? { salud: !!(d.eps || d.rh), imagen: true, informacion: d.autoriza_informacion === "si" }
+    ? {
+        salud: !!(d.eps || d.rh),
+        imagen: true,
+        // v3: casilla opcional. Desde v4 (sin casillas, 16-oct-2026) va incluida en lo que se acepta al firmar.
+        informacion: partido.autorizaciones!.opciones.some((o) => o.clave === "informacion") ? d.autoriza_informacion === "si" : true,
+      }
     : conAutorizaciones
     ? { salud: d.autoriza_salud === "si", imagen: d.autoriza_imagen === "si", informacion: d.autoriza_informacion === "si" }
     : null;
