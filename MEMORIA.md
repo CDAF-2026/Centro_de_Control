@@ -2387,6 +2387,11 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     clase": **Melissa Hurtado** (miembro 604, una de las 15 niñas demo del 30-sep) está matriculada en
     Recreativa Tenis (inscripción 235) **sin ningún día**. Es un dato, no código: hay que ponerla en su
     clase o retirarla desde `/academias`; con eso la prueba vuelve a verde.
+21. **¿Autorización de fotos obligatoria para la academia?** (16-oct-2026) El club quiere que todos los papás
+    acepten las fotos. Hoy es SÍ/NO voluntario, como dicen el numeral 9 del consentimiento y el art. 22 del
+    Reglamento General (texto del abogado). Laura lo consulta con el club; **no tocar hasta que responda**.
+    Opciones que se le dieron: que el abogado cambie el texto (en pantalla = quitar el "No" de fotos), medir
+    cuántos dicen No, y una marca "sin fotos" en el roster de la clase para el profesor.
 20. **El reporte de horas se usa para pagar DESDE OCTUBRE de 2026** (Laura, 1-oct-2026): el club apenas se
     está adaptando a marcar y desde octubre lo usará "más juiciosamente". **Septiembre NO se paga con el
     reporte**, así que sus turnos con la salida en otro día (Juan Fernando 1→21-sep ≈ 480 h; Camila 1 y
