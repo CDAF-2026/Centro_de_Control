@@ -2242,6 +2242,20 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- ✍️ **SIN CASILLAS: firmar es aceptar todo — EN PRODUCCIÓN desde el 16-oct-2026** (migraciones
+  `20261016150000_consentimiento_sin_casillas` + `…160000_…_abrir`; commit `a3d9a1b`). El club no quiere
+  ninguna casilla para marcar. Se quitaron "Apruebo", "Conozco y acepto el Reglamento General", la de
+  Academias, la de "Información del centro" y la de tratamiento de datos de "Actualizar datos". En su lugar
+  hay un texto fijo encima de la firma ("Al firmar, aceptas… el Reglamento General y el Reglamento de las
+  Academias", con enlaces) y otro encima de "Guardar y pasar a firmar". Los campos `acepto`,
+  `aceptoReglamento`, `aceptoAcademias` y `acepto_datos` viajan OCULTOS con "on" (el servidor no cambió; la
+  firma sigue siendo obligatoria). El aviso de documento dudoso ya no tiene casilla: volver a firmar o enviar
+  confirma (input oculto `confirmoDocumento`). Versiones vigentes: `2026-10-v4` (id 12) y
+  `2026-10-adultos-v5` (id 13). Son iguales a v3/adultos-v4 salvo el bloque AUTORIZACIÓN, que suma el
+  literal **(c) recibir información de eventos, torneos y promociones**, con la línea para pedir que no
+  escriban más (opción A de Laura). En menores, la frase acepta también el Reglamento de Academias. Sin
+  opciones en el texto, `autoriza_informacion = true`. Las v3/adultos-v4 se cerraron el mismo día y el
+  desempate de `consentimiento_version_vigente` las resuelve. Conviene que el abogado vea el literal (c).
 - ⚠️ **Pruebas del registro con datos REALES caen en fichas reales** (16-oct-2026). Si el acudiente de prueba
   usa la cédula (o el correo) de un papá que ya existe, el registro reconoce la familia y mete al niño como
   hermano, y además reemplaza el contacto, la dirección, la emergencia y el nombre de facturación de esa ficha.
