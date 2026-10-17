@@ -2242,16 +2242,19 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
-- 📋 **"Usar los datos del contacto de emergencia" en el paso de acudientes — EN PRODUCCIÓN desde el
-  16-oct-2026** (commit `b2ff7c6`; pedido de la clienta en dos audios). Es un botón, no una casilla, y aparece
-  si el paso 2 trae el nombre del contacto de emergencia. Copia nombre, celular y parentesco, y marca Madre,
-  Padre u Otro familiar con `rolDesdeParentesco` (`src/lib/registro/acudiente.ts`: mamá/mami/madre → madre,
-  papá/papi/padre → padre, lo demás → otro con ese parentesco). Cada opción guarda sus propios datos. La
-  **cédula** y el **correo** se escriben (el paso 2 de un menor no pide correo). Quedan resaltados en amarillo
-  con la nota "Solo falta la cédula y el correo", y el cursor salta a la cédula, para que nadie llegue al error
-  del navegador. **Decidido con Laura: NO pedir cédula en el contacto de emergencia** (no ahorra trabajo, se
-  la pediría a quien no firma, no hay columna para guardarla y la Ley 1581 pide no recoger datos sin
-  finalidad).
+- 📋 **Contacto de emergencia con cédula y correo + casilla "Usar los mismos datos del contacto de
+  emergencia" — EN PRODUCCIÓN desde el 16-oct-2026** (commits `b2ff7c6` y `1e2f5d1`; migración
+  `20261016170000_contacto_emergencia_cedula_correo`). La clienta lo pidió en dos audios. Recorrido:
+  1) un botón que copiaba nombre, celular y parentesco y resaltaba en amarillo la cédula y el correo; 2) a la
+  clienta no le gustó que se vieran "como error", así que **el contacto de emergencia ahora pide cédula y
+  correo** (opcionales, como el resto del contacto). Se guardan en `clientes.emergencia_documento` y
+  `emergencia_email`, que `registro_aplicar_datos` escribe (un campo vacío no borra); 3) Laura pidió que fuera
+  una **casilla visible**, como la de la ficha. Al activarla copia los cinco datos y marca Madre, Padre u Otro
+  familiar con `rolDesdeParentesco` (`src/lib/registro/acudiente.ts`); al quitarla vuelve lo de antes. No se
+  resalta nada. Esta casilla NO choca con "sin casillas", porque es un atajo, no una aceptación. En la
+  plataforma, la ficha muestra y edita la cédula y el correo de emergencia y la exportación los incluye. La
+  casilla "mismos datos" de la ficha copia la cédula y el correo solo si la emergencia los tiene (así una ficha
+  vieja no pierde el documento del acudiente). La importación desde Excel no los trae.
 - ✍️ **SIN CASILLAS: firmar es aceptar todo — EN PRODUCCIÓN desde el 16-oct-2026** (migraciones
   `20261016150000_consentimiento_sin_casillas` + `…160000_…_abrir`; commit `a3d9a1b`). El club no quiere
   ninguna casilla para marcar. Se quitaron "Apruebo", "Conozco y acepto el Reglamento General", la de
