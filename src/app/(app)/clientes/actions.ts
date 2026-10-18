@@ -14,6 +14,7 @@ import { paqueteAsignadoEmail } from "@/lib/email/paquete-asignado";
 import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo, PaqueteEstado } from "@/lib/database.types";
 import { clausulasBusqueda } from "./buscar";
 import { reatribuirFacturas } from "@/lib/facturacion";
+import { nitSinDv } from "@/lib/nit";
 
 // Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
 // de un rol, estos guardias tienen que moverse con ellos. Si no, el módulo le
@@ -110,7 +111,9 @@ export type ClienteFormState = {
 function leerFacturacion(formData: FormData) {
   return {
     facturaANombre: String(formData.get("facturaANombre") ?? "").trim() || null,
-    facturaANit: String(formData.get("facturaANit") ?? "").replace(/\D/g, "") || null,
+    // Persona jurídica con "NIT-DV" escrito con guion: se guarda sin DV, como en Siigo (18-oct-2026). Sin guion
+    // no se toca: hay NIT que Siigo tiene con el DV pegado (p. ej. 8600352008) y deben seguir enlazando.
+    facturaANit: (/-\s*\d\s*$/.test(String(formData.get("facturaANit") ?? "")) ? nitSinDv(String(formData.get("facturaANit"))) : String(formData.get("facturaANit") ?? "").replace(/\D/g, "")) || null,
   };
 }
 

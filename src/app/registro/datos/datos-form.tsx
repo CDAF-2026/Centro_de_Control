@@ -11,6 +11,7 @@ import { edadDesde } from "@/lib/validations/cliente";
 import { TIPOS_DOCUMENTO, RH_VALORES, tipoDocumentoPorEdad } from "@/app/(app)/clientes/documento";
 import type { Firmante } from "@/lib/registro/sesion";
 import { rolDesdeParentesco } from "@/lib/registro/acudiente";
+import { dvNit, nitSinDv } from "@/lib/nit";
 
 /* ───────────── Piezas de la pantalla (diseño A "Paso a paso") ───────────── */
 
@@ -223,7 +224,16 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const [paso, setPaso] = useState(0);
   const [snap, setSnap] = useState<Snap>({});
   const [facturaDe, setFacturaDe] = useState<OpcionFactura["valor"] | "">("");
-  const [otro, setOtro] = useState({ tipo: "natural", nombre: "", nit: "", email: "" });
+  const [otro, setOtro] = useState({ tipo: "natural", nombre: "", nit: "", dv: "", email: "" });
+  // Persona jurídica: el DV lo escribe la persona (Laura, 18-oct-2026) y se compara con el que corresponde al NIT
+  // (fórmula DIAN). Si no coinciden, el navegador no deja enviar y lo dice junto al campo.
+  const nitBase = nitSinDv(otro.nit);
+  const dvNoCoincide = otro.tipo === "juridica" && otro.dv !== "" && nitBase !== "" && dvNit(nitBase) !== Number(otro.dv);
+  useEffect(() => {
+    (document.getElementById("facturaDv") as HTMLInputElement | null)?.setCustomValidity(
+      dvNoCoincide ? "El DV no coincide con el NIT. Revísalos en el RUT." : "",
+    );
+  }, [dvNoCoincide, otro.tipo]);
 
   const edad = edadDesde(fecha);
   const mayor = edad != null && edad >= 18;
@@ -295,7 +305,7 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
   const elegida = opciones.find((o) => o.valor === facturaDe) ?? opciones[0];
   const esOtro = elegida.valor === "otro";
   const editarComoOtro = () => {
-    if (elegida.datos) setOtro({ tipo: "natural", nombre: elegida.datos.nombre, nit: elegida.datos.nit, email: elegida.datos.email });
+    if (elegida.datos) setOtro({ tipo: "natural", nombre: elegida.datos.nombre, nit: elegida.datos.nit, dv: "", email: elegida.datos.email });
     setFacturaDe("otro");
   };
 
@@ -429,16 +439,41 @@ export function DatosForm({ firmante }: { firmante?: Firmante | null }) {
 
           {esOtro ? (
             <div className="space-y-4 rounded-[14px] border-[1.5px] p-4">
-              <div className="grid grid-cols-[136px_1fr] gap-3">
+              {/* Persona jurídica (18-oct-2026, pedido de la clienta): NIT SIN dígito de verificación, que es como lo
+                  guarda Siigo, y el DV al lado, calculado solo. Si pegan "901534314-8", al salir del campo se separa. */}
+              <div className={cn("grid gap-3", otro.tipo === "juridica" ? "grid-cols-1" : "grid-cols-[136px_1fr]")}>
                 <Campo label="Tipo" name="facturaTipo" error={fe.facturaTipo}>
                   <Select id="facturaTipo" name="facturaTipo" value={otro.tipo} onChange={(e) => setOtro({ ...otro, tipo: e.target.value })}>
-                    <option value="natural">Natural</option>
-                    <option value="juridica">Jurídica</option>
+                    <option value="natural">Persona natural</option>
+                    <option value="juridica">Persona jurídica (empresa)</option>
                   </Select>
                 </Campo>
-                <Campo label="NIT o cédula" name="facturaANit" error={fe.facturaANit}>
-                  <Input id="facturaANit" name="facturaANit" inputMode="numeric" required value={otro.nit} onChange={(e) => setOtro({ ...otro, nit: e.target.value })} className={INPUT} placeholder="Sin puntos" />
-                </Campo>
+                {otro.tipo === "juridica" ? (
+                  <div className="grid grid-cols-[1fr_84px] gap-3">
+                    <Campo label="NIT (sin dígito de verificación)" name="facturaANit" error={fe.facturaANit}>
+                      <Input id="facturaANit" name="facturaANit" inputMode="numeric" required value={otro.nit}
+                        onChange={(e) => setOtro({ ...otro, nit: e.target.value })}
+                        onBlur={(e) => {
+                          // Si escribieron el NIT con el DV ("901534314-8" o pegado), se separa y el DV pasa a su casilla.
+                          const v = e.target.value;
+                          const base = nitSinDv(v);
+                          const digitos = v.replace(/\D/g, "");
+                          const dv = digitos.length > base.length ? digitos.slice(base.length) : "";
+                          setOtro((o) => ({ ...o, nit: base, dv: o.dv || dv }));
+                        }}
+                        className={INPUT} placeholder="900123456" />
+                    </Campo>
+                    <Campo label="DV" name="facturaDv" error={fe.facturaDv}>
+                      <Input id="facturaDv" name="facturaDv" inputMode="numeric" required maxLength={1} value={otro.dv}
+                        onChange={(e) => setOtro({ ...otro, dv: e.target.value.replace(/\D/g, "").slice(0, 1) })}
+                        className={cn(INPUT, "text-center")} placeholder="0" />
+                    </Campo>
+                  </div>
+                ) : (
+                  <Campo label="Cédula" name="facturaANit" error={fe.facturaANit}>
+                    <Input id="facturaANit" name="facturaANit" inputMode="numeric" required value={otro.nit} onChange={(e) => setOtro({ ...otro, nit: e.target.value })} className={INPUT} placeholder="Sin puntos" />
+                  </Campo>
+                )}
               </div>
               <Campo label="Nombre o razón social" name="facturaANombre" error={fe.facturaANombre}>
                 <Input id="facturaANombre" name="facturaANombre" required value={otro.nombre} onChange={(e) => setOtro({ ...otro, nombre: e.target.value })} className={INPUT} />

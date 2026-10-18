@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { nitConDv, nitSinDv } from "@/lib/nit";
 
 const initial: ClienteFormState = {};
 
@@ -161,6 +162,7 @@ export function ClienteForm({
     (!cliente?.emergencia_email || cliente.emergencia_email === (acudiente?.email ?? ""));
   const [mismos, setMismos] = useState(yaCoinciden);
 
+  const [factTipo, setFactTipo] = useState(cliente?.factura_tipo ?? "");
   // Facturación: al elegir un nombre conocido de Siigo, se autocompleta su NIT.
   const [fact, setFact] = useState({
     nombre: cliente?.factura_a_nombre ?? "",
@@ -322,19 +324,23 @@ export function ClienteForm({
           ))}
         </datalist>
         <Field
-          label="NIT / cédula de facturación"
+          label={factTipo === "juridica" ? "NIT de facturación (sin dígito de verificación)" : "NIT / cédula de facturación"}
           name="facturaANit"
           error={fe.facturaANit}
           value={fact.nit}
           onChange={(v) => setFact((s) => ({ ...s, nit: v }))}
         />
+        {factTipo === "juridica" && fact.nit.replace(/\D/g, "") && (
+          <p className="text-muted-foreground -mt-1.5 text-xs">Con dígito de verificación: <span className="text-foreground font-semibold">{nitConDv(fact.nit.includes("-") ? nitSinDv(fact.nit) : fact.nit)}</span></p>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="facturaTipo">Tipo</Label>
             <select
               id="facturaTipo"
               name="facturaTipo"
-              defaultValue={cliente?.factura_tipo ?? ""}
+              value={factTipo}
+              onChange={(e) => setFactTipo(e.target.value)}
               className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
             >
               <option value="">—</option>

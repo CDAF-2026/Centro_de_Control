@@ -17,6 +17,7 @@ import { listarNotas } from "@/lib/notas";
 import { staffDirectorio, mapaNombresStaff } from "@/lib/staff";
 import { documentoLegible } from "../documento";
 import { fechaHoraCorta } from "@/lib/fecha";
+import { nitConDv } from "@/lib/nit";
 
 const ROL_ACUDIENTE_LABEL = { padre: "Padre", madre: "Madre", otro: "Otro acudiente" } as const;
 
@@ -345,7 +346,7 @@ export default async function ClienteDetallePage({
               cliente.factura_a_nombre || cliente.factura_a_nit
                 ? [
                     cliente.factura_a_nombre,
-                    cliente.factura_a_nit && `NIT ${cliente.factura_a_nit}`,
+                    cliente.factura_a_nit && `NIT ${cliente.factura_tipo === "juridica" ? nitConDv(cliente.factura_a_nit) : cliente.factura_a_nit}`,
                     cliente.factura_tipo && (cliente.factura_tipo === "juridica" ? "P. jurídica" : "P. natural"),
                   ]
                     .filter(Boolean)

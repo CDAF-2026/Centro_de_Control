@@ -132,6 +132,8 @@ export const datosSchema = z.object({
   facturaTipo: z.enum(["natural", "juridica"], { message: "Elige el tipo" }),
   facturaANombre: texto(160).min(2, "Escribe el nombre o la razón social"),
   facturaANit: soloDigitos(20),
+  // DV del NIT de persona jurídica, escrito por la persona (18-oct-2026); el servidor lo compara con el NIT.
+  facturaDv: z.string().trim().regex(/^\d?$/, "Escribe un solo dígito").optional(),
   facturaEmail: z.string().trim().max(120).email("Escribe un correo válido para las facturas"),
 });
 

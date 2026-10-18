@@ -10,6 +10,7 @@ import { anotarEnSesion, crearSesion, leerSesion, type Firmante } from "@/lib/re
 import { registroAbierto } from "@/lib/registro/version";
 import { edadDesde } from "@/lib/validations/cliente";
 import { capitalizarNombre } from "@/lib/nombres";
+import { dvNit, nitSinDv } from "@/lib/nit";
 import type { Json } from "@/lib/database.types";
 
 export type DatosState = {
@@ -37,6 +38,14 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
   const parsed = datosSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Revisa los campos marcados.", fieldErrors: erroresDeCampo(parsed.error.issues) };
   const d = parsed.data;
+  // Persona jurídica: el DV que escribió debe ser el que corresponde al NIT (fórmula DIAN, 18-oct-2026).
+  if (d.facturaTipo === "juridica") {
+    const base = nitSinDv(d.facturaANit);
+    if (!d.facturaDv) return { error: "Revisa los campos marcados.", fieldErrors: { facturaDv: "Escribe el DV" } };
+    if (dvNit(base) !== Number(d.facturaDv)) {
+      return { error: "El dígito de verificación no coincide con el NIT. Revísalos en el RUT.", fieldErrors: { facturaDv: "No coincide con el NIT" } };
+    }
+  }
 
   const edad = edadDesde(d.fechaNacimiento);
   const mayor = edad != null && edad >= 18;
@@ -102,7 +111,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     acudientes,
     // La facturación siempre viaja (es obligatoria). Si la ficha ya tenía otra, el SQL no la
     // pisa: cada campo distinto va a `registro_cambio` y se avisa a los revisores (D1).
-    facturacion: { factura_tipo: d.facturaTipo, factura_a_nombre: d.facturaTipo === "juridica" ? d.facturaANombre : capitalizarNombre(d.facturaANombre), factura_a_nit: soloDigitos(d.facturaANit), factura_email: d.facturaEmail.toLowerCase() },
+    facturacion: { factura_tipo: d.facturaTipo, factura_a_nombre: d.facturaTipo === "juridica" ? d.facturaANombre : capitalizarNombre(d.facturaANombre), factura_a_nit: soloDigitos(d.facturaTipo === "juridica" ? nitSinDv(d.facturaANit) : d.facturaANit), factura_email: d.facturaEmail.toLowerCase() },
     busqueda: busqueda.tipo === "unico" ? { tipo: "unico", por: busqueda.por } : busqueda.tipo === "ninguno" ? { tipo: "ninguno", modo: decision?.modo } : { tipo: busqueda.tipo, candidatos },
   };
 
