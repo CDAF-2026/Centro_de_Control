@@ -161,9 +161,8 @@ export function resumenDelConsentimiento(
           `La EPS de ${pila}${e ? ` (${e})` : ""} cubre la atención médica si ocurre un accidente o una lesión; el centro deportivo solo responde si hay dolo o culpa grave.`,
           "Si el deportista agrede a un compañero o a un profesor, el centro deportivo puede retirarlo de la clase sin devolver el dinero.",
           `Los datos de ${pila} se usan para su inscripción, el contacto con la familia, las emergencias y la facturación (Ley 1581 de 2012). La EPS y el RH son opcionales.`,
-          fotosOpcionales
-            ? `Tú decides, con la casilla de abajo, si autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro. Si no lo autorizas, ${pila} participa igual y le avisamos al club.`
-            : `Autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro, sin su nombre completo: en las clases se toman fotos de grupo, por eso es condición para participar.`,
+          // Menores desde v5 (18-oct-2026): la casilla de fotos tiene su propio texto, el resumen no la repite (Laura).
+          ...(fotosOpcionales ? [] : [`Autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro, sin su nombre completo: en las clases se toman fotos de grupo, por eso es condición para participar.`]),
         ];
   }
   if (conAutorizaciones) {

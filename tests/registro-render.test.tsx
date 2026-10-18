@@ -177,9 +177,10 @@ describe("registro público · puerta abierta", () => {
     expect(t).toContain("Fotos y videos. Autorizo al centro a usar fotos y videos de mi hijo(a) en su página web, sus redes sociales y su material impreso, como se indica en el numeral 9.");
     expect(t).toContain("incluida la autorización de datos e información del centro");
     expect(t).not.toContain("datos, fotos y videos e información");
-    // El resumen ya no dice que las fotos son condición (18-oct-2026).
+    // El resumen no habla de fotos: la casilla tiene su propio texto (Laura, 18-oct-2026).
     expect(t).not.toContain("es condición para participar");
-    expect(t).toContain("Tú decides, con la casilla de abajo, si autorizas el uso de fotos y videos");
+    expect(t).not.toContain("Autorizas el uso de fotos y videos");
+    expect(t).not.toContain("Tú decides");
   });
 
   it("actualizar datos no tiene casillas de aceptación (solo los deportes, que son botones)", async () => {
