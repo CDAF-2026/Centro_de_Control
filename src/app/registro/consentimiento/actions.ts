@@ -95,18 +95,20 @@ export async function firmarConsentimiento(
   // Desde v3 (16-oct-2026) hay UNA sola aceptación, la firma: las fotos van incluidas y la EPS y el RH quedan
   // autorizados si se escriben (numeral 8). "Información del centro" fue casilla opcional en v3; desde v4, incluida.
   const unica = !!partido.autorizaciones?.unica;
-  if (conAutorizaciones && !unica) {
-    const faltan = CLAVES_AUTORIZACION.filter((k) => !d[`autoriza_${k}`]);
+  if (conAutorizaciones) {
+    // v2: las tres SÍ/NO. Desde v3, solo las opciones que trae el texto (en menores v5+, fotos con SÍ/NO).
+    const claves = unica ? partido.autorizaciones!.opciones.map((o) => o.clave) : CLAVES_AUTORIZACION;
+    const faltan = claves.filter((k) => !d[`autoriza_${k}`]);
     if (faltan.length) {
-      return { error: "Marca Sí o No en cada autorización.", fieldErrors: Object.fromEntries(faltan.map((k) => [`autoriza_${k}`, "Elige Sí o No"])) };
+      return { error: unica ? "Elige Sí o No en Fotos y videos." : "Marca Sí o No en cada autorización.", fieldErrors: Object.fromEntries(faltan.map((k) => [`autoriza_${k}`, "Elige Sí o No"])) };
     }
-  } else if (!conAutorizaciones && (!d.eps || d.eps.length < 2)) {
+  } else if (!d.eps || d.eps.length < 2) {
     return { error: "Revisa los campos marcados.", fieldErrors: { eps: "Escribe la EPS" } };
   }
   const autoriza = unica
     ? {
         salud: !!(d.eps || d.rh),
-        // Si el texto la trae como opción, es una casilla (sin marcar = NO); si no, va incluida al firmar.
+        // Si el texto la trae como opción, se responde SÍ/NO (obligatorio); si no, va incluida al firmar.
         // Fotos: incluidas en v3/v4 y en adultos; casilla propia en menores desde v5 (18-oct-2026).
         // Información del centro: casilla en v3; incluida desde v4 (16-oct-2026).
         imagen: partido.autorizaciones!.opciones.some((o) => o.clave === "imagen") ? d.autoriza_imagen === "si" : true,

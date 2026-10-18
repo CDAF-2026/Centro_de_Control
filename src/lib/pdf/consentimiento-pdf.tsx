@@ -135,7 +135,7 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
             {partido.autorizaciones.intro.map((p, i) => <Text key={i} style={s.p}>{p}</Text>)}
             {partido.autorizaciones.opciones.map((o) => (
               <View key={o.clave} style={s.op}>
-                <Text style={s.marca}>{respuesta[o.clave] === undefined ? "—" : partido.autorizaciones!.unica ? (respuesta[o.clave] ? "X" : " ") : respuesta[o.clave] ? "SÍ" : "NO"}</Text>
+                <Text style={s.marca}>{respuesta[o.clave] === undefined ? "—" : respuesta[o.clave] ? "SÍ" : "NO"}</Text>
                 <Text style={{ flex: 1, textAlign: "justify" }}><Text style={s.b}>{o.titulo}. </Text>{o.texto}</Text>
               </View>
             ))}

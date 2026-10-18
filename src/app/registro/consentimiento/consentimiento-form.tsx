@@ -331,13 +331,16 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
           {partido.autorizaciones.intro.map((p, i) => (
             <p key={i} className="text-charcoal m-0 text-sm leading-[1.6]">{p}</p>
           ))}
-          {/* Desde v5 (18-oct-2026): fotos y videos de menores con su propia casilla, SIN marcar al entrar
-              (una autorización no puede venir marcada). Sin marcar = no autoriza: se avisa al club. */}
+          {/* Desde v5 (18-oct-2026): fotos y videos de menores con SÍ / NO obligatorio (Laura: una casilla sola
+              se salta fácil; hay que elegir para poder firmar). Si elige NO, se avisa al club. */}
           {partido.autorizaciones.opciones.map((o) => (
-            <label key={o.clave} className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#c9d65a] bg-[#fdfdf3] px-4 py-3.5 transition-colors hover:bg-[#fbfce9]">
-              <input type="checkbox" name={`autoriza_${o.clave}`} value="si" className="accent-lime mt-0.5 size-[22px] shrink-0" />
-              <span className="text-charcoal text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</span>
-            </label>
+            <div key={o.clave} className="flex items-start justify-between gap-4 rounded-[14px] border-[1.5px] border-[#c9d65a] bg-[#fdfdf3] px-4 py-3.5">
+              <p className="text-charcoal m-0 text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</p>
+              <SiNo name={`autoriza_${o.clave}`} valor={autoriza[o.clave] ?? ""} onCambio={(v) => setAutoriza((a) => ({ ...a, [o.clave]: v }))} />
+            </div>
+          ))}
+          {partido.autorizaciones.opciones.map((o) => fe[`autoriza_${o.clave}`] && (
+            <p key={o.clave} className="text-destructive m-0 text-sm">{fe[`autoriza_${o.clave}`]}</p>
           ))}
           {partido.autorizaciones.cierre.map((p, i) => (
             <p key={i} className="text-muted-foreground m-0 text-xs leading-relaxed">{p}</p>

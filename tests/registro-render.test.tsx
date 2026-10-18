@@ -161,7 +161,7 @@ describe("registro público · puerta abierta", () => {
     }
   });
 
-  it("menores v5: casilla de fotos SIN marcar y el texto de la firma ya no las da por aceptadas", async () => {
+  it("menores v5: fotos con Sí/No obligatorio y el texto de la firma ya no las da por aceptadas", async () => {
     const { readFileSync } = await import("node:fs");
     const path = await import("node:path");
     const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261018100000_fotos_menores_opcionales.sql"), "utf8");
@@ -170,10 +170,11 @@ describe("registro público · puerta abierta", () => {
     const { default: Page } = await import("../src/app/registro/consentimiento/page");
     const html = await render(Page);
     const t = texto(html);
-    const casillas = html.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];
-    expect(casillas).toHaveLength(1);
-    expect(casillas[0]).toContain('name="autoriza_imagen"');
-    expect(casillas[0]).not.toContain("checked");
+    // Fotos con SÍ / NO obligatorio (18-oct-2026), sin nada elegido al entrar; ninguna casilla.
+    expect(html).not.toContain('type="checkbox"');
+    const radios = html.match(/<input[^>]*type="radio"[^>]*name="autoriza_imagen"[^>]*>/g) ?? [];
+    expect(radios).toHaveLength(2);
+    for (const r of radios) { expect(r).toContain("required"); expect(r).not.toMatch(/checked=""/); }
     expect(t).toContain("Fotos y videos. Autorizo al centro a usar fotos y videos de mi hijo(a) en su página web, sus redes sociales y su material impreso, como se indica en el numeral 9.");
     expect(t).toContain("incluida la autorización de datos e información del centro");
     expect(t).not.toContain("datos, fotos y videos e información");
@@ -206,9 +207,8 @@ describe("registro público · puerta abierta", () => {
     expect(t).toContain("Al firmar, aceptas en nombre de tu hijo(a) el consentimiento informado");
     expect(html).not.toContain('name="autoriza_salud"');
     expect(html).not.toContain('name="autoriza_imagen"');
-    // "Información del centro" es una casilla voluntaria, no un SÍ/NO obligatorio.
-    expect(html).toMatch(/<input[^>]*type="checkbox"[^>]*name="autoriza_informacion"/);
-    expect(html).not.toMatch(/<input[^>]*name="autoriza_informacion"[^>]*required/);
+    // Desde el 18-oct-2026 toda opción del bloque único se responde con SÍ / NO obligatorio.
+    expect(html).toMatch(/<input[^>]*type="radio"[^>]*name="autoriza_informacion"/);
     expect(html).not.toMatch(/<input[^>]*id="eps"[^>]*required/);
     expect(html).toContain('name="versionId" value="9"');
   });
