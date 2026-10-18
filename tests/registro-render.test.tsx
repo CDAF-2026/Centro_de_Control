@@ -161,6 +161,24 @@ describe("registro público · puerta abierta", () => {
     }
   });
 
+  it("menores v5: casilla de fotos SIN marcar y el texto de la firma ya no las da por aceptadas", async () => {
+    const { readFileSync } = await import("node:fs");
+    const path = await import("node:path");
+    const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261018100000_fotos_menores_opcionales.sql"), "utf8");
+    const txt = sql.match(/'2026-10-v5', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+    vigente = { ...VERSION, id: 14, codigo: "2026-10-v5", texto: txt };
+    const { default: Page } = await import("../src/app/registro/consentimiento/page");
+    const html = await render(Page);
+    const t = texto(html);
+    const casillas = html.match(/<input[^>]*type="checkbox"[^>]*>/g) ?? [];
+    expect(casillas).toHaveLength(1);
+    expect(casillas[0]).toContain('name="autoriza_imagen"');
+    expect(casillas[0]).not.toContain("checked");
+    expect(t).toContain("Fotos y videos. Autorizo al centro a usar fotos y videos de mi hijo(a) en su página web, sus redes sociales y su material impreso, como se indica en el numeral 9.");
+    expect(t).toContain("incluida la autorización de datos e información del centro");
+    expect(t).not.toContain("datos, fotos y videos e información");
+  });
+
   it("actualizar datos no tiene casillas de aceptación (solo los deportes, que son botones)", async () => {
     vigente = VERSION;
     const { default: Page } = await import("../src/app/registro/datos/page");
@@ -283,7 +301,7 @@ describe("bandeja de registros", () => {
       const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
       const html = await render(Page);
       const t = texto(html);
-      expect(t).toContain("Facturación por aprobar");
+      expect(t).toMatch(/Facturaci(ón|ones) por aprobar/);
       expect(t).toContain("9990009999");
       expect(t).toContain(`${cli!.nombres} ${cli!.apellidos}`);
       expect(t).toContain("Aprobar");

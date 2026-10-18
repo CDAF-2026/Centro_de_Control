@@ -11,6 +11,7 @@ import { calidadDelFirmante, CLAVES_AUTORIZACION, partirConsentimiento } from "@
 import { generarPdfConsentimiento, fechaHoraBogota } from "@/lib/pdf/consentimiento-pdf";
 import { sendEmail } from "@/lib/email/resend";
 import { consentimientoFirmadoEmail } from "@/lib/email/consentimiento-firmado";
+import { noAutorizoImagenEmail } from "@/lib/email/no-autorizo-imagen";
 import { logAuditSistema } from "@/lib/audit";
 import { edadDesde } from "@/lib/validations/cliente";
 import { capitalizarNombre } from "@/lib/nombres";
@@ -105,8 +106,10 @@ export async function firmarConsentimiento(
   const autoriza = unica
     ? {
         salud: !!(d.eps || d.rh),
-        imagen: true,
-        // v3: casilla opcional. Desde v4 (sin casillas, 16-oct-2026) va incluida en lo que se acepta al firmar.
+        // Si el texto la trae como opción, es una casilla (sin marcar = NO); si no, va incluida al firmar.
+        // Fotos: incluidas en v3/v4 y en adultos; casilla propia en menores desde v5 (18-oct-2026).
+        // Información del centro: casilla en v3; incluida desde v4 (16-oct-2026).
+        imagen: partido.autorizaciones!.opciones.some((o) => o.clave === "imagen") ? d.autoriza_imagen === "si" : true,
         informacion: partido.autorizaciones!.opciones.some((o) => o.clave === "informacion") ? d.autoriza_informacion === "si" : true,
       }
     : conAutorizaciones
@@ -270,9 +273,24 @@ export async function firmarConsentimiento(
 
   // 5) Copia del PDF al correo del firmante (D5; Laura, 2-oct-2026). Si falla, el PDF ya está
   // en la ficha: se registra y se sigue. Sin correo escrito, no se envía nada.
+  // Fotos de menores con casilla (18-oct-2026): si NO autorizó, se avisa al club y el correo al papá lo dice.
+  const firmadoEl = firma?.firmado_el ?? new Date().toISOString();
+  const sinImagen = !mayor && autoriza?.imagen === false;
+  if (sinImagen) {
+    const aviso = noAutorizoImagenEmail({
+      menor: nombreMenor, menorDocumento: `${d.tipoDocumento} ${d.documento}`,
+      firmante: firmante.nombre, firmanteDocumento: firmante.documento, calidad: calidadDelFirmante(firmante.parentesco),
+      fechaTexto: fechaHoraBogota(firmadoEl), clienteId: busqueda.tipo === "unico" ? busqueda.miembro.cliente_id : null,
+    });
+    const envioClub = await sendEmail({ to: aviso.to, subject: aviso.subject, html: aviso.html });
+    if (!envioClub.ok) console.error("[registro] aviso al club (sin fotos):", firmaId, envioClub.error);
+    await logAuditSistema({
+      action: "registro.sin_imagen", entity: "consentimiento_firma", entityId: firmaId,
+      after: { menor: nombreMenor, aviso_club: envioClub.ok ? "enviado" : "falló" },
+    });
+  }
   if (firmante.email) {
-    const firmadoEl = firma?.firmado_el ?? new Date().toISOString();
-    const correo = consentimientoFirmadoEmail({ firmante: firmante.nombre, menor: nombreMenor, fechaTexto: fechaHoraBogota(firmadoEl), firmaPorSiMismo: mayor, academias: !!academias });
+    const correo = consentimientoFirmadoEmail({ firmante: firmante.nombre, menor: nombreMenor, fechaTexto: fechaHoraBogota(firmadoEl), firmaPorSiMismo: mayor, academias: !!academias, sinImagen });
     const envio = await sendEmail({ to: firmante.email, subject: correo.subject, html: correo.html, attachments: [{ filename: correo.filename, content: pdf }] });
     if (!envio.ok) console.error("[registro] correo:", firmaId, envio.error);
   }

@@ -103,6 +103,30 @@ describe("generarPdfConsentimiento · fotos obligatorias (v3)", () => {
   }, 30_000);
 });
 
+describe("generarPdfConsentimiento · menores v5 sin fotos", () => {
+  const sql = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261018100000_fotos_menores_opcionales.sql"), "utf8");
+  const texto = sql.match(/'2026-10-v5', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/)![1];
+  it("genera el PDF con la casilla de fotos sin marcar", async () => {
+    const pdf = await generarPdfConsentimiento({
+      firmaId: "00000000-0000-0000-0000-000000000005",
+      version: { codigo: "2026-10-v5", titulo: "CONSENTIMIENTO INFORMADO", texto, texto_sha256: "f".repeat(64) },
+      reglamento: { codigo: "reglamento-2026-10-v4", texto_sha256: "c".repeat(64) },
+      academias: { codigo: "academias-2026-10", texto_sha256: "d".repeat(64) },
+      autoriza: { salud: false, imagen: false, informacion: true },
+      calidad: "madre",
+      menor: { nombre: "Niño Prueba", documento: "TI 9990000001", fechaNacimiento: "2014-03-09", rh: null, eps: null },
+      firmante: { nombre: "Mamá Prueba", documento: "9990000002", parentesco: "Madre", email: null, celular: null },
+      firmaPorSiMismo: false,
+      firmadoEl: "2026-10-18T20:12:00Z",
+      metodo: "escrita",
+      ip: "181.1.1.1",
+      userAgent: "Prueba/1.0",
+      firmaPng: PNG,
+    });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  }, 30_000);
+});
+
 describe("generarPdfReglamento", () => {
   it("genera un PDF del reglamento con capítulos y artículos", async () => {
     const pdf = await generarPdfReglamento({ codigo: "reglamento-2026-10", titulo: "REGLAMENTO GENERAL", vigente_desde: "2026-10-08",

@@ -1,3 +1,5 @@
+import { CORREO_CLUB } from "./club";
+
 /**
  * Correo al papá (o a la persona, si firmó por sí misma) con el PDF del consentimiento
  * adjunto, apenas se firma (D5 / Fase 5.3; Laura, 2-oct-2026: adjunto, texto corto, sin copia
@@ -21,6 +23,8 @@ export function consentimientoFirmadoEmail(opts: {
   firmaPorSiMismo: boolean;
   /** También aceptó el Reglamento de Academias (firma por un menor, desde el 16-oct-2026). */
   academias?: boolean;
+  /** NO autorizó fotos y videos del menor (casilla desde el 18-oct-2026): se le cuenta que el club ya sabe. */
+  sinImagen?: boolean;
 }): { subject: string; html: string; filename: string } {
   const pila = opts.firmante.trim().split(/\s+/)[0] || "deportista";
   const pilaMenor = opts.menor.trim().split(/\s+/)[0] || "el deportista";
@@ -46,6 +50,7 @@ export function consentimientoFirmadoEmail(opts: {
           <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">${bienvenida}</p>
           <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">${adjunto}</p>
           <p style="margin:0 0 14px;font-size:14px;line-height:1.6;">Con tu firma también aceptaste el <a href="https://alejandrofallacd.com/registro/reglamento" style="color:#1a1c1e;font-weight:bold;">Reglamento General del club</a>${opts.academias ? ` y el <a href="https://alejandrofallacd.com/registro/reglamento-academias" style="color:#1a1c1e;font-weight:bold;">Reglamento de las Academias</a>` : ""}, que puedes leer cuando quieras.</p>
+          ${opts.sinImagen ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;">No autorizaste el uso de fotos y videos de <strong>${esc(pilaMenor)}</strong>. Junto con este correo le avisamos al Centro Deportivo Alejandro Falla de tu decisión, para que no use fotos ni videos en los que aparezca ${esc(pilaMenor)}. Si cambias de opinión, escríbenos a <a href="mailto:${CORREO_CLUB}" style="color:#1a1c1e;font-weight:bold;">${CORREO_CLUB}</a>.</p>` : ""}
           <p style="margin:0 0 18px;font-size:14px;line-height:1.6;">Si algún dato cambia o tienes alguna duda, escríbenos o pasa por recepción: estamos para ayudarte.</p>
           <p style="margin:0;font-size:14px;line-height:1.6;">Nos vemos en la cancha 🎾</p>
         </td></tr>

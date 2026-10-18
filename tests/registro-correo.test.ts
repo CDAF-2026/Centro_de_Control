@@ -21,3 +21,27 @@ describe("consentimientoFirmadoEmail", () => {
     expect(c.html).toContain("Ana&lt;b&gt;");
   });
 });
+
+describe("fotos y videos de menores sin autorizar (18-oct-2026)", () => {
+  it("el correo al papá dice que el club ya fue avisado, solo si no autorizó", async () => {
+    const { consentimientoFirmadoEmail } = await import("../src/lib/email/consentimiento-firmado");
+    const base = { firmante: "Ana Gómez", menor: "Tomás Ruiz", fechaTexto: "18 de octubre de 2026, 3:12 p. m.", firmaPorSiMismo: false };
+    const con = consentimientoFirmadoEmail({ ...base, sinImagen: true }).html;
+    expect(con).toContain("No autorizaste el uso de fotos y videos de <strong>Tomás</strong>");
+    expect(con).toContain("le avisamos al Centro Deportivo Alejandro Falla de tu decisión");
+    expect(con).toContain("centrodeportivoaf@gmail.com");
+    expect(consentimientoFirmadoEmail(base).html).not.toContain("No autorizaste");
+  });
+  it("el aviso al club va a centrodeportivoaf@gmail.com con quién, de quién y el enlace a la ficha", async () => {
+    const { noAutorizoImagenEmail } = await import("../src/lib/email/no-autorizo-imagen");
+    const a = noAutorizoImagenEmail({ menor: "Tomás Ruiz", menorDocumento: "TI 9990000101", firmante: "Ana Gómez", firmanteDocumento: "9990000202", calidad: "madre", fechaTexto: "18 de octubre de 2026, 3:12 p. m.", clienteId: 123 });
+    expect(a.to).toBe("centrodeportivoaf@gmail.com");
+    expect(a.subject).toBe("No autorizó fotos y videos · Tomás Ruiz");
+    expect(a.html).toContain("Ana Gómez (madre, CC 9990000202)");
+    expect(a.html).toContain("<strong>no autorizó</strong> el uso de fotos y videos de <strong>Tomás Ruiz</strong> (TI 9990000101)");
+    expect(a.html).toContain("https://alejandrofallacd.com/clientes/123");
+    const sinFicha = noAutorizoImagenEmail({ menor: "Tomás Ruiz", menorDocumento: "TI 9990000101", firmante: "Ana <b>", firmanteDocumento: "1", calidad: "", fechaTexto: "x", clienteId: null });
+    expect(sinFicha.html).toContain("https://alejandrofallacd.com/clientes/registros");
+    expect(sinFicha.html).toContain("Ana &lt;b&gt; (CC 1)");
+  });
+});

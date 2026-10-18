@@ -119,6 +119,39 @@ describe("consentimiento sin casillas (v4 / adultos-v5)", () => {
   });
 });
 
+/** Fotos de menores con casilla (18-oct-2026): v5 y reglamento v4. */
+const SQL5 = readFileSync(path.join(__dirname, "..", "supabase", "migrations", "20261018100000_fotos_menores_opcionales.sql"), "utf8");
+
+describe("consentimiento de menores con casilla de fotos (v5)", () => {
+  const m = SQL5.match(/'2026-10-v5', 'menores',\s*'[^']*',\s*\$texto\$([\s\S]*?)\$texto\$/);
+  const t = m![1];
+  const p = partirConsentimiento("2026-10-v5", t);
+  it("la única opción es Fotos y videos, con el texto que pidió Laura", () => {
+    expect(p.autorizaciones?.unica).toBe(true);
+    expect(p.autorizaciones?.opciones.map((o) => o.clave)).toEqual(["imagen"]);
+    expect(p.autorizaciones?.opciones[0].titulo).toBe("Fotos y videos");
+    expect(p.autorizaciones?.opciones[0].texto).toBe("Autorizo al centro a usar fotos y videos de mi hijo(a) en su página web, sus redes sociales y su material impreso, como se indica en el numeral 9.");
+  });
+  it("al firmar se aceptan datos e información del centro, pero ya no las fotos", () => {
+    const intro = p.autorizaciones!.intro[0];
+    expect(intro).toContain("(a) el tratamiento de los datos personales de mi hijo(a)");
+    expect(intro).toContain("y (b) recibir información de eventos, torneos y promociones");
+    expect(intro).not.toContain("fotos");
+  });
+  it("el numeral 9 vuelve a la redacción del abogado de 2026-10-v2; lo demás es igual a v4", () => {
+    const v2 = partirConsentimiento("2026-10-v2", textoDe("2026-10-v2"));
+    const v4 = partirConsentimiento("2026-10-v4", textoDe4("2026-10-v4"));
+    expect(p.partes[8]).toEqual(v2.partes[8]);
+    expect(p.partes[8].parrafos[0]).toContain("Si no lo autorizo, mi hijo(a) puede participar igual");
+    for (const i of [0, 1, 2, 3, 4, 5, 6, 7, 9]) expect(p.partes[i]).toEqual(v4.partes[i]);
+    expect(p.entrada).toEqual(v4.entrada);
+  });
+  it("el reglamento v4 cambia el art. 22 por la frase neutra que aprobó Laura", () => {
+    expect(SQL5).toContain("La autorización se otorga en el consentimiento informado, en los términos que este indique.");
+    expect(SQL5).toContain("'reglamento-2026-10-v4'");
+  });
+});
+
 describe("textos anteriores", () => {
   it("siguen partiéndose un párrafo por parte, con sus títulos y sin autorizaciones", () => {
     const viejo = Array.from({ length: 10 }, (_, i) => `Párrafo ${i + 1}.`).join("\n\n");

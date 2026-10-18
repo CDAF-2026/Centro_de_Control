@@ -137,6 +137,8 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
   const partido = partirConsentimiento(texto.codigo, texto.texto);
   // Desde v3 (16-oct-2026): fotos obligatorias y un solo chulito; solo "Información del centro" es opcional.
   const unica = !!partido.autorizaciones?.unica;
+  // Desde v5 las fotos de menores tienen casilla propia: el texto de la firma ya no las da por aceptadas.
+  const fotosAparte = !!partido.autorizaciones?.opciones.some((o) => o.clave === "imagen");
   // Lo que se escribe en "Yo, …, identificado(a) con …, en calidad de …" mientras la persona llena los campos.
   const valores: ValoresTexto = mayor
     ? { firmante: nombreMenor, documento: documento ? `${tipoDoc} ${documento}`.trim() : "", eps }
@@ -329,10 +331,12 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
           {partido.autorizaciones.intro.map((p, i) => (
             <p key={i} className="text-charcoal m-0 text-sm leading-[1.6]">{p}</p>
           ))}
+          {/* Desde v5 (18-oct-2026): fotos y videos de menores con su propia casilla, SIN marcar al entrar
+              (una autorización no puede venir marcada). Sin marcar = no autoriza: se avisa al club. */}
           {partido.autorizaciones.opciones.map((o) => (
-            <label key={o.clave} className="flex cursor-pointer items-start gap-3 rounded-[12px] border-[1.5px] px-4 py-3.5">
+            <label key={o.clave} className="flex cursor-pointer items-start gap-3 rounded-[14px] border-[1.5px] border-[#c9d65a] bg-[#fdfdf3] px-4 py-3.5 transition-colors hover:bg-[#fbfce9]">
               <input type="checkbox" name={`autoriza_${o.clave}`} value="si" className="accent-lime mt-0.5 size-[22px] shrink-0" />
-              <span className="text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</span>
+              <span className="text-charcoal text-sm leading-[1.55]"><strong>{o.titulo}.</strong> {o.texto}</span>
             </label>
           ))}
           {partido.autorizaciones.cierre.map((p, i) => (
@@ -398,7 +402,7 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         </div>
         <p className="text-charcoal m-0 text-sm leading-relaxed">
           Al firmar, aceptas{mayor ? "" : ` en nombre de ${nombreMenor || "tu hijo(a)"}`} el consentimiento informado,
-          incluida la autorización de datos, fotos y videos e información del centro, el{" "}
+          incluida la autorización de datos{fotosAparte ? "" : ", fotos y videos"} e información del centro, el{" "}
           <Link href="/registro/reglamento" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento General</Link>
           {!mayor && academias ? (
             <> y el <Link href="/registro/reglamento-academias" target="_blank" rel="noopener" className="font-semibold underline underline-offset-2">Reglamento de las Academias de Tenis y Pádel</Link></>

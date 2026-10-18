@@ -199,7 +199,10 @@ function Doc({ d, logo }: { d: DatosPdf; logo: Buffer | null }) {
             ? [["Reglamento de Academias aceptado", `${d.academias.codigo} · alejandrofallacd.com/registro/reglamento-academias`], ["Huella SHA-256 del reglamento de academias", d.academias.texto_sha256]]
             : []),
           ...(d.autoriza && partido.autorizaciones?.unica
-            ? [["Autorización", `Aceptada con la firma: datos (numeral 8${d.autoriza.salud ? ", con EPS y RH" : ", sin EPS ni RH"}) y fotos y videos (numeral 9) · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
+            ? [["Autorización", partido.autorizaciones.opciones.some((o) => o.clave === "imagen")
+                // Desde v5 (menores, 18-oct-2026) las fotos tienen casilla propia.
+                ? `Aceptada con la firma: datos (numeral 8${d.autoriza.salud ? ", con EPS y RH" : ", sin EPS ni RH"}) e información del centro · Fotos y videos (numeral 9): ${d.autoriza.imagen ? "SÍ" : "NO"}`
+                : `Aceptada con la firma: datos (numeral 8${d.autoriza.salud ? ", con EPS y RH" : ", sin EPS ni RH"}) y fotos y videos (numeral 9) · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
             : d.autoriza
             ? [["Autorizaciones", `Datos de salud: ${d.autoriza.salud ? "SÍ" : "NO"} · Fotos y videos: ${d.autoriza.imagen ? "SÍ" : "NO"} · Información del centro: ${d.autoriza.informacion ? "SÍ" : "NO"}`]]
             : []),
