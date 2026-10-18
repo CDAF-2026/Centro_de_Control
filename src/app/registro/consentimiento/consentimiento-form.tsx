@@ -284,7 +284,7 @@ export function ConsentimientoForm({ textos, academias, precargado }: {
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">A continuación encontrarás los puntos principales del consentimiento informado del Centro Deportivo Alejandro Falla. Te recomendamos leer el documento completo antes de firmar.</p>
         <ul className="m-0 list-none space-y-3 p-0">
-          {resumenDelConsentimiento(nombreMenor, eps, mayor, unica ? "unica" : !!partido.autorizaciones).map((linea, i) => (
+          {resumenDelConsentimiento(nombreMenor, eps, mayor, unica ? "unica" : !!partido.autorizaciones, fotosAparte).map((linea, i) => (
             <li key={i} className="flex items-start gap-3 text-sm leading-[1.55]">
               <Check className="mt-0.5 size-[18px] shrink-0 text-[#46530a]" strokeWidth={2.6} />
               <span>{linea}</span>

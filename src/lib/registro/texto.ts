@@ -133,7 +133,14 @@ export function calidadDelFirmante(parentesco: string | null | undefined): strin
  * la pantalla lo dice y lo que se firma es el texto completo.
  * `conAutorizaciones` = el texto de oct-2026, donde fotos y datos de salud se eligen con SÍ/NO.
  */
-export function resumenDelConsentimiento(nombre: string, eps: string, mayor: boolean, conAutorizaciones: boolean | "unica" = false): string[] {
+export function resumenDelConsentimiento(
+  nombre: string,
+  eps: string,
+  mayor: boolean,
+  conAutorizaciones: boolean | "unica" = false,
+  /** Menores desde v5 (18-oct-2026): las fotos tienen casilla propia y son opcionales. */
+  fotosOpcionales = false,
+): string[] {
   const completo = nombre.trim();
   const n = completo || "Tu hijo(a)";
   const pila = completo.split(/\s+/)[0] || "tu hijo(a)";
@@ -154,7 +161,9 @@ export function resumenDelConsentimiento(nombre: string, eps: string, mayor: boo
           `La EPS de ${pila}${e ? ` (${e})` : ""} cubre la atención médica si ocurre un accidente o una lesión; el centro deportivo solo responde si hay dolo o culpa grave.`,
           "Si el deportista agrede a un compañero o a un profesor, el centro deportivo puede retirarlo de la clase sin devolver el dinero.",
           `Los datos de ${pila} se usan para su inscripción, el contacto con la familia, las emergencias y la facturación (Ley 1581 de 2012). La EPS y el RH son opcionales.`,
-          `Autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro, sin su nombre completo: en las clases se toman fotos de grupo, por eso es condición para participar.`,
+          fotosOpcionales
+            ? `Tú decides, con la casilla de abajo, si autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro. Si no lo autorizas, ${pila} participa igual y le avisamos al club.`
+            : `Autorizas el uso de fotos y videos de ${pila} en la página web, las redes sociales y el material impreso del centro, sin su nombre completo: en las clases se toman fotos de grupo, por eso es condición para participar.`,
         ];
   }
   if (conAutorizaciones) {
