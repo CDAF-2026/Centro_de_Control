@@ -2257,6 +2257,9 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   falló, y el correo al papá con el PDF suma el párrafo "No autorizaste… le avisamos al Centro…". La regla del
   servidor: si el texto trae la opción, es casilla; si no, va incluida al firmar. La ficha ya mostraba "Fotos y
   videos: Sí/No".
+  · 18-oct: **`2026-10-v6`** (id 16, vigente) = v5 sin la palabra "abajo" en el numeral 9 ("Solo si lo
+    autorizo, el centro podrá…"), a pedido de Laura (migración `20261018120000_consentimiento_menores_v6`).
+    También se quitó del resumen de menores el punto de fotos: la casilla tiene su propio texto.
 - 📋 **Contacto de emergencia con cédula y correo + casilla "Usar los mismos datos del contacto de
   emergencia" — EN PRODUCCIÓN desde el 16-oct-2026** (commits `b2ff7c6` y `1e2f5d1`; migración
   `20261016170000_contacto_emergencia_cedula_correo`). La clienta lo pidió en dos audios. Recorrido:
