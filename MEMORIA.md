@@ -2455,6 +2455,12 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     clase": **Melissa Hurtado** (miembro 604, una de las 15 niñas demo del 30-sep) está matriculada en
     Recreativa Tenis (inscripción 235) **sin ningún día**. Es un dato, no código: hay que ponerla en su
     clase o retirarla desde `/academias`; con eso la prueba vuelve a verde.
+21. **Ficha de prueba "Laura Test" (cliente 702) en producción: NO borrar todavía** (18-oct-2026). Es la prueba de
+    Laura de la casilla Sí/No de fotos (firmó con NO, así que hubo aviso al club). Se deja mientras la clienta
+    revisa; **borrarla solo cuando Laura confirme**, con su firma, PDF, solicitudes, sesión y archivos
+    (procedimiento de `cliente.borrar_prueba`). Aparte, en Registros hay un cambio de NIT pendiente de "María
+    Clara Rosas Mejia" (de "1" a 9990009999, sin quien lo propuso) que parece de prueba: preguntado a Laura y
+    sin respuesta.
 20. **El reporte de horas se usa para pagar DESDE OCTUBRE de 2026** (Laura, 1-oct-2026): el club apenas se
     está adaptando a marcar y desde octubre lo usará "más juiciosamente". **Septiembre NO se paga con el
     reporte**, así que sus turnos con la salida en otro día (Juan Fernando 1→21-sep ≈ 480 h; Camila 1 y
