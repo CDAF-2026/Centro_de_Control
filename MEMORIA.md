@@ -2242,6 +2242,18 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- 🧾 **NIT de persona jurídica con DV aparte — EN PRODUCCIÓN desde el 18-oct-2026** (commit `e57a07b`; pedido de
+  la clienta en audio: el registro no aclaraba si el NIT iba con o sin dígito de verificación). **Siigo guarda el
+  NIT de las empresas SIN DV** (`customer.identification`), y el enlace de facturas compara
+  `siigo_facturas.cliente_identificacion` con `clientes.factura_a_nit`. Por eso la plataforma guarda el NIT sin
+  DV y el DV **no se almacena**: se calcula (`src/lib/nit.ts`: `dvNit` con la fórmula DIAN módulo 11,
+  `nitSinDv`, `nitConDv`). Registro público, solo para persona jurídica: casillas "NIT (sin dígito de
+  verificación)" y "DV". **El DV lo escribe la persona** (Laura no quiso que se calculara solo) y se compara con
+  el que corresponde: si no coincide, `setCustomValidity` muestra "El DV no coincide con el NIT. Revísalos en
+  el RUT" y el servidor lo rechaza igual. Si pegan "901.534.314-8", al salir del campo se reparte solo. En la
+  plataforma, la ficha muestra "NIT 901534314-8" y la edición separa el DV solo si lo escriben con guion. Ojo:
+  hay NIT que Siigo tiene con el DV pegado (Atalaya 290: 8600352008), y esos no se tocan. Se corrigió
+  **Digitalaw (434)**: de 9015343148 a 901534314, y se le enlazó la FV-2-6028 (audit `cliente.corregir_nit`).
 - 📸 **Fotos y videos de MENORES vuelven a ser opcionales, con casilla — EN PRODUCCIÓN desde el 18-oct-2026**
   (commit `52f6567`; migraciones `20261018100000_fotos_menores_opcionales` + `…110000_…_abrir`). Es un paso
   atrás solo para niños. Vigentes: `2026-10-v5` (id 14) y `reglamento-2026-10-v4` (id 15). Adultos sigue en
