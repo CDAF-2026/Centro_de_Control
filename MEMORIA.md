@@ -2242,6 +2242,21 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     `registro-render.test.tsx` (+2: casilla con enlace; página del reglamento) y `registro-pdf.test.ts` (+1).
   · ⚠️ Para el club: el Word trae "veinticuatro (12) horas" (art. 5), dos "Artículo 14", dos "Artículo 28" y no
     hay 16. Se cargó tal cual (el texto legal no se toca); cuando lo corrijan, va como versión nueva.
+- 📸 **Fotos y videos de MENORES vuelven a ser opcionales, con casilla — EN PRODUCCIÓN desde el 18-oct-2026**
+  (commit `52f6567`; migraciones `20261018100000_fotos_menores_opcionales` + `…110000_…_abrir`). Es un paso
+  atrás solo para niños. Vigentes: `2026-10-v5` (id 14) y `reglamento-2026-10-v4` (id 15). Adultos sigue en
+  `2026-10-adultos-v5`, con fotos incluidas al firmar. En v5 el numeral 9 vuelve a la redacción del abogado de
+  v2 ("Solo si lo autorizo abajo… puede participar igual"), y el bloque AUTORIZACIÓN acepta al firmar (a) datos
+  y (b) información del centro. Las fotos son la opción `[imagen]`, una casilla SIN marcar al entrar (una
+  autorización no puede venir marcada) con el texto de Laura: "Autorizo al centro a usar fotos y videos de mi
+  hijo(a) en su página web, sus redes sociales y su material impreso, como se indica en el numeral 9". El
+  2.º párrafo del art. 22 del reglamento v4 es neutro: "La autorización se otorga en el consentimiento
+  informado, en los términos que este indique" (aprobada por Laura). **Si NO autoriza** (casilla sin marcar):
+  `autoriza_imagen = false`, aviso a **centrodeportivoaf@gmail.com** (`src/lib/email/no-autorizo-imagen.ts`,
+  `CORREO_CLUB` en `src/lib/email/club.ts`), `audit_log` `registro.sin_imagen` con `aviso_club` enviado o
+  falló, y el correo al papá con el PDF suma el párrafo "No autorizaste… le avisamos al Centro…". La regla del
+  servidor: si el texto trae la opción, es casilla; si no, va incluida al firmar. La ficha ya mostraba "Fotos y
+  videos: Sí/No".
 - 📋 **Contacto de emergencia con cédula y correo + casilla "Usar los mismos datos del contacto de
   emergencia" — EN PRODUCCIÓN desde el 16-oct-2026** (commits `b2ff7c6` y `1e2f5d1`; migración
   `20261016170000_contacto_emergencia_cedula_correo`). La clienta lo pidió en dos audios. Recorrido:
