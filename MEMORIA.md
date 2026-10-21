@@ -138,6 +138,16 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     lo que Siigo le facture a la mamá llega a la ficha de la niña. Antes eso era imposible, porque la
     cédula ya era el documento de la ficha 283 y en el sync **la cédula le gana al NIT de facturación**.
     Al hacerlo había 0 facturas con esa cédula.
+  · ✅ **Valentino Gomez (473) → ficha de sus hermanos Sophia y David Craig (77)**, 21-oct-2026, decisión
+    de Laura: Catalina Obando (cédula 32241443) es la mamá de los tres y tenía DOS fichas. La 473 ya
+    facturaba a su NIT, así que cuando registró a Sophia por el QR la facturación fue a la bandeja ("un
+    NIT, una ficha") y aprobarla habría fallado con "Ese NIT ya es de otro cliente". Se unificó en SQL,
+    una transacción, **no con `scripts/fusionar-fichas.py`**: ese script solo repunta 3 tablas y al borrar
+    la ficha se habrían ido EN CASCADA la inscripción y la asistencia de Valentino. Se repuntaron las 13
+    tablas con `cliente_id`; la acudiente repetida (128) se fue en cascada (queda la 301). La 77 quedó con
+    4 miembros, 18 facturas de Siigo, 19 asistencias, 3 documentos, 3 firmas y la facturación de Catalina;
+    los 4 cambios de la bandeja (118–121) quedaron aprobados. Rastro: `cliente.fusionar` (ficha 473 entera)
+    y `registro.cambio.aprobar` en `audit_log`. Sophia quedó repetida: ver pendiente 22.
 - 👤 **El nombre del deportista NUNCA se lee de `clientes`** (ago-2026, `src/lib/deportistas.ts`).
   El **profesor** no tiene el módulo de clientes y `clientes_select` lo excluye, así que esa consulta
   con su sesión devuelve **0 filas sin error** (medido: ve 0 de 320 en `clientes` y 276 en
@@ -2473,6 +2483,10 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     4-sep; Santiago 1 y 2-sep) **no hace falta corregirlos** para la nómina. Lo que sí hay que vigilar es
     octubre en adelante: el aviso de "no cerró" y la marca "La salida es de otro día" del Excel son las
     señales. Se corrigen desde `/horas/[id]` → Corregir (solo SA).
+22. **Sophia Craig está DOS veces en la ficha 77** (21-oct-2026): la titular (miembro 73, doc 1013356088, CC,
+    sin fecha) y la que creó el QR (miembro 743, doc **1013359088**, RC, nacida 16-jul-2010, EPS/RH y la
+    firma del consentimiento). La mamá escribió un dígito distinto y el registro no la reconoció. Falta que
+    el club confirme con Catalina el documento correcto; con eso se deja una sola (la firma va con ella).
 
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
