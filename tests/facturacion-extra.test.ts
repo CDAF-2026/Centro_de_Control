@@ -34,8 +34,8 @@ async function ficha(nombres: string, documento: string, nit: string | null): Pr
   );
   return r.rows[0].id;
 }
-async function solicitud(): Promise<string> {
-  const r = await client.query("insert into public.registro_solicitud (tipo, payload) values ('datos', '{}'::jsonb) returning id");
+async function solicitud(payload: unknown = {}): Promise<string> {
+  const r = await client.query("insert into public.registro_solicitud (tipo, payload) values ('datos', $1::jsonb) returning id", [JSON.stringify(payload)]);
   return r.rows[0].id;
 }
 async function comoSuperadmin() {
@@ -88,6 +88,23 @@ describe("datos de facturación adicionales", () => {
       expect(e.rows).toEqual([{ nit: "9990000112", nombre: "Papá Prueba", tipo: "natural", email: "papa@example.com" }]);
       const p = await client.query("select count(*)::int as n from public.registro_cambio where id = any($1::bigint[]) and estado = 'aprobado'", [ids]);
       expect(p.rows[0].n).toBe(4);
+    });
+  });
+
+  it("bandeja: al agregar, lo que coincidía con el primer dato (el mismo nombre) sale de lo que escribió la familia", async () => {
+    // Caso real (Manuel Mejía Puyo, 21-oct-2026): la ficha decía "Mamá Prueba" con otro NIT y la mamá
+    // escribió su propio NIT con el MISMO nombre: la tarjeta no traía el nombre y el dato quedaba sin él.
+    await tx(async () => {
+      const a = await ficha("Ana", "9990000101", "9990000110");
+      await client.query("update public.clientes set factura_tipo = 'natural' where id = $1", [a]);
+      const fact = { factura_a_nit: "9990000115", factura_a_nombre: "Mamá Prueba", factura_tipo: "natural", factura_email: "mama@example.com" };
+      await client.query("select private.registro_facturacion($1, $2, $3::jsonb)", [await solicitud({ facturacion: fact }), a, JSON.stringify(fact)]);
+      const ids = (await client.query("select array_agg(id)::int[] as ids from public.registro_cambio where cliente_id = $1 and estado = 'pendiente'", [a])).rows[0].ids;
+      expect(ids.length).toBe(2); // solo NIT y correo difieren
+      await comoSuperadmin();
+      await client.query("select public.registro_facturacion_decidir($1::bigint[], true)", [ids]);
+      const e = await client.query("select nit, nombre, tipo, email from public.cliente_facturacion_extra where cliente_id = $1", [a]);
+      expect(e.rows).toEqual([{ nit: "9990000115", nombre: "Mamá Prueba", tipo: "natural", email: "mama@example.com" }]);
     });
   });
 

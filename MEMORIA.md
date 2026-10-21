@@ -156,7 +156,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   · 🐛 **Cazado por la prueba el mismo día**: `private.user_role() not in (…)` con rol NULL da NULL y NO
     lanza → la función dejaba pasar a quien no tenía rol. Se cambió a `coalesce(…, '') not in (…)`
     (migración `…102000`). `registro_cambio_decidir` y otras funciones viejas tienen el mismo patrón.
-  · Pruebas: `tests/facturacion-extra.test.ts` (5, Postgres revertido) y `tests/clientes-form.test.tsx` (+3).
+  · 🐛 **Segundo arreglo del mismo día** (migración `…103000`, caso Manuel Mejía Puyo): la tarjeta solo guarda
+    los campos que DIFIEREN del primer dato, así que al AGREGAR, un nombre o tipo igual (la mamá con su NIT
+    y el mismo nombre que ya figuraba) quedaba en NULL. Ahora lo que falta sale del `payload` de la solicitud.
+  · Pruebas: `tests/facturacion-extra.test.ts` (6, Postgres revertido) y `tests/clientes-form.test.tsx` (+3).
   · ✅ **Oriana Sanchez y Maximiliano Ortega, una sola ficha** (21-oct-2026, Laura). Ella propuso por el QR
     su cédula para la ficha de su hijo (419), pero esa cédula era el documento de SU ficha (84, es clienta).
     Le dije que unir no servía y **estaba mal**: una ficha puede tener de titular al adulto y al niño de
