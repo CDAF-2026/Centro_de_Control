@@ -157,10 +157,18 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     lanza → la función dejaba pasar a quien no tenía rol. Se cambió a `coalesce(…, '') not in (…)`
     (migración `…102000`). `registro_cambio_decidir` y otras funciones viejas tienen el mismo patrón.
   · Pruebas: `tests/facturacion-extra.test.ts` (5, Postgres revertido) y `tests/clientes-form.test.tsx` (+3).
-  · ⚠️ **Caso que la regla no resuelve** (visto en la bandeja real, 21-oct): Oriana Sanchez propuso su cédula
-    para la ficha de su hijo Maximiliano, pero **esa cédula es el documento de su PROPIA ficha** (ella es
-    clienta). "Unir fichas" no aplica si los dos son clientes; la cédula de la mamá le gana a la del hijo en
-    el sync. Decisión de Laura pendiente.
+  · ✅ **Oriana Sanchez y Maximiliano Ortega, una sola ficha** (21-oct-2026, Laura). Ella propuso por el QR
+    su cédula para la ficha de su hijo (419), pero esa cédula era el documento de SU ficha (84, es clienta).
+    Le dije que unir no servía y **estaba mal**: una ficha puede tener de titular al adulto y al niño de
+    hijo (como "Agregar hijo"); solo se junta la situación financiera, como en toda ficha familiar. Se
+    unió la 419 en la 84 en SQL, una transacción, repuntando las 15 tablas con `cliente_id` (incluida
+    `cliente_facturacion_extra`). La 84 quedó con Oriana titular, Maximiliano hijo (inscripción, 3
+    asistencias, firma y PDF), la dirección de la 419, **facturación Oriana (1183661) + Mario Ortega
+    (1003861, así sale en Siigo; la ficha vieja lo tenía "a nombre de Oriana")**, 44 facturas por
+    $7.724.000. La acudiente 74 (Oriana de sí misma) se fue en cascada; los cambios 130–131 quedaron
+    aprobados. Rastro `cliente.fusionar` (entity 419) y `registro.cambio.aprobar` en `audit_log`.
+    💡 Regla: cuando el papá o la mamá ya es cliente con su propia ficha, se une la del niño en la del
+    adulto, no al revés.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que
