@@ -211,6 +211,11 @@ async function runSync(mode: "incremental" | "refresh"): Promise<string> {
       if (c.documento) cliByDoc.set(String(c.documento).trim(), c.id);
       if (c.factura_a_nit) cliByFactNit.set(String(c.factura_a_nit).trim(), c.id);
     }
+    // Y los datos de facturación adicionales de cada ficha (21-oct-2026): el papá y la mamá
+    // pueden pagar cada uno con su cédula. Un NIT, una ficha: no hay choque entre las dos listas.
+    const { data: extra, error: extraErr } = await s.from("cliente_facturacion_extra").select("cliente_id, nit");
+    if (extraErr) throw new Error("datos de facturación adicionales: " + extraErr.message);
+    for (const e of extra ?? []) cliByFactNit.set(String(e.nit).trim(), e.cliente_id);
   }
 
   // 5) Upserts por lotes (preserva las conciliadas a mano; reemplaza líneas del resto).

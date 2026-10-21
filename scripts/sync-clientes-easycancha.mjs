@@ -62,8 +62,12 @@ async function main() {
   // Correos y documentos ya existentes en la base (no se tocan).
   const { data: existentes } = await s.from("clientes").select("email, documento, factura_a_nit");
   const emailsBD = new Set((existentes ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
+  // Los NIT de facturación adicionales también son de alguien (21-oct-2026).
+  const { data: extra } = await s.from("cliente_facturacion_extra").select("nit");
   const docsBD = new Set(
-    (existentes ?? []).flatMap((c) => [c.documento, c.factura_a_nit]).filter(Boolean).map((d) => String(d).trim()),
+    [...(existentes ?? []).flatMap((c) => [c.documento, c.factura_a_nit]), ...(extra ?? []).map((e) => e.nit)]
+      .filter(Boolean)
+      .map((d) => String(d).trim()),
   );
 
   // Recolectar SOLO personas nuevas con correo.

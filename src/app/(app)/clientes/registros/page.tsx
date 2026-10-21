@@ -98,28 +98,71 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   // Una sola cola, lo más antiguo primero.
   const porFicha = new Map<number, NonNullable<typeof cambios>>();
   for (const c of cambios ?? []) porFicha.set(c.cliente_id, [...(porFicha.get(c.cliente_id) ?? []), c]);
+
+  // Un NIT propuesto que ya es de OTRA ficha no se puede aprobar (un NIT, una ficha): se avisa de
+  // cuál es, para unir las fichas si son la misma familia (como Catalina Obando, 21-oct-2026).
+  const nitsPropuestos = (cambios ?? []).filter((c) => c.campo === "factura_a_nit" && c.valor_nuevo);
+  const duenoNit = new Map<number, { id: number; nombre: string }>();
+  await Promise.all(
+    nitsPropuestos.map(async (c) => {
+      const nit = c.valor_nuevo!;
+      const [{ data: porDoc }, { data: porExtra }] = await Promise.all([
+        supabase.from("clientes").select("id, nombres, apellidos").or(`documento.eq.${nit},factura_a_nit.eq.${nit}`).neq("id", c.cliente_id).limit(1),
+        supabase.from("cliente_facturacion_extra").select("cliente_id").eq("nit", nit).neq("cliente_id", c.cliente_id).limit(1),
+      ]);
+      let otro = porDoc?.[0];
+      if (!otro && porExtra?.[0]) {
+        const { data } = await supabase.from("clientes").select("id, nombres, apellidos").eq("id", porExtra[0].cliente_id).maybeSingle();
+        otro = data ?? undefined;
+      }
+      if (otro) duenoNit.set(c.cliente_id, { id: otro.id, nombre: `${otro.nombres} ${otro.apellidos}`.trim() });
+    }),
+  );
   type Item = { cuando: string; nodo: React.ReactNode };
   const cola: Item[] = [
-    ...Array.from(porFicha.entries()).map(([clienteId, lista]) => ({
-      cuando: lista[0].created_at,
-      nodo: (
-        <Pendiente key={`c${clienteId}`} tipo="Facturación" destacado titulo={nombre.get(clienteId) ?? `Ficha ${clienteId}`} href={`/clientes/${clienteId}`} meta={`propuesto por ${propuso.get(lista[0].solicitud_id) ?? "la familia"} · ${fechaHoraCorta(lista[0].created_at)}`}>
-          <div className={cn("grid gap-3", lista.length > 1 && "md:grid-cols-2")}>
-            {lista.map((c) => (
-              <div key={c.id} className="rounded-xl border p-3">
-                <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{CAMPO[c.campo] ?? c.campo}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                  <span className="text-muted-foreground line-through">{mostrar(c.campo, c.valor_actual)}</span>
-                  <ArrowRight className="text-muted-foreground size-4 shrink-0" />
-                  <span className="font-semibold">{mostrar(c.campo, c.valor_nuevo)}</span>
-                </p>
-              </div>
-            ))}
-          </div>
-          <DecidirCambios ids={lista.map((c) => c.id)} esNit={lista.some((c) => c.campo === "factura_a_nit")} />
-        </Pendiente>
-      ),
-    })),
+    ...Array.from(porFicha.entries()).map(([clienteId, lista]) => {
+      // La ficha ya factura a otro NIT: aprobar AGREGA estos datos como uno más (21-oct-2026),
+      // así que no se tacha nada — lo que tiene se conserva.
+      const nitCambio = lista.find((c) => c.campo === "factura_a_nit");
+      const agrega = !!nitCambio?.valor_actual;
+      const dueno = duenoNit.get(clienteId);
+      return {
+        cuando: lista[0].created_at,
+        nodo: (
+          <Pendiente key={`c${clienteId}`} tipo="Facturación" destacado titulo={nombre.get(clienteId) ?? `Ficha ${clienteId}`} href={`/clientes/${clienteId}`} meta={`propuesto por ${propuso.get(lista[0].solicitud_id) ?? "la familia"} · ${fechaHoraCorta(lista[0].created_at)}`}>
+            {agrega && (
+              <p className="text-muted-foreground text-sm">
+                Otro dato de facturación para la ficha. Se conserva el que ya tiene (NIT {nitCambio!.valor_actual}).
+              </p>
+            )}
+            <div className={cn("grid gap-3", lista.length > 1 && "md:grid-cols-2")}>
+              {lista.map((c) => (
+                <div key={c.id} className="rounded-xl border p-3">
+                  <p className="cdaf-eyebrow text-muted-foreground text-[11px]">{CAMPO[c.campo] ?? c.campo}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                    {!agrega && (
+                      <>
+                        <span className="text-muted-foreground line-through">{mostrar(c.campo, c.valor_actual)}</span>
+                        <ArrowRight className="text-muted-foreground size-4 shrink-0" />
+                      </>
+                    )}
+                    <span className="font-semibold">{mostrar(c.campo, c.valor_nuevo)}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            {dueno && (
+              <p className="border-warning/40 bg-warning/10 rounded-lg border px-3 py-2 text-sm">
+                Ese NIT ya es de la ficha de{" "}
+                <Link href={`/clientes/${dueno.id}`} className="font-medium hover:underline">{dueno.nombre}</Link>. Si son
+                la misma familia, hay que unir las fichas; si no, recházalo.
+              </p>
+            )}
+            <DecidirCambios ids={lista.map((c) => c.id)} esNit={!!nitCambio} agrega={agrega} bloqueado={!!dueno} />
+          </Pendiente>
+        ),
+      };
+    }),
     ...(firmas ?? []).map((f) => ({
       cuando: f.firmado_el,
       nodo: (

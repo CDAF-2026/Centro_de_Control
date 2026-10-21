@@ -308,7 +308,9 @@ describe("bandeja de registros", () => {
       expect(t).toMatch(/Facturaci(ón|ones) por aprobar/);
       expect(t).toContain("9990009999");
       expect(t).toContain(`${cli!.nombres} ${cli!.apellidos}`);
-      expect(t).toContain("Aprobar");
+      // La ficha ya facturaba a otro NIT ("1"): aprobar lo AGREGA como un dato más (21-oct-2026).
+      expect(t).toContain("Se conserva el que ya tiene (NIT 1)");
+      expect(t).toContain("Agregar a la ficha");
       expect(t).toContain("Historial");
     } finally {
       await admin.from("registro_cambio").delete().eq("id", cambio!.id);

@@ -107,24 +107,110 @@ export type ClienteFormState = {
   fieldErrors?: Record<string, string>;
 };
 
-/** "A nombre de quién se factura": no pasa por el schema; se lee directo del form. */
-function leerFacturacion(formData: FormData) {
-  return {
-    facturaANombre: String(formData.get("facturaANombre") ?? "").trim() || null,
-    // Persona jurídica con "NIT-DV" escrito con guion: se guarda sin DV, como en Siigo (18-oct-2026). Sin guion
-    // no se toca: hay NIT que Siigo tiene con el DV pegado (p. ej. 8600352008) y deben seguir enlazando.
-    facturaANit: (/-\s*\d\s*$/.test(String(formData.get("facturaANit") ?? "")) ? nitSinDv(String(formData.get("facturaANit"))) : String(formData.get("facturaANit") ?? "").replace(/\D/g, "")) || null,
+/** NIT escrito en el formulario. Persona jurídica con "NIT-DV" escrito con guion: se guarda sin DV, como en
+ * Siigo (18-oct-2026). Sin guion no se toca: hay NIT que Siigo tiene con el DV pegado (p. ej. 8600352008) y
+ * deben seguir enlazando. */
+function leerNit(v: FormDataEntryValue | null): string | null {
+  const t = String(v ?? "");
+  return (/-\s*\d\s*$/.test(t) ? nitSinDv(t) : t.replace(/\D/g, "")) || null;
+}
+
+function aFacturaTipo(v: FormDataEntryValue | null): FacturaTipo | null {
+  const t = String(v ?? "").trim().toLowerCase();
+  return t === "natural" || t === "juridica" ? t : null;
+}
+
+type DatoFacturacion = { nombre: string | null; nit: string | null; tipo: FacturaTipo | null; email: string | null };
+type DatoFacturacionExtra = DatoFacturacion & { nit: string };
+
+/**
+ * "A nombre de quién se factura": no pasa por el schema; se lee directo del form. Desde el 21-oct-2026 la
+ * ficha puede tener VARIOS (a un niño le paga el papá o la mamá): el primero va a clientes.factura_* y los
+ * demás (`extraNit`…, arreglos paralelos) a `cliente_facturacion_extra`. Si el primero se dejó vacío, el
+ * siguiente pasa a ser el primero. Cada adicional necesita su NIT (sin NIT no ata ninguna factura) y un NIT
+ * no se repite dentro de la ficha.
+ */
+async function leerFacturacion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  excluirId?: number,
+): Promise<{ principal: DatoFacturacion; extras: DatoFacturacionExtra[] } | { error: ClienteFormState }> {
+  const primero: DatoFacturacion = {
+    nombre: String(formData.get("facturaANombre") ?? "").trim() || null,
+    nit: leerNit(formData.get("facturaANit")),
+    tipo: leerFacturaTipo(formData),
+    email: texto(formData, "facturaEmail"),
   };
+  const col = (k: string) => formData.getAll(k);
+  const [nombres, nits, tipos, emails] = [col("extraNombre"), col("extraNit"), col("extraTipo"), col("extraEmail")];
+  const adicionales = nits.map((n, i) => ({
+    campo: `extraNit${i}`,
+    dato: {
+      nombre: String(nombres[i] ?? "").trim() || null,
+      nit: leerNit(n),
+      tipo: aFacturaTipo(tipos[i]),
+      email: String(emails[i] ?? "").trim() || null,
+    } as DatoFacturacion,
+  }));
+
+  const vacio = (d: DatoFacturacion) => !d.nombre && !d.nit && !d.tipo && !d.email;
+  const llenos = [{ campo: "facturaANit", dato: primero }, ...adicionales].filter((x, i) => i === 0 || !vacio(x.dato));
+  const errores: Record<string, string> = {};
+  const vistos = new Set<string>();
+  for (const [i, x] of llenos.entries()) {
+    if (!x.dato.nit) {
+      if (i > 0) errores[x.campo] = "Escribe el NIT o la cédula, o quita este dato";
+      continue;
+    }
+    if (vistos.has(x.dato.nit)) errores[x.campo] = "Este NIT ya está en otro dato de esta ficha";
+    vistos.add(x.dato.nit);
+  }
+  if (Object.keys(errores).length) return { error: { error: "Revisa los datos de facturación.", fieldErrors: errores } };
+
+  for (const x of llenos) {
+    const choque = await choqueNitFacturacion(supabase, x.dato.nit, excluirId, x.campo);
+    if (choque) return { error: choque };
+  }
+
+  const [cabeza, ...resto] = vacio(primero) && llenos.length > 1 ? llenos.slice(1) : llenos;
+  return { principal: cabeza.dato, extras: resto.map((x) => x.dato as DatoFacturacionExtra) };
+}
+
+/** Deja `cliente_facturacion_extra` de la ficha igual a la lista del formulario. */
+async function guardarFacturacionExtra(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clienteId: number,
+  extras: DatoFacturacionExtra[],
+): Promise<string | null> {
+  const { data: actuales, error: leerErr } = await supabase.from("cliente_facturacion_extra").select("id, nit").eq("cliente_id", clienteId);
+  if (leerErr) return leerErr.message;
+  const porNit = new Map((actuales ?? []).map((a) => [a.nit, a.id]));
+  const quedan = new Set(extras.map((e) => e.nit));
+  const borrar = (actuales ?? []).filter((a) => !quedan.has(a.nit)).map((a) => a.id);
+  if (borrar.length) {
+    const { error } = await supabase.from("cliente_facturacion_extra").delete().in("id", borrar);
+    if (error) return error.message;
+  }
+  for (const e of extras) {
+    const id = porNit.get(e.nit);
+    const { error } = id
+      ? await supabase.from("cliente_facturacion_extra").update({ nombre: e.nombre, tipo: e.tipo, email: e.email }).eq("id", id)
+      : await supabase.from("cliente_facturacion_extra").insert({ cliente_id: clienteId, nit: e.nit, nombre: e.nombre, tipo: e.tipo, email: e.email });
+    if (error) return error.message;
+  }
+  return null;
 }
 
 /**
  * Guard: ese NIT de facturación no puede pertenecer ya a otro cliente (evita atribuir la plata
  * dos veces). Lo usan crear y editar: una sola copia de la regla. Devuelve el error o null.
+ * Mira también los datos de facturación adicionales de las demás fichas.
  */
 async function choqueNitFacturacion(
   supabase: Awaited<ReturnType<typeof createClient>>,
   facturaANit: string | null,
   excluirId?: number,
+  campo = "facturaANit",
 ): Promise<ClienteFormState | null> {
   if (!facturaANit) return null;
   let q = supabase
@@ -132,13 +218,19 @@ async function choqueNitFacturacion(
     .select("id, nombres, apellidos, documento")
     .or(`documento.eq.${facturaANit},factura_a_nit.eq.${facturaANit}`);
   if (excluirId) q = q.neq("id", excluirId);
-  const { data: choque } = await q.limit(1);
-  const otro = choque?.[0];
+  let qe = supabase.from("cliente_facturacion_extra").select("cliente_id").eq("nit", facturaANit);
+  if (excluirId) qe = qe.neq("cliente_id", excluirId);
+  const [{ data: choque }, { data: choqueExtra }] = await Promise.all([q.limit(1), qe.limit(1)]);
+  let otro = choque?.[0];
+  if (!otro && choqueExtra?.[0]) {
+    const { data } = await supabase.from("clientes").select("id, nombres, apellidos, documento").eq("id", choqueExtra[0].cliente_id).maybeSingle();
+    otro = data ?? undefined;
+  }
   if (!otro) return null;
-  const motivo = otro.documento === facturaANit ? "es la cédula/NIT" : "ya es el NIT de facturación";
+  const motivo = otro.documento === facturaANit ? "es la cédula/NIT" : "ya es un NIT de facturación";
   return {
     error: `Ese NIT ${motivo} de ${otro.nombres} ${otro.apellidos}. Sus facturas le pertenecen a ese cliente.`,
-    fieldErrors: { facturaANit: "NIT ya usado por otro cliente" },
+    fieldErrors: { [campo]: "NIT ya usado por otro cliente" },
   };
 }
 
@@ -210,9 +302,8 @@ export async function createCliente(
   const supabase = await createClient();
 
   // Se valida ANTES de crear el acudiente, para no dejar uno huérfano si el NIT choca.
-  const { facturaANombre, facturaANit } = leerFacturacion(formData);
-  const choque = await choqueNitFacturacion(supabase, facturaANit);
-  if (choque) return choque;
+  const fact = await leerFacturacion(supabase, formData);
+  if ("error" in fact) return fact.error;
 
   // El principal nace sin ficha (todavía no existe) y el trigger
   // `clientes_acudiente_principal` lo ata al insertar la ficha.
@@ -243,10 +334,10 @@ export async function createCliente(
       emergencia_parentesco: d.emergenciaParentesco || null,
       emergencia_documento: d.emergenciaDocumento?.replace(/\D/g, "") || null,
       emergencia_email: d.emergenciaEmail?.toLowerCase() || null,
-      factura_a_nombre: facturaANombre,
-      factura_a_nit: facturaANit,
-      factura_tipo: leerFacturaTipo(formData),
-      factura_email: texto(formData, "facturaEmail"),
+      factura_a_nombre: fact.principal.nombre,
+      factura_a_nit: fact.principal.nit,
+      factura_tipo: fact.principal.tipo,
+      factura_email: fact.principal.email,
       deportes: leerDeportes(formData),
       acudiente_id: acudienteId,
     })
@@ -259,8 +350,13 @@ export async function createCliente(
     if (err) return { error: err };
   }
 
-  // Igual que al editar: las facturas sin dueño de su cédula o de su NIT de facturación se le atan.
-  if (facturaANit) await reatribuirFacturas(supabase, cli.id, d.documento || null, facturaANit);
+  if (fact.extras.length) {
+    const err = await guardarFacturacionExtra(supabase, cli.id, fact.extras);
+    if (err) return { error: err };
+  }
+
+  // Igual que al editar: las facturas sin dueño de sus NIT de facturación se le atan.
+  if (fact.principal.nit || fact.extras.length) await reatribuirFacturas(supabase, cli.id);
 
   // La fila de titular en `cliente_miembros` (de la que cuelga toda la
   // operación) ya no se crea aquí: la pone el trigger `clientes_crear_titular`
@@ -335,9 +431,8 @@ export async function updateCliente(
     if (err) return { error: err };
   }
 
-  const { facturaANombre, facturaANit } = leerFacturacion(formData);
-  const choque = await choqueNitFacturacion(supabase, facturaANit, id);
-  if (choque) return choque;
+  const fact = await leerFacturacion(supabase, formData, id);
+  if ("error" in fact) return fact.error;
 
   // Datos que el titular comparte con su fila de miembro (se guardan en ambas).
   const propios = {
@@ -365,23 +460,26 @@ export async function updateCliente(
       emergencia_parentesco: d.emergenciaParentesco || null,
       emergencia_documento: d.emergenciaDocumento?.replace(/\D/g, "") || null,
       emergencia_email: d.emergenciaEmail?.toLowerCase() || null,
-      factura_a_nombre: facturaANombre,
-      factura_a_nit: facturaANit,
-      factura_tipo: leerFacturaTipo(formData),
-      factura_email: texto(formData, "facturaEmail"),
+      factura_a_nombre: fact.principal.nombre,
+      factura_a_nit: fact.principal.nit,
+      factura_tipo: fact.principal.tipo,
+      factura_email: fact.principal.email,
       acudiente_id: acudienteId,
     })
     .eq("id", id);
   if (error) return { error: error.message };
 
+  const errExtra = await guardarFacturacionExtra(supabase, id, fact.extras);
+  if (errExtra) return { error: errExtra };
+
   await sincronizarTitular(supabase, id, propios);
-  await reatribuirFacturas(supabase, id, d.documento || null, facturaANit);
+  await reatribuirFacturas(supabase, id);
 
   await logAudit({
     action: "cliente.update",
     entity: "clientes",
     entityId: String(id),
-    after: { nombres: d.nombres, apellidos: d.apellidos, es_menor: menor },
+    after: { nombres: d.nombres, apellidos: d.apellidos, es_menor: menor, factura_a_nit: fact.principal.nit, facturacion_extra: fact.extras.map((e) => e.nit) },
   });
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${id}`);
@@ -793,11 +891,13 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   // `karentcoronadop@` y su ficha decía `karentcoronado@`, una letra, y esto le
   // creó una ficha nueva SIN sus paquetes. La cédula venía en la reserva y era
   // la misma en las dos. De 17 nombres repetidos, 8 eran duplicados de verdad.
-  const { data: ex } = await supabase.from("clientes").select("email, documento, factura_a_nit");
+  const [{ data: ex }, { data: exExtra }] = await Promise.all([
+    supabase.from("clientes").select("email, documento, factura_a_nit"),
+    supabase.from("cliente_facturacion_extra").select("nit"),
+  ]);
   const emailsBD = new Set((ex ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
   const docsBD = new Set(
-    (ex ?? [])
-      .flatMap((c) => [c.documento, c.factura_a_nit])
+    [...(ex ?? []).flatMap((c) => [c.documento, c.factura_a_nit]), ...(exExtra ?? []).map((e) => e.nit)]
       .filter(Boolean)
       .map((d) => String(d).trim()),
   );

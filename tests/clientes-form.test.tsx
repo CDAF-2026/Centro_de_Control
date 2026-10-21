@@ -175,3 +175,84 @@ describe("ficha unificada (padre y madre, lugar de nacimiento, dirección)", () 
     }
   });
 });
+
+/**
+ * Varios datos de facturación por ficha (21-oct-2026): a un niño le paga el papá o la mamá. El primero
+ * va a clientes.factura_*; los demás a `cliente_facturacion_extra`. NIT inventados 99900002xx.
+ */
+describe("varios datos de facturación", () => {
+  it("el formulario pinta los adicionales y el botón para agregar otro", async () => {
+    const { ClienteForm } = await import("../src/app/(app)/clientes/cliente-form");
+    const html = renderToStaticMarkup(
+      <ClienteForm
+        cliente={{ ...MENOR, factura_a_nombre: "Mamá", factura_a_nit: "9990000201" }}
+        facturacionExtra={[{ nit: "9990000202", nombre: "Papá", tipo: "natural", email: "papa@example.com" }]}
+      />,
+    );
+    expect(texto(html)).toContain("Dato de facturación 2");
+    expect(texto(html)).toContain("Agregar otro dato de facturación");
+    expect(html).toContain('name="extraNit"');
+    expect(html).toContain('value="9990000202"');
+  });
+
+  it("crear y editar: guarda el primero en la ficha y los demás aparte; si se vacía el primero, sube el siguiente", async () => {
+    const { createCliente, updateCliente } = await import("../src/app/(app)/clientes/actions");
+    const sb = admin();
+    const apellido = `Prueba Facturación ${Date.now()}`;
+    const fd = new FormData();
+    fd.set("nombres", "Adulto"); fd.set("apellidos", apellido); fd.set("fechaNacimiento", "1990-01-01");
+    fd.set("facturaANombre", "Mamá Prueba"); fd.set("facturaANit", "9990000201"); fd.set("facturaTipo", "natural");
+    fd.append("extraNombre", "Papá Prueba"); fd.append("extraNit", "9990000202"); fd.append("extraTipo", "natural"); fd.append("extraEmail", "papa@example.com");
+    let clienteId: number | null = null;
+    try {
+      await createCliente({}, fd).catch((e: Error) => { if (!/REDIRECT/.test(e.message)) throw e; });
+      const { data: cli } = await sb.from("clientes").select("id, factura_a_nit, factura_a_nombre").eq("apellidos", apellido).single();
+      clienteId = cli!.id;
+      expect(cli).toMatchObject({ factura_a_nit: "9990000201", factura_a_nombre: "Mamá Prueba" });
+      const { data: ex1 } = await sb.from("cliente_facturacion_extra").select("nit, nombre, email").eq("cliente_id", clienteId);
+      expect(ex1).toEqual([{ nit: "9990000202", nombre: "Papá Prueba", email: "papa@example.com" }]);
+
+      // Repetir un NIT dentro de la misma ficha se rechaza sin tocar nada.
+      const rep = new FormData();
+      rep.set("id", String(clienteId)); rep.set("nombres", "Adulto"); rep.set("apellidos", apellido); rep.set("fechaNacimiento", "1990-01-01");
+      rep.set("facturaANit", "9990000201"); rep.append("extraNombre", ""); rep.append("extraNit", "9990000201"); rep.append("extraTipo", ""); rep.append("extraEmail", "");
+      const r = await updateCliente({}, rep);
+      expect(r.fieldErrors?.extraNit0).toMatch(/ya está en otro dato/);
+
+      // Vaciar el primero: el del papá pasa a ser el primero y la tabla de adicionales queda vacía.
+      const ed = new FormData();
+      ed.set("id", String(clienteId)); ed.set("nombres", "Adulto"); ed.set("apellidos", apellido); ed.set("fechaNacimiento", "1990-01-01");
+      ed.append("extraNombre", "Papá Prueba"); ed.append("extraNit", "9990000202"); ed.append("extraTipo", "natural"); ed.append("extraEmail", "papa@example.com");
+      await updateCliente({}, ed).catch((e: Error) => { if (!/REDIRECT/.test(e.message)) throw e; });
+      const { data: cli2 } = await sb.from("clientes").select("factura_a_nit, factura_a_nombre, factura_email").eq("id", clienteId).single();
+      expect(cli2).toMatchObject({ factura_a_nit: "9990000202", factura_a_nombre: "Papá Prueba", factura_email: "papa@example.com" });
+      const { count } = await sb.from("cliente_facturacion_extra").select("id", { count: "exact", head: true }).eq("cliente_id", clienteId);
+      expect(count).toBe(0);
+    } finally {
+      if (clienteId) {
+        await sb.from("cliente_miembros").delete().eq("cliente_id", clienteId);
+        await sb.from("clientes").delete().eq("id", clienteId);
+      }
+    }
+  });
+
+  it("un NIT que ya es adicional de otra ficha se rechaza", async () => {
+    const { createCliente } = await import("../src/app/(app)/clientes/actions");
+    const sb = admin();
+    const { data: otra } = await sb.from("clientes").insert({ nombres: "Otra", apellidos: `Prueba Dueña ${Date.now()}`, es_menor: false }).select("id").single();
+    try {
+      await sb.from("cliente_facturacion_extra").insert({ cliente_id: otra!.id, nit: "9990000203" });
+      const fd = new FormData();
+      fd.set("nombres", "Prueba"); fd.set("apellidos", "Choque NIT extra");
+      fd.append("extraNombre", ""); fd.append("extraNit", "9990000203"); fd.append("extraTipo", ""); fd.append("extraEmail", "");
+      const r = await createCliente({}, fd);
+      expect(r.fieldErrors?.extraNit0).toMatch(/otro cliente/);
+      const { count } = await sb.from("clientes").select("id", { count: "exact", head: true }).eq("apellidos", "Choque NIT extra");
+      expect(count).toBe(0);
+    } finally {
+      await sb.from("cliente_miembros").delete().eq("cliente_id", otra!.id);
+      await sb.from("clientes").delete().eq("id", otra!.id);
+    }
+  });
+});
+

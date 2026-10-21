@@ -124,6 +124,43 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     **documento del acudiente se escribe aparte** porque la emergencia no lo tiene. El bloque del
     acudiente sale apenas la fecha de nacimiento dice menor, y va justo debajo de la emergencia.
   · Prueba: `tests/clientes-form.test.tsx`.
+- 💳 **Varios datos de facturación por ficha** (21-oct-2026, pedido de Laura y su clienta: a un niño le
+  paga el papá o la mamá, cada uno con su cédula, y ningún pago debe quedar por fuera). Medido ese día:
+  **84 facturas ($11.737.700) en la Bolsa sin dueño** pagadas con la cédula de 16 mamás o papás que ya eran
+  acudientes de la ficha de sus hijos. Migraciones `20261021100000`–`102000`.
+  · **Modelo**: `clientes.factura_*` sigue siendo el PRIMER dato (nada de lo que ya lo leía cambia) y
+    **`cliente_facturacion_extra`** (cliente_id, nit, nombre, tipo, email) guarda los DEMÁS. Siigo ata a la
+    ficha toda factura cuyo número sea el documento, el primer NIT o cualquiera de los adicionales.
+  · **Un NIT, una ficha se mantiene** (Laura): índice único en `nit` + `private.nit_en_uso`, que ahora
+    mira también los adicionales. Lo usan el formulario (`choqueNitFacturacion`), el QR y la bandeja.
+  · **Formulario de la ficha**: el bloque Facturación trae "+ Agregar otro dato de facturación"; cada
+    adicional son cuatro campos que viajan como arreglos paralelos (`extraNit`…, `getAll`). Si se vacía el
+    primero, el siguiente sube a ser el primero. Un adicional sin NIT o un NIT repetido en la misma ficha
+    se rechaza. `guardarFacturacionExtra` deja la tabla igual a la lista del formulario.
+  · **La ficha** muestra un renglón por pagador (con su correo) cuando hay más de uno, y "Situación
+    financiera" dice de qué NIT incluye facturas.
+  · **QR**: lo que la familia escribe sigue la regla D1 de siempre (sin NIT previo o el mismo → directo;
+    distinto → bandeja). Nuevo: si el NIT ya es un adicional de la ficha, se refrescan sus datos sin bandeja.
+  · **Bandeja**: si la ficha ya tenía otro NIT, la tarjeta dice "Otro dato de facturación para la ficha. Se
+    conserva el que ya tiene" y el botón es **"Agregar a la ficha"** (ya no tacha nada). La decide UNA
+    función, `registro_facturacion_decidir(p_cambios[], p_aprobar)`, en una transacción (antes la app
+    decidía campo por campo y un NIT que fallaba dejaba media facturación aprobada). Si el NIT es de OTRA
+    ficha, la tarjeta lo nombra y no deja aprobar. `registro_cambio_decidir` (uno por uno) quedó solo para
+    el código viejo de producción; `decidirCambio` (singular) se borró: nadie lo usaba.
+  · `reatribuirFacturas(supabase, clienteId)` ahora lee ella misma el documento y TODOS los NIT
+    (`nitsDeFacturacion`), así ningún llamador se queda con una lista vieja.
+  · ⚠️ **La Edge Function `siigo-sync` hay que redesplegarla al subir** (`node --env-file=.env
+    scripts/deploy-siigo-fn.mjs`): mientras corra la vieja, las facturas NUEVAS de un NIT adicional caen en
+    la Bolsa (las viejas sí las ata `reatribuirFacturas` al guardar la ficha). El CLI `sync-siigo.mjs` y los
+    dos sync de EasyCancha ya leen los adicionales.
+  · 🐛 **Cazado por la prueba el mismo día**: `private.user_role() not in (…)` con rol NULL da NULL y NO
+    lanza → la función dejaba pasar a quien no tenía rol. Se cambió a `coalesce(…, '') not in (…)`
+    (migración `…102000`). `registro_cambio_decidir` y otras funciones viejas tienen el mismo patrón.
+  · Pruebas: `tests/facturacion-extra.test.ts` (5, Postgres revertido) y `tests/clientes-form.test.tsx` (+3).
+  · ⚠️ **Caso que la regla no resuelve** (visto en la bandeja real, 21-oct): Oriana Sanchez propuso su cédula
+    para la ficha de su hijo Maximiliano, pero **esa cédula es el documento de su PROPIA ficha** (ella es
+    clienta). "Unir fichas" no aplica si los dos son clientes; la cédula de la mamá le gana a la del hijo en
+    el sync. Decisión de Laura pendiente.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que

@@ -16,17 +16,19 @@ function Mensaje({ state }: { state: RevisionState }) {
 }
 
 /** Aprobar o rechazar, de una vez, todos los cambios de facturación de una ficha. */
-export function DecidirCambios({ ids, esNit }: { ids: number[]; esNit: boolean }) {
+export function DecidirCambios({ ids, esNit, agrega = false, bloqueado = false }: { ids: number[]; esNit: boolean; agrega?: boolean; bloqueado?: boolean }) {
   const [state, action, pending] = useActionState(decidirCambios, inicial);
   const n = ids.length;
   return (
     <form action={action} className="flex flex-wrap items-center justify-between gap-3">
       <input type="hidden" name="cambioIds" value={ids.join(",")} />
-      <span className="text-muted-foreground text-xs">{esNit ? "Al aprobar el NIT, las facturas de Siigo de ese NIT quedan atadas a esta ficha." : ""}</span>
+      <span className="text-muted-foreground text-xs">{esNit && !bloqueado ? "Al aprobar el NIT, las facturas de Siigo de ese NIT quedan atadas a esta ficha." : ""}</span>
       <div className="flex items-center gap-2">
         <Mensaje state={state} />
         <Button type="submit" name="decision" value="rechazar" variant="outline" disabled={pending}>Rechazar</Button>
-        <Button type="submit" name="decision" value="aprobar" disabled={pending}>{n > 1 ? `Aprobar los ${n} cambios` : "Aprobar"}</Button>
+        <Button type="submit" name="decision" value="aprobar" disabled={pending || bloqueado}>
+          {agrega ? "Agregar a la ficha" : n > 1 ? `Aprobar los ${n} cambios` : "Aprobar"}
+        </Button>
       </div>
     </form>
   );

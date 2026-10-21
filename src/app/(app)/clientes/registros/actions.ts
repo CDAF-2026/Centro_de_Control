@@ -17,29 +17,6 @@ export type RevisionState = { error?: string; ok?: string };
  * base lo vuelven a exigir por dentro.
  */
 
-/** Aprueba o rechaza UN cambio de facturación. Aprobar un NIT re-engancha facturas: con sesión, nunca desde el camino público. */
-export async function decidirCambio(_prev: RevisionState, formData: FormData): Promise<RevisionState> {
-  await requireRole(PUEDE_REVISAR_REGISTROS);
-  const id = Number(formData.get("cambioId"));
-  const aprobar = String(formData.get("decision")) === "aprobar";
-  if (!id) return { error: "Cambio inválido." };
-
-  const supabase = await createClient();
-  const { data: cambio } = await supabase.from("registro_cambio").select("cliente_id, campo, valor_nuevo").eq("id", id).maybeSingle();
-  if (!cambio) return { error: "El cambio no existe o ya fue decidido." };
-
-  const { error } = await supabase.rpc("registro_cambio_decidir", { p_cambio: id, p_aprobar: aprobar });
-  if (error) return { error: error.message };
-
-  if (aprobar && cambio.campo === "factura_a_nit") {
-    const { data: c } = await supabase.from("clientes").select("documento, factura_a_nit").eq("id", cambio.cliente_id).single();
-    await reatribuirFacturas(supabase, cambio.cliente_id, c?.documento ?? null, c?.factura_a_nit ?? null);
-  }
-  revalidatePath("/clientes/registros");
-  revalidatePath(`/clientes/${cambio.cliente_id}`);
-  return { ok: aprobar ? "Cambio aplicado a la ficha." : "Cambio rechazado." };
-}
-
 /** Ata una firma `pendiente_asignar` al miembro escogido; su PDF entra a la ficha. */
 export async function asignarFirma(_prev: RevisionState, formData: FormData): Promise<RevisionState> {
   await requireRole(PUEDE_REVISAR_REGISTROS);
@@ -97,8 +74,10 @@ export async function descartarSolicitud(_prev: RevisionState, formData: FormDat
 
 /**
  * Aprueba o rechaza TODOS los cambios pendientes de una ficha de una vez (diseño A de la
- * bandeja, Laura, 2-oct-2026): la familia propone la facturación completa, y decidir campo
- * por campo dejaba medias facturaciones. Reutiliza la misma función de la base por cambio.
+ * bandeja, Laura, 2-oct-2026): la familia propone la facturación completa. Desde el 21-oct-2026
+ * lo decide UNA función de la base, en una transacción: si la ficha ya tenía otro NIT, aprobar
+ * AGREGA estos datos como uno más (no reemplaza); antes, un NIT que fallaba dejaba media
+ * facturación aprobada. Aprobar re-engancha facturas: con sesión, nunca desde el camino público.
  */
 export async function decidirCambios(_prev: RevisionState, formData: FormData): Promise<RevisionState> {
   await requireRole(PUEDE_REVISAR_REGISTROS);
@@ -107,19 +86,13 @@ export async function decidirCambios(_prev: RevisionState, formData: FormData): 
   if (!ids.length) return { error: "No hay cambios." };
 
   const supabase = await createClient();
-  const { data: cambios } = await supabase.from("registro_cambio").select("id, cliente_id, campo").in("id", ids).eq("estado", "pendiente");
-  if (!cambios?.length) return { error: "Los cambios ya fueron decididos." };
+  const { data: r, error } = await supabase.rpc("registro_facturacion_decidir", { p_cambios: ids, p_aprobar: aprobar });
+  if (error || !r) return { error: error?.message ?? "No se pudo decidir." };
 
-  for (const c of cambios) {
-    const { error } = await supabase.rpc("registro_cambio_decidir", { p_cambio: c.id, p_aprobar: aprobar });
-    if (error) return { error: error.message };
-  }
-  const clienteId = cambios[0].cliente_id;
-  if (aprobar && cambios.some((c) => c.campo === "factura_a_nit")) {
-    const { data: c } = await supabase.from("clientes").select("documento, factura_a_nit").eq("id", clienteId).single();
-    await reatribuirFacturas(supabase, clienteId, c?.documento ?? null, c?.factura_a_nit ?? null);
-  }
+  if (aprobar) await reatribuirFacturas(supabase, r.cliente_id);
   revalidatePath("/clientes/registros");
-  revalidatePath(`/clientes/${clienteId}`);
-  return { ok: aprobar ? "Facturación aplicada a la ficha." : "Cambios rechazados." };
+  revalidatePath(`/clientes/${r.cliente_id}`);
+  return {
+    ok: !aprobar ? "Cambios rechazados." : r.modo === "agregado" ? "Se agregó como otro dato de facturación de la ficha." : "Facturación aplicada a la ficha.",
+  };
 }

@@ -187,6 +187,12 @@ async function main() {
     if (d) ocupados.set(d, c);
     if (n && !ocupados.has(n)) ocupados.set(n, c);
   }
+  // Los NIT de facturación adicionales (21-oct-2026) también están ocupados.
+  const porId = new Map(clientes.map((c) => [c.id, c]));
+  for (const e of await traerTodo("cliente_facturacion_extra", "cliente_id, nit")) {
+    const n = (e.nit ?? "").trim();
+    if (n && !ocupados.has(n) && porId.has(e.cliente_id)) ocupados.set(n, porId.get(e.cliente_id));
+  }
   console.log(`  clientes en la base: ${clientes.length} (${ocupados.size} documentos/NITs ya en uso)`);
 
   // 3) Decidir qué se escribe.

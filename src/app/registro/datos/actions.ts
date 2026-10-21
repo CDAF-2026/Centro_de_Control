@@ -134,7 +134,7 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     if (error || !r) { console.error("[registro] aplicar:", sol.id, error?.message); return { error: GENERICO }; }
     miembro = { miembro_id: r.miembro_id, cliente_id: r.cliente_id };
     if (r.cambios_pendientes > 0) {
-      await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} propuso cambiar la facturación de la ficha de ${nombreMenor}. Hay ${r.cambios_pendientes} cambio(s) por aprobar en Clientes › Registros.`);
+      await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} propuso datos de facturación para la ficha de ${nombreMenor}. Hay ${r.cambios_pendientes} cambio(s) por aprobar en Clientes › Registros.`);
     }
   } else if (busqueda.tipo === "documento_ajeno") {
     await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} registró a ${nombreMenor} con un documento que en la plataforma tiene otra persona, y confirmó que es correcto. No se tocó ninguna ficha: revisar en Clientes › Registros.`);

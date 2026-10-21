@@ -26,6 +26,12 @@ export default async function EditarClientePage({ params }: { params: Promise<{ 
     .select("id, nombre, documento, telefono, email, parentesco, rol")
     .eq("cliente_id", cliente.id)
     .order("id");
+  // Los datos de facturación adicionales (el primero vive en la ficha).
+  const { data: facturacionExtra } = await supabase
+    .from("cliente_facturacion_extra")
+    .select("nit, nombre, tipo, email")
+    .eq("cliente_id", cliente.id)
+    .order("id");
   const acudiente = (acudientes ?? []).find((a) => a.id === cliente.acudiente_id) ?? null;
   const acudiente2 = (acudientes ?? []).find((a) => a.id !== cliente.acudiente_id) ?? null;
 
@@ -37,7 +43,7 @@ export default async function EditarClientePage({ params }: { params: Promise<{ 
         </Link>
         <h1 className="cdaf-headline mt-1">Editar cliente</h1>
       </div>
-      <ClienteForm cliente={cliente} acudiente={acudiente} acudiente2={acudiente2} identidadesSiigo={identidades ?? []} />
+      <ClienteForm cliente={cliente} acudiente={acudiente} acudiente2={acudiente2} identidadesSiigo={identidades ?? []} facturacionExtra={facturacionExtra ?? []} />
     </div>
   );
 }

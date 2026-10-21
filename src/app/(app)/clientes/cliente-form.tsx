@@ -42,6 +42,65 @@ export type ClienteEditable = {
 /** Identidades de facturación que ya existen en Siigo (para el autocompletar). */
 export type IdentidadSiigo = { nit: string; nombre: string };
 
+/** Un dato de facturación adicional de la ficha (`cliente_facturacion_extra`, 21-oct-2026). */
+export type FacturacionExtraEditable = { nit: string; nombre: string | null; tipo: string | null; email: string | null };
+
+type BloqueFact = { clave: number; nombre: string; nit: string; tipo: string; email: string };
+
+/**
+ * Otro dato de facturación (el papá, la mamá, una empresa…). Mismos cuatro campos que el primero;
+ * viajan como arreglos paralelos (`extraNit`…) y el servidor los lee con `getAll`.
+ */
+function BloqueFacturacion({
+  bloque, n, errorNit, identidadesSiigo, onChange, onQuitar,
+}: {
+  bloque: BloqueFact; n: number; errorNit?: string; identidadesSiigo: IdentidadSiigo[];
+  onChange: (b: BloqueFact) => void; onQuitar: () => void;
+}) {
+  const id = (campo: string) => `extra-${campo}-${bloque.clave}`;
+  const elegirNombre = (v: string) => {
+    const match = identidadesSiigo.find((i) => i.nombre.trim().toLowerCase() === v.trim().toLowerCase());
+    onChange({ ...bloque, nombre: v, nit: match ? match.nit : bloque.nit });
+  };
+  return (
+    <div className="space-y-3 rounded-md border border-dashed p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Dato de facturación {n}</p>
+        <Button type="button" variant="ghost" size="sm" onClick={onQuitar}>Quitar</Button>
+      </div>
+      <Field label="A nombre de quién se factura" name="extraNombre" id={id("nombre")} value={bloque.nombre} onChange={elegirNombre} list="identidades-siigo" />
+      <Field
+        label={bloque.tipo === "juridica" ? "NIT de facturación (sin dígito de verificación)" : "NIT / cédula de facturación"}
+        name="extraNit"
+        id={id("nit")}
+        error={errorNit}
+        value={bloque.nit}
+        onChange={(v) => onChange({ ...bloque, nit: v })}
+      />
+      {bloque.tipo === "juridica" && bloque.nit.replace(/\D/g, "") && (
+        <p className="text-muted-foreground -mt-1.5 text-xs">Con dígito de verificación: <span className="text-foreground font-semibold">{nitConDv(bloque.nit.includes("-") ? nitSinDv(bloque.nit) : bloque.nit)}</span></p>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor={id("tipo")}>Tipo</Label>
+          <select
+            id={id("tipo")}
+            name="extraTipo"
+            value={bloque.tipo}
+            onChange={(e) => onChange({ ...bloque, tipo: e.target.value })}
+            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+          >
+            <option value="">—</option>
+            <option value="natural">Persona natural</option>
+            <option value="juridica">Persona jurídica</option>
+          </select>
+        </div>
+        <Field label="Correo de facturación" name="extraEmail" id={id("email")} type="email" value={bloque.email} onChange={(v) => onChange({ ...bloque, email: v })} />
+      </div>
+    </div>
+  );
+}
+
 export type AcudienteEditable = {
   nombre: string | null;
   documento: string | null;
@@ -78,17 +137,17 @@ function RolSelect({ name, value, onChange }: { name: string; value: AcudienteRo
 }
 
 function Field({
-  label, name, type = "text", error, required, defaultValue, value, readOnly, onChange, list,
+  label, name, id, type = "text", error, required, defaultValue, value, readOnly, onChange, list,
 }: {
-  label: string; name: string; type?: string; error?: string; required?: boolean;
+  label: string; name: string; id?: string; type?: string; error?: string; required?: boolean;
   defaultValue?: string; value?: string; readOnly?: boolean; onChange?: (v: string) => void; list?: string;
 }) {
   const controlado = value !== undefined;
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={name}>{label}</Label>
+      <Label htmlFor={id ?? name}>{label}</Label>
       <Input
-        id={name}
+        id={id ?? name}
         name={name}
         type={type}
         required={required}
@@ -113,6 +172,7 @@ export function ClienteForm({
   acudiente = null,
   acudiente2 = null,
   identidadesSiigo = [],
+  facturacionExtra = [],
 }: {
   cliente?: ClienteEditable;
   /** Acudiente principal (`clientes.acudiente_id`): quien firma y recibe los correos. */
@@ -120,6 +180,8 @@ export function ClienteForm({
   /** Segundo acudiente (el otro padre o madre), opcional. */
   acudiente2?: AcudienteEditable;
   identidadesSiigo?: IdentidadSiigo[];
+  /** Los datos de facturación adicionales (el primero va en `cliente.factura_*`). */
+  facturacionExtra?: FacturacionExtraEditable[];
 }) {
   const [state, action, pending] = useActionState(cliente ? updateCliente : createCliente, initial);
   const [fecha, setFecha] = useState(cliente?.fecha_nacimiento ?? "");
@@ -168,6 +230,14 @@ export function ClienteForm({
     nombre: cliente?.factura_a_nombre ?? "",
     nit: cliente?.factura_a_nit ?? "",
   });
+  const [extras, setExtras] = useState<BloqueFact[]>(() =>
+    facturacionExtra.map((e, i) => ({ clave: i, nombre: e.nombre ?? "", nit: e.nit, tipo: e.tipo ?? "", email: e.email ?? "" })),
+  );
+  const [siguiente, setSiguiente] = useState(facturacionExtra.length);
+  const agregarExtra = () => {
+    setExtras((xs) => [...xs, { clave: siguiente, nombre: "", nit: "", tipo: "", email: "" }]);
+    setSiguiente((k) => k + 1);
+  };
   const elegirNombreFact = (v: string) => {
     const match = identidadesSiigo.find((i) => i.nombre.trim().toLowerCase() === v.trim().toLowerCase());
     setFact((s) => ({ nombre: v, nit: match ? match.nit : s.nit }));
@@ -307,8 +377,9 @@ export function ClienteForm({
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="cdaf-eyebrow px-1">Facturación</legend>
         <p className="text-muted-foreground text-xs">
-          Si sus facturas en Siigo salen a nombre de otra persona o empresa, indícalo aquí: las facturas de ese NIT
-          (pasadas y futuras) se sumarán a su historial financiero.
+          Si sus facturas en Siigo salen a nombre de otra persona o empresa, indícalo aquí. Puedes agregar varios (por
+          ejemplo el papá y la mamá): las facturas de cualquiera de esos NIT (pasadas y futuras) se sumarán a su
+          historial financiero.
         </p>
         <Field
           label="A nombre de quién se factura"
@@ -350,6 +421,20 @@ export function ClienteForm({
           </div>
           <Field label="Correo de facturación" name="facturaEmail" type="email" error={fe.facturaEmail} defaultValue={cliente?.factura_email ?? ""} />
         </div>
+        {extras.map((b, i) => (
+          <BloqueFacturacion
+            key={b.clave}
+            bloque={b}
+            n={i + 2}
+            errorNit={fe[`extraNit${i}`]}
+            identidadesSiigo={identidadesSiigo}
+            onChange={(nuevo) => setExtras((xs) => xs.map((x) => (x.clave === b.clave ? nuevo : x)))}
+            onQuitar={() => setExtras((xs) => xs.filter((x) => x.clave !== b.clave))}
+          />
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={agregarExtra}>
+          + Agregar otro dato de facturación
+        </Button>
       </fieldset>
 
       <fieldset className="space-y-2 rounded-lg border p-4">

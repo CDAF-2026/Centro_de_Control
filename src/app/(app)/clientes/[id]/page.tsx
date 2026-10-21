@@ -43,6 +43,27 @@ export default async function ClienteDetallePage({
     .single();
   if (!cliente) notFound();
 
+  // Datos de facturación: el primero vive en la ficha; los demás (papá, mamá…) en su tabla (21-oct-2026).
+  const { data: facturacionExtra } = await supabase
+    .from("cliente_facturacion_extra")
+    .select("nit, nombre, tipo, email")
+    .eq("cliente_id", cliente.id)
+    .order("id");
+  const facturacion = [
+    ...(cliente.factura_a_nombre || cliente.factura_a_nit
+      ? [{ nombre: cliente.factura_a_nombre, nit: cliente.factura_a_nit, tipo: cliente.factura_tipo, email: cliente.factura_email }]
+      : []),
+    ...(facturacionExtra ?? []),
+  ];
+  const lineaFactura = (f: { nombre: string | null; nit: string | null; tipo: string | null }) =>
+    [
+      f.nombre,
+      f.nit && `NIT ${f.tipo === "juridica" ? nitConDv(f.nit) : f.nit}`,
+      f.tipo && (f.tipo === "juridica" ? "P. jurídica" : "P. natural"),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
   // Padre y madre por separado (ficha unificada, 1-oct-2026). El principal va primero.
   const { data: acudientesRaw } = await supabase
     .from("acudientes")
@@ -340,24 +361,35 @@ export default async function ClienteDetallePage({
                 .join(" · ") || null
             }
           />
-          <Dato
-            label="Se factura a nombre de"
-            valor={
-              cliente.factura_a_nombre || cliente.factura_a_nit
-                ? [
-                    cliente.factura_a_nombre,
-                    cliente.factura_a_nit && `NIT ${cliente.factura_tipo === "juridica" ? nitConDv(cliente.factura_a_nit) : cliente.factura_a_nit}`,
-                    cliente.factura_tipo && (cliente.factura_tipo === "juridica" ? "P. jurídica" : "P. natural"),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")
-                : // Sin tercero indicado: se factura al titular mismo (su documento).
-                  [`${cliente.nombres} ${cliente.apellidos}`.trim(), cliente.documento && `NIT ${cliente.documento}`, "titular"]
-                    .filter(Boolean)
-                    .join(" · ") || null
-            }
-          />
-          <Dato label="Correo de facturación" valor={cliente.factura_email} />
+          {facturacion.length > 1 ? (
+            // Varios pagadores: cada uno en su renglón, con su correo.
+            <div className="col-span-2">
+              <p className="text-muted-foreground">Se factura a nombre de</p>
+              <ul className="space-y-1">
+                {facturacion.map((f, i) => (
+                  <li key={f.nit ?? i}>
+                    {lineaFactura(f)}
+                    {f.email && <span className="text-muted-foreground"> · {f.email}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <>
+              <Dato
+                label="Se factura a nombre de"
+                valor={
+                  facturacion.length
+                    ? lineaFactura(facturacion[0])
+                    : // Sin tercero indicado: se factura al titular mismo (su documento).
+                      [`${cliente.nombres} ${cliente.apellidos}`.trim(), cliente.documento && `NIT ${cliente.documento}`, "titular"]
+                        .filter(Boolean)
+                        .join(" · ") || null
+                }
+              />
+              <Dato label="Correo de facturación" valor={cliente.factura_email} />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -515,11 +547,19 @@ export default async function ClienteDetallePage({
           <CardTitle>Situación financiera</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          {verFinanzas && cliente.factura_a_nit && (
+          {verFinanzas && facturacion.some((f) => f.nit) && (
             <p className="text-muted-foreground bg-muted/40 rounded-md px-3 py-2 text-xs">
               Incluye las facturas a nombre de{" "}
-              <strong className="text-foreground">{cliente.factura_a_nombre || `NIT ${cliente.factura_a_nit}`}</strong>
-              {cliente.factura_a_nombre ? ` (NIT ${cliente.factura_a_nit})` : ""}.
+              {facturacion
+                .filter((f) => f.nit)
+                .map((f, i, xs) => (
+                  <span key={f.nit}>
+                    <strong className="text-foreground">{f.nombre || `NIT ${f.nit}`}</strong>
+                    {f.nombre ? ` (NIT ${f.nit})` : ""}
+                    {i < xs.length - 2 ? ", " : i === xs.length - 2 ? " y " : ""}
+                  </span>
+                ))}
+              .
             </p>
           )}
           {!verFinanzas ? (

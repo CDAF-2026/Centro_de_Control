@@ -537,6 +537,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      // Datos de facturación ADICIONALES de una ficha (21-oct-2026). El primero vive en
+      // clientes.factura_*; estos son los demás. Un NIT, una ficha (índice único en `nit`).
+      cliente_facturacion_extra: {
+        Row: {
+          id: number;
+          cliente_id: number;
+          nit: string;
+          nombre: string | null;
+          tipo: FacturaTipo | null;
+          email: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          cliente_id: number;
+          nit: string;
+          nombre?: string | null;
+          tipo?: FacturaTipo | null;
+          email?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          cliente_id?: number;
+          nit?: string;
+          nombre?: string | null;
+          tipo?: FacturaTipo | null;
+          email?: string | null;
+        };
+        Relationships: [];
+      };
       // ─── Registro público y consentimiento digital (1-oct-2026) ───
       // Ninguna de estas tablas tiene privilegios para anon/authenticated salvo
       // los SELECT que dan sus políticas: se escriben solo por RPC o service_role.
@@ -1813,6 +1844,11 @@ export type Database = {
       };
       /** SA / coord. admin (valida por dentro). Aprueba o rechaza un cambio de facturación. */
       registro_cambio_decidir: { Args: { p_cambio: number; p_aprobar: boolean }; Returns: undefined };
+      /** Decide la tarjeta de facturación entera: aprobar agrega un dato más si la ficha ya tenía otro NIT. */
+      registro_facturacion_decidir: {
+        Args: { p_cambios: number[]; p_aprobar: boolean };
+        Returns: { cliente_id: number; modo: "agregado" | "principal" | "rechazado" };
+      };
       /** SA / coord. admin. Ata una firma `pendiente_asignar` al miembro escogido; devuelve el documento creado. */
       consentimiento_asignar: { Args: { p_firma: string; p_miembro: number }; Returns: number | null };
       siigo_recaudo: {
