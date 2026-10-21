@@ -159,6 +159,10 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
   · 🐛 **Segundo arreglo del mismo día** (migración `…103000`, caso Manuel Mejía Puyo): la tarjeta solo guarda
     los campos que DIFIEREN del primer dato, así que al AGREGAR, un nombre o tipo igual (la mamá con su NIT
     y el mismo nombre que ya figuraba) quedaba en NULL. Ahora lo que falta sale del `payload` de la solicitud.
+    ✅ Aplicado ese día a la ficha 369 (Manuel Mejía Puyo), a pedido de Laura: primer dato corregido a
+    **Santiago Mejía Isaza** (el NIT 3399830 es de él en Siigo; decía "Marcela Puyo") + **Marcela Puyo
+    43976396** agregada; sus 2 facturas libres ($294.700) se ataron. La ficha quedó con 8 facturas por
+    $6.879.700 y la bandeja de facturación en 0. Rastro `cliente.corregir_facturacion` y `registro.cambio.aprobar`.
   · Pruebas: `tests/facturacion-extra.test.ts` (6, Postgres revertido) y `tests/clientes-form.test.tsx` (+3).
   · ✅ **Oriana Sanchez y Maximiliano Ortega, una sola ficha** (21-oct-2026, Laura). Ella propuso por el QR
     su cédula para la ficha de su hijo (419), pero esa cédula era el documento de SU ficha (84, es clienta).
