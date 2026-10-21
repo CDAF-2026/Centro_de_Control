@@ -147,7 +147,13 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     tablas con `cliente_id`; la acudiente repetida (128) se fue en cascada (queda la 301). La 77 quedó con
     4 miembros, 18 facturas de Siigo, 19 asistencias, 3 documentos, 3 firmas y la facturación de Catalina;
     los 4 cambios de la bandeja (118–121) quedaron aprobados. Rastro: `cliente.fusionar` (ficha 473 entera)
-    y `registro.cambio.aprobar` en `audit_log`. Sophia quedó repetida: ver pendiente 22.
+    y `registro.cambio.aprobar` en `audit_log`. Sophia quedó repetida y se resolvió el mismo día (abajo).
+  · ✅ **Sophia Craig, una sola** (21-oct-2026): el QR la había creado otra vez (miembro 743) con
+    **1013359088**; Laura confirmó que el correcto es **1013356088**. Queda la titular (73) con los datos de
+    la mamá (D1: RC, 16-jul-2010, Orlando, Sura, B+, pádel), sus 18 asistencias y 2 paquetes, y ahora la
+    firma y su PDF. El 743 se borró con rastro (`cliente.fusionar`, entity `cliente_miembros`).
+    ⚠ El PDF firmado dice **1013359088** (lo escribió la mamá); no se toca porque es lo que firmó. Si el
+    club lo quiere con el número correcto, Catalina tiene que volver a firmar.
 - 👤 **El nombre del deportista NUNCA se lee de `clientes`** (ago-2026, `src/lib/deportistas.ts`).
   El **profesor** no tiene el módulo de clientes y `clientes_select` lo excluye, así que esa consulta
   con su sesión devuelve **0 filas sin error** (medido: ve 0 de 320 en `clientes` y 276 en
@@ -2483,11 +2489,6 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     4-sep; Santiago 1 y 2-sep) **no hace falta corregirlos** para la nómina. Lo que sí hay que vigilar es
     octubre en adelante: el aviso de "no cerró" y la marca "La salida es de otro día" del Excel son las
     señales. Se corrigen desde `/horas/[id]` → Corregir (solo SA).
-22. **Sophia Craig está DOS veces en la ficha 77** (21-oct-2026): la titular (miembro 73, doc 1013356088, CC,
-    sin fecha) y la que creó el QR (miembro 743, doc **1013359088**, RC, nacida 16-jul-2010, EPS/RH y la
-    firma del consentimiento). La mamá escribió un dígito distinto y el registro no la reconoció. Falta que
-    el club confirme con Catalina el documento correcto; con eso se deja una sola (la firma va con ella).
-
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
 academias (tenis y pádel cargados) · academias de pádel · catálogo estándar de paquetes (30-sep) · Carlos es
