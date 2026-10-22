@@ -175,7 +175,14 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     $7.724.000. La acudiente 74 (Oriana de sí misma) se fue en cascada; los cambios 130–131 quedaron
     aprobados. Rastro `cliente.fusionar` (entity 419) y `registro.cambio.aprobar` en `audit_log`.
     💡 Regla: cuando el papá o la mamá ya es cliente con su propia ficha, se une la del niño en la del
-    adulto, no al revés.
+    adulto, no al revés. **Excepción** (Néstor Vergara, abajo): si la del adulto es chica y la de la familia
+    lleva todo, el adulto entra a la familiar como miembro.
+  · ✅ **Néstor Vergara (239) → ficha familiar de Valerie y Leire (350)** (22-oct-2026, Laura). Propuso por el
+    QR su cédula 79601257, que era el documento de su ficha propia (de EasyCancha, 2 clases particulares, 0
+    facturas). Se unió la 239 en la 350 (15 tablas repuntadas): Néstor quedó como miembro 44 con sus 2 clases
+    (se les puso `miembro_id = 44`, que ya decía su asistencia), y la tarjeta 185–187 se aprobó como dato
+    adicional: facturación Surt Londoño (40937114) + Néstor Vergara (79601257). Rastro `cliente.fusionar`
+    (entity 239) y `registro.cambio.aprobar`.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que
