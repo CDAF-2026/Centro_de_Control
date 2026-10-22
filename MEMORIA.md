@@ -183,6 +183,11 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     (se les puso `miembro_id = 44`, que ya decía su asistencia), y la tarjeta 185–187 se aprobó como dato
     adicional: facturación Surt Londoño (40937114) + Néstor Vergara (79601257). Rastro `cliente.fusionar`
     (entity 239) y `registro.cambio.aprobar`.
+  · ✅ **Luis Alejandro Santa (39) → ficha de su hija Alicia Santa Bonilla (428)** (22-oct-2026, Laura). Mismo
+    caso que Néstor: su ficha propia no tenía clases ni inscripciones, solo 5 facturas ($731.000; la FV-4-15940
+    incluía la academia de Alicia). Quedó como miembro de la 428 y la tarjeta 190–192 se aprobó como dato
+    adicional: Karla Bonilla (1036929840) + Luis Alejandro Santa (1036924788). La 428 quedó con 8 facturas por
+    $2.095.000. Rastro `cliente.fusionar` (entity 39) y `registro.cambio.aprobar`.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que
