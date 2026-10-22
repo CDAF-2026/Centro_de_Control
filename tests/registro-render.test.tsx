@@ -301,6 +301,8 @@ describe("bandeja de registros", () => {
     const { data: cli } = await admin.from("clientes").select("id, nombres, apellidos").order("id").limit(1).single();
     const { data: sol } = await admin.from("registro_solicitud").insert({ tipo: "datos", estado: "en_revision", cliente_id: cli!.id, payload: {} }).select("id").single();
     const { data: cambio } = await admin.from("registro_cambio").insert({ solicitud_id: sol!.id, cliente_id: cli!.id, campo: "factura_a_nit", valor_actual: "1", valor_nuevo: "9990009999" }).select("id").single();
+    // Un formulario frenado porque el documento es de alguien con otro nombre (22-oct-2026): la tarjeta lo dice.
+    const { data: ajeno } = await admin.from("registro_solicitud").insert({ tipo: "datos", estado: "en_revision", payload: { menor: { nombres: "Prueba", apellidos: "Documento Ajeno", documento: "9990009998" }, busqueda: { tipo: "documento_ajeno", candidatos: [] } } }).select("id").single();
     try {
       const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
       const html = await render(Page);
@@ -311,8 +313,10 @@ describe("bandeja de registros", () => {
       // La ficha ya facturaba a otro NIT ("1"): aprobar lo AGREGA como un dato más (21-oct-2026).
       expect(t).toContain("Se conserva el que ya tiene (NIT 1)");
       expect(t).toContain("Agregar a la ficha");
+      expect(t).toContain("El documento coincide con una ficha, pero el nombre no");
       expect(t).toContain("Historial");
     } finally {
+      await admin.from("registro_solicitud").delete().eq("id", ajeno!.id);
       await admin.from("registro_cambio").delete().eq("id", cambio!.id);
       await admin.from("registro_solicitud").delete().eq("id", sol!.id);
       vi.doUnmock("@/lib/auth");

@@ -198,6 +198,13 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     `registro_aplicar_datos`; los de Carlota a mano, porque su formulario traía el celular de la mamá
     (3116441194) como su cédula y como NIT. Rastro `cliente.corregir_documentos` en `audit_log`.
     ⚠️ Si el club ve después las tarjetas de identidad y es al revés, hay que volver a intercambiar.
+  · ✅ **Maximiliano Echeverri Aristizabal (ficha 450)** (22-oct-2026, Laura): su firma quedó sin dueño porque la
+    ficha decía "Echeverry" (`documento_ajeno`). Se asignó a la 450 (doc 101), el apellido se corrigió como lo
+    escribió la mamá, y se borró la **313**, una ficha repetida y vacía de EasyCancha (recontada en la misma
+    transacción; rastro `cliente.fusionar`, entity 313).
+  · 🪧 **Las tarjetas de Registros dicen POR QUÉ quedaron en revisión** (22-oct-2026, `motivoRevision` en
+    `registros/page.tsx`): con `documento_ajeno` dicen "El documento coincide con una ficha, pero el nombre no…";
+    antes las firmas y los datos decían siempre "más de una ficha", que solo es el caso `ambiguo`.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que

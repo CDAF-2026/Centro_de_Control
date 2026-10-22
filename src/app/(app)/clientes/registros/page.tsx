@@ -31,7 +31,7 @@ type Payload = {
   menor?: { nombres?: string; apellidos?: string; documento?: string; fecha_nacimiento?: string };
   firmante?: { nombre?: string };
   acudientes?: { nombre?: string; rol?: string; principal?: boolean }[];
-  busqueda?: { candidatos?: number[] };
+  busqueda?: { tipo?: string; candidatos?: number[] };
 };
 type Miembro = { id: number; cliente_id: number; nombres: string; apellidos: string; documento: string | null; fecha_nacimiento: string | null; es_titular: boolean };
 
@@ -59,7 +59,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
 
   const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: historial }, { count: nTodo }, { count: nDatos }, { count: nCons }, { count: nRev }] = await Promise.all([
     supabase.from("registro_cambio").select("id, cliente_id, solicitud_id, campo, valor_actual, valor_nuevo, created_at").eq("estado", "pendiente").order("created_at"),
-    supabase.from("consentimiento_firma").select("id, firmante_nombre, firmante_parentesco, menor_nombre, menor_documento, firmado_el").eq("estado", "pendiente_asignar").order("firmado_el"),
+    supabase.from("consentimiento_firma").select("id, solicitud_id, firmante_nombre, firmante_parentesco, menor_nombre, menor_documento, firmado_el").eq("estado", "pendiente_asignar").order("firmado_el"),
     supabase.from("registro_solicitud").select("id, payload, created_at").eq("estado", "en_revision").eq("tipo", "datos").is("cliente_id", null).order("created_at"),
     historialQ,
     supabase.from("registro_solicitud").select("id", { count: "exact", head: true }),
@@ -78,6 +78,13 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   ]);
   const nombre = new Map((clientes ?? []).map((c) => [c.id, `${c.nombres} ${c.apellidos}`]));
   const propuso = new Map((sols ?? []).map((s) => [s.id, quienEnvio((s.payload as Payload) ?? {})]));
+
+  // Por qué quedó cada firma sin dueño (documento con otro nombre, o dos fichas iguales): está en su solicitud.
+  const solFirmaIds = (firmas ?? []).map((f) => f.solicitud_id).filter((x): x is string => !!x);
+  const { data: solsFirma } = solFirmaIds.length
+    ? await supabase.from("registro_solicitud").select("id, payload").in("id", solFirmaIds)
+    : { data: [] as { id: string; payload: unknown }[] };
+  const motivoFirma = new Map((solsFirma ?? []).map((x) => [x.id, (x.payload as Payload)?.busqueda?.tipo]));
 
   // Candidatos: de las solicitudes ambiguas (vienen en el payload) y de las firmas (todos
   // los miembros con ese documento: la firma no guarda la lista).
@@ -167,7 +174,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
       cuando: f.firmado_el,
       nodo: (
         <Pendiente key={f.id} tipo="Firma" titulo={f.menor_nombre} meta={`${f.menor_documento ? `doc. ${f.menor_documento} · ` : ""}firmó ${f.firmante_nombre}${f.firmante_parentesco ? ` (${f.firmante_parentesco.toLowerCase()})` : ""} · ${fechaHoraCorta(f.firmado_el)}`}>
-          <p className="text-muted-foreground text-sm">Más de una ficha tiene este documento y este nombre. ¿A cuál pertenece la firma? El PDF entra a esa ficha.</p>
+          <p className="text-muted-foreground text-sm">{motivoRevision(motivoFirma.get(f.solicitud_id ?? ""), "firma")}</p>
           <AsignarFirma firmaId={f.id} candidatos={candPorDoc.get(soloDigitos(f.menor_documento) ?? "") ?? []} />
         </Pendiente>
       ),
@@ -178,7 +185,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
         cuando: a.created_at,
         nodo: (
           <Pendiente key={a.id} tipo="Datos" titulo={`${p.menor?.nombres ?? ""} ${p.menor?.apellidos ?? ""}`.trim() || "—"} meta={`${p.menor?.documento ? `doc. ${p.menor.documento} · ` : ""}envió ${quienEnvio(p)} · ${fechaHoraCorta(a.created_at)}`}>
-            <p className="text-muted-foreground text-sm">El formulario coincide con más de una ficha y no se aplicó. Escoge la ficha o descártalo.</p>
+            <p className="text-muted-foreground text-sm">{motivoRevision(p.busqueda?.tipo, "datos")}</p>
             <RevisarSolicitud solicitudId={a.id} candidatos={(p.busqueda?.candidatos ?? []).map((id) => candPorId.get(id)).filter((c): c is CandidatoFicha => !!c)} />
           </Pendiente>
         ),
@@ -268,6 +275,21 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
       </Card>
     </div>
   );
+}
+
+/**
+ * Por qué una firma o un formulario quedó en revisión (22-oct-2026). Antes las dos tarjetas decían siempre
+ * "más de una ficha", y el caso más común es otro: el documento existe pero el nombre escrito no se parece
+ * (un apellido con otra ortografía, o documentos cruzados entre hermanos).
+ */
+function motivoRevision(tipo: string | undefined, que: "firma" | "datos"): string {
+  const accion = que === "firma" ? "¿A cuál ficha pertenece la firma? El PDF entra a esa ficha." : "Escoge la ficha o descártalo.";
+  if (tipo === "documento_ajeno") {
+    return `El documento coincide con una ficha, pero el nombre no. Revisa si es la misma persona (puede ser un apellido escrito distinto o documentos cruzados entre hermanos). ${accion}`;
+  }
+  return que === "firma"
+    ? `Más de una ficha tiene este documento y este nombre. ${accion}`
+    : `El formulario coincide con más de una ficha y no se aplicó. ${accion}`;
 }
 
 function mostrar(campo: string, valor: string | null): string {
