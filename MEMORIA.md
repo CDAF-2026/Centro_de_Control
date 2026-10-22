@@ -188,6 +188,16 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     incluía la academia de Alicia). Quedó como miembro de la 428 y la tarjeta 190–192 se aprobó como dato
     adicional: Karla Bonilla (1036929840) + Luis Alejandro Santa (1036924788). La 428 quedó con 8 facturas por
     $2.095.000. Rastro `cliente.fusionar` (entity 39) y `registro.cambio.aprobar`.
+  · ✅ **Gemelos Carlota y Josué Hernández Ruiz (ficha 443) con los documentos CRUZADOS** (22-oct-2026, Laura). El
+    Excel del club (ago-2026) decía Carlota 1035010791 / Josué 1035010792; la mamá (Luz Dariana Ruiz Jaramillo)
+    escribió lo contrario las 4 veces por el QR, así que todo cayó en `documento_ajeno`, y Carolina asignó desde
+    la bandeja la firma de Carlota al miembro que tenía su número (Josué). Laura decidió tomar los de la mamá:
+    Carlota **1035010792**, Josué **1035010791** (los dos TI: la mamá marcó RC para Carlota, se dejó TI por ser
+    gemelos de 9 años). Firma de Carlota (y su PDF, doc 93) devuelta a Carlota; la de Josué asignada a él (doc
+    100); la segunda firma de Carlota, anulada por repetida. Los datos de Josué se aplicaron con
+    `registro_aplicar_datos`; los de Carlota a mano, porque su formulario traía el celular de la mamá
+    (3116441194) como su cédula y como NIT. Rastro `cliente.corregir_documentos` en `audit_log`.
+    ⚠️ Si el club ve después las tarjetas de identidad y es al revés, hay que volver a intercambiar.
 - 👨‍👧 **"Agregar hijo" en la ficha de un adulto** (1-oct-2026). La tarjeta "Miembros de la familia" solo
   salía si la ficha era de un menor o ya tenía más de una persona, así que a la ficha de una mamá sola
   **no había forma de agregarle su hija** (lo notó la clienta con Alejandra Vila). Ahora sale a todo el que
