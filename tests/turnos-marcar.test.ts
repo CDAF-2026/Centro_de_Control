@@ -37,10 +37,11 @@ let empleado: string; // el que marca turno en las pruebas
 let admin: string;    // superadministradora
 let otro: string;     // profesor: ni marca turno ni corrige nada
 /**
- * ⚠️ Se usa a SEBASTIÁN y no a Juan a propósito, aunque los dos sean coord.
- * administrativo: `tests/horas-render.test.tsx` escribe filas de verdad con Juan
- * y ya chocaron una vez por el índice de turno abierto. Sebastián no lo toca
- * nadie más.
+ * ⚠️ El coordinador administrativo se BUSCA POR ROL, no por correo (23-oct-2026).
+ * Antes era Sebastián Niño, y cuando el club lo pasó a coord. deportivo dos pruebas
+ * cayeron sin que nada estuviera roto. Se prefiere a quien no marca turno; si el
+ * único que hay marca (hoy Juan Fernando), da igual: estas pruebas nunca le abren
+ * un turno a él, solo miran con su sesión.
  */
 let coord: string;    // coord. administrativo: VE el reporte, no corrige
 
@@ -48,18 +49,20 @@ beforeAll(async () => {
   await client.connect();
   const r = await client.query(
     `select p.id, u.email from public.profiles p join auth.users u on u.id = p.id
-      where u.email in ($1, $2, $3, $4)`,
+      where u.email in ($1, $2, $3)`,
     [
       "dga3104100965@gmail.com",
       "vena.digital.2207@gmail.com",
       "cristianjo12@gmail.com",
-      "snino777@gmail.com",
     ],
   );
   empleado = r.rows.find((x) => x.email === "dga3104100965@gmail.com")?.id;
   admin = r.rows.find((x) => x.email === "vena.digital.2207@gmail.com")?.id;
   otro = r.rows.find((x) => x.email === "cristianjo12@gmail.com")?.id;
-  coord = r.rows.find((x) => x.email === "snino777@gmail.com")?.id;
+  const c = await client.query(
+    "select id from public.profiles where role = 'coord_admin' and activo order by marca_turno, id limit 1",
+  );
+  coord = c.rows[0]?.id;
   expect(empleado && admin && otro && coord, "faltan perfiles de prueba").toBeTruthy();
 });
 
@@ -423,7 +426,7 @@ describe("quién ve los turnos", () => {
         [empleado, otro],
       );
       const mios = await comoUsuario(empleado, () =>
-        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01'"),
+        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01' and perfil_id = any($1)", [[empleado, otro]]),
       );
       expect(mios.rows).toHaveLength(0);
 
@@ -474,7 +477,7 @@ describe("quién ve los turnos", () => {
         [empleado, otro],
       );
       const todos = await comoUsuario(admin, () =>
-        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01'"),
+        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01' and perfil_id = any($1)", [[empleado, otro]]),
       );
       expect(todos.rows).toHaveLength(2);
     });
@@ -657,6 +660,9 @@ describe("verificar el PIN antes de abrir la cámara", () => {
 });
 
 describe("borrar las fotos al mes", () => {
+  // Se mira solo lo que siembra la prueba ('vieja/…', 'borde/…'): ya hay fotos REALES de más de
+  // 30 días (y alguna recién pasada de 45 que la tarea borra esa noche), y contarlas todas tumbaba
+  // estas pruebas (23-oct-2026). La tarea nocturna sí está borrando: no era un fallo de ella.
   /** Inserta un turno con fotos, fechado hace `dias` días. */
   async function turnoViejo(dias: number, cerrado = true): Promise<number> {
     const r = await client.query(
@@ -676,7 +682,7 @@ describe("borrar las fotos al mes", () => {
     await enTransaccion(async () => {
       await turnoViejo(40);
       await turnoViejo(10);
-      const r = await client.query("select ruta from public.turno_fotos_vencidas(30) order by ruta");
+      const r = await client.query("select ruta from public.turno_fotos_vencidas(30) where ruta like 'vieja/%' order by ruta");
       const rutas = r.rows.map((x) => x.ruta);
       expect(rutas).toEqual(["vieja/40-e.jpg", "vieja/40-s.jpg"]);
     });
@@ -692,7 +698,7 @@ describe("borrar las fotos al mes", () => {
                  'borde/e.jpg', 'borde/s.jpg')`,
         [empleado],
       );
-      const r = await client.query("select count(*)::int as n from public.turno_fotos_vencidas(30)");
+      const r = await client.query("select count(*)::int as n from public.turno_fotos_vencidas(30) where ruta like 'borde/%'");
       expect(r.rows[0].n).toBe(0);
     });
   });
@@ -702,7 +708,7 @@ describe("borrar las fotos al mes", () => {
     // saliendo en rojo en el reporte desde el primer día.
     await enTransaccion(async () => {
       await turnoViejo(40, false);
-      const r = await client.query("select ruta from public.turno_fotos_vencidas(30)");
+      const r = await client.query("select ruta from public.turno_fotos_vencidas(30) where ruta like 'vieja/%'");
       expect(r.rows.map((x) => x.ruta)).toEqual(["vieja/40-e.jpg"]);
     });
   });
@@ -731,7 +737,7 @@ describe("borrar las fotos al mes", () => {
     await enTransaccion(async () => {
       await turnoViejo(40); // dentro de los 45: todavía no vence
       await turnoViejo(50); // pasado: sí vence
-      const r = await client.query("select ruta from public.turno_fotos_vencidas() order by ruta");
+      const r = await client.query("select ruta from public.turno_fotos_vencidas() where ruta like 'vieja/%' order by ruta");
       expect(r.rows.map((x) => x.ruta)).toEqual(["vieja/50-e.jpg", "vieja/50-s.jpg"]);
     });
   });
@@ -764,7 +770,7 @@ describe("el coordinador administrativo ve el reporte pero no corrige", () => {
         [empleado, otro],
       );
       const vistos = await comoUsuario(coord, () =>
-        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01'"),
+        client.query("select perfil_id from public.turno where inicio_el >= '2027-01-01' and perfil_id = any($1)", [[empleado, otro]]),
       );
       expect(vistos.rows).toHaveLength(2);
     });

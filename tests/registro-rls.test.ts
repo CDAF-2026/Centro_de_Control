@@ -149,10 +149,12 @@ describe("registro · reglas de la base", () => {
     await tx(async () => {
       await client.query("update public.consentimiento_version set vigente_desde = null, vigente_hasta = null where codigo = '2026-10'");
       const r = await client.query(
-        "select length(texto_sha256) as n, (public.consentimiento_version_vigente()).id as vigente from public.consentimiento_version where codigo = '2026-10'",
+        "select id, length(texto_sha256) as n, (public.consentimiento_version_vigente()).id as vigente from public.consentimiento_version where codigo = '2026-10'",
       );
       expect(r.rows[0].n).toBe(64);
-      expect(r.rows[0].vigente).toBeNull();
+      // Hoy hay versiones más nuevas abiertas (v6 desde el 18-oct): la vigente puede ser otra,
+      // pero nunca la 2026-10 cerrada (23-oct-2026; antes esperaba null).
+      expect(r.rows[0].vigente).not.toBe(r.rows[0].id);
     });
   });
 

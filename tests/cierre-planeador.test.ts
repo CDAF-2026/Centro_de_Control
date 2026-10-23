@@ -29,10 +29,21 @@ const client = new pg.Client({
 beforeAll(async () => { await client.connect(); });
 afterAll(async () => { await client.end(); });
 
-/** Todo dentro de una transacción que SIEMPRE se revierte. */
+/**
+ * Todo dentro de una transacción que SIEMPRE se revierte.
+ * ⚠️ Arranca SIN pausas de academias (23-oct-2026): `academias-render.test.tsx` guarda una pausa
+ * de verdad unos segundos, y si coincidía con este archivo la cola salía vacía o el índice de
+ * "una pausa abierta" reventaba — según quién corriera primero. Se bloquea la tabla y se vacía;
+ * el rollback lo deshace todo.
+ */
 async function enTransaccion<T>(fn: () => Promise<T>): Promise<T> {
   await client.query("begin");
-  try { return await fn(); } finally { await client.query("rollback"); }
+  try {
+    // El candado frena a quien quiera crear una pausa mientras dure esta transacción (milisegundos).
+    await client.query("lock table public.academia_pausa in exclusive mode");
+    await client.query("delete from public.academia_pausa");
+    return await fn();
+  } finally { await client.query("rollback"); }
 }
 
 async function comoProfesor(id: string) {
@@ -43,6 +54,19 @@ async function comoProfesor(id: string) {
 }
 
 const q = async (sql: string, params: unknown[] = []) => (await client.query(sql, params)).rows;
+
+/**
+ * Una clase del planeador y un día en que todavía está pendiente, tomados de la propia
+ * `academia_pendientes` en la semana que viene (23-oct-2026). Antes era una semana fija de
+ * octubre, y cuando los profesores cerraron esas clases de verdad la prueba chocaba con
+ * "duplicate key". En el futuro no hay clases cerradas, y la función ya salta festivos y pausas.
+ */
+async function pendienteLibre(): Promise<{ cs: { id: number }; fecha: string }> {
+  await q("update public.clase_semanal set vigente_desde = '2026-01-01'");
+  const [p] = await q("select clase_id, fecha from public.academia_pendientes(current_date + 7, current_date + 13) limit 1");
+  expect(p, "hace falta una clase del planeador pendiente la semana que viene").toBeTruthy();
+  return { cs: { id: p.clase_id }, fecha: p.fecha };
+}
 
 describe("academia_pendientes · qué debió dictarse", () => {
   it("no propone clases antes de `vigente_desde`", async () => {
@@ -106,13 +130,7 @@ describe("academia_pendientes · qué debió dictarse", () => {
     // un profesor enfermo, lluvia. Sin ella la clase quedaría pendiente para
     // siempre y la cola dejaría de significar algo.
     await enTransaccion(async () => {
-      await q("update public.clase_semanal set vigente_desde = '2026-01-01'");
-      const [cs] = await q("select id, dia_semana from public.clase_semanal where activa order by id limit 1");
-      const [{ fecha }] = await q(
-        `select d::date fecha from generate_series('2026-10-05'::date,'2026-10-11'::date,'1 day') d
-          where extract(dow from d) = $1 limit 1`,
-        [cs.dia_semana],
-      );
+      const { cs, fecha } = await pendienteLibre();
       await q(
         `insert into public.clases (tipo, clase_semanal_id, fecha, precio, estado, motivo_cancelacion)
          values ('academia', $1, $2, 0, 'cancelada', 'Semana de receso')`,
@@ -128,16 +146,7 @@ describe("academia_pendientes · qué debió dictarse", () => {
 
   it("lo ya cerrado deja de proponerse", async () => {
     await enTransaccion(async () => {
-      await q("update public.clase_semanal set vigente_desde = '2026-01-01'");
-      const [cs] = await q(
-        "select id, dia_semana from public.clase_semanal where activa order by id limit 1",
-      );
-      // Un lunes cualquiera que case con el día de esa clase.
-      const [{ fecha }] = await q(
-        `select d::date fecha from generate_series('2026-10-05'::date,'2026-10-11'::date,'1 day') d
-          where extract(dow from d) = $1 limit 1`,
-        [cs.dia_semana],
-      );
+      const { cs, fecha } = await pendienteLibre();
       const antes = await q(
         "select count(*)::int n from public.academia_pendientes($1,$1) where clase_id = $2",
         [fecha, cs.id],

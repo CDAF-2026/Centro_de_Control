@@ -2553,7 +2553,15 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     arreglaron (1-oct-2026, `hoyBogota()`); quedan por revisar las de servidor en `/cartera`, `/clases`,
     `/cierre`, `/liquidacion`, `/horas`, `/clientes` y `/agente` (`grep -rn "getDate()\|toISOString().slice"`).
     De 7 p. m. a medianoche pueden creer que ya es mañana.
-19. **6 pruebas en rojo que dependen de datos reales** (ya fallaban el 1-oct-2026, antes del arreglo de
+19. ✅ **RESUELTO el 23-oct-2026: `npm test` en verde (383/383, seis corridas seguidas).** Se arreglaron 10
+    pruebas que dependían de datos reales, sin tocar código de la app: las de fotos miran solo las rutas que
+    siembran (la tarea nocturna SÍ borra; las fotos reales de 30–45 días eran las que estorbaban); el coord.
+    administrativo se busca por rol; el paquete clonado lleva `precio` (obligatorio desde el 30-sep);
+    `cierre-planeador` toma su clase de `academia_pendientes` la semana que viene (la semana fija de octubre
+    ya tenía clases cerradas) y arranca cada transacción bloqueando y vaciando `academia_pausa`, porque
+    `academias-render` guarda una pausa REAL unos segundos y, si coincidían, fallaba al azar; `registro-rls`
+    ya no espera "ninguna versión vigente" (la v6 está abierta). Melissa Hurtado ya no aparece. Historia:
+    **6 pruebas en rojo que dependen de datos reales** (ya fallaban el 1-oct-2026, antes del arreglo de
     fechas): 3 de "borrar las fotos al mes" en `turnos-marcar.test.ts` (cuentan TODAS las fotos vencidas y ya
     hay reales de más de 45 días) y 1 de `cobro-clase.test.tsx` (mover una clase cerrada entre paquetes).
     **+2 desde el 1-oct** en `turnos-marcar.test.ts` › "el coordinador administrativo ve el reporte": usan a

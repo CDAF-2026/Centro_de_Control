@@ -174,10 +174,11 @@ describe("el saldo del paquete", () => {
       const a = rows[0];
       expect(a, "hace falta un paquete activo con saldo").toBeTruthy();
 
-      // Un segundo paquete del MISMO cliente, clonado del primero.
+      // Un segundo paquete del MISMO cliente, clonado del primero (con su precio: desde el
+      // 30-sep-2026 es obligatorio y > 0 en la base).
       const { rows: bRows } = await client.query(
-        `insert into paquetes_cliente (cliente_id, catalogo_id, num_clases, clases_consumidas, estado, inicia_el, vence_el)
-         select cliente_id, catalogo_id, num_clases, 0, 'activo', current_date, current_date + 30
+        `insert into paquetes_cliente (cliente_id, catalogo_id, num_clases, clases_consumidas, estado, inicia_el, vence_el, precio)
+         select cliente_id, catalogo_id, num_clases, 0, 'activo', current_date, current_date + 30, precio
            from paquetes_cliente where id = $1
          returning id`,
         [a.id],
