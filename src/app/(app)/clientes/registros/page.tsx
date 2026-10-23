@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { ArrowRight, ClipboardList, Inbox, PenLine, Receipt } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { ArrowRight, CameraOff, ClipboardList, Inbox, PenLine, Receipt } from "lucide-react";
 import { DecidirCambios, AsignarFirma, RevisarSolicitud, type CandidatoFicha } from "./formularios";
 
 const CAMPO: Record<string, string> = {
@@ -199,9 +200,14 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/clientes" className="text-muted-foreground text-sm hover:underline">← Clientes</Link>
-        <h1 className="cdaf-headline mt-1">Registros por revisar</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <Link href="/clientes" className="text-muted-foreground text-sm hover:underline">← Clientes</Link>
+          <h1 className="cdaf-headline mt-1">Registros por revisar</h1>
+        </div>
+        <Link href="/clientes/registros/sin-fotos" className={buttonVariants({ variant: "outline" })}>
+          <CameraOff className="size-4" /> Sin autorización de fotos
+        </Link>
       </div>
 
       {cola.length === 0 ? (

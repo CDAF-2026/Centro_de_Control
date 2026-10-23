@@ -315,10 +315,52 @@ describe("bandeja de registros", () => {
       expect(t).toContain("Agregar a la ficha");
       expect(t).toContain("El documento coincide con una ficha, pero el nombre no");
       expect(t).toContain("Historial");
+      // Botón a la lista de niños sin autorización de fotos (23-oct-2026).
+      expect(html).toContain('href="/clientes/registros/sin-fotos"');
+      expect(t).toContain("Sin autorización de fotos");
     } finally {
       await admin.from("registro_solicitud").delete().eq("id", ajeno!.id);
       await admin.from("registro_cambio").delete().eq("id", cambio!.id);
       await admin.from("registro_solicitud").delete().eq("id", sol!.id);
+      vi.doUnmock("@/lib/auth");
+      vi.doUnmock("@/lib/supabase/server");
+    }
+  }, 30_000);
+});
+
+/**
+ * Niños sin autorización de fotos (23-oct-2026). Solo lee: se compara contra la base con la misma
+ * regla (la firma vigente de cada niño es su última asignada; las sin asignar también cuentan).
+ */
+describe("niños sin autorización de fotos", () => {
+  it("lista a cada niño cuya firma vigente dice NO, con el contador", async () => {
+    vi.doMock("@/lib/auth", () => ({
+      requireRole: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+      requireProfile: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+      getProfile: async () => ({ id: "", role: "superadmin", nombre: "test", activo: true }),
+    }));
+    const { createClient: sb } = await import("@supabase/supabase-js");
+    const admin = sb(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    vi.doMock("@/lib/supabase/server", () => ({ createClient: async () => admin, createAdminClient: () => admin }));
+    try {
+      const { data: firmas } = await admin.from("consentimiento_firma").select("id, miembro_id, estado, autoriza_imagen, menor_nombre").in("estado", ["asignada", "pendiente_asignar"]).order("firmado_el", { ascending: false });
+      const ultima = new Map<number, any>();
+      for (const f of firmas ?? []) if (f.estado === "asignada" && f.miembro_id != null && !ultima.has(f.miembro_id)) ultima.set(f.miembro_id, f);
+      const esperados = [...ultima.values(), ...(firmas ?? []).filter((f) => f.estado === "pendiente_asignar")].filter((f) => f.autoriza_imagen === false);
+
+      const { default: Page } = await import("../src/app/(app)/clientes/registros/sin-fotos/page");
+      const html = await renderToStaticMarkup(await Page());
+      const t = texto(html);
+      expect(t).toContain("Sin autorización de fotos");
+      expect(html).toContain('href="/clientes/registros"');
+      if (esperados.length) {
+        expect(t).toContain(`Niños · ${esperados.length}`);
+        expect((html.match(/<tr>/g) ?? []).length - 1).toBe(esperados.length);
+      } else {
+        expect(t).toContain("Todos autorizaron");
+      }
+      if (process.env.VOLCAR_HTML) (await import("node:fs")).writeFileSync(process.env.VOLCAR_HTML, html);
+    } finally {
       vi.doUnmock("@/lib/auth");
       vi.doUnmock("@/lib/supabase/server");
     }
