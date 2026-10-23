@@ -202,6 +202,11 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     ficha decía "Echeverry" (`documento_ajeno`). Se asignó a la 450 (doc 101), el apellido se corrigió como lo
     escribió la mamá, y se borró la **313**, una ficha repetida y vacía de EasyCancha (recontada en la misma
     transacción; rastro `cliente.fusionar`, entity 313).
+  · ✅ **Firma de "María Emilia Mejía Restrepo" asignada a Emilia Mejia (ficha 437, miembro 436)** (23-oct-2026,
+    Laura). Quedó en `documento_ajeno` porque la ficha dice "Emilia Mejia" y el papá escribió "María Emilia": mismo
+    documento (1034999870), mismo papá (Alberto Mejía, 71788159, mismo correo y NIT). Asignada con
+    `consentimiento_asignar` simulando la sesión de Laura (documento 141 en la ficha). La ficha NO se tocó: nombre
+    corto y nacimiento 14-abr-2012 contra el 18-abr-2012 que escribió el papá; queda por confirmar con la familia.
   · 🪧 **Las tarjetas de Registros dicen POR QUÉ quedaron en revisión** (22-oct-2026, `motivoRevision` en
     `registros/page.tsx`): con `documento_ajeno` dicen "El documento coincide con una ficha, pero el nombre no…";
     antes las firmas y los datos decían siempre "más de una ficha", que solo es el caso `ambiguo`.
