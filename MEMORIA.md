@@ -207,6 +207,12 @@ branded) · OpenAI (agente) · Integraciones: **Siigo** (ERP, dinero) y **EasyCa
     documento (1034999870), mismo papá (Alberto Mejía, 71788159, mismo correo y NIT). Asignada con
     `consentimiento_asignar` simulando la sesión de Laura (documento 141 en la ficha). La ficha NO se tocó: nombre
     corto y nacimiento 14-abr-2012 contra el 18-abr-2012 que escribió el papá; queda por confirmar con la familia.
+  · ✅ **Sophia Serrano Fernandez = ficha 411 ("Sofia Serrano")** (23-oct-2026, Laura). Datos y firma en
+    `documento_ajeno` por Sofia/Sophia; mismo documento (1013358648) y mismo papá (Diego Serrano, 91175482,
+    mismo celular, correo y NIT). Se aplicaron los datos (`registro_aplicar_datos`, modo actualizar, miembro 403)
+    y se asignó la firma (documento 142), las dos a nombre de Laura. La ficha quedó "Sophia Serrano Fernandez",
+    **nacida el 6-nov-2010** (decía 2009; el papá escribió 2010 en los dos formularios), con dirección, lugar de
+    nacimiento y cédula y correo de emergencia. Facturación igual: 0 cambios pendientes.
   · 🪧 **Las tarjetas de Registros dicen POR QUÉ quedaron en revisión** (22-oct-2026, `motivoRevision` en
     `registros/page.tsx`): con `documento_ajeno` dicen "El documento coincide con una ficha, pero el nombre no…";
     antes las firmas y los datos decían siempre "más de una ficha", que solo es el caso `ambiguo`.
