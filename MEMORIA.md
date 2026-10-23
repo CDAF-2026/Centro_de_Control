@@ -2380,6 +2380,15 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
   · 18-oct: **`2026-10-v6`** (id 16, vigente) = v5 sin la palabra "abajo" en el numeral 9 ("Solo si lo
     autorizo, el centro podrá…"), a pedido de Laura (migración `20261018120000_consentimiento_menores_v6`).
     También se quitó del resumen de menores el punto de fotos: la casilla tiene su propio texto.
+  · 📋 **Lista "Sin autorización de fotos"** (23-oct-2026, commit `fdb4bd9`): botón arriba a la derecha en
+    Registros → `/clientes/registros/sin-fotos`. Sale cada niño cuya firma VIGENTE (la última asignada, más las
+    sin asignar) tiene `autoriza_imagen = false`. Mismos roles que Registros (SA y coord. admin).
+  · ✍️ **Maayan Molina Pun (ficha 465, miembro 473) NO autoriza fotos, aunque su firma decía que sí** (23-oct-2026,
+    Laura). Su papá, Ricardo Molina, es quien se quejó de que las fotos fueran obligatorias; firmó el 17-oct con
+    `2026-10-v4` (firmar = aceptar las fotos, sin opción). Laura pidió dejarlo como "no autoriza" **sin tocar el
+    documento**: se cambió solo `consentimiento_firma.autoriza_imagen` a false (firma e77dce5b…), con rastro
+    `consentimiento.corregir_imagen` y el motivo en `audit_log`. El PDF y su huella siguen iguales (dicen que
+    aceptó). Si alguna vez se necesita la prueba firmada del NO, el papá tendría que firmar la versión actual.
   · 18-oct (commit `0c1df17`): la casilla de fotos pasó a **SÍ / NO obligatorio** (Laura: una casilla sola se
     salta fácil). Hay que elegir para poder firmar y nada viene marcado. En el bloque único, cada opción que trae
     el texto se responde SÍ/NO (el servidor lo exige) y el PDF marca SÍ/NO. Con NO se avisa al club igual.
