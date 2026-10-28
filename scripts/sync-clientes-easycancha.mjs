@@ -37,6 +37,30 @@ function documentoDeBooking(b) {
   return { documento: crudo, tipo };
 }
 
+/** Espejo de normalizarNombre() (src/lib/registro/match.ts): minúsculas, sin tildes ni signos. */
+function normalizar(s) {
+  return (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Primer nombre + primer apellido, como claveNombre() de src/lib/clientes-match.ts. */
+function claveNombre(nombres, apellidos) {
+  const n = normalizar(nombres).split(" ")[0];
+  const a = normalizar(apellidos).split(" ")[0];
+  return n && a ? `${n} ${a}` : null;
+}
+
+/** PostgREST corta en 1.000 filas sin avisar: se lee por lotes, y un error se lanza. */
+async function leerTodo(tabla, campos) {
+  const filas = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await s.from(tabla).select(campos).order("id").range(desde, desde + 999);
+    if (error) throw new Error(`${tabla}: ${error.message}`);
+    filas.push(...(data ?? []));
+    if ((data ?? []).length < 1000) return filas;
+  }
+}
+
 async function ecBookings(from, to) {
   const url = `${EC_BASE}/clubs/${EC_CLUB}/bookingsReport?fromIsoDate=${from}&toIsoDate=${to}`;
   const r = await fetch(url, { headers: { apikey: EC_TOKEN, accept: "application/json" } });
@@ -59,21 +83,42 @@ async function main() {
     reservas.push(...(await ecBookings(f, t)));
   }
 
-  // Correos y documentos ya existentes en la base (no se tocan).
-  const { data: existentes } = await s.from("clientes").select("email, documento, factura_a_nit");
-  const emailsBD = new Set((existentes ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
+  // Lo que la base ya conoce (no se toca). Espejo de leerBaseConocida() en
+  // src/lib/clientes-match.ts: además del titular de cada ficha, los HIJOS
+  // (`cliente_miembros`) y el correo de sus ACUDIENTES. Caso Maximiliano Pimienta
+  // (7-oct-2026): la reserva traía el correo de la mamá y el documento del niño,
+  // los dos ya en la base pero no en el titular, y se creó una ficha repetida.
+  const existentes = await leerTodo("clientes", "email, documento, factura_a_nit");
+  const emailsBD = new Set(existentes.map((c) => (c.email ?? "").trim().toLowerCase()).filter(Boolean));
   // Los NIT de facturación adicionales también son de alguien (21-oct-2026).
-  const { data: extra } = await s.from("cliente_facturacion_extra").select("nit");
+  const extra = await leerTodo("cliente_facturacion_extra", "nit");
+  const miembros = await leerTodo("cliente_miembros", "cliente_id, nombres, apellidos, documento");
   const docsBD = new Set(
-    [...(existentes ?? []).flatMap((c) => [c.documento, c.factura_a_nit]), ...(extra ?? []).map((e) => e.nit)]
+    [...existentes.flatMap((c) => [c.documento, c.factura_a_nit]), ...extra.map((e) => e.nit), ...miembros.map((m) => m.documento)]
       .filter(Boolean)
       .map((d) => String(d).trim()),
   );
+  const nombresPorFicha = new Map();
+  for (const m of miembros) {
+    const clave = claveNombre(m.nombres, m.apellidos);
+    if (!clave) continue;
+    if (!nombresPorFicha.has(m.cliente_id)) nombresPorFicha.set(m.cliente_id, new Set());
+    nombresPorFicha.get(m.cliente_id).add(clave);
+  }
+  const familias = new Map(); // correo de acudiente → nombres de los miembros de su ficha
+  for (const a of await leerTodo("acudientes", "cliente_id, email")) {
+    const correo = (a.email ?? "").trim().toLowerCase();
+    const nombres = nombresPorFicha.get(a.cliente_id);
+    if (!correo || !nombres) continue;
+    if (!familias.has(correo)) familias.set(correo, new Set());
+    for (const n of nombres) familias.get(correo).add(n);
+  }
 
   // Recolectar SOLO personas nuevas con correo.
   const vistos = new Set();
   const nuevos = [];
   let omitidosPorCedula = 0;
+  let omitidosPorFamilia = 0;
   for (const b of reservas) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
     if (!email || emailsBD.has(email) || vistos.has(email)) continue;
@@ -88,6 +133,12 @@ async function main() {
     // paquetes. La cédula ya venía en la reserva y era la misma en las dos.
     if (doc && docsBD.has(doc.documento)) {
       omitidosPorCedula++;
+      continue;
+    }
+    // El hijo de una familia que reserva con el correo de la mamá o el papá.
+    const clave = claveNombre(b.userFirstName, b.userLastName);
+    if (clave && familias.get(email)?.has(clave)) {
+      omitidosPorFamilia++;
       continue;
     }
 
@@ -127,9 +178,9 @@ async function main() {
 
   const total = (await s.from("clientes").select("*", { count: "exact", head: true })).count;
   const conDoc = nuevos.filter((n) => n.documento).length;
-  const notaCedula = omitidosPorCedula > 0
-    ? ` ${omitidosPorCedula} se omitieron: ya estaban con otro correo (reconocidos por la cédula).`
-    : "";
+  const notaCedula =
+    (omitidosPorCedula > 0 ? ` ${omitidosPorCedula} se omitieron: ya estaban con otro correo (reconocidos por la cédula).` : "") +
+    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} se omitieron: ya estaban como hijo(a) en la ficha de su familia.` : "");
   console.log(
     `✅ Sync clientes: +${insertados} nuevos (${MESES} meses), ${conDoc} con documento de EasyCancha. ` +
       `Total clientes: ${total}. Existentes intactos.${notaCedula}`,

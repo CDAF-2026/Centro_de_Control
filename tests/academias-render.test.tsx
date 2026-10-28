@@ -408,8 +408,19 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(ficha).toContain("no lleva niños inscritos");
     expect(ficha).not.toContain("Agregar");
 
+    // Un día pasado SIN clase real de esa celda: el club cierra la de verdad (el Montessori de
+    // cada martes) y el índice único (clase_semanal_id, fecha) rechazaba el insert de la prueba
+    // todos los miércoles (28-oct-2026).
     const ayer = new Date();
-    ayer.setDate(ayer.getDate() - 1);
+    for (let i = 0; i < 60; i++) {
+      ayer.setDate(ayer.getDate() - 1);
+      const { count } = await admin()
+        .from("clases")
+        .select("id", { count: "exact", head: true })
+        .eq("clase_semanal_id", cs!.id)
+        .eq("fecha", fechaLocal(ayer));
+      if (!count) break;
+    }
     const { data: c } = await admin()
       .from("clases")
       .insert({

@@ -15,6 +15,7 @@ import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo, PaqueteEstado } 
 import { clausulasBusqueda } from "./buscar";
 import { reatribuirFacturas } from "@/lib/facturacion";
 import { nitSinDv } from "@/lib/nit";
+import { leerBaseConocida, personaYaRegistrada, type BaseConocida } from "@/lib/clientes-match";
 
 // Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
 // de un rol, estos guardias tienen que moverse con ellos. Si no, el módulo le
@@ -891,28 +892,37 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   // `karentcoronadop@` y su ficha decía `karentcoronado@`, una letra, y esto le
   // creó una ficha nueva SIN sus paquetes. La cédula venía en la reserva y era
   // la misma en las dos. De 17 nombres repetidos, 8 eran duplicados de verdad.
-  const [{ data: ex }, { data: exExtra }] = await Promise.all([
-    supabase.from("clientes").select("email, documento, factura_a_nit"),
-    supabase.from("cliente_facturacion_extra").select("nit"),
-  ]);
-  const emailsBD = new Set((ex ?? []).map((c) => (c.email ?? "").toLowerCase()).filter(Boolean));
-  const docsBD = new Set(
-    [...(ex ?? []).flatMap((c) => [c.documento, c.factura_a_nit]), ...(exExtra ?? []).map((e) => e.nit)]
-      .filter(Boolean)
-      .map((d) => String(d).trim()),
-  );
+  // Y no solo contra el titular: también los hijos y sus acudientes (caso
+  // Maximiliano Pimienta, 7-oct-2026, en `personaYaRegistrada`).
+  let base: BaseConocida;
+  try {
+    base = await leerBaseConocida(supabase);
+  } catch (e) {
+    return { error: `No se pudo leer la base de clientes: ${e instanceof Error ? e.message : String(e)}` };
+  }
 
   const vistos = new Set<string>();
   const nuevos = [];
   let omitidosPorCedula = 0;
+  let omitidosPorFamilia = 0;
   for (const b of bookings) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
-    if (!email || emailsBD.has(email) || vistos.has(email)) continue;
+    if (!email || vistos.has(email)) continue;
 
-    // Ya está en la base con otro correo: NO se crea una segunda ficha.
+    // Ya está en la base con otro correo, o es el hijo de una familia que reserva
+    // con el correo de la mamá: NO se crea una segunda ficha.
     const doc = documentoDeBooking(b);
-    if (doc && docsBD.has(doc.documento)) {
+    const ya = personaYaRegistrada(
+      { email, documento: doc?.documento ?? null, nombres: b.userFirstName ?? null, apellidos: b.userLastName ?? null },
+      base,
+    );
+    if (ya === "correo") continue;
+    if (ya === "documento") {
       omitidosPorCedula++;
+      continue;
+    }
+    if (ya === "familia") {
+      omitidosPorFamilia++;
       continue;
     }
 
@@ -921,7 +931,7 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
     // es lo que hará que la próxima reserva de esta persona encuentre ESTA
     // ficha aunque venga con otro correo. Al medir, 157 de 496 clientes (32%)
     // no tenían cédula, y son justo los que se pueden volver a duplicar.
-    if (doc) docsBD.add(doc.documento);
+    if (doc) base.documentos.add(doc.documento);
     nuevos.push({
       nombres: (b.userFirstName ?? "").trim() || "(sin nombre)",
       apellidos: (b.userLastName ?? "").trim() || "",
@@ -944,14 +954,14 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   await logAudit({
     action: "cliente.sync_easycancha",
     entity: "clientes",
-    after: { agregados: insertados, con_cedula: conDoc, omitidos_por_cedula: omitidosPorCedula },
+    after: { agregados: insertados, con_cedula: conDoc, omitidos_por_cedula: omitidosPorCedula, omitidos_por_familia: omitidosPorFamilia },
   });
   revalidatePath("/clientes");
-  // Se dice cuántos se saltaron por cédula repetida: es la señal de que el club
-  // tiene a esa persona con otro correo, no de que algo falló.
-  const nota = omitidosPorCedula > 0
-    ? ` ${omitidosPorCedula} ya estaba(n) con otro correo (se reconocieron por la cédula).`
-    : "";
+  // Se dice cuántos se saltaron y por qué: es la señal de que el club ya tiene a
+  // esa persona, no de que algo falló.
+  const nota =
+    (omitidosPorCedula > 0 ? ` ${omitidosPorCedula} ya estaba(n) con otro correo (se reconocieron por la cédula).` : "") +
+    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} ya estaba(n) como hijo(a) en la ficha de su familia.` : "");
   return {
     ok: insertados > 0
       ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha, ${conDoc} con cédula.${nota}`
