@@ -15,7 +15,7 @@ import type { AppRole, Deporte, TipoDocumento, Rh, FacturaTipo, PaqueteEstado } 
 import { clausulasBusqueda } from "./buscar";
 import { reatribuirFacturas } from "@/lib/facturacion";
 import { nitSinDv } from "@/lib/nit";
-import { leerBaseConocida, personaYaRegistrada, type BaseConocida } from "@/lib/clientes-match";
+import { claveColaSync, leerBaseConocida, personaYaRegistrada, type BaseConocida } from "@/lib/clientes-match";
 
 // Derivado de la matriz en vez de escrito a mano: cuando cambian los permisos
 // de un rol, estos guardias tienen que moverse con ellos. Si no, el módulo le
@@ -905,15 +905,16 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   const nuevos = [];
   let omitidosPorCedula = 0;
   let omitidosPorFamilia = 0;
+  const enEstaCorrida = new Set<string>();
   for (const b of bookings) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
     if (!email || vistos.has(email)) continue;
 
-    // Ya está en la base con otro correo, o es el hijo de una familia que reserva
-    // con el correo de la mamá: NO se crea una segunda ficha.
+    // Ya está en la base con otro correo, o es alguien de una familia que reserva
+    // con el correo o el celular de la mamá o el papá: NO se crea una segunda ficha.
     const doc = documentoDeBooking(b);
     const ya = personaYaRegistrada(
-      { email, documento: doc?.documento ?? null, nombres: b.userFirstName ?? null, apellidos: b.userLastName ?? null },
+      { email, documento: doc?.documento ?? null, nombres: b.userFirstName ?? null, apellidos: b.userLastName ?? null, celular: b.userPhone ?? null },
       base,
     );
     if (ya === "correo") continue;
@@ -925,6 +926,12 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
       omitidosPorFamilia++;
       continue;
     }
+
+    // La misma persona con dos cuentas en la misma corrida (Sofía Dávila: dos correos,
+    // un celular, 28-oct-2026) no puede salir como dos fichas nuevas.
+    const enCola = claveColaSync(b.userFirstName ?? null, b.userLastName ?? null, b.userPhone ?? null);
+    if (enCola && enEstaCorrida.has(enCola)) continue;
+    if (enCola) enEstaCorrida.add(enCola);
 
     vistos.add(email);
     // La cédula se GUARDA (antes no se guardaba, aunque EasyCancha la manda):
@@ -961,7 +968,7 @@ export async function sincronizarClientesEC(): Promise<ClienteFormState> {
   // esa persona, no de que algo falló.
   const nota =
     (omitidosPorCedula > 0 ? ` ${omitidosPorCedula} ya estaba(n) con otro correo (se reconocieron por la cédula).` : "") +
-    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} ya estaba(n) como hijo(a) en la ficha de su familia.` : "");
+    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} ya estaba(n) en la ficha de su familia (mismo correo o celular).` : "");
   return {
     ok: insertados > 0
       ? `Se agregaron ${insertados} cliente(s) nuevo(s) de EasyCancha, ${conDoc} con cédula.${nota}`

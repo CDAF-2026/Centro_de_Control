@@ -50,6 +50,12 @@ function claveNombre(nombres, apellidos) {
   return n && a ? `${n} ${a}` : null;
 }
 
+/** Últimos 10 dígitos, como claveCelular() de src/lib/clientes-match.ts. */
+function claveCelular(celular) {
+  const d = (celular ?? "").replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : null;
+}
+
 /** PostgREST corta en 1.000 filas sin avisar: se lee por lotes, y un error se lanza. */
 async function leerTodo(tabla, campos) {
   const filas = [];
@@ -88,7 +94,7 @@ async function main() {
   // (`cliente_miembros`) y el correo de sus ACUDIENTES. Caso Maximiliano Pimienta
   // (7-oct-2026): la reserva traía el correo de la mamá y el documento del niño,
   // los dos ya en la base pero no en el titular, y se creó una ficha repetida.
-  const existentes = await leerTodo("clientes", "email, documento, factura_a_nit");
+  const existentes = await leerTodo("clientes", "id, email, documento, factura_a_nit, celular");
   const emailsBD = new Set(existentes.map((c) => (c.email ?? "").trim().toLowerCase()).filter(Boolean));
   // Los NIT de facturación adicionales también son de alguien (21-oct-2026).
   const extra = await leerTodo("cliente_facturacion_extra", "nit");
@@ -105,20 +111,26 @@ async function main() {
     if (!nombresPorFicha.has(m.cliente_id)) nombresPorFicha.set(m.cliente_id, new Set());
     nombresPorFicha.get(m.cliente_id).add(clave);
   }
+  const agregar = (mapa, llave, clienteId) => {
+    const nombres = nombresPorFicha.get(clienteId);
+    if (!llave || !nombres) return;
+    if (!mapa.has(llave)) mapa.set(llave, new Set());
+    for (const n of nombres) mapa.get(llave).add(n);
+  };
   const familias = new Map(); // correo de acudiente → nombres de los miembros de su ficha
-  for (const a of await leerTodo("acudientes", "cliente_id, email")) {
-    const correo = (a.email ?? "").trim().toLowerCase();
-    const nombres = nombresPorFicha.get(a.cliente_id);
-    if (!correo || !nombres) continue;
-    if (!familias.has(correo)) familias.set(correo, new Set());
-    for (const n of nombres) familias.get(correo).add(n);
+  const familiasPorCelular = new Map(); // celular de la ficha o de un acudiente → ídem
+  for (const a of await leerTodo("acudientes", "cliente_id, email, telefono")) {
+    agregar(familias, (a.email ?? "").trim().toLowerCase() || null, a.cliente_id);
+    agregar(familiasPorCelular, claveCelular(a.telefono), a.cliente_id);
   }
+  for (const c of existentes) agregar(familiasPorCelular, claveCelular(c.celular), c.id);
 
   // Recolectar SOLO personas nuevas con correo.
   const vistos = new Set();
   const nuevos = [];
   let omitidosPorCedula = 0;
   let omitidosPorFamilia = 0;
+  const enEstaCorrida = new Set();
   for (const b of reservas) {
     const email = (b.userEmail ?? "").trim().toLowerCase();
     if (!email || emailsBD.has(email) || vistos.has(email)) continue;
@@ -135,12 +147,20 @@ async function main() {
       omitidosPorCedula++;
       continue;
     }
-    // El hijo de una familia que reserva con el correo de la mamá o el papá.
+    // Alguien de una familia que reserva con el correo o el celular de la mamá o el
+    // papá (Maximiliano Velásquez: su propia cuenta, sin documento, celular del papá).
     const clave = claveNombre(b.userFirstName, b.userLastName);
-    if (clave && familias.get(email)?.has(clave)) {
+    const cel = claveCelular(b.userPhone);
+    if (clave && (familias.get(email)?.has(clave) || (cel && familiasPorCelular.get(cel)?.has(clave)))) {
       omitidosPorFamilia++;
       continue;
     }
+
+    // La misma persona con dos cuentas en la misma corrida (Sofía Dávila: dos correos,
+    // un celular) no puede salir como dos fichas nuevas. Espejo de claveColaSync().
+    const enCola = clave && cel ? `${cel} ${clave}` : null;
+    if (enCola && enEstaCorrida.has(enCola)) continue;
+    if (enCola) enEstaCorrida.add(enCola);
 
     vistos.add(email);
     // El documento solo entra si es válido y no se lo está robando a otra ficha:
@@ -180,7 +200,7 @@ async function main() {
   const conDoc = nuevos.filter((n) => n.documento).length;
   const notaCedula =
     (omitidosPorCedula > 0 ? ` ${omitidosPorCedula} se omitieron: ya estaban con otro correo (reconocidos por la cédula).` : "") +
-    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} se omitieron: ya estaban como hijo(a) en la ficha de su familia.` : "");
+    (omitidosPorFamilia > 0 ? ` ${omitidosPorFamilia} se omitieron: ya estaban en la ficha de su familia (mismo correo o celular).` : "");
   console.log(
     `✅ Sync clientes: +${insertados} nuevos (${MESES} meses), ${conDoc} con documento de EasyCancha. ` +
       `Total clientes: ${total}. Existentes intactos.${notaCedula}`,

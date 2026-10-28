@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { buscarClienteDeReserva, leerBaseConocida, personaYaRegistrada } from "@/lib/clientes-match";
+import { buscarClienteDeReserva, claveColaSync, leerBaseConocida, personaYaRegistrada } from "@/lib/clientes-match";
 
 /**
  * Encontrar la ficha del cliente de una reserva de EasyCancha.
@@ -121,13 +121,21 @@ function baseConTablas(tablas: Tablas, opciones: { errorEn?: string } = {}) {
 }
 
 const FICHA_PIMIENTA: Tablas = {
-  clientes: [{ email: "ajpimientasandoval@hotmail.com", documento: "77194647", factura_a_nit: null }],
+  clientes: [
+    { id: 166, email: "ajpimientasandoval@hotmail.com", documento: "77194647", factura_a_nit: null, celular: "3173685773" },
+    // Maximiliano Velásquez: la ficha lleva el correo y el celular del papá.
+    { id: 370, email: "felipev@plus.com.co", documento: "1035002441", factura_a_nit: "71749577", celular: "3207880342" },
+  ],
   cliente_facturacion_extra: [],
   cliente_miembros: [
     { cliente_id: 166, nombres: "Alex", apellidos: "Pimienta", documento: "77194647" },
     { cliente_id: 166, nombres: "Maximiliano", apellidos: "Pimienta Quimbayo", documento: "1019911784" },
+    { cliente_id: 370, nombres: "Maximiliano", apellidos: "Velasquez", documento: "1035002441" },
   ],
-  acudientes: [{ cliente_id: 166, email: "luiyiquimbayo@hotmail.com" }],
+  acudientes: [
+    { cliente_id: 166, email: "luiyiquimbayo@hotmail.com", telefono: "+573168804867" },
+    { cliente_id: 370, email: "felipev@plus.com.co", telefono: "3207880342" },
+  ],
 };
 
 describe("personaYaRegistrada (sincronizar clientes de EasyCancha)", () => {
@@ -148,6 +156,32 @@ describe("personaYaRegistrada (sincronizar clientes de EasyCancha)", () => {
     const base = await leerBaseConocida(baseConTablas(FICHA_PIMIENTA).supabase);
     const reserva = { email: "luiyiquimbayo@hotmail.com", documento: null, nombres: "Luisa", apellidos: "Quimbayo" };
     expect(personaYaRegistrada(reserva, base)).toBeNull();
+  });
+
+  // Maximiliano Velásquez reserva con SU cuenta, sin documento: solo coincide el celular del papá.
+  // La sincronización le creó una ficha repetida el 16-sep y otra vez el 7-oct.
+  it("lo reconoce por el celular de la familia y su nombre", async () => {
+    const base = await leerBaseConocida(baseConTablas(FICHA_PIMIENTA).supabase);
+    const reserva = { email: "maximilianov@hotmail.com", documento: null, nombres: "Maximiliano", apellidos: "Velasquez", celular: "+573207880342" };
+    expect(personaYaRegistrada(reserva, base)).toBe("familia");
+  });
+
+  it("el mismo celular con otro nombre es otra persona (el papá reservando para sí)", async () => {
+    const base = await leerBaseConocida(baseConTablas(FICHA_PIMIENTA).supabase);
+    const reserva = { email: "otro@gmail.com", documento: null, nombres: "Felipe", apellidos: "Velásquez", celular: "3207880342" };
+    expect(personaYaRegistrada(reserva, base)).toBeNull();
+  });
+
+  it("un celular de menos de 10 dígitos no se usa", async () => {
+    const base = await leerBaseConocida(baseConTablas(FICHA_PIMIENTA).supabase);
+    const reserva = { email: "otro@gmail.com", documento: null, nombres: "Maximiliano", apellidos: "Velasquez", celular: "7880342" };
+    expect(personaYaRegistrada(reserva, base)).toBeNull();
+  });
+
+  // Sofía Dávila reserva con dos correos y el mismo celular: en una corrida serían dos fichas.
+  it("la misma persona con dos cuentas da la misma clave en la corrida", () => {
+    expect(claveColaSync("Sofia", "Davila", "+573105813646")).toBe(claveColaSync("SOFÍA", "Dávila Viana", "3105813646"));
+    expect(claveColaSync("Sofia", "Davila", null)).toBeNull();
   });
 
   it("el correo de la ficha sigue mandando primero", async () => {

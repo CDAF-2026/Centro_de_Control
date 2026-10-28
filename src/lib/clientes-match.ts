@@ -81,6 +81,8 @@ export type BaseConocida = {
   documentos: Set<string>;
   /** Correo de cada acudiente → clave de nombre de cada miembro de su ficha. */
   familias: Map<string, Set<string>>;
+  /** Celular de cada ficha y de cada acudiente → clave de nombre de cada miembro de su ficha. */
+  familiasPorCelular: Map<string, Set<string>>;
 };
 
 /** "Maximiliano José" + "Pimienta Quimbayo" → "maximiliano pimienta" (primer nombre y primer apellido). */
@@ -90,21 +92,41 @@ function claveNombre(nombres: string | null | undefined, apellidos: string | nul
   return n && a ? `${n} ${a}` : null;
 }
 
+/** Últimos 10 dígitos: "+57 320 788 0342" = "3207880342". Menos de 10 no es un celular. */
+function claveCelular(celular: string | null | undefined): string | null {
+  const d = (celular ?? "").replace(/\D/g, "");
+  return d.length >= 10 ? d.slice(-10) : null;
+}
+
 /**
  * ¿La persona de esta reserva ya tiene ficha? En este orden: el correo de una ficha,
- * su documento (de titular o de miembro), o el correo de un acudiente con el nombre de
- * un hijo de esa familia. Si la mamá reserva a SU nombre con su correo, no casa con
- * ningún hijo y se le crea su ficha, como hasta ahora: un adulto tiene ficha propia.
+ * su documento (de titular o de miembro), o el correo o el CELULAR de la familia con el
+ * nombre de alguien de esa ficha. Si la mamá reserva a SU nombre, no casa con ningún
+ * miembro y se le crea su ficha, como hasta ahora: un adulto tiene ficha propia.
+ *
+ * El celular, por Maximiliano Velásquez (28-oct-2026): reserva con su propia cuenta
+ * (maximilianov@…), sin documento, y lo único que coincide es el celular del papá. Por
+ * eso la sincronización le creó una ficha repetida dos veces (16-sep y 7-oct).
  */
 export function personaYaRegistrada(
-  persona: { email: string; documento: string | null; nombres: string | null; apellidos: string | null },
+  persona: { email: string; documento: string | null; nombres: string | null; apellidos: string | null; celular?: string | null },
   base: BaseConocida,
 ): "correo" | "documento" | "familia" | null {
   if (base.correos.has(persona.email)) return "correo";
   if (persona.documento && base.documentos.has(persona.documento)) return "documento";
   const clave = claveNombre(persona.nombres, persona.apellidos);
-  if (clave && base.familias.get(persona.email)?.has(clave)) return "familia";
+  if (!clave) return null;
+  if (base.familias.get(persona.email)?.has(clave)) return "familia";
+  const cel = claveCelular(persona.celular);
+  if (cel && base.familiasPorCelular.get(cel)?.has(clave)) return "familia";
   return null;
+}
+
+/** Nombre + celular de una persona que la sincronización ya va a crear en esta corrida. */
+export function claveColaSync(nombres: string | null, apellidos: string | null, celular: string | null): string | null {
+  const nombre = claveNombre(nombres, apellidos);
+  const cel = claveCelular(celular);
+  return nombre && cel ? `${cel} ${nombre}` : null;
 }
 
 /** PostgREST corta en 1.000 filas sin avisar: se lee por lotes. Un error de lectura se lanza
@@ -122,13 +144,13 @@ async function leerTodo<T>(pedir: (desde: number, hasta: number) => PromiseLike<
 
 export async function leerBaseConocida(supabase: SupabaseClient): Promise<BaseConocida> {
   const [fichas, extra, miembros, acudientes] = await Promise.all([
-    leerTodo<{ email: string | null; documento: string | null; factura_a_nit: string | null }>((d, h) =>
-      supabase.from("clientes").select("email, documento, factura_a_nit").order("id").range(d, h)),
+    leerTodo<{ id: number; email: string | null; documento: string | null; factura_a_nit: string | null; celular: string | null }>((d, h) =>
+      supabase.from("clientes").select("id, email, documento, factura_a_nit, celular").order("id").range(d, h)),
     leerTodo<{ nit: string | null }>((d, h) => supabase.from("cliente_facturacion_extra").select("nit").order("id").range(d, h)),
     leerTodo<{ cliente_id: number; nombres: string; apellidos: string; documento: string | null }>((d, h) =>
       supabase.from("cliente_miembros").select("cliente_id, nombres, apellidos, documento").order("id").range(d, h)),
-    leerTodo<{ cliente_id: number | null; email: string | null }>((d, h) =>
-      supabase.from("acudientes").select("cliente_id, email").order("id").range(d, h)),
+    leerTodo<{ cliente_id: number | null; email: string | null; telefono: string | null }>((d, h) =>
+      supabase.from("acudientes").select("cliente_id, email, telefono").order("id").range(d, h)),
   ]);
 
   const limpio = (v: string | null | undefined) => (v ?? "").trim();
@@ -146,13 +168,18 @@ export async function leerBaseConocida(supabase: SupabaseClient): Promise<BaseCo
     if (!nombresPorFicha.has(m.cliente_id)) nombresPorFicha.set(m.cliente_id, new Set());
     nombresPorFicha.get(m.cliente_id)!.add(clave);
   }
+  const agregar = (mapa: Map<string, Set<string>>, llave: string | null, clienteId: number | null) => {
+    const nombres = clienteId != null ? nombresPorFicha.get(clienteId) : undefined;
+    if (!llave || !nombres) return;
+    if (!mapa.has(llave)) mapa.set(llave, new Set());
+    for (const n of nombres) mapa.get(llave)!.add(n);
+  };
   const familias = new Map<string, Set<string>>();
+  const familiasPorCelular = new Map<string, Set<string>>();
   for (const a of acudientes) {
-    const correo = limpio(a.email).toLowerCase();
-    const nombres = a.cliente_id != null ? nombresPorFicha.get(a.cliente_id) : undefined;
-    if (!correo || !nombres) continue;
-    if (!familias.has(correo)) familias.set(correo, new Set());
-    for (const n of nombres) familias.get(correo)!.add(n);
+    agregar(familias, limpio(a.email).toLowerCase() || null, a.cliente_id);
+    agregar(familiasPorCelular, claveCelular(a.telefono), a.cliente_id);
   }
-  return { correos, documentos, familias };
+  for (const c of fichas) agregar(familiasPorCelular, claveCelular(c.celular), c.id);
+  return { correos, documentos, familias, familiasPorCelular };
 }
