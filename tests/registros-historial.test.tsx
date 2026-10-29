@@ -106,12 +106,16 @@ describe("historial de registros", () => {
     }
   }, 30_000);
 
-  it("pagina de 20 en 20 y el filtro de revisión trae la visita descartada", async () => {
+  it("pagina de 20 en 20; 'Con revisión' solo trae lo pendiente y lo descartado queda en Todo", async () => {
     const { data: cli } = await admin.from("clientes").select("id").order("id").limit(1).single();
-    const { data: descartada } = await admin.from("registro_solicitud").insert({
-      tipo: "consentimiento", estado: "rechazada", cliente_id: cli!.id, nota_revision: "Nota Prueba Historial E",
-      payload: { menor: { nombres: "Firma", apellidos: "Repetida Prueba" }, firmante: { nombre: "Firmante Prueba Historial E", parentesco: "Madre" } },
-    }).select("id").single();
+    const { data: sols } = await admin.from("registro_solicitud").insert([
+      // Descartada (como la firma repetida de Carlota): ya está resuelta.
+      { tipo: "consentimiento", estado: "rechazada", cliente_id: cli!.id, nota_revision: "Nota Prueba Historial E",
+        payload: { menor: { nombres: "Firma", apellidos: "Repetida Prueba" }, firmante: { nombre: "Firmante Prueba Historial E", parentesco: "Madre" } } },
+      // Firma que espera a que alguien la asigne: esta sí está pendiente.
+      { tipo: "consentimiento", estado: "en_revision",
+        payload: { menor: { nombres: "Firma", apellidos: "Por Asignar Prueba" }, firmante: { nombre: "Firmante Prueba Historial F", parentesco: "Padre" } } },
+    ]).select("id");
     try {
       const { data: h } = await admin.rpc("registro_historial", { p_solo_revision: false, p_limite: 1, p_desde: 0 });
       const total = (h as { total: number }).total;
@@ -122,6 +126,9 @@ describe("historial de registros", () => {
       expect(filas(p1)).toHaveLength(20);
       expect(texto(p1)).toContain(`Mostrando 1–20 de ${total}`);
       expect(p1).toContain('href="/clientes/registros?pagina=2"');
+      const e = fila(p1, "Firmante Prueba Historial E");
+      expect(e).toContain("Firma descartada");
+      expect(e).toContain("Nota Prueba Historial E");
 
       const p2 = await pagina({ pagina: "2" });
       expect(texto(p2)).toContain(`Mostrando 21–40 de ${total}`);
@@ -133,12 +140,11 @@ describe("historial de registros", () => {
       expect(texto(lejos)).toContain(`Mostrando ${(ultimaPagina - 1) * 20 + 1}–`);
 
       const rev = await pagina({ filtro: "revision" });
-      const e = fila(rev, "Firmante Prueba Historial E");
-      expect(e).toContain("Firma descartada");
-      expect(e).toContain("Nota Prueba Historial E");
-      expect(e).toContain("Sin datos");
+      expect(fila(rev, "Firmante Prueba Historial E")).toBe("");
+      expect(fila(rev, "Firmante Prueba Historial F")).toContain("Firma por asignar");
+      expect(texto(rev)).toMatch(/\d+ esperando revisión/);
     } finally {
-      await admin.from("registro_solicitud").delete().eq("id", descartada!.id);
+      await admin.from("registro_solicitud").delete().in("id", (sols ?? []).map((x) => x.id));
     }
   }, 60_000);
 });

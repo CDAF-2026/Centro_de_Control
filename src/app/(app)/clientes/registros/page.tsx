@@ -61,13 +61,15 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   const historialDe = (pagina: number) =>
     supabase.rpc("registro_historial", { p_solo_revision: filtro === "revision", p_limite: POR_PAGINA, p_desde: (pagina - 1) * POR_PAGINA });
 
-  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: hist }, { count: nRev }] = await Promise.all([
+  // "Con revisión" = solo lo que espera a alguien; lo descartado queda en "Todo" (Laura, 28-oct-2026).
+  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: hist }, { data: revision }] = await Promise.all([
     supabase.from("registro_cambio").select("id, cliente_id, solicitud_id, campo, valor_actual, valor_nuevo, created_at").eq("estado", "pendiente").order("created_at"),
     supabase.from("consentimiento_firma").select("id, solicitud_id, firmante_nombre, firmante_parentesco, menor_nombre, menor_documento, firmado_el").eq("estado", "pendiente_asignar").order("firmado_el"),
     supabase.from("registro_solicitud").select("id, payload, created_at").eq("estado", "en_revision").eq("tipo", "datos").is("cliente_id", null).order("created_at"),
     historialDe(pedida),
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).in("estado", ["en_revision", "rechazada"]),
+    supabase.rpc("registro_historial", { p_solo_revision: true, p_limite: 1, p_desde: 0 }),
   ]);
+  const nRev = revision?.total ?? 0;
   const totalHistorial = hist?.total ?? 0;
   const paginas = Math.max(1, Math.ceil(totalHistorial / POR_PAGINA));
   // Una página que ya no existe (el enlace viejo de un filtro que se vació) cae en la última.
@@ -277,7 +279,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
             </p>
             <h2 className="font-heading mt-1.5 text-2xl font-bold tracking-tight">Historial</h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              {filtro ? `${totalHistorial} con revisión` : `${totalHistorial} ${totalHistorial === 1 ? "deportista registrado" : "deportistas registrados"}`}
+              {filtro ? `${totalHistorial} esperando revisión` : `${totalHistorial} ${totalHistorial === 1 ? "deportista registrado" : "deportistas registrados"}`}
             </p>
           </div>
           <nav aria-label="Filtrar el historial" className="bg-muted inline-flex gap-1 rounded-full p-1">
@@ -293,7 +295,14 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
               >
                 {f.etiqueta}
                 {f.clave === "revision" && (
-                  <span className="bg-warning inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold text-[#3d2a00]">{nRev ?? 0}</span>
+                  <span
+                    className={cn(
+                      "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums",
+                      nRev ? "bg-warning text-[#3d2a00]" : filtro === f.clave ? "bg-white/15 text-white" : "bg-card text-muted-foreground",
+                    )}
+                  >
+                    {nRev}
+                  </span>
                 )}
               </Link>
             ))}
@@ -395,7 +404,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
             </div>
           </>
         ) : (
-          <p className="text-muted-foreground border-border border-t px-6 py-8 text-sm">{filtro ? "Nada con este filtro." : "Todavía no ha llegado ninguna solicitud."}</p>
+          <p className="text-muted-foreground border-border border-t px-6 py-8 text-sm">{filtro ? "No hay nada esperando revisión." : "Todavía no ha llegado ninguna solicitud."}</p>
         )}
       </section>
     </div>
