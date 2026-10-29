@@ -54,7 +54,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   const { filtro = "" } = await searchParams;
   const supabase = await createClient();
 
-  let historialQ = supabase.from("registro_solicitud").select("id, tipo, estado, cliente_id, created_at, resultado, nota_revision, payload").order("created_at", { ascending: false }).limit(100);
+  let historialQ = supabase.from("registro_solicitud").select("id, tipo, estado, cliente_id, miembro_id, created_at, resultado, nota_revision, payload").order("created_at", { ascending: false }).limit(100);
   if (filtro === "datos" || filtro === "consentimiento") historialQ = historialQ.eq("tipo", filtro);
   if (filtro === "revision") historialQ = historialQ.in("estado", ["en_revision", "rechazada"]);
 
@@ -73,11 +73,16 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   // Nombres de las fichas (cambios + historial) y quién propuso cada cambio (su solicitud).
   const clienteIds = Array.from(new Set([...(cambios ?? []).map((c) => c.cliente_id), ...(historial ?? []).map((h) => h.cliente_id).filter((x): x is number => x != null)]));
   const solIds = Array.from(new Set((cambios ?? []).map((c) => c.solicitud_id)));
-  const [{ data: clientes }, { data: sols }] = await Promise.all([
+  // En el historial, "Deportista" es la persona registrada (el miembro), no el titular de la ficha:
+  // si un papá registra a dos hijos, salen los dos hijos (pedido de la clienta, 28-oct-2026).
+  const miembroIds = Array.from(new Set((historial ?? []).map((h) => h.miembro_id).filter((x): x is number => x != null)));
+  const [{ data: clientes }, { data: sols }, { data: miembros }] = await Promise.all([
     clienteIds.length ? supabase.from("clientes").select("id, nombres, apellidos").in("id", clienteIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
     solIds.length ? supabase.from("registro_solicitud").select("id, payload").in("id", solIds) : Promise.resolve({ data: [] as { id: string; payload: unknown }[] }),
+    miembroIds.length ? supabase.from("cliente_miembros").select("id, nombres, apellidos").in("id", miembroIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
   ]);
   const nombre = new Map((clientes ?? []).map((c) => [c.id, `${c.nombres} ${c.apellidos}`]));
+  const nombreMiembro = new Map((miembros ?? []).map((m) => [m.id, `${m.nombres} ${m.apellidos}`.trim()]));
   const propuso = new Map((sols ?? []).map((s) => [s.id, quienEnvio((s.payload as Payload) ?? {})]));
 
   // Por qué quedó cada firma sin dueño (documento con otro nombre, o dos fichas iguales): está en su solicitud.
@@ -254,7 +259,8 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                   {historial.map((h) => {
                     const r = (h.resultado ?? {}) as { creada?: boolean; cambios_pendientes?: number };
                     const p = (h.payload as Payload) ?? {};
-                    const deportista = h.cliente_id ? (nombre.get(h.cliente_id) ?? `Ficha ${h.cliente_id}`) : `${p.menor?.nombres ?? ""} ${p.menor?.apellidos ?? ""}`.trim() || "—";
+                    const escrito = `${p.menor?.nombres ?? ""} ${p.menor?.apellidos ?? ""}`.trim();
+                    const deportista = (h.miembro_id != null ? nombreMiembro.get(h.miembro_id) : undefined) || escrito || (h.cliente_id ? (nombre.get(h.cliente_id) ?? `Ficha ${h.cliente_id}`) : "—");
                     return (
                       <tr key={h.id}>
                         <td className="text-muted-foreground whitespace-nowrap">{fechaHoraCorta(h.created_at)}</td>
