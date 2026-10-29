@@ -21,18 +21,20 @@ const CAMPO: Record<string, string> = {
 };
 const TIPO_FACTURA: Record<string, string> = { natural: "Persona natural", juridica: "Empresa" };
 const ESTADO: Record<string, string> = { recibida: "Recibida", aplicada: "Aplicada", en_revision: "En revisión", rechazada: "Descartada", expirada: "Expirada" };
+// El historial junta en UNA fila los datos y la firma de la misma persona en la misma visita
+// (opción A, Laura, 28-oct-2026), así que ya no se filtra por tipo.
 const FILTROS = [
   { clave: "", etiqueta: "Todo" },
-  { clave: "datos", etiqueta: "Datos" },
-  { clave: "consentimiento", etiqueta: "Consentimientos" },
   { clave: "revision", etiqueta: "Con revisión" },
 ] as const;
+const LIMITE_HISTORIAL = 200;
 
 type Payload = {
   menor?: { nombres?: string; apellidos?: string; documento?: string; fecha_nacimiento?: string };
-  firmante?: { nombre?: string };
-  acudientes?: { nombre?: string; rol?: string; principal?: boolean }[];
+  firmante?: { nombre?: string; parentesco?: string | null };
+  acudientes?: { nombre?: string; rol?: string; parentesco?: string | null; principal?: boolean }[];
   busqueda?: { tipo?: string; candidatos?: number[] };
+  autoriza?: { imagen?: boolean };
 };
 type Miembro = { id: number; cliente_id: number; nombres: string; apellidos: string; documento: string | null; fecha_nacimiento: string | null; es_titular: boolean };
 
@@ -54,28 +56,34 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   const { filtro = "" } = await searchParams;
   const supabase = await createClient();
 
-  let historialQ = supabase.from("registro_solicitud").select("id, tipo, estado, cliente_id, miembro_id, created_at, resultado, nota_revision, payload").order("created_at", { ascending: false }).limit(100);
-  if (filtro === "datos" || filtro === "consentimiento") historialQ = historialQ.eq("tipo", filtro);
-  if (filtro === "revision") historialQ = historialQ.in("estado", ["en_revision", "rechazada"]);
+  const COLUMNAS_HISTORIAL = "id, tipo, estado, cliente_id, miembro_id, sesion_id, created_at, resultado, nota_revision, payload";
+  const EN_REVISION = ["en_revision", "rechazada"] as const;
+  let historialQ = supabase.from("registro_solicitud").select(COLUMNAS_HISTORIAL).order("created_at", { ascending: false }).limit(LIMITE_HISTORIAL);
+  if (filtro === "revision") historialQ = historialQ.in("estado", EN_REVISION);
 
-  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: historial }, { count: nTodo }, { count: nDatos }, { count: nCons }, { count: nRev }] = await Promise.all([
+  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: historialBase }, { count: nRev }] = await Promise.all([
     supabase.from("registro_cambio").select("id, cliente_id, solicitud_id, campo, valor_actual, valor_nuevo, created_at").eq("estado", "pendiente").order("created_at"),
     supabase.from("consentimiento_firma").select("id, solicitud_id, firmante_nombre, firmante_parentesco, menor_nombre, menor_documento, firmado_el").eq("estado", "pendiente_asignar").order("firmado_el"),
     supabase.from("registro_solicitud").select("id, payload, created_at").eq("estado", "en_revision").eq("tipo", "datos").is("cliente_id", null).order("created_at"),
     historialQ,
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }),
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).eq("tipo", "datos"),
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).eq("tipo", "consentimiento"),
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).in("estado", ["en_revision", "rechazada"]),
+    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).in("estado", EN_REVISION),
   ]);
-  const conteos: Record<string, number> = { "": nTodo ?? 0, datos: nDatos ?? 0, consentimiento: nCons ?? 0, revision: nRev ?? 0 };
+  // Con el filtro de revisión, se trae también la otra mitad de cada visita (los datos de una firma
+  // descartada, por ejemplo) para que la fila salga completa.
+  let historial = historialBase ?? [];
+  const sesionesRevision = filtro === "revision" ? Array.from(new Set(historial.map((h) => h.sesion_id).filter((x): x is string => !!x))) : [];
+  if (sesionesRevision.length) {
+    const { data: pareja } = await supabase.from("registro_solicitud").select(COLUMNAS_HISTORIAL).in("sesion_id", sesionesRevision);
+    const ya = new Set(historial.map((h) => h.id));
+    historial = [...historial, ...(pareja ?? []).filter((h) => !ya.has(h.id))].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
 
   // Nombres de las fichas (cambios + historial) y quién propuso cada cambio (su solicitud).
-  const clienteIds = Array.from(new Set([...(cambios ?? []).map((c) => c.cliente_id), ...(historial ?? []).map((h) => h.cliente_id).filter((x): x is number => x != null)]));
+  const clienteIds = Array.from(new Set([...(cambios ?? []).map((c) => c.cliente_id), ...historial.map((h) => h.cliente_id).filter((x): x is number => x != null)]));
   const solIds = Array.from(new Set((cambios ?? []).map((c) => c.solicitud_id)));
   // En el historial, "Deportista" es la persona registrada (el miembro), no el titular de la ficha:
   // si un papá registra a dos hijos, salen los dos hijos (pedido de la clienta, 28-oct-2026).
-  const miembroIds = Array.from(new Set((historial ?? []).map((h) => h.miembro_id).filter((x): x is number => x != null)));
+  const miembroIds = Array.from(new Set(historial.map((h) => h.miembro_id).filter((x): x is number => x != null)));
   const [{ data: clientes }, { data: sols }, { data: miembros }] = await Promise.all([
     clienteIds.length ? supabase.from("clientes").select("id, nombres, apellidos").in("id", clienteIds) : Promise.resolve({ data: [] as { id: number; nombres: string; apellidos: string }[] }),
     solIds.length ? supabase.from("registro_solicitud").select("id, payload").in("id", solIds) : Promise.resolve({ data: [] as { id: string; payload: unknown }[] }),
@@ -112,6 +120,24 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   // es una foto del momento en que llegó y no baja al aprobar.
   const porDecidir = new Map<string, number>();
   for (const c of cambios ?? []) porDecidir.set(c.solicitud_id, (porDecidir.get(c.solicitud_id) ?? 0) + 1);
+
+  // Una fila por persona y visita: los datos y la firma que llegan juntos van en la misma fila
+  // (opción A, 28-oct-2026). Las visitas viejas no tienen sesión: se agrupan por día.
+  type Solicitud = (typeof historial)[number];
+  type Fila = { clave: string; cuando: string; datos?: Solicitud; firma?: Solicitud };
+  const porPersona = new Map<string, Fila>();
+  for (const h of historial) {
+    const clave = h.miembro_id == null ? h.id : `${h.sesion_id ?? h.created_at.slice(0, 10)}·${h.miembro_id}`;
+    const f = porPersona.get(clave) ?? { clave, cuando: h.created_at };
+    if (h.tipo === "datos") f.datos ??= h;
+    else f.firma ??= h;
+    if (h.created_at < f.cuando) f.cuando = h.created_at;
+    porPersona.set(clave, f);
+  }
+  let filasHistorial = Array.from(porPersona.values()).sort((a, b) => b.cuando.localeCompare(a.cuando));
+  if (filtro === "revision") filasHistorial = filasHistorial.filter((f) => [f.datos, f.firma].some((s) => s && (EN_REVISION as readonly string[]).includes(s.estado)));
+  // Con el tope, la visita más vieja puede venir partida (solo la firma): mejor no mostrarla.
+  else if (historial.length === LIMITE_HISTORIAL) filasHistorial = filasHistorial.slice(0, -1);
 
   // Una sola cola, lo más antiguo primero.
   const porFicha = new Map<number, NonNullable<typeof cambios>>();
@@ -250,35 +276,45 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                 href={f.clave ? `/clientes/registros?filtro=${f.clave}` : "/clientes/registros"}
                 className={cn("inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold transition-colors", filtro === f.clave ? "bg-stadium text-white" : "border-border bg-card text-foreground hover:bg-muted border")}
               >
-                {f.etiqueta} · {conteos[f.clave]}
+                {f.etiqueta}{f.clave === "revision" ? ` · ${nRev ?? 0}` : ""}
               </Link>
             ))}
           </div>
         </CardHeader>
         <CardContent>
-          {historial?.length ? (
+          {filasHistorial.length ? (
             <div className="cdaf-table-wrap">
               <table className="cdaf-table">
-                <thead><tr><th>Cuándo</th><th>Qué</th><th>Deportista</th><th>Quién</th><th>Resultado</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Deportista</th><th>Lo registró</th><th>Hizo</th><th>Avisos</th></tr></thead>
                 <tbody>
-                  {historial.map((h) => {
-                    const r = (h.resultado ?? {}) as { creada?: boolean };
-                    const pendientes = porDecidir.get(h.id) ?? 0;
-                    const p = (h.payload as Payload) ?? {};
-                    const escrito = `${p.menor?.nombres ?? ""} ${p.menor?.apellidos ?? ""}`.trim();
-                    const deportista = (h.miembro_id != null ? nombreMiembro.get(h.miembro_id) : undefined) || escrito || (h.cliente_id ? (nombre.get(h.cliente_id) ?? `Ficha ${h.cliente_id}`) : "—");
+                  {filasHistorial.map(({ clave, cuando, datos, firma }) => {
+                    const pd = (datos?.payload as Payload) ?? undefined;
+                    const pf = (firma?.payload as Payload) ?? undefined;
+                    const escrito = [pd, pf].map((p) => `${p?.menor?.nombres ?? ""} ${p?.menor?.apellidos ?? ""}`.trim()).find(Boolean) ?? "";
+                    const miembroId = datos?.miembro_id ?? firma?.miembro_id;
+                    const clienteId = datos?.cliente_id ?? firma?.cliente_id;
+                    const deportista = (miembroId != null ? nombreMiembro.get(miembroId) : undefined) || escrito || (clienteId ? (nombre.get(clienteId) ?? `Ficha ${clienteId}`) : "—");
+                    const nueva = !!(datos?.resultado as { creada?: boolean } | null)?.creada;
+                    const pendientes = datos ? (porDecidir.get(datos.id) ?? 0) : 0;
+                    const notas = [datos?.nota_revision, firma?.nota_revision].filter(Boolean);
                     return (
-                      <tr key={h.id}>
-                        <td className="text-muted-foreground whitespace-nowrap">{fechaHoraCorta(h.created_at)}</td>
-                        <td className="whitespace-nowrap">{h.tipo === "datos" ? "Datos" : "Consentimiento"}</td>
-                        <td>{h.cliente_id ? <Link href={`/clientes/${h.cliente_id}`} className="font-semibold hover:underline">{deportista}</Link> : deportista}</td>
-                        <td className="text-muted-foreground">{quienEnvio(p)}</td>
+                      <tr key={clave}>
+                        <td className="text-muted-foreground whitespace-nowrap">{fechaHoraCorta(cuando)}</td>
+                        <td>
+                          <span className="inline-flex flex-wrap items-center gap-1.5">
+                            {clienteId ? <Link href={`/clientes/${clienteId}`} className="font-semibold hover:underline">{deportista}</Link> : <span className="font-semibold">{deportista}</span>}
+                            {nueva && <Badge variant="outline">Ficha nueva</Badge>}
+                          </span>
+                        </td>
+                        <td className="text-muted-foreground">{loRegistro(pd, pf, escrito || deportista)}</td>
+                        <td className="space-x-1.5 whitespace-nowrap">
+                          {datos && <Hizo que="Datos" estado={datos.estado} conFicha={datos.cliente_id != null} />}
+                          {firma && <Hizo que="Firma" estado={firma.estado} conFicha />}
+                        </td>
                         <td className="space-x-1.5">
-                          <Badge variant={h.estado === "aplicada" ? "success" : h.estado === "en_revision" ? "warning" : "outline"}>
-                            {h.estado === "aplicada" ? (h.tipo === "consentimiento" ? "Firmado · PDF en la ficha" : r.creada ? "Ficha nueva" : "Ficha actualizada") : (ESTADO[h.estado] ?? h.estado)}
-                          </Badge>
                           {pendientes ? <Badge variant="warning">{pendientes} de facturación por aprobar</Badge> : null}
-                          {h.nota_revision ? <span className="text-muted-foreground text-xs">“{h.nota_revision}”</span> : null}
+                          {pf?.autoriza?.imagen === false && <Badge variant="warning">Sin fotos</Badge>}
+                          {notas.map((n) => <span key={n} className="text-muted-foreground text-xs">“{n}”</span>)}
                         </td>
                       </tr>
                     );
@@ -308,6 +344,35 @@ function motivoRevision(tipo: string | undefined, que: "firma" | "datos"): strin
   return que === "firma"
     ? `Más de una ficha tiene este documento y este nombre. ${accion}`
     : `El formulario coincide con más de una ficha y no se aplicó. ${accion}`;
+}
+
+const comparable = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * "Lo registró" del historial: el acudiente que escribió la familia en los datos ("Andrea Ortiz · madre")
+ * o, si no hay, quien firmó. Un adulto que se registra a sí mismo no tiene acudiente y firma sin
+ * parentesco y con su propio nombre: "El propio deportista". Es lo que la familia tecleó, no la ficha.
+ */
+function loRegistro(datos: Payload | undefined, firma: Payload | undefined, deportista: string): string {
+  const a = datos?.acudientes?.find((x) => x.principal) ?? datos?.acudientes?.[0];
+  if (a?.nombre) {
+    const rol = a.rol === "otro" ? a.parentesco?.trim().toLowerCase() || "acudiente" : (a.rol && ROL[a.rol]) || "acudiente";
+    return `${a.nombre} · ${rol}`;
+  }
+  const f = firma?.firmante ?? datos?.firmante;
+  if (f?.nombre) {
+    if (f.parentesco?.trim()) return `${f.nombre} · ${f.parentesco.trim().toLowerCase()}`;
+    return comparable(f.nombre) === comparable(deportista) ? "El propio deportista" : f.nombre;
+  }
+  return datos?.acudientes && !datos.acudientes.length ? "El propio deportista" : "—";
+}
+
+/** Una de las dos marcas de "Hizo": verde si quedó en la ficha; ámbar si espera a alguien; gris si se descartó. */
+function Hizo({ que, estado, conFicha }: { que: "Datos" | "Firma"; estado: string; conFicha: boolean }) {
+  if (estado === "aplicada" || (estado === "en_revision" && conFicha && que === "Datos")) return <Badge variant="success">{que}</Badge>;
+  if (estado === "en_revision") return <Badge variant="warning">{que} por asignar</Badge>;
+  if (estado === "rechazada") return <Badge variant="outline">{que === "Datos" ? "Datos descartados" : "Firma descartada"}</Badge>;
+  return <Badge variant="outline">{que} · {(ESTADO[estado] ?? estado).toLowerCase()}</Badge>;
 }
 
 function mostrar(campo: string, valor: string | null): string {

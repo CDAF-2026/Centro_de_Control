@@ -4,10 +4,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createClient as sb } from "@supabase/supabase-js";
 
 /**
- * Historial de la bandeja de registros (28-oct-2026, pedido de la clienta): "Deportista" es la persona
- * que se registró, no el titular de la ficha. Camilo Arias firmó por Mariana e Ismael y la tabla decía
- * "Camilo Arias" las cuatro veces; Guadalupe Espinoza salía cuatro veces aunque dos eran de su hermana Mia.
- * Monta la página de verdad sobre la base, con dos solicitudes de prueba que se borran en `finally`.
+ * Historial de la bandeja de registros (28-oct-2026, pedidos de la clienta y de Laura):
+ * - "Deportista" es la persona que se registró, no el titular de la ficha (Camilo Arias firmó por
+ *   Mariana e Ismael y la tabla decía "Camilo Arias" cuatro veces).
+ * - Opción A: UNA fila por persona y visita (datos + firma juntos), columnas Fecha · Deportista ·
+ *   Lo registró · Hizo · Avisos.
+ * - "N de facturación por aprobar" cuenta lo que falta hoy, no la foto de cuando llegó.
+ * Monta la página de verdad sobre la base, con solicitudes de prueba que se borran en `finally`.
  */
 vi.mock("next/link", () => ({
   default: ({ href, children, ...r }: any) => React.createElement("a", { href: String(href), ...r }, children),
@@ -22,37 +25,59 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-/** La fila del historial cuyo "Quién" es `marca` (solo la tabla: la tarjeta pendiente de arriba también lo nombra). */
-const fila = (html: string, marca: string) => texto(html.slice(html.indexOf("<tbody")).split("<tr").find((tr) => tr.includes(marca)) ?? "");
+/** Las filas del historial (solo la tabla: la tarjeta pendiente de arriba también nombra a quien envió). */
+const filas = (html: string) => html.slice(html.indexOf("<tbody")).split("<tr").slice(1).map(texto);
+const fila = (html: string, marca: string) => filas(html).find((f) => f.includes(marca)) ?? "";
 
-describe("historial de registros · columna Deportista", () => {
-  it("muestra a la persona registrada (el hijo), no al titular de la ficha", async () => {
+async function pagina() {
+  const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
+  return renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
+}
+
+describe("historial de registros", () => {
+  it("una fila por persona: el hijo (no el titular), quién lo registró, datos y firma juntos y sus avisos", async () => {
     const { data: hijo } = await admin.from("cliente_miembros").select("id, cliente_id, nombres, apellidos").eq("es_titular", false).eq("activo", true).order("id").limit(1).single();
     const { data: ficha } = await admin.from("clientes").select("nombres, apellidos").eq("id", hijo!.cliente_id).single();
     const titular = `${ficha!.nombres} ${ficha!.apellidos}`;
     const nombreHijo = `${hijo!.nombres} ${hijo!.apellidos}`;
     expect(nombreHijo).not.toBe(titular);
 
-    const { data: conMiembro } = await admin.from("registro_solicitud").insert({
-      tipo: "consentimiento", estado: "aplicada", cliente_id: hijo!.cliente_id, miembro_id: hijo!.id,
-      payload: { firmante: { nombre: "Firmante Prueba Historial A" } },
-    }).select("id").single();
-    // Sin miembro (solicitud vieja): sale lo que escribió la familia, no el titular.
-    const { data: sinMiembro } = await admin.from("registro_solicitud").insert({
-      tipo: "datos", estado: "aplicada", cliente_id: hijo!.cliente_id,
-      payload: { menor: { nombres: "Hija", apellidos: "Escrita En El Formulario" }, firmante: { nombre: "Firmante Prueba Historial B" } },
-    }).select("id").single();
+    const { data: sols } = await admin.from("registro_solicitud").insert([
+      { tipo: "datos", estado: "aplicada", cliente_id: hijo!.cliente_id, miembro_id: hijo!.id, resultado: { modo: "actualizar", creada: true },
+        payload: { menor: { nombres: "Escrito", apellidos: "Por La Familia" }, acudientes: [{ nombre: "Acudiente Prueba Historial A", rol: "madre", principal: true }] } },
+      { tipo: "consentimiento", estado: "aplicada", cliente_id: hijo!.cliente_id, miembro_id: hijo!.id,
+        payload: { firmante: { nombre: "Acudiente Prueba Historial A", parentesco: "Madre" }, autoriza: { salud: true, imagen: false, informacion: true } } },
+      // Sin miembro (solicitud vieja): sale lo que escribió la familia, no el titular.
+      { tipo: "datos", estado: "aplicada", cliente_id: hijo!.cliente_id,
+        payload: { menor: { nombres: "Hija", apellidos: "Escrita En El Formulario" }, acudientes: [{ nombre: "Acudiente Prueba Historial B", rol: "padre", principal: true }] } },
+      // Un adulto que se registra y firma a sí mismo.
+      { tipo: "consentimiento", estado: "aplicada", cliente_id: hijo!.cliente_id,
+        payload: { menor: { nombres: "Adulta", apellidos: "Prueba Propia Historial" }, firmante: { nombre: "Adulta Prueba Propia Historial", parentesco: null } } },
+    ]).select("id");
     try {
-      const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
-      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
-      const a = fila(html, "Firmante Prueba Historial A");
+      const html = await pagina();
+      const t = texto(html);
+      expect(t).toContain("Lo registró");
+      expect(t).not.toMatch(/Consentimientos · \d/);
+
+      const conA = filas(html).filter((f) => f.includes("Acudiente Prueba Historial A"));
+      expect(conA).toHaveLength(1);
+      const a = conA[0];
       expect(a).toContain(nombreHijo);
       expect(a).not.toContain(titular);
-      const b = fila(html, "Firmante Prueba Historial B");
+      expect(a).toContain("Acudiente Prueba Historial A · madre");
+      expect(a).toMatch(/Datos.*Firma/);
+      expect(a).toContain("Ficha nueva");
+      expect(a).toContain("Sin fotos");
+
+      const b = fila(html, "Acudiente Prueba Historial B");
       expect(b).toContain("Hija Escrita En El Formulario");
+      expect(b).toContain("Acudiente Prueba Historial B · padre");
       expect(b).not.toContain(titular);
+
+      expect(fila(html, "Adulta Prueba Propia Historial")).toContain("El propio deportista");
     } finally {
-      await admin.from("registro_solicitud").delete().in("id", [conMiembro!.id, sinMiembro!.id]);
+      await admin.from("registro_solicitud").delete().in("id", (sols ?? []).map((s) => s.id));
     }
   }, 30_000);
 
@@ -70,10 +95,9 @@ describe("historial de registros · columna Deportista", () => {
     }).select("id").single();
     const { data: cambio } = await admin.from("registro_cambio").insert({ solicitud_id: pendiente!.id, cliente_id: cli!.id, campo: "factura_a_nit", valor_nuevo: "9990000399" }).select("id").single();
     try {
-      const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
-      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
+      const html = await pagina();
       const c = fila(html, "Firmante Prueba Historial C");
-      expect(c).toContain("Ficha actualizada");
+      expect(c).toContain("Datos");
       expect(c).not.toContain("por aprobar");
       expect(fila(html, "Firmante Prueba Historial D")).toContain("1 de facturación por aprobar");
     } finally {
