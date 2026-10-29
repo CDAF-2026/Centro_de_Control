@@ -108,6 +108,11 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   const candPorDoc = new Map<string, CandidatoFicha[]>();
   for (const m of candsPorDoc ?? []) candPorDoc.set(m.documento!, [...(candPorDoc.get(m.documento!) ?? []), aCandidato(m)]);
 
+  // Lo que de verdad falta por decidir de cada solicitud (28-oct-2026): `resultado.cambios_pendientes`
+  // es una foto del momento en que llegó y no baja al aprobar.
+  const porDecidir = new Map<string, number>();
+  for (const c of cambios ?? []) porDecidir.set(c.solicitud_id, (porDecidir.get(c.solicitud_id) ?? 0) + 1);
+
   // Una sola cola, lo más antiguo primero.
   const porFicha = new Map<number, NonNullable<typeof cambios>>();
   for (const c of cambios ?? []) porFicha.set(c.cliente_id, [...(porFicha.get(c.cliente_id) ?? []), c]);
@@ -257,7 +262,8 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                 <thead><tr><th>Cuándo</th><th>Qué</th><th>Deportista</th><th>Quién</th><th>Resultado</th></tr></thead>
                 <tbody>
                   {historial.map((h) => {
-                    const r = (h.resultado ?? {}) as { creada?: boolean; cambios_pendientes?: number };
+                    const r = (h.resultado ?? {}) as { creada?: boolean };
+                    const pendientes = porDecidir.get(h.id) ?? 0;
                     const p = (h.payload as Payload) ?? {};
                     const escrito = `${p.menor?.nombres ?? ""} ${p.menor?.apellidos ?? ""}`.trim();
                     const deportista = (h.miembro_id != null ? nombreMiembro.get(h.miembro_id) : undefined) || escrito || (h.cliente_id ? (nombre.get(h.cliente_id) ?? `Ficha ${h.cliente_id}`) : "—");
@@ -271,7 +277,7 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                           <Badge variant={h.estado === "aplicada" ? "success" : h.estado === "en_revision" ? "warning" : "outline"}>
                             {h.estado === "aplicada" ? (h.tipo === "consentimiento" ? "Firmado · PDF en la ficha" : r.creada ? "Ficha nueva" : "Ficha actualizada") : (ESTADO[h.estado] ?? h.estado)}
                           </Badge>
-                          {r.cambios_pendientes ? <Badge variant="warning">{r.cambios_pendientes} de facturación por aprobar</Badge> : null}
+                          {pendientes ? <Badge variant="warning">{pendientes} de facturación por aprobar</Badge> : null}
                           {h.nota_revision ? <span className="text-muted-foreground text-xs">“{h.nota_revision}”</span> : null}
                         </td>
                       </tr>

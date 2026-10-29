@@ -22,8 +22,8 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-/** La fila del historial cuyo "Quién" es `marca`. */
-const fila = (html: string, marca: string) => texto(html.split("<tr").find((tr) => tr.includes(marca)) ?? "");
+/** La fila del historial cuyo "Quién" es `marca` (solo la tabla: la tarjeta pendiente de arriba también lo nombra). */
+const fila = (html: string, marca: string) => texto(html.slice(html.indexOf("<tbody")).split("<tr").find((tr) => tr.includes(marca)) ?? "");
 
 describe("historial de registros · columna Deportista", () => {
   it("muestra a la persona registrada (el hijo), no al titular de la ficha", async () => {
@@ -53,6 +53,32 @@ describe("historial de registros · columna Deportista", () => {
       expect(b).not.toContain(titular);
     } finally {
       await admin.from("registro_solicitud").delete().in("id", [conMiembro!.id, sinMiembro!.id]);
+    }
+  }, 30_000);
+
+  it("'N de facturación por aprobar' cuenta lo que de verdad falta, no la foto de cuando llegó", async () => {
+    const { data: cli } = await admin.from("clientes").select("id").order("id").limit(1).single();
+    // Llegó con 4 por aprobar y ya se decidieron: no debe decir nada.
+    const { data: resuelta } = await admin.from("registro_solicitud").insert({
+      tipo: "datos", estado: "aplicada", cliente_id: cli!.id, resultado: { modo: "actualizar", creada: false, cambios_pendientes: 4 },
+      payload: { menor: { nombres: "Ya", apellidos: "Resuelta" }, firmante: { nombre: "Firmante Prueba Historial C" } },
+    }).select("id").single();
+    // Le queda uno pendiente de verdad.
+    const { data: pendiente } = await admin.from("registro_solicitud").insert({
+      tipo: "datos", estado: "en_revision", cliente_id: cli!.id, resultado: { modo: "actualizar", creada: false, cambios_pendientes: 3 },
+      payload: { menor: { nombres: "Con", apellidos: "Pendiente" }, firmante: { nombre: "Firmante Prueba Historial D" } },
+    }).select("id").single();
+    const { data: cambio } = await admin.from("registro_cambio").insert({ solicitud_id: pendiente!.id, cliente_id: cli!.id, campo: "factura_a_nit", valor_nuevo: "9990000399" }).select("id").single();
+    try {
+      const { default: Page } = await import("../src/app/(app)/clientes/registros/page");
+      const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
+      const c = fila(html, "Firmante Prueba Historial C");
+      expect(c).toContain("Ficha actualizada");
+      expect(c).not.toContain("por aprobar");
+      expect(fila(html, "Firmante Prueba Historial D")).toContain("1 de facturación por aprobar");
+    } finally {
+      await admin.from("registro_cambio").delete().eq("id", cambio!.id);
+      await admin.from("registro_solicitud").delete().in("id", [resuelta!.id, pendiente!.id]);
     }
   }, 30_000);
 });
