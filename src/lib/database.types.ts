@@ -1849,6 +1849,11 @@ export type Database = {
         Args: { p_cambios: number[]; p_aprobar: boolean };
         Returns: { cliente_id: number; modo: "agregado" | "principal" | "rechazado" };
       };
+      /** Historial de la bandeja: una fila por persona y visita (datos + firma), paginado. SECURITY INVOKER. */
+      registro_historial: {
+        Args: { p_solo_revision?: boolean; p_limite?: number; p_desde?: number };
+        Returns: { total: number; filas: { clave: string; cuando: string; datos_id: string | null; firma_id: string | null }[] };
+      };
       /** SA / coord. admin. Ata una firma `pendiente_asignar` al miembro escogido; devuelve el documento creado. */
       consentimiento_asignar: { Args: { p_firma: string; p_miembro: number }; Returns: number | null };
       siigo_recaudo: {

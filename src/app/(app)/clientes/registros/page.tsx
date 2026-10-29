@@ -5,12 +5,11 @@ import { PUEDE_REVISAR_REGISTROS } from "@/lib/registro/revision";
 import { soloDigitos } from "@/lib/registro/match";
 import { edadDesde } from "@/lib/validations/cliente";
 import { fechaHoraCorta } from "@/lib/fecha";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { ArrowRight, CameraOff, ClipboardList, Inbox, PenLine, Receipt } from "lucide-react";
+import { ArrowRight, CameraOff, Check, ChevronLeft, ChevronRight, ClipboardList, Inbox, PenLine, Receipt } from "lucide-react";
 import { DecidirCambios, AsignarFirma, RevisarSolicitud, type CandidatoFicha } from "./formularios";
 
 const CAMPO: Record<string, string> = {
@@ -22,12 +21,12 @@ const CAMPO: Record<string, string> = {
 const TIPO_FACTURA: Record<string, string> = { natural: "Persona natural", juridica: "Empresa" };
 const ESTADO: Record<string, string> = { recibida: "Recibida", aplicada: "Aplicada", en_revision: "En revisión", rechazada: "Descartada", expirada: "Expirada" };
 // El historial junta en UNA fila los datos y la firma de la misma persona en la misma visita
-// (opción A, Laura, 28-oct-2026), así que ya no se filtra por tipo.
+// (opción A, Laura, 28-oct-2026), así que ya no se filtra por tipo. Va de 20 en 20.
 const FILTROS = [
   { clave: "", etiqueta: "Todo" },
   { clave: "revision", etiqueta: "Con revisión" },
 ] as const;
-const LIMITE_HISTORIAL = 200;
+const POR_PAGINA = 20;
 
 type Payload = {
   menor?: { nombres?: string; apellidos?: string; documento?: string; fecha_nacimiento?: string };
@@ -51,32 +50,34 @@ const quienEnvio = (p: Payload) => {
  * misma tarjeta, y el historial con filtros. Pequeña a propósito (D1 y D3). Revisan SA y
  * coord. administrativo (`PUEDE_REVISAR_REGISTROS`).
  */
-export default async function RegistrosPage({ searchParams }: { searchParams: Promise<{ filtro?: string }> }) {
+export default async function RegistrosPage({ searchParams }: { searchParams: Promise<{ filtro?: string; pagina?: string }> }) {
   await requireRole(PUEDE_REVISAR_REGISTROS);
-  const { filtro = "" } = await searchParams;
+  const { filtro: filtroCrudo = "", pagina: paginaCruda } = await searchParams;
+  const filtro = filtroCrudo === "revision" ? "revision" : "";
+  const pedida = Math.max(1, Math.floor(Number(paginaCruda)) || 1);
   const supabase = await createClient();
 
-  const COLUMNAS_HISTORIAL = "id, tipo, estado, cliente_id, miembro_id, sesion_id, created_at, resultado, nota_revision, payload";
-  const EN_REVISION = ["en_revision", "rechazada"] as const;
-  let historialQ = supabase.from("registro_solicitud").select(COLUMNAS_HISTORIAL).order("created_at", { ascending: false }).limit(LIMITE_HISTORIAL);
-  if (filtro === "revision") historialQ = historialQ.in("estado", EN_REVISION);
+  // El historial lo agrupa y pagina la base (`registro_historial`): una fila por persona y visita.
+  const historialDe = (pagina: number) =>
+    supabase.rpc("registro_historial", { p_solo_revision: filtro === "revision", p_limite: POR_PAGINA, p_desde: (pagina - 1) * POR_PAGINA });
 
-  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: historialBase }, { count: nRev }] = await Promise.all([
+  const [{ data: cambios }, { data: firmas }, { data: ambiguas }, { data: hist }, { count: nRev }] = await Promise.all([
     supabase.from("registro_cambio").select("id, cliente_id, solicitud_id, campo, valor_actual, valor_nuevo, created_at").eq("estado", "pendiente").order("created_at"),
     supabase.from("consentimiento_firma").select("id, solicitud_id, firmante_nombre, firmante_parentesco, menor_nombre, menor_documento, firmado_el").eq("estado", "pendiente_asignar").order("firmado_el"),
     supabase.from("registro_solicitud").select("id, payload, created_at").eq("estado", "en_revision").eq("tipo", "datos").is("cliente_id", null).order("created_at"),
-    historialQ,
-    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).in("estado", EN_REVISION),
+    historialDe(pedida),
+    supabase.from("registro_solicitud").select("id", { count: "exact", head: true }).in("estado", ["en_revision", "rechazada"]),
   ]);
-  // Con el filtro de revisión, se trae también la otra mitad de cada visita (los datos de una firma
-  // descartada, por ejemplo) para que la fila salga completa.
-  let historial = historialBase ?? [];
-  const sesionesRevision = filtro === "revision" ? Array.from(new Set(historial.map((h) => h.sesion_id).filter((x): x is string => !!x))) : [];
-  if (sesionesRevision.length) {
-    const { data: pareja } = await supabase.from("registro_solicitud").select(COLUMNAS_HISTORIAL).in("sesion_id", sesionesRevision);
-    const ya = new Set(historial.map((h) => h.id));
-    historial = [...historial, ...(pareja ?? []).filter((h) => !ya.has(h.id))].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  }
+  const totalHistorial = hist?.total ?? 0;
+  const paginas = Math.max(1, Math.ceil(totalHistorial / POR_PAGINA));
+  // Una página que ya no existe (el enlace viejo de un filtro que se vació) cae en la última.
+  const pagina = Math.min(pedida, paginas);
+  const grupos = pagina === pedida ? (hist?.filas ?? []) : ((await historialDe(pagina)).data?.filas ?? []);
+  const solHistorialIds = grupos.flatMap((g) => [g.datos_id, g.firma_id]).filter((x): x is string => !!x);
+  const { data: solHistorial } = solHistorialIds.length
+    ? await supabase.from("registro_solicitud").select("id, tipo, estado, cliente_id, miembro_id, created_at, resultado, nota_revision, payload").in("id", solHistorialIds)
+    : { data: [] };
+  const historial = solHistorial ?? [];
 
   // Nombres de las fichas (cambios + historial) y quién propuso cada cambio (su solicitud).
   const clienteIds = Array.from(new Set([...(cambios ?? []).map((c) => c.cliente_id), ...historial.map((h) => h.cliente_id).filter((x): x is number => x != null)]));
@@ -121,23 +122,23 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
   const porDecidir = new Map<string, number>();
   for (const c of cambios ?? []) porDecidir.set(c.solicitud_id, (porDecidir.get(c.solicitud_id) ?? 0) + 1);
 
-  // Una fila por persona y visita: los datos y la firma que llegan juntos van en la misma fila
-  // (opción A, 28-oct-2026). Las visitas viejas no tienen sesión: se agrupan por día.
-  type Solicitud = (typeof historial)[number];
-  type Fila = { clave: string; cuando: string; datos?: Solicitud; firma?: Solicitud };
-  const porPersona = new Map<string, Fila>();
-  for (const h of historial) {
-    const clave = h.miembro_id == null ? h.id : `${h.sesion_id ?? h.created_at.slice(0, 10)}·${h.miembro_id}`;
-    const f = porPersona.get(clave) ?? { clave, cuando: h.created_at };
-    if (h.tipo === "datos") f.datos ??= h;
-    else f.firma ??= h;
-    if (h.created_at < f.cuando) f.cuando = h.created_at;
-    porPersona.set(clave, f);
-  }
-  let filasHistorial = Array.from(porPersona.values()).sort((a, b) => b.cuando.localeCompare(a.cuando));
-  if (filtro === "revision") filasHistorial = filasHistorial.filter((f) => [f.datos, f.firma].some((s) => s && (EN_REVISION as readonly string[]).includes(s.estado)));
-  // Con el tope, la visita más vieja puede venir partida (solo la firma): mejor no mostrarla.
-  else if (historial.length === LIMITE_HISTORIAL) filasHistorial = filasHistorial.slice(0, -1);
+  // Una fila por persona y visita, en el orden que dio la base (opción A, 28-oct-2026).
+  const solPorId = new Map(historial.map((h) => [h.id, h]));
+  const filasHistorial = grupos.map((g) => ({
+    clave: g.clave,
+    cuando: g.cuando,
+    datos: g.datos_id ? solPorId.get(g.datos_id) : undefined,
+    firma: g.firma_id ? solPorId.get(g.firma_id) : undefined,
+  }));
+  const primera = totalHistorial ? (pagina - 1) * POR_PAGINA + 1 : 0;
+  const ultima = (pagina - 1) * POR_PAGINA + filasHistorial.length;
+  const enlacePagina = (n: number) => {
+    const q = new URLSearchParams();
+    if (filtro) q.set("filtro", filtro);
+    if (n > 1) q.set("pagina", String(n));
+    const s = q.toString();
+    return s ? `/clientes/registros?${s}` : "/clientes/registros";
+  };
 
   // Una sola cola, lo más antiguo primero.
   const porFicha = new Map<number, NonNullable<typeof cambios>>();
@@ -266,26 +267,52 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
         </>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Historial</CardTitle>
-          <div className="flex flex-wrap gap-1.5">
+      {/* Historial · propuesta A "Tabla marcador" (Laura, 28-oct-2026), sin el círculo de iniciales. */}
+      <section className="bg-card overflow-hidden rounded-xl shadow-sm ring-1 ring-foreground/[0.06]">
+        <div className="flex flex-wrap items-end justify-between gap-4 px-6 pt-6 pb-5">
+          <div>
+            <p className="font-heading text-muted-foreground flex items-center gap-2 text-[11px] font-extrabold tracking-[0.14em] uppercase italic">
+              <span className="bg-primary size-2 rounded-full" aria-hidden="true" />
+              Registro por QR
+            </p>
+            <h2 className="font-heading mt-1.5 text-2xl font-bold tracking-tight">Historial</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {filtro ? `${totalHistorial} con revisión` : `${totalHistorial} ${totalHistorial === 1 ? "deportista registrado" : "deportistas registrados"}`}
+            </p>
+          </div>
+          <nav aria-label="Filtrar el historial" className="bg-muted inline-flex gap-1 rounded-full p-1">
             {FILTROS.map((f) => (
               <Link
                 key={f.clave}
                 href={f.clave ? `/clientes/registros?filtro=${f.clave}` : "/clientes/registros"}
-                className={cn("inline-flex h-8 items-center rounded-full px-3 text-xs font-semibold transition-colors", filtro === f.clave ? "bg-stadium text-white" : "border-border bg-card text-foreground hover:bg-muted border")}
+                aria-current={filtro === f.clave ? "page" : undefined}
+                className={cn(
+                  "inline-flex h-10 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition-colors",
+                  filtro === f.clave ? "bg-stadium text-white" : "text-foreground/80 hover:bg-card",
+                )}
               >
-                {f.etiqueta}{f.clave === "revision" ? ` · ${nRev ?? 0}` : ""}
+                {f.etiqueta}
+                {f.clave === "revision" && (
+                  <span className="bg-warning inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold text-[#3d2a00]">{nRev ?? 0}</span>
+                )}
               </Link>
             ))}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filasHistorial.length ? (
-            <div className="cdaf-table-wrap">
-              <table className="cdaf-table">
-                <thead><tr><th>Fecha</th><th>Deportista</th><th>Lo registró</th><th>Hizo</th><th>Avisos</th></tr></thead>
+          </nav>
+        </div>
+
+        {filasHistorial.length ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[880px] text-sm">
+                <thead>
+                  <tr className="bg-muted/40 border-border text-muted-foreground border-y text-left text-[11px] font-bold tracking-wider uppercase">
+                    <th className="py-3 pr-4 pl-6 font-bold">Fecha</th>
+                    <th className="px-4 py-3 font-bold">Deportista</th>
+                    <th className="px-4 py-3 font-bold">Lo registró</th>
+                    <th className="px-4 py-3 font-bold">Hizo</th>
+                    <th className="py-3 pr-6 pl-4 font-bold">Avisos</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {filasHistorial.map(({ clave, cuando, datos, firma }) => {
                     const pd = (datos?.payload as Payload) ?? undefined;
@@ -297,24 +324,50 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                     const nueva = !!(datos?.resultado as { creada?: boolean } | null)?.creada;
                     const pendientes = datos ? (porDecidir.get(datos.id) ?? 0) : 0;
                     const notas = [datos?.nota_revision, firma?.nota_revision].filter(Boolean);
+                    const quien = loRegistro(pd, pf, escrito || deportista);
+                    const [dia, hora] = fechaHoraCorta(cuando).split(", ");
                     return (
-                      <tr key={clave}>
-                        <td className="text-muted-foreground whitespace-nowrap">{fechaHoraCorta(cuando)}</td>
-                        <td>
-                          <span className="inline-flex flex-wrap items-center gap-1.5">
-                            {clienteId ? <Link href={`/clientes/${clienteId}`} className="font-semibold hover:underline">{deportista}</Link> : <span className="font-semibold">{deportista}</span>}
-                            {nueva && <Badge variant="outline">Ficha nueva</Badge>}
-                          </span>
+                      <tr key={clave} className="border-border/60 hover:bg-muted/30 border-b transition-colors last:border-b-0">
+                        <td className="py-3.5 pr-4 pl-6 align-middle whitespace-nowrap">
+                          <div className="font-heading text-sm font-semibold">{dia}</div>
+                          <div className="text-muted-foreground text-xs tabular-nums">{hora}</div>
                         </td>
-                        <td className="text-muted-foreground">{loRegistro(pd, pf, escrito || deportista)}</td>
-                        <td className="space-x-1.5 whitespace-nowrap">
-                          {datos && <Hizo que="Datos" estado={datos.estado} conFicha={datos.cliente_id != null} />}
-                          {firma && <Hizo que="Firma" estado={firma.estado} conFicha />}
+                        <td className="px-4 py-3.5 align-middle">
+                          {clienteId ? (
+                            <Link href={`/clientes/${clienteId}`} className="font-semibold hover:underline">{deportista}</Link>
+                          ) : (
+                            <span className="font-semibold">{deportista}</span>
+                          )}
+                          {nueva && (
+                            <div className="mt-1">
+                              <span className="border-border text-foreground/80 inline-flex rounded-full border px-2 py-px text-[11px] font-semibold">Ficha nueva</span>
+                            </div>
+                          )}
                         </td>
-                        <td className="space-x-1.5">
-                          {pendientes ? <Badge variant="warning">{pendientes} de facturación por aprobar</Badge> : null}
-                          {pf?.autoriza?.imagen === false && <Badge variant="warning">Sin fotos</Badge>}
-                          {notas.map((n) => <span key={n} className="text-muted-foreground text-xs">“{n}”</span>)}
+                        <td className="px-4 py-3.5 align-middle">
+                          {quien === "propio" ? (
+                            <span className="text-muted-foreground italic">El propio deportista</span>
+                          ) : quien ? (
+                            <span>
+                              {quien.nombre}
+                              {quien.rel && <span className="bg-muted text-muted-foreground ml-1.5 rounded-full px-2 py-px text-xs">{quien.rel}</span>}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 align-middle">
+                          <div className="flex flex-wrap gap-1.5">
+                            <Hizo que="Datos" estado={datos ? (datos.estado === "en_revision" && datos.cliente_id != null ? "aplicada" : datos.estado) : null} />
+                            <Hizo que="Firma" estado={firma?.estado ?? null} />
+                          </div>
+                        </td>
+                        <td className="py-3.5 pr-6 pl-4 align-middle">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {pendientes ? <Aviso icono={Receipt}>{pendientes} de facturación por aprobar</Aviso> : null}
+                            {pf?.autoriza?.imagen === false && <Aviso icono={CameraOff}>Sin fotos</Aviso>}
+                            {notas.map((n) => <span key={n} className="text-muted-foreground text-xs">“{n}”</span>)}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -322,11 +375,29 @@ export default async function RegistrosPage({ searchParams }: { searchParams: Pr
                 </tbody>
               </table>
             </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">{filtro ? "Nada con este filtro." : "Todavía no ha llegado ninguna solicitud."}</p>
-          )}
-        </CardContent>
-      </Card>
+            <div className="border-border flex flex-wrap items-center justify-between gap-4 border-t px-6 py-4">
+              <p className="text-muted-foreground text-[13px]">
+                Mostrando <strong className="text-foreground tabular-nums">{primera}–{ultima}</strong> de <strong className="text-foreground tabular-nums">{totalHistorial}</strong>
+              </p>
+              {paginas > 1 && (
+                <nav aria-label="Páginas del historial" className="flex items-center gap-1.5">
+                  <BotonPagina href={pagina > 1 ? enlacePagina(pagina - 1) : null} etiqueta="Página anterior"><ChevronLeft className="size-4" /></BotonPagina>
+                  {paginasVisibles(pagina, paginas).map((n, i) =>
+                    n === "…" ? (
+                      <span key={`e${i}`} className="text-muted-foreground w-6 text-center" aria-hidden="true">…</span>
+                    ) : (
+                      <BotonPagina key={n} href={enlacePagina(n)} actual={n === pagina} etiqueta={`Página ${n}`}>{n}</BotonPagina>
+                    ),
+                  )}
+                  <BotonPagina href={pagina < paginas ? enlacePagina(pagina + 1) : null} etiqueta="Página siguiente"><ChevronRight className="size-4" /></BotonPagina>
+                </nav>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="text-muted-foreground border-border border-t px-6 py-8 text-sm">{filtro ? "Nada con este filtro." : "Todavía no ha llegado ninguna solicitud."}</p>
+        )}
+      </section>
     </div>
   );
 }
@@ -346,33 +417,86 @@ function motivoRevision(tipo: string | undefined, que: "firma" | "datos"): strin
     : `El formulario coincide con más de una ficha y no se aplicó. ${accion}`;
 }
 
-const comparable = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const comparable = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * "Lo registró" del historial: el acudiente que escribió la familia en los datos ("Andrea Ortiz · madre")
+ * "Lo registró" del historial: el acudiente que escribió la familia en los datos (Andrea Ortiz, madre)
  * o, si no hay, quien firmó. Un adulto que se registra a sí mismo no tiene acudiente y firma sin
- * parentesco y con su propio nombre: "El propio deportista". Es lo que la familia tecleó, no la ficha.
+ * parentesco y con su propio nombre: "propio". Es lo que la familia tecleó, no la ficha.
  */
-function loRegistro(datos: Payload | undefined, firma: Payload | undefined, deportista: string): string {
+function loRegistro(datos: Payload | undefined, firma: Payload | undefined, deportista: string): { nombre: string; rel?: string } | "propio" | null {
   const a = datos?.acudientes?.find((x) => x.principal) ?? datos?.acudientes?.[0];
   if (a?.nombre) {
-    const rol = a.rol === "otro" ? a.parentesco?.trim().toLowerCase() || "acudiente" : (a.rol && ROL[a.rol]) || "acudiente";
-    return `${a.nombre} · ${rol}`;
+    const rel = a.rol === "otro" ? a.parentesco?.trim().toLowerCase() || "acudiente" : (a.rol && ROL[a.rol]) || "acudiente";
+    return { nombre: a.nombre, rel };
   }
   const f = firma?.firmante ?? datos?.firmante;
   if (f?.nombre) {
-    if (f.parentesco?.trim()) return `${f.nombre} · ${f.parentesco.trim().toLowerCase()}`;
-    return comparable(f.nombre) === comparable(deportista) ? "El propio deportista" : f.nombre;
+    if (f.parentesco?.trim()) return { nombre: f.nombre, rel: f.parentesco.trim().toLowerCase() };
+    return comparable(f.nombre) === comparable(deportista) ? "propio" : { nombre: f.nombre };
   }
-  return datos?.acudientes && !datos.acudientes.length ? "El propio deportista" : "—";
+  return datos?.acudientes && !datos.acudientes.length ? "propio" : null;
 }
 
-/** Una de las dos marcas de "Hizo": verde si quedó en la ficha; ámbar si espera a alguien; gris si se descartó. */
-function Hizo({ que, estado, conFicha }: { que: "Datos" | "Firma"; estado: string; conFicha: boolean }) {
-  if (estado === "aplicada" || (estado === "en_revision" && conFicha && que === "Datos")) return <Badge variant="success">{que}</Badge>;
-  if (estado === "en_revision") return <Badge variant="warning">{que} por asignar</Badge>;
-  if (estado === "rechazada") return <Badge variant="outline">{que === "Datos" ? "Datos descartados" : "Firma descartada"}</Badge>;
-  return <Badge variant="outline">{que} · {(ESTADO[estado] ?? estado).toLowerCase()}</Badge>;
+/**
+ * Una de las dos marcas de "Hizo": lima con chulo si quedó en la ficha; ámbar si espera a que alguien la
+ * asigne; gris si se descartó; punteada si esa parte no llegó (solo firmó, o solo actualizó datos).
+ */
+function Hizo({ que, estado }: { que: "Datos" | "Firma"; estado: string | null }) {
+  const pill = "inline-flex items-center gap-1.5 rounded-full text-xs font-semibold whitespace-nowrap";
+  if (estado === "aplicada") {
+    return (
+      <span className={cn(pill, "bg-success/25 dark:bg-success/15 dark:text-success py-1 pr-2.5 pl-1 text-[#3f4a08]")}>
+        <span className="bg-primary text-stadium inline-flex size-4 items-center justify-center rounded-full" aria-hidden="true"><Check className="size-3" strokeWidth={3} /></span>
+        {que}
+      </span>
+    );
+  }
+  if (estado == null) return <span className={cn(pill, "border-border text-muted-foreground border border-dashed px-2.5 py-[3px] font-normal")}>Sin {que.toLowerCase()}</span>;
+  if (estado === "en_revision") return <span className={cn(pill, "bg-warning/20 dark:bg-warning/15 dark:text-warning px-2.5 py-1 text-[#7a4b00]")}>{que} por asignar</span>;
+  if (estado === "rechazada") return <span className={cn(pill, "border-border text-muted-foreground border px-2.5 py-[3px]")}>{que === "Datos" ? "Datos descartados" : "Firma descartada"}</span>;
+  return <span className={cn(pill, "border-border text-muted-foreground border px-2.5 py-[3px]")}>{que} · {(ESTADO[estado] ?? estado).toLowerCase()}</span>;
+}
+
+/** Un aviso del historial (sin fotos, facturación por aprobar): ámbar, con su ícono. */
+function Aviso({ icono: Icono, children }: { icono: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
+  return (
+    <span className="bg-warning/20 dark:bg-warning/15 dark:text-warning inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-[#7a4b00]">
+      <Icono className="size-3.5" />
+      {children}
+    </span>
+  );
+}
+
+/** Las páginas a mostrar: la primera, la última y las vecinas de la actual; los saltos van con "…". */
+function paginasVisibles(actual: number, total: number): (number | "…")[] {
+  const set = new Set([1, total, actual - 1, actual, actual + 1, ...(actual <= 3 ? [2, 3] : []), ...(actual >= total - 2 ? [total - 2, total - 1] : [])]);
+  const orden = Array.from(set).filter((n) => n >= 1 && n <= total).sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  let previa = 0;
+  for (const n of orden) {
+    if (n - previa === 2) out.push(previa + 1);
+    else if (n - previa > 2) out.push("…");
+    out.push(n);
+    previa = n;
+  }
+  return out;
+}
+
+/** Botón del paginador: un enlace (44 px para el dedo); sin `href` queda apagado (primera o última página). */
+function BotonPagina({ href, actual, etiqueta, children }: { href: string | null; actual?: boolean; etiqueta: string; children: React.ReactNode }) {
+  const base = "font-heading inline-flex size-11 items-center justify-center rounded-xl text-sm tabular-nums transition-colors";
+  if (!href) return <span aria-disabled="true" aria-label={etiqueta} className={cn(base, "border-border text-muted-foreground/40 border")}>{children}</span>;
+  return (
+    <Link
+      href={href}
+      aria-label={etiqueta}
+      aria-current={actual ? "page" : undefined}
+      className={cn(base, actual ? "bg-stadium text-primary font-bold" : "border-border bg-card text-foreground/80 hover:bg-muted border font-semibold")}
+    >
+      {children}
+    </Link>
+  );
 }
 
 function mostrar(campo: string, valor: string | null): string {
