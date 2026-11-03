@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronRight, GraduationCap, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, Download, GraduationCap, Users } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
@@ -116,9 +116,20 @@ export default async function AcademiasPage({
           </p>
         </div>
         {puedeEditar && (
-          <Link href={`/academias/clase/nueva?deporte=${deporte}`} className={buttonVariants()}>
-            + Nueva clase
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Trae los dos deportes, no el que esté en pantalla: es la lista
+                completa del club. Mismo permiso que la ruta `/academias/exportar`.
+                Va con `<a>` porque es una descarga: el linter la confunde con la
+                página `/academias/[id]`, y `Link` intentaría navegar a ella. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/academias/exportar" className={buttonVariants({ variant: "outline" })}>
+              <Download className="size-4" />
+              Descargar inscritos por profesor
+            </a>
+            <Link href={`/academias/clase/nueva?deporte=${deporte}`} className={buttonVariants()}>
+              + Nueva clase
+            </Link>
+          </div>
         )}
       </div>
 

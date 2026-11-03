@@ -176,9 +176,13 @@ describe("clase_abrir_del_planeador · la clase nace al cerrarla", () => {
          join public.profiles p on p.id = cs.profesor_id
          where cs.activa and p.role = 'profesor' order by cs.id limit 1`,
       );
+      // Dos semanas y sin festivos: con una sola, el martes 3-nov-2026 el único
+      // lunes a la vista era el festivo del 2-nov y el RPC lo rechazaba.
       const [{ fecha }] = await q(
-        `select d::date fecha from generate_series(current_date - 7, current_date, '1 day') d
-          where extract(dow from d) = $1 limit 1`,
+        `select d::date fecha from generate_series(current_date - 14, current_date, '1 day') d
+          where extract(dow from d) = $1
+            and not exists (select 1 from public.festivo f where f.fecha = d::date)
+          limit 1`,
         [cs.dia_semana],
       );
 

@@ -1035,6 +1035,7 @@ planeador qué debió dictarse** en vez de esperar a que alguien registre la cla
 La fila de `clases` **NACE CUANDO EL PROFESOR CIERRA**.
 - Se descartó **generar** las 52 clases cada lunes (propuesta mía; Laura la corrigió y
   tenía razón): si nadie cierra se acumulan, en festivos y vacaciones crea clases que
+| `/academias/exportar` | Descarga el Excel de inscritos por profesor (botón arriba en `/academias`) |
   nunca pasaron, y un mes sin cerrar deja ~220 filas fantasma en la tabla de la que come
   la liquidación. Derivando no hay nada que generar ni nada que limpiar.
 - **`clase_semanal.vigente_desde`** es el piso, si no la cola iría hacia atrás sin fin.
@@ -1047,6 +1048,19 @@ La fila de `clases` **NACE CUANDO EL PROFESOR CIERRA**.
   es opcional**: `clases_write` cubre SA/CA/coord. deportivo/recepción y **NO al
   profesor**, que es justo quien más cierra. Verificado: su `insert` directo lo rechaza
   la RLS. Si alguien lo cambiara por un insert desde la acción, **no escribiría y
+### 📥 Excel de inscritos por profesor (3-nov-2026)
+Lo pidió el coordinador deportivo: ver todos los alumnos de cada profesor. Laura escogió **solo el Excel**,
+sin lista en pantalla. Pestaña "Resumen" + una por profesor (alumno, edad, academia, días y horas), de
+tenis y pádel juntos. Se arma en `academias/exportar/excel.ts` con `academia_matricula`: no hubo migración.
+- ⚠️ **Un alumno es UNA fila por profesor**, y el planeador suma por CLASE: a Graciano le muestra 72
+  "niños" y el Excel dice 47 alumnos. Los dos están bien, pero cuentan cosas distintas.
+- El que tiene dos profesores sale en las dos hojas: el 3-nov-2026 las hojas suman 185 y son **167
+  alumnos**. Lo dice la nota del resumen; 17 alumnos tienen más de un profesor.
+- Matriculado sin ningún día: sale en su propia hoja "Sin profesor", no se pierde (ese día, 0).
+- **Sin teléfonos de acudientes y recepción no descarga** (`rolesForModule("academias", "edit")`): el
+  archivo lleva nombres y edades de menores.
+- Un fallo responde 500, nunca un Excel vacío. Incluye `mapaNombresStaff`, que no avisa si falla.
+
   seguiría de largo sin error** — el fallo que este proyecto ya pagó con el saldo de los
   paquetes. La función valida por dentro con el mismo criterio que cerrar (coordinación/
   recepción, o el profesor de la clase) y es **idempotente**: dos clics no crean dos

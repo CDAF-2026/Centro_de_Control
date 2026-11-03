@@ -42,7 +42,7 @@ export type DatosExcelHoras = {
 const FORMATO_HORAS = "0.00";
 const FORMATO_FECHA = "dd/mm/yyyy";
 const LIMA = "FFD4E157";
-const AMBAR = "FFFDF1D8";
+export const AMBAR = "FFFDF1D8";
 const ROJO = "FFFBE3E3";
 
 /** Minutos → horas decimales, sin redondear (el redondeo es solo de formato). */
@@ -54,7 +54,7 @@ function fechaExcel(dia: string): Date {
   return new Date(Date.UTC(y, m - 1, d));
 }
 
-function titulo(hoja: ExcelJS.Worksheet, texto: string, sub: string, ancho: number) {
+export function titulo(hoja: ExcelJS.Worksheet, texto: string, sub: string, ancho: number) {
   hoja.addRow([texto]).font = { bold: true, size: 14 };
   hoja.addRow([sub]).font = { italic: true, color: { argb: "FF6B7780" } };
   hoja.addRow([]);
@@ -62,7 +62,7 @@ function titulo(hoja: ExcelJS.Worksheet, texto: string, sub: string, ancho: numb
   hoja.mergeCells(2, 1, 2, ancho);
 }
 
-function encabezado(hoja: ExcelJS.Worksheet, rotulos: string[]) {
+export function encabezado(hoja: ExcelJS.Worksheet, rotulos: string[]) {
   const fila = hoja.addRow(rotulos);
   fila.font = { bold: true };
   fila.alignment = { vertical: "middle", wrapText: true };
@@ -75,7 +75,7 @@ function encabezado(hoja: ExcelJS.Worksheet, rotulos: string[]) {
   hoja.views = [{ state: "frozen", ySplit: fila.number }];
 }
 
-function pintar(fila: ExcelJS.Row, argb: string) {
+export function pintar(fila: ExcelJS.Row, argb: string) {
   fila.eachCell({ includeEmpty: true }, (c) => {
     c.fill = { type: "pattern", pattern: "solid", fgColor: { argb } };
   });

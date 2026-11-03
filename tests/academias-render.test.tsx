@@ -237,8 +237,13 @@ describe("las pantallas de academias se renderizan enteras", () => {
     // Se siembra UNA clase del planeador a una hora que nadie usa (06:15) y con
     // el piso en el pasado, para que la cola la proponga hoy. Se borra al final.
     const { profesorId } = await unaClase();
+    // Ayer, o el último día que no fue festivo: en festivo la academia no dicta y
+    // la cola no lo propone (esto falló el martes 3-nov-2026, tras el lunes festivo).
+    const { data: festivos } = await admin().from("festivo").select("fecha");
+    const noDicta = new Set((festivos ?? []).map((f: { fecha: string }) => f.fecha));
     const ayer = new Date();
-    ayer.setDate(ayer.getDate() - 1);
+    do ayer.setDate(ayer.getDate() - 1);
+    while (noDicta.has(fechaLocal(ayer)));
     const fecha = fechaLocal(ayer);
     const { data: cs } = await admin()
       .from("clase_semanal")
@@ -289,6 +294,21 @@ describe("las pantallas de academias se renderizan enteras", () => {
     }
     const plan = await import("../src/app/(app)/academias/page");
     expect(texto(await render(plan.default, { searchParams: P({}) }))).toContain("Academias activas");
+  });
+
+  it("el coordinador deportivo ve el botón de descargar inscritos; recepción no", async () => {
+    const { default: Page } = await import("../src/app/(app)/academias/page");
+    const rolReal = PERFIL.role;
+    try {
+      PERFIL.role = "coord_deportivo";
+      const html = await render(Page, { searchParams: P({}) });
+      expect(html).toContain('href="/academias/exportar"');
+      expect(texto(html)).toContain("Descargar inscritos por profesor");
+      PERFIL.role = "recepcion";
+      expect(await render(Page, { searchParams: P({}) })).not.toContain("/academias/exportar");
+    } finally {
+      PERFIL.role = rolReal;
+    }
   });
 
   it("solo el superadministrador ve el botón de pausar academias", async () => {
