@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, venceCierre } from "@/lib/fecha";
 import { unirAcompanantes, validarAcompanantes } from "@/lib/acompanantes";
 import { profesoresActivos } from "@/lib/staff";
 import { buscarClienteDeReserva } from "@/lib/clientes-match";
@@ -277,9 +277,10 @@ type CierreLikeState = { error?: string; ok?: string };
  * protege la server action):
  *  · Solo particulares: las de paquete derivan su valor del paquete y la academia no
  *    tiene valor por clase; dejar editarlas produciría cifras que nadie sabría explicar.
- *  · Pasadas 24 h del inicio de la clase, solo el SA. Se usa el MISMO plazo y el mismo
- *    helper que el techo de `/cierre` a propósito: así el equipo tiene una sola regla que
- *    recordar ("24 h desde que empezó") en vez de dos parecidas. Medido en agosto-2026,
+ *  · Pasado el plazo de cierre desde el inicio de la clase (`PLAZO_CIERRE_HORAS`, hoy 48 h),
+ *    solo el SA. Se usa el MISMO plazo y el mismo helper que el techo de `/cierre` a
+ *    propósito: así el equipo tiene una sola regla que recordar ("48 h desde que empezó")
+ *    en vez de dos parecidas. Medido en agosto-2026,
  *    una clase particular se registra y se cierra en segundos, así que atar el permiso al
  *    estado `programada` habría dejado a recepción sin ventana real para corregir.
  */
@@ -314,9 +315,9 @@ export async function editarValorClase(_prev: ValorClaseState, formData: FormDat
   if (clase.tipo !== "individual" || clase.paquete_cliente_id) {
     return { error: "Solo se puede corregir el valor de una clase particular." };
   }
-  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+  const venció = Date.now() > venceCierre(clase.fecha, clase.hora_inicio);
   if (venció && profile.role !== "superadmin") {
-    return { error: "Pasaron más de 24 h desde la clase y su valor ya cuenta para la liquidación. Pídele el ajuste al superadministrador." };
+    return { error: `Pasaron más de ${PLAZO_CIERRE_HORAS} h desde la clase y su valor ya cuenta para la liquidación. Pídele el ajuste al superadministrador.` };
   }
 
   // Nombres de los acompañantes (ver lib/acompanantes). Opcionales mientras la
@@ -465,7 +466,7 @@ export type CobroClaseState = { error?: string; ok?: string };
  * `valor_facturado ?? valorDelPaquete` (liquidacion.ts), así que dejar el
  * override puesto seguiría pagándole al profesor sobre el precio de particular.
  *
- * Mismo techo de 24 h que `editarValorClase`, con el mismo helper y a propósito:
+ * Mismo plazo que `editarValorClase` (`PLAZO_CIERRE_HORAS`), con el mismo helper y a propósito:
  * una sola regla que recordar. Pasado el plazo, solo el superadministrador.
  */
 export async function cambiarCobroClase(input: {
@@ -492,11 +493,11 @@ export async function cambiarCobroClase(input: {
     return { error: "Esta clase está cancelada: no tiene cobro que cambiar." };
   }
 
-  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+  const venció = Date.now() > venceCierre(clase.fecha, clase.hora_inicio);
   if (venció && profile.role !== "superadmin") {
     return {
       error:
-        "Pasaron más de 24 h desde la clase y su cobro ya cuenta para la liquidación. Pídele el cambio al superadministrador.",
+        `Pasaron más de ${PLAZO_CIERRE_HORAS} h desde la clase y su cobro ya cuenta para la liquidación. Pídele el cambio al superadministrador.`,
     };
   }
 
@@ -608,9 +609,9 @@ export async function cambiarCobroClase(input: {
  *    plata de una persona a otra y es una decisión distinta, que hoy no existe.
  *  · El profesor tiene que salir de `staff_docentes`: es quien tiene con qué
  *    cobrarla. Un id tecleado a mano no pasa.
- *  · NO lleva el techo de 24 h que sí tiene `editarValorClase`, y es a propósito:
+ *  · NO lleva el plazo de cierre que sí tiene `editarValorClase`, y es a propósito:
  *    estas clases se descubren justamente tarde (la del 12-sep apareció el 15),
- *    así que un plazo de 24 h dejaría sin arreglo exactamente los casos que
+ *    así que un plazo de horas dejaría sin arreglo exactamente los casos que
  *    motivaron esto. El rastro queda en `audit_log`.
  */
 export type ProfesorClaseState = { error?: string; ok?: string; profesor?: string };

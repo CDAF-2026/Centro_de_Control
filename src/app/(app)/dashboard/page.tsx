@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, venceCierre } from "@/lib/fecha";
 import { ahoraPantalla, hoyBogota, isoDia } from "@/lib/periodo";
 import { can, rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
@@ -122,7 +122,7 @@ export default async function DashboardPage({
   const { data: pend } = await pendQ;
   const now = Date.now();
   const vencidas = (pend ?? []).filter(
-    (c) => now > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000,
+    (c) => now > venceCierre(c.fecha, c.hora_inicio),
   ).length;
 
   // El dinero sale de Siigo (regla 3). Antes se sumaba `pagos`, el modelo viejo
@@ -154,7 +154,7 @@ export default async function DashboardPage({
           <span className="flex items-center gap-2.5 text-sm">
             <TriangleAlert className="text-destructive size-5 shrink-0" />
             <span>
-              <strong>{vencidas}</strong> clase(s) sin cerrar hace más de 24 h.
+              <strong>{vencidas}</strong> clase(s) sin cerrar hace más de {PLAZO_CIERRE_HORAS} h.
             </span>
           </span>
           <Link href="/cierre" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>

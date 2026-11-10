@@ -4,7 +4,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff, profesoresParaFiltrar } from "@/lib/staff";
 import { nombresDeportistas } from "@/lib/deportistas";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, instanteClase, venceCierre } from "@/lib/fecha";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button";
@@ -184,7 +184,7 @@ export default async function CierrePage({
             </p>
           </div>
           {pendientesPlan.map((p) => {
-            const vencida = now > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+            const vencida = now > venceCierre(p.fecha, p.hora_inicio);
             return (
               <div key={`${p.clase_id}-${p.fecha}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                 <div>
@@ -197,7 +197,7 @@ export default async function CierrePage({
                     {p.cancha ? ` · Cancha ${p.cancha}` : ""}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1.5">
-                    {vencida && <Badge variant="destructive">+24 h sin cerrar</Badge>}
+                    {vencida && <Badge variant="destructive">+{PLAZO_CIERRE_HORAS} h sin cerrar</Badge>}
                   </div>
                 </div>
                 <form action={abrirClaseDelPlaneador}>
@@ -213,7 +213,7 @@ export default async function CierrePage({
 
       <div className="space-y-2">
         {lista.map((c) => {
-          const vencida = now > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+          const vencida = now > venceCierre(c.fecha, c.hora_inicio);
           const quien =
             c.tipo === "academia"
               ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
@@ -228,7 +228,7 @@ export default async function CierrePage({
                   {c.tipo === "academia" ? "Academia" : "Individual"}
                   {c.deporte ? ` · ${c.deporte}` : ""} · Profe: {profe}
                 </p>
-                {vencida && <Badge variant="destructive" className="mt-1">+24 h sin cerrar</Badge>}
+                {vencida && <Badge variant="destructive" className="mt-1">+{PLAZO_CIERRE_HORAS} h sin cerrar</Badge>}
               </div>
               <Link href={`/cierre/${c.id}`} className={buttonVariants({ size: "sm" })}>Cerrar</Link>
             </div>

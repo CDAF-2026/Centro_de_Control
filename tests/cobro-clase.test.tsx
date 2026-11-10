@@ -83,10 +83,10 @@ describe("el modal dice cómo se cobra la clase", () => {
     expect(html).toContain("Paquete 8 clases Padel (2 personas) Joaquin");
   });
 
-  it("pasadas 24 h explica a quién pedírselo", async () => {
+  it("pasado el plazo explica a quién pedírselo", async () => {
     const html = await montar({
       editable: false,
-      aviso: "Pasaron más de 24 h: para cambiarlo, pídeselo al superadministrador.",
+      aviso: "Pasaron más de 48 h: para cambiarlo, pídeselo al superadministrador.",
     });
     expect(html).toContain("superadministrador");
   });

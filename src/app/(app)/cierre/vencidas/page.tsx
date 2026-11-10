@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, venceCierre } from "@/lib/fecha";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff } from "@/lib/staff";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ export default async function ClasesVencidasPage() {
   const now = new Date();
   const hoyIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  // Clases aún programadas con fecha <= hoy; luego filtramos las que ya pasaron las 24 h.
+  // Clases aún programadas con fecha <= hoy; luego filtramos las que ya pasaron el plazo de cierre.
   const { data: clases } = await supabase
     .from("clases")
     .select("id, fecha, hora_inicio, tipo, deporte, profesor_id, cliente_id, academia_id")
@@ -29,7 +29,7 @@ export default async function ClasesVencidasPage() {
 
   const nowMs = now.getTime();
   const vencidas = (clases ?? []).filter((c) => {
-    return nowMs > instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+    return nowMs > venceCierre(c.fecha, c.hora_inicio);
   });
 
   // Las academias no se registran de antemano, así que lo vencido de academia hay
@@ -41,7 +41,7 @@ export default async function ClasesVencidasPage() {
     p_profesor: null,
   });
   const planVencidas = (delPlan ?? [])
-    .filter((p) => nowMs > instanteClase(p.fecha, p.hora_inicio, "23:59:00") + 24 * 3600 * 1000)
+    .filter((p) => nowMs > venceCierre(p.fecha, p.hora_inicio))
     .sort((a, b) => b.fecha.localeCompare(a.fecha))
     .slice(0, 300);
 
@@ -68,7 +68,7 @@ export default async function ClasesVencidasPage() {
   }
 
   const haceTexto = (c: { fecha: string; hora_inicio: string | null }) => {
-    const ms = nowMs - (instanteClase(c.fecha, c.hora_inicio, "23:59:00") + 24 * 3600 * 1000);
+    const ms = nowMs - venceCierre(c.fecha, c.hora_inicio);
     const dias = Math.floor(ms / 86400000);
     return dias >= 1 ? `vencida hace ${dias} día${dias === 1 ? "" : "s"}` : `vencida hace ${Math.floor(ms / 3600000)} h`;
   };
@@ -79,7 +79,7 @@ export default async function ClasesVencidasPage() {
         <Link href="/cierre" className="text-muted-foreground text-sm hover:underline">← Clases por cerrar</Link>
         <h1 className="cdaf-headline mt-1">Clases vencidas ({vencidas.length + planVencidas.length})</h1>
         <p className="text-muted-foreground text-sm">
-          Clases que pasaron <strong>24 h sin cerrarse</strong> por el profesor → no entran a la liquidación.
+          Clases que pasaron <strong>{PLAZO_CIERRE_HORAS} h sin cerrarse</strong> por el profesor → no entran a la liquidación.
           Ciérralas tú (como superadministrador) o reactívalas para que el profesor las registre.
         </p>
       </div>

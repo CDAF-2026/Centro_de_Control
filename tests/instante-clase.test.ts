@@ -67,3 +67,49 @@ describe("instanteClase", () => {
       .toBeGreaterThan(ahora);
   });
 });
+
+/**
+ * El plazo para cerrar una clase: 48 h desde que EMPIEZA (eran 24 hasta el
+ * 10-nov-2026; el club lo pidió porque a los profesores se les quedaba corto).
+ *
+ * Se prueba aquí, sin base, porque el plazo vive en un solo sitio
+ * (`PLAZO_CIERRE_HORAS`) y todas las pantallas y acciones pasan por
+ * `venceCierre` / `cierreVencido`.
+ */
+describe("el plazo para cerrar una clase", () => {
+  const H = 3_600_000;
+
+  it("son 48 horas: lo pidió el club, no es un número suelto", async () => {
+    const { PLAZO_CIERRE_HORAS } = await import("../src/lib/fecha");
+    expect(PLAZO_CIERRE_HORAS).toBe(48);
+  });
+
+  it("se cuenta desde la hora de INICIO de la clase, en hora de Colombia", async () => {
+    const { venceCierre } = await import("../src/lib/fecha");
+    // Clase del jueves 30-jul a las 10:00 a. m. de Bogotá = 15:00 UTC.
+    expect(new Date(venceCierre("2026-07-30", "10:00:00")).toISOString()).toBe(
+      "2026-08-01T15:00:00.000Z",
+    );
+  });
+
+  it("a las 30 h todavía se puede cerrar (con el plazo viejo de 24 ya no)", async () => {
+    const { cierreVencido, instanteClase } = await import("../src/lib/fecha");
+    const inicio = instanteClase("2026-07-30", "10:00:00");
+    expect(cierreVencido("2026-07-30", "10:00:00", inicio + 30 * H)).toBe(false);
+    expect(cierreVencido("2026-07-30", "10:00:00", inicio + 48 * H - 60_000)).toBe(false);
+  });
+
+  it("pasadas las 48 h queda vencida", async () => {
+    const { cierreVencido, instanteClase } = await import("../src/lib/fecha");
+    const inicio = instanteClase("2026-07-30", "10:00:00");
+    expect(cierreVencido("2026-07-30", "10:00:00", inicio + 48 * H + 60_000)).toBe(true);
+    expect(cierreVencido("2026-07-30", "10:00:00", inicio + 72 * H)).toBe(true);
+  });
+
+  it("una clase sin hora cuenta desde el final de su día", async () => {
+    const { venceCierre, instanteClase } = await import("../src/lib/fecha");
+    expect(venceCierre("2026-07-30", null)).toBe(
+      instanteClase("2026-07-30", null, "23:59:00") + 48 * H,
+    );
+  });
+});

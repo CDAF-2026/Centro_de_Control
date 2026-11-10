@@ -4,7 +4,7 @@ import { rolesForModule, can } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { mapaNombresStaff, docentesConDeporte, opcionesParaDeporte } from "@/lib/staff";
 import { nombresDeportistas } from "@/lib/deportistas";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, venceCierre } from "@/lib/fecha";
 import { buttonVariants } from "@/components/ui/button";
 import { getBookings, deporteDeSport, profesorDeCancha, claveProfesor, esBloqueoAcademia, pareceClase, documentoDeBooking } from "@/lib/easycancha/client";
 import { CalendarGrid } from "./calendar-grid";
@@ -162,12 +162,12 @@ export default async function ClasesPage({
   const puedeAsignar = can(profile.role, "clases", "edit");
   const docentes = puedeAsignar ? await docentesConDeporte() : [];
 
-  // Corregir el valor de una particular usa el MISMO techo de 24 h que cerrar la clase,
+  // Corregir el valor de una particular usa el MISMO plazo que cerrar la clase (48 h),
   // con el mismo helper, para no tener dos cálculos de "fecha+hora" que se desincronicen.
   const esSA = profile.role === "superadmin";
   const ahora = Date.now();
   const vencida = (fecha: string, horaInicio: string | null) =>
-    ahora > instanteClase(fecha, horaInicio, "23:59:00") + 24 * 3600 * 1000;
+    ahora > venceCierre(fecha, horaInicio);
 
   const internas: CalEvento[] = lista.map((c) => {
     const hora = c.hora_inicio?.slice(0, 5) ?? "";
@@ -220,7 +220,7 @@ export default async function ClasesPage({
         : {}),
       // Cómo se cobra, y con qué cambiarlo: registrar "Particular" donde iba
       // paquete no tenía arreglo salvo borrar la clase y volverla a crear.
-      // Mismo plazo que corregir el valor: 24 h, y el SA siempre.
+      // Mismo plazo que corregir el valor (`PLAZO_CIERRE_HORAS`), y el SA siempre.
       ...(puedeAsignar && c.tipo === "individual" && c.estado !== "cancelada" && c.estado !== "no_show"
         ? {
             cobro: {
@@ -232,7 +232,7 @@ export default async function ClasesPage({
               aviso: vencida(c.fecha, c.hora_inicio)
                 ? esSA
                   ? null
-                  : "Pasaron más de 24 h: para cambiarlo, pídeselo al superadministrador."
+                  : `Pasaron más de ${PLAZO_CIERRE_HORAS} h: para cambiarlo, pídeselo al superadministrador.`
                 : null,
               // El saldo del paquete se mueve al CERRAR, no al registrar: una
               // clase programada todavía no ha consumido nada.
@@ -241,7 +241,7 @@ export default async function ClasesPage({
           }
         : {}),
       // Solo la particular (individual sin paquete) lleva valor corregible en el modal.
-      // El plazo es el MISMO techo de 24 h que rige el cierre (ver editarValorClase).
+      // El plazo es el MISMO que rige el cierre (ver editarValorClase).
       ...(c.tipo === "individual" && !c.paquete_cliente_id
         ? {
             particular: {
@@ -253,8 +253,8 @@ export default async function ClasesPage({
               editable: esSA || !vencida(c.fecha, c.hora_inicio),
               aviso: vencida(c.fecha, c.hora_inicio)
                 ? esSA
-                  ? "Pasaron más de 24 h: su valor ya cuenta para la liquidación."
-                  : "Pasaron más de 24 h. Para corregirlo, pídeselo al superadministrador."
+                  ? `Pasaron más de ${PLAZO_CIERRE_HORAS} h: su valor ya cuenta para la liquidación.`
+                  : `Pasaron más de ${PLAZO_CIERRE_HORAS} h. Para corregirlo, pídeselo al superadministrador.`
                 : c.estado !== "programada"
                   ? "Ya cerrada: su valor cuenta para la liquidación del profesor."
                   : null,

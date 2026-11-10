@@ -1428,8 +1428,25 @@ estar ahí (las 3 academias de agosto del modelo viejo, una particular registrad
   hora quedan disponibles todo su día). Sin esto se marcaba asistencia por la mañana de una clase de
   la tarde — asistencia inventada que además cuenta para la liquidación. La cola de `/cierre` también
   las esconde y la pantalla de detalle muestra un aviso en vez del formulario.
-- **Techo**: pasadas **24 h** desde el inicio, solo el **superadministrador** puede registrar
-  (`/cierre/vencidas` las lista). Ya existía y está verificado que funciona.
+- **Techo**: pasadas **48 h** desde el inicio, solo el **superadministrador** puede registrar
+  (`/cierre/vencidas` las lista).
+  ⏱️ **Eran 24 h; pasó a 48 el 10-nov-2026** (pedido del club por Laura: a los profesores se les
+  quedaba corto). Todo lo que en este archivo diga "24 h" sobre el cierre es de antes de esa fecha.
+  · El plazo vive en UN sitio: **`PLAZO_CIERRE_HORAS`** de `src/lib/fecha.ts`, con `venceCierre()` y
+    `cierreVencido()`. Antes el cálculo `+ 24 * 3600 * 1000` estaba copiado en **doce** sitios
+    (acciones, cola de cierre, vencidas, liquidación y los dos dashboards) y cada pantalla traía su
+    "24 h" escrito a mano; ahora los textos se arman con la constante.
+  · ⚠️ **Es el MISMO plazo para tres cosas**, como ya estaba decidido: cerrar la clase, corregir valor
+    y personas de una particular (`editarValorClase`) y cambiar el cobro (`cambiarCobroClase`). Las
+    tres pasaron a 48 h juntas; Laura pidió solo el cierre y se le informó.
+  · Se sigue contando desde que la clase EMPIEZA. Laura dijo "48 horas después de que se edite la
+    clase": se entendió "se dicte". Si quiso decir otra cosa (desde que se registra o se modifica),
+    hay que cambiar la base del cálculo, no el número.
+  · No hay candado en la base: el plazo solo lo hace cumplir la aplicación.
+  · Consecuencia: una clase pasa a "vencida" (y a la bandeja del superadministrador) un día más tarde,
+    así que las alertas de "clases sin cerrar" del dashboard y de la liquidación tardan 24 h más en salir.
+  · Pruebas: `tests/instante-clase.test.ts` (+5, el cálculo) y `tests/academias-render.test.tsx`
+    (+1: la acción con una clase de 30 h y otra de 50 h).
 
 👤 **La ficha del cliente se busca por correo Y por CÉDULA** (15-sep-2026,
 `src/lib/clientes-match.ts`). EasyCancha tenía a **Karent Coronado** como

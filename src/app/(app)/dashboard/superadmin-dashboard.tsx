@@ -10,7 +10,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, cierreVencido } from "@/lib/fecha";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -319,8 +319,7 @@ export async function SuperadminDashboard({
   const nowMs = now.getTime();
   let totalVencidas = 0;
   for (const c of pendRes.data ?? []) {
-    const dt = instanteClase(c.fecha, c.hora_inicio, "23:59:00");
-    if (nowMs > dt + 24 * 3600 * 1000) totalVencidas++;
+    if (cierreVencido(c.fecha, c.hora_inicio, nowMs)) totalVencidas++;
   }
 
   // ───────── Clases agendadas y ocupación de canchas de la semana (EasyCancha) ─────────
@@ -389,7 +388,7 @@ export async function SuperadminDashboard({
         <div className="border-destructive/30 bg-destructive/[0.06] flex items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
           <span className="flex items-center gap-2.5 text-sm">
             <TriangleAlert className="text-destructive size-5 shrink-0" />
-            <span><strong>{totalVencidas}</strong> clase(s) sin cerrar hace más de 24 h.</span>
+            <span><strong>{totalVencidas}</strong> clase(s) sin cerrar hace más de {PLAZO_CIERRE_HORAS} h.</span>
           </span>
           <Link href="/cierre/vencidas" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Ver vencidas</Link>
         </div>

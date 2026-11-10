@@ -39,7 +39,7 @@ export type CalEvento = {
     acompanantes: string[];
     /** Ya cerrada: los nombres son obligatorios aquí porque no habrá otro cierre que los pida. */
     cerrada: boolean;
-    /** Si este usuario puede corregirla AHORA (24 h desde el inicio; el SA siempre). */
+    /** Si este usuario puede corregirla AHORA (dentro del plazo de cierre, hoy 48 h desde el inicio; el SA siempre). */
     editable: boolean;
     /** Por qué está bloqueada, o la advertencia a mostrar. null = sin nota. */
     aviso: string | null;
@@ -66,7 +66,7 @@ export type CalEvento = {
     paqueteLabel: string | null;
     /** Lo que se cobró como particular; se propone si se vuelve a particular. */
     valor: number;
-    /** Si este usuario puede cambiarlo AHORA (24 h desde el inicio; el SA siempre). */
+    /** Si este usuario puede cambiarlo AHORA (dentro del plazo de cierre, hoy 48 h desde el inicio; el SA siempre). */
     editable: boolean;
     /** Por qué está bloqueado, o la advertencia a mostrar. null = sin nota. */
     aviso: string | null;

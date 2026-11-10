@@ -857,8 +857,10 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 
 - **Piso**: no se puede cerrar una clase ANTES de que empiece. Sin esto se marcaba
   asistencia por la mañana de una clase de la tarde.
-- **Techo**: pasadas **24 h** desde el inicio, solo el superadministrador registra.
-- **El mismo techo de 24 h rige para corregir el valor y el cobro** de una clase, a
+- **Techo**: pasadas **48 h** desde el inicio, solo el superadministrador registra (eran 24
+  hasta el 10-nov-2026). El número vive en `PLAZO_CIERRE_HORAS` (`src/lib/fecha.ts`): no lo
+  escribas a mano en ninguna pantalla, usa `venceCierre()` / `cierreVencido()`.
+- **El mismo plazo de 48 h rige para corregir el valor y el cobro** de una clase, a
   propósito: **una sola regla que recordar**.
 - **El club cobra POR PERSONA**: 1 persona $130.000, 2 personas $150.000. Por eso
   "Personas" y "Precio" se editan **juntos** — en el club son la misma corrección.
@@ -880,7 +882,7 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - **Las reglas se DESACTIVAN, no se borran**: la liquidación de quincenas pasadas tiene que
   poder explicarse.
 - **No hay tabla de liquidación** (se calcula al vuelo), así que **no se puede saber por
-  código si una quincena ya se pagó**. El plazo de 24 h es el sustituto de ese candado.
+  código si una quincena ya se pagó**. El plazo de cierre (48 h) es el sustituto de ese candado.
 
 ### Turnos del personal
 

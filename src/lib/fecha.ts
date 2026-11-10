@@ -59,7 +59,7 @@ export function fechaHoraCorta(iso: string): string {
  * Colombia no tiene horario de verano, el desfase es constante todo el año.
  *
  * @param horaPorDefecto qué asumir cuando la clase no tiene hora. "00:00:00"
- *   para el piso (disponible todo el día) y "23:59:00" para el techo de 24 h.
+ *   para el piso (disponible todo el día) y "23:59:00" para el techo del plazo de cierre.
  */
 export function instanteClase(
   fecha: string,
@@ -71,6 +71,44 @@ export function instanteClase(
   // depender de eso.
   const hms = h.length === 5 ? `${h}:00` : h.slice(0, 8);
   return new Date(`${fecha}T${hms}-05:00`).getTime();
+}
+
+/**
+ * Cuántas horas tiene el profesor para cerrar una clase, contadas desde que la
+ * clase EMPIEZA. Pasado el plazo, solo el superadministrador puede registrarla
+ * (`/cierre/vencidas`).
+ *
+ * Eran 24 h y el club pidió 48 (Laura, 10-nov-2026): a los profesores se les
+ * estaba quedando corto.
+ *
+ * ⚠️ Es UN solo plazo para tres cosas, a propósito, para que el equipo tenga
+ * una sola regla que recordar: cerrar la clase (`cerrarClase`), corregir el
+ * valor y las personas de una particular (`editarValorClase`) y cambiar su
+ * cobro (`cambiarCobroClase`). Si algún día se quieren plazos distintos, no
+ * basta con otro número: hay que separar las tres llamadas.
+ *
+ * ⚠️ Hasta ese día el cálculo `… + 24 * 3600 * 1000` estaba copiado en DOCE
+ * sitios (acciones, cola de cierre, vencidas, liquidación y los dos
+ * dashboards), cada uno con su texto "24 h" escrito a mano. Cambiar el plazo
+ * era tocarlos todos sin olvidar ninguno. Ahora todos pasan por aquí, y los
+ * textos se arman con la constante.
+ *
+ * No hay candado en la base: el plazo solo vive en la aplicación.
+ */
+export const PLAZO_CIERRE_HORAS = 48;
+
+/** El instante (ms) en que se le acaba el plazo a una clase. Sin hora, cuenta desde las 23:59 de su día. */
+export function venceCierre(fecha: string, horaInicio: string | null): number {
+  return instanteClase(fecha, horaInicio, "23:59:00") + PLAZO_CIERRE_HORAS * 3_600_000;
+}
+
+/** ¿Ya se pasó el plazo para cerrarla (o corregirla)? */
+export function cierreVencido(
+  fecha: string,
+  horaInicio: string | null,
+  ahora: number = Date.now(),
+): boolean {
+  return ahora > venceCierre(fecha, horaInicio);
 }
 
 /** "hace 25 min", "ayer", … Solo para usar DESPUÉS de montar (depende del reloj). */

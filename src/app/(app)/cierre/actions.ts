@@ -7,7 +7,7 @@ import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nombreStaff } from "@/lib/staff";
-import { instanteClase } from "@/lib/fecha";
+import { PLAZO_CIERRE_HORAS, instanteClase, venceCierre } from "@/lib/fecha";
 import { unirAcompanantes, validarAcompanantes } from "@/lib/acompanantes";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email/resend";
@@ -58,11 +58,11 @@ export async function cerrarClase(
     return { error: "Esta clase todavía no ha empezado. Se puede cerrar cuando haya iniciado." };
   }
 
-  // Techo: pasado el plazo de 24h, solo el superadministrador puede registrar.
-  const venció = Date.now() > instanteClase(clase.fecha, clase.hora_inicio, "23:59:00") + 24 * 3600 * 1000;
+  // Techo: pasado el plazo (`PLAZO_CIERRE_HORAS`), solo el superadministrador puede registrar.
+  const venció = Date.now() > venceCierre(clase.fecha, clase.hora_inicio);
   if (venció && profile.role !== "superadmin") {
     return {
-      error: "Pasaron más de 24 h. Solo el superadministrador puede registrarla (solicítaselo).",
+      error: `Pasaron más de ${PLAZO_CIERRE_HORAS} h. Solo el superadministrador puede registrarla (solicítaselo).`,
     };
   }
 

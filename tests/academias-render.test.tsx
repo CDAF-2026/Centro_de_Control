@@ -510,6 +510,63 @@ describe("las pantallas de academias se renderizan enteras", () => {
     }
   });
 
+  it("el profesor tiene 48 h para cerrar su clase; después, solo el superadministrador", async () => {
+    // Eran 24 h hasta el 10-nov-2026. Se prueba la ACCIÓN, no solo el cálculo:
+    // el plazo solo vive en la aplicación (la base no lo hace cumplir).
+    const H = 3_600_000;
+    /** Fecha y hora de Bogotá de hace `horas` horas, como las guarda `clases`. */
+    const hace = (horas: number) => {
+      const p = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Bogota",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+      })
+        .formatToParts(new Date(Date.now() - horas * H))
+        .reduce((a, x) => ({ ...a, [x.type]: x.value }), {} as Record<string, string>);
+      return { fecha: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}:00` };
+    };
+    const crear = async (horas: number) => {
+      const { fecha, hora } = hace(horas);
+      const { data, error } = await admin().from("clases").insert({
+        // Suya: el profesor solo cierra las que dictó él.
+        tipo: "individual", profesor_id: PERFIL.id, deporte: "tenis", fecha,
+        hora_inicio: hora, hora_fin: hora, precio: 100000, estado: "programada",
+      }).select("id").single();
+      if (error) throw new Error(`No se pudo crear la clase de prueba: ${error.message}`);
+      return data!.id as number;
+    };
+    const { cerrarClase } = await import("../src/app/(app)/cierre/actions");
+    /** Intenta cerrarla como «no se dictó» SIN motivo: si pasa el plazo, el error
+     *  es el del motivo, y no se escribe nada. Así se prueba el plazo sin cerrar. */
+    const intento = async (id: number) => {
+      const fd = new FormData();
+      fd.set("claseId", String(id));
+      fd.set("estado", "cancelada");
+      return (await cerrarClase({}, fd)).error ?? "";
+    };
+
+    const a30 = await crear(30);
+    const a50 = await crear(50);
+    const rolAntes = PERFIL.role;
+    try {
+      PERFIL.role = "profesor";
+      // A las 30 h (con el plazo viejo ya estaba vencida) el plazo lo deja pasar.
+      expect(await intento(a30)).toMatch(/por qué no se dictó/i);
+      // A las 50 h ya no: se lo tiene que pedir al superadministrador.
+      expect(await intento(a50)).toMatch(/más de 48 h/i);
+      expect(await intento(a50)).toMatch(/superadministrador/i);
+      // Y el superadministrador sí pasa, que es para lo que existe /cierre/vencidas.
+      PERFIL.role = "superadmin";
+      expect(await intento(a50)).toMatch(/por qué no se dictó/i);
+    } finally {
+      PERFIL.role = rolAntes;
+      await admin().from("clases").delete().in("id", [a30, a50]);
+    }
+    // Ninguno de los intentos la cerró: no quedó nada escrito.
+    const { count } = await admin().from("clases").select("id", { count: "exact", head: true }).in("id", [a30, a50]);
+    expect(count).toBe(0);
+  });
+
   it("eliminar una clase pendiente: solo el superadministrador", async () => {
     const { data: prof } = await admin().from("profiles").select("id").eq("role", "profesor").eq("activo", true).limit(1).single();
     const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
