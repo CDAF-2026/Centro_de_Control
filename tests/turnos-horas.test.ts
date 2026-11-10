@@ -19,6 +19,8 @@ import pg from "pg";
  *   · Diurna 6:00–18:59 · Nocturna 19:00–5:59
  *   · Extra si pasa de 7 h al día, de 42 a la semana, o si es después de las
  *     9 p.m. (o antes de las 6 a.m.), que es fuera de la operación del club
+ *   · Hacia las 42 h solo suman las horas ORDINARIAS: una extra del día no
+ *     gasta cupo de la semana (corregido el 10-nov-2026)
  *   · Domingos y festivos llevan recargo dominical
  */
 const client = new pg.Client({
@@ -239,6 +241,55 @@ describe("turnos_horas · horas extra", () => {
       expect(semana.total).toBe(46);
     });
   });
+
+  // ── Hacia las 42 h solo suman las ORDINARIAS (10-nov-2026) ──────────────
+  // Hasta esa fecha el contador de la semana numeraba todos los minutos, también
+  // los que ya eran extra por el día, y la misma hora se contaba dos veces.
+
+  it("las extras del día no gastan cupo de las 42 h", async () => {
+    await enTransaccion(async () => {
+      // Lunes a sábado, 8 h diarias = 48 h. Cada día 7 ordinarias + 1 extra.
+      for (let d = 6; d <= 11; d++) {
+        const dia = `2027-09-${String(d).padStart(2, "0")}`;
+        const t = await turno(`${dia} 07:00`, `${dia} 16:00`);
+        await pausa(t, `${dia} 12:00`, `${dia} 13:00`);
+      }
+      // Con el conteo viejo daba 37 + 11: el sábado llegaba con 40 h "gastadas"
+      // y solo le quedaban 2 de cupo.
+      expect(await horas(LUN, SAB)).toEqual({ ...CERO, diurnas: 42, extraDiurnas: 6, total: 48 });
+    });
+  });
+
+  it("un día largo compensado con uno corto sigue generando sus extras", async () => {
+    await enTransaccion(async () => {
+      // Lunes de 10 h, martes a viernes de 7 h y sábado de 4 h = 42 h justas.
+      // Por esto NO se cuenta solo al final de la semana: daría 0 extras.
+      const lun = await turno(`${LUN} 07:00`, `${LUN} 18:00`);
+      await pausa(lun, `${LUN} 12:00`, `${LUN} 13:00`);
+      for (let d = 7; d <= 10; d++) {
+        const dia = `2027-09-${String(d).padStart(2, "0")}`;
+        const t = await turno(`${dia} 07:00`, `${dia} 15:00`);
+        await pausa(t, `${dia} 12:00`, `${dia} 13:00`);
+      }
+      await turno(`${SAB} 07:00`, `${SAB} 11:00`);
+      expect(await horas(LUN, SAB)).toEqual({ ...CERO, diurnas: 39, extraDiurnas: 3, total: 42 });
+    });
+  });
+
+  it("el vigilante, 11 h diarias toda la semana: 42 ordinarias y 24 extra", async () => {
+    await enTransaccion(async () => {
+      for (let d = 6; d <= 11; d++) {
+        const dia = `2027-09-${String(d).padStart(2, "0")}`;
+        const t = await turno(`${dia} 09:00`, `${dia} 21:00`);
+        await pausa(t, `${dia} 13:00`, `${dia} 14:00`);
+      }
+      // 4 extras al día × 6 = 24, que es lo que siempre se dijo que debía dar.
+      // Con el conteo viejo salían 28 ordinarias + 38 extra.
+      expect(await horas(LUN, SAB)).toEqual({
+        ...CERO, diurnas: 42, extraDiurnas: 12, extraNocturnas: 12, total: 66,
+      });
+    });
+  });
 });
 
 describe("turnos_horas · domingos y festivos", () => {
@@ -321,18 +372,25 @@ describe("turnos_horas · casos límite", () => {
 
   it("pedir medio periodo no reinicia el contador de las 42 h", async () => {
     // El riesgo que cubre esta prueba: si la función contara solo desde
-    // `p_desde`, las horas del viernes saldrían como ordinarias cuando la semana
-    // ya venía pasada de 42 desde el jueves.
+    // `p_desde`, las horas del domingo saldrían como ordinarias cuando la semana
+    // ya venía con sus 42 completas desde el sábado.
+    //
+    // ⚠️ El ejemplo cambió el 10-nov-2026. Antes eran cinco días de 11 h y se
+    // pedía el viernes "con 44 h encima": eso solo era cierto con el conteo
+    // viejo, que sumaba hacia las 42 también las extras del día. Ahora la semana
+    // se llena con 42 ORDINARIAS (seis días de 7 h) y se pide el domingo.
     await enTransaccion(async () => {
-      for (let d = 6; d <= 10; d++) {
+      for (let d = 6; d <= 11; d++) {
         const dia = `2027-09-${String(d).padStart(2, "0")}`;
-        await turno(`${dia} 07:00`, `${dia} 18:00`); // 11 h/día, sin almuerzo
+        await turno(`${dia} 07:00`, `${dia} 14:00`); // 7 h/día, sin almuerzo
       }
-      // Al pedir SOLO el viernes: ese día arranca con 44 h encima (4 × 11), así
-      // que sus 11 h están todas por encima del tope semanal.
-      const vie = await horas("2027-09-10", "2027-09-10");
-      expect(vie.diurnas).toBe(0);
-      expect(vie.extraDiurnas).toBe(11);
+      await turno(`${DOM} 08:00`, `${DOM} 12:00`);
+      // Al pedir SOLO el domingo: arranca con las 42 ordinarias ya cumplidas,
+      // así que sus 4 h están todas por encima del tope semanal.
+      const dom = await horas(DOM, DOM);
+      expect(dom.domDiurnas).toBe(0);
+      expect(dom.domExtraDiurnas).toBe(4);
+      expect(dom.total).toBe(4);
     });
   });
 

@@ -892,6 +892,9 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - Normativa codificada: semana **lun–dom**, máx **42 h** (Ley 2101/2021); diurna
   **6:00–18:59**, nocturna **19:00–5:59** (Ley 2466/2025); dominical y festivo **+90%**.
   El cálculo va **minuto a minuto** en `turnos_horas`.
+- **Hacia las 42 h solo suman las horas ORDINARIAS** (10-nov-2026): una hora que ya es extra
+  por el día no gasta cupo de la semana. Aplica hacia atrás, así que un Excel descargado
+  antes de esa fecha muestra más extras que la pantalla.
 - **`turno.origen` NO dice el aparato, dice la PUERTA**: `app` = con su usuario (desde donde
   sea), `quiosco` = pantalla compartida con PIN, `ajuste` = lo escribió el SA.
 

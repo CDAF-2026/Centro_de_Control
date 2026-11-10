@@ -1795,6 +1795,27 @@ como recepción), **Juan Fernando Gaviria** (coord. admin), **Santiago Montoya**
   reporte de `/horas` es la base para pagárselos. Medido del 24-ago al 24-sep (22 turnos): la semana del
   31-ago hizo 56,9 h con **24,8 h extra** (más del doble del tope legal de 12 semanales); las demás,
   entre 4,8 y 8,6 h extra. Aún no ha marcado ningún domingo.
+- 🧮 **Hacia las 42 h solo suman las horas ORDINARIAS** (10-nov-2026, migración
+  `20261110100000_turnos_horas_semana_ordinarias`; decisión de Laura al documentar el módulo para otro
+  cliente). Hasta ese día el contador de la semana numeraba TODOS los minutos, también los que ya eran
+  extra por el día: la misma hora se pagaba como extra y además gastaba cupo de las 42. Con 8 h diarias
+  de lunes a sábado daba 37 ordinarias + 11 extra (ahora 42 + 6); con las 11 h del vigilante, 28 + 38
+  (ahora 42 + 24, que es lo que este mismo archivo decía que debía dar: las cifras de arriba —"24,8 h
+  extra" la semana del 31-ago— son del conteo viejo y hoy esa semana da 14,9).
+  · Ahora son dos pasos: extra por el DÍA (más de 7 h, después de las 9 p.m. o antes de las 6 a.m.) y,
+    de lo que quedó ordinario, extra por la SEMANA al pasar del minuto 2.520. `n_semana_ord` es una suma
+    acumulada, no un `row_number()`.
+  · ⚠️ **Aplica HACIA ATRÁS** (Laura escogió "todo" frente a empezar el 2 o el 16-nov): la función calcula
+    al vuelo, así que agosto–octubre muestran menos extras que cuando se consultaron. Medido antes de
+    aplicar sobre 219 turnos: **142 h extra menos entre 5 personas** (Camila 44,1 · Carlos 45,6 ·
+    Santiago 30,0 · Juan Fernando 14,0 · María Paulina 8,2); de la semana del 28-sep en adelante, unas
+    87 h. Los totales trabajados no cambian. Un Excel descargado antes del 10-nov no cuadra con la pantalla.
+  · No se contó "solo al final de la semana": un lunes de 10 h en una semana de 42 daría 0 extras, y la
+    ley pone los dos topes (8 h día y 42 semana, art. 161 CST).
+  · La prueba "pedir medio periodo no reinicia el contador" cambió de ejemplo: el viejo (viernes "con
+    44 h encima") solo era cierto con el doble conteo. Tres pruebas nuevas en `turnos-horas.test.ts` (19).
+  · 📄 La documentación del módulo para replicarlo está FUERA del repo, en la carpeta padre:
+    `Documentacion - Marcacion de turnos y reporte de horas.md`.
 
 **Cómo se marca**: dos puertas, **una sola implementación** (`private.turno_marcar`) — el celular de
 cada quien (`turno_marcar`) y el PC de recepción (`quiosco_marcar`, con PIN de 4 dígitos). Foto de la
@@ -2612,6 +2633,11 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     4-sep; Santiago 1 y 2-sep) **no hace falta corregirlos** para la nómina. Lo que sí hay que vigilar es
     octubre en adelante: el aviso de "no cerró" y la marca "La salida es de otro día" del Excel son las
     señales. Se corrigen desde `/horas/[id]` → Corregir (solo SA).
+    ⚠️ **Medido el 10-nov-2026: de octubre para acá hay SEIS turnos así, sin corregir**, y sus horas están
+    entrando al reporte con el que se paga: Camila 4→5-oct (24,7 h), 16→19-oct (63,3 h), 20→21-oct (25,1 h),
+    2→3-nov (24,2 h) y 6→10-nov (99,6 h); Santiago 16→17-oct (15,1 h). Pasa porque, si alguien olvida
+    cerrar, al día siguiente su pantalla le sigue ofreciendo "Cerrar turno" y el turno queda cerrado con
+    todas esas horas. Avisado a Laura ese día; falta decidir si se bloquea cerrar un turno de otro día.
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
 academias (tenis y pádel cargados) · academias de pádel · catálogo estándar de paquetes (30-sep) · Carlos es
