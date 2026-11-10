@@ -559,17 +559,23 @@ demasiados intentos, cuenta dada de baja, y clave mala.
 
 ### H. Una prueba no puede depender de un estado que el club mueve
 
-Tres veces ha mordido:
+Cuatro veces ha mordido:
 - Una prueba usaba a un profesor "que nunca marca turno"… y el club lo dio de baja → 13
   pruebas cayeron con un mensaje sin relación.
 - Nueve pruebas preguntaban "¿cuántos turnos tiene esta persona?", que con la tabla vacía
   equivalía a "¿cuántos acabo de crear?" → con datos reales daban 8 donde esperaban 1.
 - Dos pruebas abrían un turno para la misma persona → `duplicate key` **según la hora del
   día**, y solo al correr la suite completa.
+- Tres pruebas de `academias-render` insertaban una clase del planeador con fecha de "ayer".
+  El índice único `(clase_semanal_id, fecha)` deja una sola por celda y día, así que fallaban
+  **el día siguiente a que el club dictara esa celda**, con "Cannot read properties of null
+  (reading 'id')". Una se arregló el 28-oct y las otras dos el 10-nov-2026: ahora las tres
+  piden la fecha a `diaLibre()`, que busca un día pasado sin clase real de esa celda.
 
 **Reglas:** toma un corte de `max(id)` al abrir la transacción y mira solo lo tuyo; fuerza
-tú las precondiciones dentro de la transacción; y usa personas distintas en pruebas que
-escriben de verdad.
+tú las precondiciones dentro de la transacción; usa personas distintas en pruebas que
+escriben de verdad; y **nunca insertes en una fecha fija relativa a hoy** donde el club
+también escribe: busca un hueco.
 
 ### I. Dos copias de la misma normalización son una bomba de tiempo
 

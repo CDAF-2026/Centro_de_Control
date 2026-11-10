@@ -75,6 +75,37 @@ const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " 
 const fechaLocal = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+/**
+ * Un día PASADO en el que esa celda del planeador todavía no tiene clase.
+ *
+ * ⚠️ No se puede usar "ayer" a secas. El índice único `(clase_semanal_id, fecha)`
+ * solo deja UNA clase por celda y día, y el club cierra las de verdad: si ayer
+ * se dictó esa celda, el insert de la prueba se rechaza, `data` llega en null y
+ * la prueba revienta con "Cannot read properties of null (reading 'id')", un
+ * mensaje que no dice nada de la causa. Falla solo el día siguiente a que esa
+ * celda se dicte (los martes para una clase de lunes), que es el peor tipo de
+ * fallo. Ya mordió dos veces: 28-oct-2026 (la clase de colegio) y 10-nov-2026
+ * (las otras dos que seguían con "ayer").
+ *
+ * Es la misma lección de siempre: una prueba no puede depender de un estado
+ * que el club mueve por su cuenta.
+ */
+async function diaLibre(claseSemanalId: number): Promise<string> {
+  const d = new Date();
+  for (let i = 0; i < 60; i++) {
+    d.setDate(d.getDate() - 1);
+    const fecha = fechaLocal(d);
+    const { count, error } = await admin()
+      .from("clases")
+      .select("id", { count: "exact", head: true })
+      .eq("clase_semanal_id", claseSemanalId)
+      .eq("fecha", fecha);
+    if (error) throw new Error(`No se pudo buscar un día libre: ${error.message}`);
+    if (!count) return fecha;
+  }
+  throw new Error(`La celda ${claseSemanalId} tiene clase en cada uno de los últimos 60 días.`);
+}
+
 /** Una clase y una academia que existan de verdad, para no fijar ids a mano. */
 async function unaClase() {
   const { data } = await admin()
@@ -355,9 +386,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
     // olvido se ven idénticas — y se arreglan distinto: una está bien y la otra
     // hay que reponerla.
     const { claseId, profesorId } = await unaClase();
-    const ayer = new Date();
-    ayer.setDate(ayer.getDate() - 1);
-    const fecha = fechaLocal(ayer);
+    const fecha = await diaLibre(Number(claseId));
     const { data: c } = await admin()
       .from("clases")
       .insert({
@@ -428,24 +457,14 @@ describe("las pantallas de academias se renderizan enteras", () => {
     expect(ficha).toContain("no lleva niños inscritos");
     expect(ficha).not.toContain("Agregar");
 
-    // Un día pasado SIN clase real de esa celda: el club cierra la de verdad (el Montessori de
-    // cada martes) y el índice único (clase_semanal_id, fecha) rechazaba el insert de la prueba
-    // todos los miércoles (28-oct-2026).
-    const ayer = new Date();
-    for (let i = 0; i < 60; i++) {
-      ayer.setDate(ayer.getDate() - 1);
-      const { count } = await admin()
-        .from("clases")
-        .select("id", { count: "exact", head: true })
-        .eq("clase_semanal_id", cs!.id)
-        .eq("fecha", fechaLocal(ayer));
-      if (!count) break;
-    }
+    // Un día pasado SIN clase real de esa celda (ver `diaLibre`): el club cierra el Montessori
+    // de cada martes y el insert de la prueba se rechazaba todos los miércoles (28-oct-2026).
+    const fecha = await diaLibre(cs!.id);
     const { data: c } = await admin()
       .from("clases")
       .insert({
         tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id,
-        deporte: "padel", fecha: fechaLocal(ayer), hora_inicio: "06:10:00",
+        deporte: "padel", fecha, hora_inicio: "06:10:00",
         hora_fin: "07:10:00", precio: 0, estado: "programada",
       })
       .select("id")
@@ -473,10 +492,10 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const { data: cs } = await admin()
       .from("clase_semanal").select("id, profesor_id").eq("deporte", "padel").is("colegio", null).limit(1).single();
     const { data: roster } = await admin().rpc("clase_semanal_roster", { p_clase: cs!.id });
-    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    const fecha = await diaLibre(cs!.id);
     const { data: c } = await admin().from("clases").insert({
       tipo: "academia", clase_semanal_id: cs!.id, profesor_id: cs!.profesor_id, deporte: "padel",
-      fecha: fechaLocal(ayer), hora_inicio: "06:20:00", hora_fin: "07:20:00", precio: 0, estado: "programada",
+      fecha, hora_inicio: "06:20:00", hora_fin: "07:20:00", precio: 0, estado: "programada",
     }).select("id").single();
     try {
       const { default: Cierre } = await import("../src/app/(app)/cierre/[id]/page");
