@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { rolesForModule } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { fechaLarga, saludo } from "@/lib/fecha";
+import { hoyTurnos, jornadaDe } from "@/lib/turnos";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MarcarTurno } from "./marcar-turno";
 
@@ -32,15 +33,26 @@ export default async function TurnosPage() {
 
   const supabase = await createClient();
 
-  // El turno abierto de ESTA persona. El filtro por `perfil_id` es necesario
+  // Los turnos abiertos de ESTA persona. El filtro por `perfil_id` es necesario
   // aunque la política ya restrinja: al superadministrador la RLS le deja ver
   // todos, y sin él vería el turno abierto de cualquiera como si fuera suyo.
-  const { data: abierto } = await supabase
+  //
+  // ⚠️ Pueden ser varios y por eso NO va `maybeSingle()` (10-nov-2026): un turno
+  // que se olvidó cerrar se queda abierto hasta que el superadministrador lo
+  // corrija, y mientras tanto la persona inicia el de hoy. Con `maybeSingle()`
+  // dos filas dan error y la pantalla diría «sin turno» a quien sí tiene uno.
+  const { data: abiertos } = await supabase
     .from("turno")
     .select("id, inicio_el")
     .eq("perfil_id", profile.id)
     .is("fin_el", null)
-    .maybeSingle();
+    .order("inicio_el", { ascending: false });
+
+  // El de la jornada de hoy es el único que se puede cerrar; los de antes solo
+  // se avisan. La regla la aplica la base (`private.turno_marcar`).
+  const hoy = hoyTurnos();
+  const abierto = (abiertos ?? []).find((t) => jornadaDe(t.inicio_el) === hoy) ?? null;
+  const olvidado = (abiertos ?? []).find((t) => jornadaDe(t.inicio_el) < hoy) ?? null;
 
   let pausaDesde: string | null = null;
   if (abierto) {
@@ -62,6 +74,7 @@ export default async function TurnosPage() {
       saludo={saludo(ahora)}
       inicioEl={abierto?.inicio_el ?? null}
       pausaDesde={pausaDesde}
+      olvidadoDel={olvidado ? fechaLarga(olvidado.inicio_el) : null}
     />
   );
 }

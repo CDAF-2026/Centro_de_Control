@@ -51,12 +51,15 @@ export function MarcarTurno({
   saludo,
   inicioEl,
   pausaDesde,
+  olvidadoDel = null,
 }: {
   nombre: string;
   fecha: string;
   saludo: string;
   inicioEl: string | null;
   pausaDesde: string | null;
+  /** "lunes 9 de noviembre": el día de un turno que se quedó sin cerrar. */
+  olvidadoDel?: string | null;
 }) {
   /** Qué marcación está esperando la foto. null = no hay cámara abierta. */
   const [pendiente, setPendiente] = useState<ConFoto | null>(null);
@@ -199,6 +202,23 @@ export function MarcarTurno({
         <p className="bg-primary/20 rounded-lg px-4 py-3 text-sm font-medium text-[#46530a]">
           {mensaje.ok}
         </p>
+      )}
+
+      {/* Un turno de otro día ya no se cierra desde aquí (lo rechaza la base):
+          se dice qué pasó y qué hacer, y la persona sigue marcando el de hoy. */}
+      {olvidadoDel && (
+        <div className="bg-card ring-warning/35 flex gap-3 rounded-xl p-4 shadow-sm ring-1">
+          <Info className="mt-0.5 size-[18px] shrink-0 text-[#8a5600]" />
+          <p className="text-[13px] leading-relaxed">
+            <strong className="font-semibold">
+              Tu turno del {olvidadoDel} quedó sin cerrar.
+            </strong>{" "}
+            <span className="text-muted-foreground">
+              Ya no se puede cerrar desde aquí: avísale al administrador a qué hora saliste
+              para que lo corrija. Hoy marca normal.
+            </span>
+          </p>
+        </div>
       )}
 
       {!enTurno && (

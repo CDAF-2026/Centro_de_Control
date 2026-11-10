@@ -27,7 +27,7 @@ const client = new pg.Client({
  * vida real, y eso es deliberado desde el 9-sep-2026.
  *
  * Antes era Santiago, uno de los cuatro que sí marca. Estas pruebas abren
- * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona: el día
+ * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona y jornada: el día
  * que Santiago estuviera trabajando —o se le olvidara cerrar— la prueba
  * reventaba con "duplicate key". Un fallo que aparece según la hora del día es
  * el peor de todos. Con alguien que nunca marca, no puede pasar; el interruptor
@@ -827,5 +827,132 @@ describe("el coordinador administrativo ve el reporte pero no corrige", () => {
           .toMatch(/equipo de recepción/i);
       });
     });
+  });
+});
+
+/**
+ * Un turno olvidado ya no se cierra al día siguiente (10-nov-2026).
+ *
+ * Antes, quien olvidaba cerrar encontraba al otro día el botón «Cerrar turno»
+ * y dejaba un turno de 24 h o más, que entraba completo al reporte. Ahora el
+ * turno pertenece a la jornada en que se abrió (corte a las 4 a. m.): pasado
+ * eso queda abierto, en cero, para que lo corrija el superadministrador, y la
+ * persona inicia el de hoy.
+ */
+describe("un turno de otro día ya no se cierra desde la pantalla", () => {
+  /** Un turno abierto hace 30 h: siempre cae en una jornada anterior a la de hoy. */
+  async function turnoOlvidado(perfil = empleado): Promise<number> {
+    const r = await client.query(
+      `insert into public.turno (perfil_id, inicio_el, foto_inicio_path)
+       values ($1, now() - interval '30 hours', $2) returning id`,
+      [perfil, FOTO],
+    );
+    return r.rows[0].id;
+  }
+
+  it("no deja cerrarlo ni marcarle almuerzo, y dice qué hacer", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      const viejo = await turnoOlvidado();
+      await comoUsuario(empleado, async () => {
+        for (const sql of [
+          "select public.turno_marcar('salida', $1)",
+          "select public.turno_marcar('pausa_inicio', $1)",
+        ]) {
+          const msg = await falla(sql, [FOTO]);
+          expect(msg).toMatch(/quedó sin cerrar/i);
+          expect(msg).toMatch(/administrador/i);
+        }
+      });
+      // Sigue abierto: aporta cero horas hasta que el superadministrador lo corrija.
+      const t = await client.query("select fin_el from public.turno where id = $1", [viejo]);
+      expect(t.rows[0].fin_el).toBeNull();
+    });
+  });
+
+  it("pero no la deja trancada: inicia y cierra el turno de hoy", async () => {
+    await enTransaccion(async () => {
+      const desde = await corte();
+      await habilitar(empleado);
+      const viejo = await turnoOlvidado();
+      await comoUsuario(empleado, async () => {
+        await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
+        // Dos abiertos a la vez, de jornadas distintas: es lo esperado.
+        await client.query("select public.turno_marcar('pausa_inicio')");
+        await client.query("select public.turno_marcar('pausa_fin')");
+        await client.query("select public.turno_marcar('salida', $1)", [FOTO]);
+      });
+      const t = await client.query(
+        "select id, fin_el is not null as cerrado from public.turno where perfil_id = $1 and id > $2 order by id",
+        [empleado, desde],
+      );
+      // El de hoy quedó cerrado; el olvidado, intacto.
+      // (node-pg devuelve los bigint como texto: se compara como texto.)
+      expect(t.rows.map((x) => [String(x.id) === String(viejo), x.cerrado])).toEqual([
+        [true, false],
+        [false, true],
+      ]);
+    });
+  });
+
+  it("sigue sin dejar abrir DOS turnos en la misma jornada", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await turnoOlvidado();
+      await comoUsuario(empleado, async () => {
+        await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
+        expect(await falla("select public.turno_marcar('entrada', $1)", [FOTO]))
+          .toMatch(/turno abierto/i);
+      });
+      // Y por si alguna puerta futura se salta la función: lo impide el índice.
+      expect(
+        await falla(
+          "insert into public.turno (perfil_id, inicio_el, foto_inicio_path) values ($1, now(), $2)",
+          [empleado, FOTO],
+        ),
+      ).toMatch(/turno_abierto_uidx/);
+    });
+  });
+
+  it("el quiósco muestra a la persona UNA vez, con el turno de hoy", async () => {
+    await enTransaccion(async () => {
+      await habilitar(empleado);
+      await turnoOlvidado();
+      const suya = "select turno_id from public.quiosco_estado() where perfil_id = $1";
+      await comoUsuario(admin, async () => {
+        // Solo tiene el olvidado: en la lista sale «sin turno», lista para entrar.
+        const antes = await client.query(suya, [empleado]);
+        expect(antes.rows).toEqual([{ turno_id: null }]);
+      });
+      await comoUsuario(empleado, async () => {
+        await client.query("select public.turno_marcar('entrada', $1)", [FOTO]);
+      });
+      await comoUsuario(admin, async () => {
+        // Con los dos abiertos sigue siendo UNA fila, la del turno de hoy.
+        const despues = await client.query(suya, [empleado]);
+        expect(despues.rows).toHaveLength(1);
+        expect(despues.rows[0].turno_id).toBeTruthy();
+      });
+    });
+  });
+
+  it("la jornada se corta a las 4 a. m., igual en la base y en la app", async () => {
+    // El número vive en dos sitios (migración 20261110110000 y
+    // `CORTE_JORNADA_HORAS`). Si alguien cambia uno solo, esto lo delata.
+    const { jornadaDe } = await import("../src/lib/turnos");
+    const casos: [string, string][] = [
+      ["2027-09-07 03:59", "2027-09-06"], // todavía es la jornada del lunes
+      ["2027-09-07 04:00", "2027-09-07"],
+      ["2027-09-07 23:59", "2027-09-07"],
+      ["2027-09-08 00:10", "2027-09-07"], // un evento que se pasó de medianoche
+    ];
+    for (const [local, jornada] of casos) {
+      const r = await client.query(
+        "select private.turno_jornada(($1 || '-05')::timestamptz)::text as j, ($1 || '-05')::timestamptz as t",
+        [local],
+      );
+      expect(r.rows[0].j, `base · ${local}`).toBe(jornada);
+      expect(jornadaDe(new Date(r.rows[0].t).toISOString()), `app · ${local}`).toBe(jornada);
+    }
   });
 });

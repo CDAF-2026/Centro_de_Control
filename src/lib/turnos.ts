@@ -140,8 +140,32 @@ export type Revisar = {
   sinFoto: TurnoListado[];
 };
 
-/** "2026-10-01": hoy en Colombia (no en el reloj del servidor, que va en UTC). */
-export const hoyTurnos = (): string => diaIso(new Date().toISOString());
+/**
+ * A qué hora se corta la jornada: a las 4:00 a. m., no a medianoche.
+ *
+ * Un turno pertenece a la jornada en que se abrió y solo se puede cerrar dentro
+ * de ella (10-nov-2026): si se olvidó, al día siguiente ya no se cierra desde la
+ * pantalla, lo corrige el superadministrador. El corte va a las 4 para que un
+ * evento que se pase de las 12 de la noche sí se pueda cerrar; a esa hora en el
+ * club no hay nadie trabajando ni llegando.
+ *
+ * ⚠️ Quien de verdad lo hace cumplir es la base: `private.turno_jornada` y el
+ * índice `turno_abierto_uidx` (migración 20261110110000). Este número solo
+ * decide qué turno muestra «Mi turno» y qué es «en curso» en el reporte. Si se
+ * cambia allá hay que cambiarlo aquí; una prueba compara los dos.
+ */
+export const CORTE_JORNADA_HORAS = 4;
+
+/** "2026-10-01": la jornada (en Colombia) a la que pertenece un instante. */
+export function jornadaDe(iso: string): string {
+  return diaIso(new Date(Date.parse(iso) - CORTE_JORNADA_HORAS * 3_600_000).toISOString());
+}
+
+/**
+ * "2026-10-01": la jornada de HOY en Colombia (no en el reloj del servidor, que
+ * va en UTC). Hasta las 3:59 a. m. sigue siendo la de ayer.
+ */
+export const hoyTurnos = (): string => jornadaDe(new Date().toISOString());
 
 /**
  * El turno de HOY sin salida: la persona sigue trabajando.
@@ -149,9 +173,10 @@ export const hoyTurnos = (): string => diaIso(new Date().toISOString());
  * ⚠️ No es lo mismo que "no cerró" (1-oct-2026, Laura lo notó: el reporte
  * avisaba que no habían cerrado el turno del mismo día a media mañana). Las dos
  * situaciones se ven iguales en la base —`fin_el` vacío— y se arreglan
- * distinto: una no se arregla, se espera; la otra la corrige el SA. Como nadie
- * cruza la medianoche (el club cierra a las 9 p. m.), un turno abierto de un día
- * anterior SÍ es un olvido. Se compara contra el día de la entrada, en Bogotá.
+ * distinto: una no se arregla, se espera; la otra la corrige el SA. Un turno
+ * abierto de una jornada anterior SÍ es un olvido, y desde el 10-nov-2026 la
+ * persona ya no lo puede cerrar. Se compara el día de la entrada, en Bogotá,
+ * contra la jornada de hoy (`hoyTurnos`, que corta a las 4 a. m.).
  */
 export function enCurso(t: TurnoListado, hoy: string = hoyTurnos()): boolean {
   return t.fin_el === null && t.dia >= hoy;

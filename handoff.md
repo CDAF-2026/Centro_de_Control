@@ -887,6 +887,10 @@ Estas son **decisiones de Laura / del club**. No las cambies por iniciativa prop
 - **El empleado NO ve cuántas horas lleva** (decisión de Laura). Va en la BASE, no solo en
   la pantalla.
 - **Un turno abierto aporta CERO horas**: no se inventa la hora de salida.
+- **Un turno solo se cierra en la JORNADA en que se abrió** (corte a las 4 a. m., 10-nov-2026).
+  El que se olvidó queda abierto, en cero, y lo corrige el SA; la persona inicia el de hoy. O sea
+  que **puede haber dos turnos abiertos de la misma persona**: toda consulta que busque "el
+  turno abierto" filtra por jornada (`private.turno_jornada` / `jornadaDe`), nunca `maybeSingle()`.
 - **Cerrar el turno con el almuerzo abierto está BLOQUEADO a propósito**: las dos salidas
   posibles están mal (contar la pausa en cero le paga el almuerzo; estirarla le quita horas).
 - Normativa codificada: semana **lun–dom**, máx **42 h** (Ley 2101/2021); diurna

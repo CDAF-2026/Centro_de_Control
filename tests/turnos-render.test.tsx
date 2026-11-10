@@ -127,6 +127,22 @@ describe("los estados de la pantalla", () => {
     expect(t).toContain("Primero marca tu regreso");
   });
 
+  it("con un turno olvidado de otro día: lo avisa y deja iniciar el de hoy", async () => {
+    // 10-nov-2026: ese turno ya no se puede cerrar desde aquí (lo rechaza la
+    // base), así que la pantalla no puede ofrecer «Cerrar turno» para él.
+    const t = await pinta({
+      inicioEl: null,
+      pausaDesde: null,
+      olvidadoDel: "lunes 9 de noviembre",
+    });
+    expect(t).toContain("Tu turno del lunes 9 de noviembre quedó sin cerrar");
+    expect(t).toContain("avísale al administrador");
+    expect(t).toContain("Iniciar turno");
+    expect(t).not.toContain("Cerrar turno");
+    // Sin turno olvidado, el aviso no aparece.
+    expect(await pinta({ inicioEl: null, pausaDesde: null })).not.toContain("quedó sin cerrar");
+  });
+
   it("nunca muestra el registro de horas: ese es solo del superadministrador", async () => {
     for (const props of [
       { inicioEl: null, pausaDesde: null },

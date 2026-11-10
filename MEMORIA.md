@@ -1816,6 +1816,34 @@ como recepción), **Juan Fernando Gaviria** (coord. admin), **Santiago Montoya**
     44 h encima") solo era cierto con el doble conteo. Tres pruebas nuevas en `turnos-horas.test.ts` (19).
   · 📄 La documentación del módulo para replicarlo está FUERA del repo, en la carpeta padre:
     `Documentacion - Marcacion de turnos y reporte de horas.md`.
+- 🔒 **Un turno olvidado YA NO se cierra al día siguiente** (10-nov-2026, migración
+  `20261110110000_turno_no_cerrar_otro_dia`; decisión de Laura). "Un turno abierto aporta cero" solo
+  protegía mientras siguiera abierto: quien olvidaba cerrar encontraba al otro día "Estás en turno" y
+  "Cerrar turno", y dejaba un turno de 24 h o más que entraba COMPLETO al reporte (medido: 11 de 219
+  turnos pasaban de 14 h; el más largo, 480 h).
+  · **Cada turno pertenece a la JORNADA en que se abrió, y la jornada se corta a las 4 a. m.**, no a
+    medianoche, para que un evento que se pase de las 12 sí se pueda cerrar (Santiago cerró a las 12:10
+    a. m. el 17-oct). El corte lo escogió el agente como valor seguro y se le informó a Laura: no lo
+    dictó ella. Si el club pide otro, es un número en tres sitios (abajo).
+  · Solo se cierra (o se le marca almuerzo a) el turno de la jornada de HOY. El viejo queda abierto, en
+    cero y en rojo en `/horas`, y lo corrige el superadministrador. La base responde "Tu turno del
+    DD/MM/AAAA quedó sin cerrar…" en vez de "No tienes un turno abierto": se arreglan distinto.
+  · **La persona no queda trancada**: inicia el de hoy aunque tenga uno viejo abierto. Por eso
+    `turno_abierto_uidx` pasó de "uno abierto por persona" a **"uno por persona y jornada"**.
+  · ⚠️ **Ya puede haber DOS turnos abiertos de la misma persona.** `/turnos` dejó de usar
+    `maybeSingle()` (con dos filas da error y la pantalla diría "sin turno") y `quiosco_estado` filtra
+    por la jornada de hoy (si no, la persona saldría dos veces en la lista). Cualquier consulta nueva
+    que busque "el turno abierto" tiene que filtrar por jornada.
+  · «Mi turno» avisa: "Tu turno del lunes 9 de noviembre quedó sin cerrar… avísale al administrador a
+    qué hora saliste". El quiósco NO avisa (muestra "Sin turno" y deja entrar): no se le agregó columna
+    a `quiosco_estado` para no hacer DROP + CREATE.
+  · ⚠️ El corte está en TRES sitios: `private.turno_jornada`, la expresión del índice (misma migración)
+    y `CORTE_JORNADA_HORAS` de `src/lib/turnos.ts` (de ahí salen `jornadaDe` y `hoyTurnos`, que ahora es
+    la jornada y no el día calendario: "en curso" dura hasta las 3:59 a. m.). Una prueba compara base y
+    app. El índice NO usa la función a propósito: se ejecutaría con los permisos de quien inserta, y
+    las pruebas de render siembran turnos con service_role.
+  · No se tocaron los turnos que ya quedaron cerrados con horas de más (pendiente 20).
+  · Pruebas: 5 nuevas en `turnos-marcar.test.ts` (43) y 1 en `turnos-render.test.tsx` (12).
 
 **Cómo se marca**: dos puertas, **una sola implementación** (`private.turno_marcar`) — el celular de
 cada quien (`turno_marcar`) y el PC de recepción (`quiosco_marcar`, con PIN de 4 dígitos). Foto de la
@@ -2637,7 +2665,9 @@ de ejemplo en gris por hoja; sin ids internos salvo una columna "Ref. interna").
     entrando al reporte con el que se paga: Camila 4→5-oct (24,7 h), 16→19-oct (63,3 h), 20→21-oct (25,1 h),
     2→3-nov (24,2 h) y 6→10-nov (99,6 h); Santiago 16→17-oct (15,1 h). Pasa porque, si alguien olvida
     cerrar, al día siguiente su pantalla le sigue ofreciendo "Cerrar turno" y el turno queda cerrado con
-    todas esas horas. Avisado a Laura ese día; falta decidir si se bloquea cerrar un turno de otro día.
+    todas esas horas. ✅ **Bloqueado ese mismo día** (migración `20261110110000`): un turno de una jornada
+    anterior ya no se puede cerrar desde la pantalla. **Los seis de arriba siguen sin corregir**: los
+    arregla el superadministrador, uno por uno, preguntando la hora real de salida.
 **Cerrados (no reabrir ni reproponer):** reglas de Yeison, Graciano, Cristian, Mauricio y Sebastián (todas
 aplicadas) · correos de los profesores (solo falta Juan Cruz, punto 8) · quién es Mauricio · importador de
 academias (tenis y pádel cargados) · academias de pádel · catálogo estándar de paquetes (30-sep) · Carlos es

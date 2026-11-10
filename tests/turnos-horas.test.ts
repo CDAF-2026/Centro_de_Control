@@ -37,7 +37,7 @@ const client = new pg.Client({
  * vida real, y eso es deliberado desde el 9-sep-2026.
  *
  * Antes era Santiago, uno de los cuatro que sí marca. Estas pruebas abren
- * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona: el día
+ * turnos, y `turno_abierto_uidx` solo permite UNO abierto por persona y jornada: el día
  * que Santiago estuviera trabajando —o se le olvidara cerrar— la prueba
  * reventaba con "duplicate key". Un fallo que aparece según la hora del día es
  * el peor de todos. Con alguien que nunca marca, no puede pasar; el interruptor
