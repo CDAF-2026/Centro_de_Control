@@ -1440,8 +1440,7 @@ estar ahí (las 3 academias de agosto del modelo viejo, una particular registrad
     y personas de una particular (`editarValorClase`) y cambiar el cobro (`cambiarCobroClase`). Las
     tres pasaron a 48 h juntas; Laura pidió solo el cierre y se le informó.
   · Se sigue contando desde que la clase EMPIEZA. Laura dijo "48 horas después de que se edite la
-    clase": se entendió "se dicte". Si quiso decir otra cosa (desde que se registra o se modifica),
-    hay que cambiar la base del cálculo, no el número.
+    clase"; se entendió "se dicte" y **ella lo confirmó el mismo día**: es desde que se dicta.
   · No hay candado en la base: el plazo solo lo hace cumplir la aplicación.
   · Consecuencia: una clase pasa a "vencida" (y a la bandeja del superadministrador) un día más tarde,
     así que las alertas de "clases sin cerrar" del dashboard y de la liquidación tardan 24 h más en salir.
