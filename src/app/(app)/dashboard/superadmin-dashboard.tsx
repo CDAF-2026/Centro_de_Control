@@ -1,32 +1,28 @@
 import Link from "next/link";
-import {
-  Wallet,
-  Users,
-  CalendarClock,
-  TriangleAlert,
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
-  Trophy,
-} from "lucide-react";
+import { TriangleAlert, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PLAZO_CIERRE_HORAS, cierreVencido } from "@/lib/fecha";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { COLOR_SERVICIO_DEFAULT } from "@/lib/finanzas";
+import { buttonVariants } from "@/components/ui/button";
 import { clasesSemanaPorProfesor } from "@/lib/easycancha";
 import { ocupacionCanchas } from "@/lib/easycancha/ocupacion";
 import { rangoPeriodo, isoDia, hoyBogota, type Periodo } from "@/lib/periodo";
 import { PeriodoToggle } from "./periodo-toggle";
 import { CountUp } from "./count-up";
-import { ChartArea } from "./chart-area";
-import { ChartBarrasSemana } from "./chart-barras-semana";
-import { ChartDonut } from "./chart-donut";
-import { ChartComparativo } from "./chart-comparativo";
-import { ChartOcupacion } from "./chart-ocupacion";
-import { RadialGauge } from "./radial-gauge";
+import { Chispa, Delta, Panel, PanelCobro, PanelComparativo, PanelReloj, PanelSemana, PanelServicios } from "./tablero-paneles";
+import {
+  TABLERO,
+  M,
+  corto,
+  colorDeServicio,
+  variacion,
+  type DatoServicio,
+  type DiaSemana,
+  type LadoComparativo,
+  type Movimiento,
+  type RelojCanchas,
+  type SerieDiaria,
+} from "./tablero-formato";
 
 const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -34,6 +30,13 @@ const COP = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP",
 const ENTRAR = "animate-in fade-in slide-in-from-bottom-2 fill-mode-both duration-500";
 const retraso = (i: number) => ({ animationDelay: `${i * 80}ms` });
 
+/**
+ * El dashboard del superadministrador (rediseño de nov-2026, gráficas con ECharts).
+ *
+ * Este archivo hace DOS cosas y conviene no mezclarlas: arriba calcula todas las cifras
+ * (en la base, por RPC) y abajo solo les da forma y las pinta. Las gráficas viven en
+ * `tablero-paneles.tsx`; aquí no hay ninguna opción de ECharts.
+ */
 export async function SuperadminDashboard({
   periodo,
   nombre,
@@ -77,6 +80,7 @@ export async function SuperadminDashboard({
     evResPrevRes,
     evRetenidoRes,
     evRes7Res,
+    antiguedadRes,
   ] = await Promise.all([
     // `p_excluir_eventos: true` saca las facturas atadas a un evento de TODA la lectura de
     // ingresos: un torneo no aporta su bruto sino su utilidad (ver más abajo), y solo cuando
@@ -96,7 +100,7 @@ export async function SuperadminDashboard({
       .gt("saldo", 0)
       .order("saldo", { ascending: false })
       .limit(5),
-    supabase.from("servicios").select("id, nombre, color"),
+    supabase.from("servicios").select("id, nombre, clave"),
     supabase.from("clases").select("profesor_id, fecha, hora_inicio").eq("estado", "programada").lte("fecha", todayIso),
     // Comparativo de FACTURADO (no cobrado): periodo actual vs. el inmediatamente anterior.
     supabase.rpc("siigo_facturado_diario", { p_desde: curStartIso, p_hasta: curEndIso, p_excluir_eventos: true }),
@@ -111,6 +115,9 @@ export async function SuperadminDashboard({
     supabase.rpc("eventos_retenido", { p_desde: curStartIso, p_hasta: curEndIso }),
     // Los últimos 7 días son su propia ventana (no el periodo): necesitan su propio corte.
     supabase.rpc("eventos_resultado_periodo", { p_desde: hace6Iso, p_hasta: todayIso }),
+    // Cuántas facturas hay en cartera y qué tan viejas: el mismo RPC que usa /cartera,
+    // para que el indicador y esa pantalla no puedan decir cosas distintas.
+    supabase.rpc("siigo_cartera_antiguedad", { p_servicio: null }),
   ]);
 
   // ───────── Aporte neto de los eventos (torneos, clínicas…) ─────────
@@ -184,7 +191,6 @@ export async function SuperadminDashboard({
   // El marcador del héroe usa la MISMA cifra que el gauge ("Cobrado"), para que cuadren entre sí.
   const periodTotal = cobradoPeriodo;
   const prevTotal = Number(recaudoPrevRes.data?.[0]?.cobrado ?? 0) + utilEventosPrev;
-  const deltaPct = prevTotal > 0 ? Math.round(((periodTotal - prevTotal) / prevTotal) * 100) : null;
 
   // ───────── Composición por servicio (donut + tendencias) ─────────
   // Ambas lecturas van sobre lo FACTURADO del periodo (no lo cobrado): reflejan lo
@@ -215,15 +221,6 @@ export async function SuperadminDashboard({
   const famFacturadoPrev = porServicio(factServicioPrevRes.data, evResPrevRes.data ?? []);
   const nombreFamilia = (id: number) =>
     id === CLAVE_EVENTOS ? "Eventos" : servicioCat.get(id)?.nombre ?? "Sin categoría";
-  const familiasIngreso = [...famFacturado.entries()]
-    .map(([id, total]) => ({
-      nombre: nombreFamilia(id),
-      total,
-      color: servicioCat.get(id)?.color ?? COLOR_SERVICIO_DEFAULT,
-    }))
-    .filter((t) => t.total > 0)
-    .sort((a, b) => b.total - a.total);
-
   // ───────── Serie diaria + barras de la semana + marcador de hoy ─────────
   // La curva del marcador tiene que sumar exactamente `periodTotal`, así que el día de
   // cada evento cerrado lleva su utilidad además de lo cobrado del día.
@@ -237,11 +234,11 @@ export async function SuperadminDashboard({
 
   const dia7Map = new Map((dias7Res.data ?? []).map((r) => [r.fecha, { monto: Number(r.monto), facturas: Number(r.facturas) }]));
   // Detalle por servicio de cada día (para el modal al clicar una barra).
-  const detPorDia = new Map<string, { nombre: string; total: number; color: string }[]>();
+  const detPorDia = new Map<string, { id: number; nombre: string; total: number }[]>();
   for (const r of dias7DetRes.data ?? []) {
     const sv = servicioCat.get(r.servicio_id ?? -1);
     const arr = detPorDia.get(r.fecha) ?? [];
-    arr.push({ nombre: sv?.nombre ?? "Sin categoría", total: Number(r.monto), color: sv?.color ?? COLOR_SERVICIO_DEFAULT });
+    arr.push({ id: r.servicio_id ?? -1, nombre: sv?.nombre ?? "Sin categoría", total: Number(r.monto) });
     detPorDia.set(r.fecha, arr);
   }
   // Mismo tratamiento en la ventana de 7 días: la barra y su modal deben decir lo mismo.
@@ -250,13 +247,13 @@ export async function SuperadminDashboard({
     dia7Map.set(e.fecha, { monto: dia.monto + Number(e.utilidad), facturas: dia.facturas });
     const sv = e.servicio_id != null ? servicioCat.get(e.servicio_id) : undefined;
     const arr = detPorDia.get(e.fecha) ?? [];
-    arr.push({ nombre: sv?.nombre ?? "Eventos", total: Number(e.utilidad), color: sv?.color ?? COLOR_SERVICIO_DEFAULT });
+    arr.push({ id: e.servicio_id ?? CLAVE_EVENTOS, nombre: sv?.nombre ?? "Eventos", total: Number(e.utilidad) });
     detPorDia.set(e.fecha, arr);
   }
   const diaSemanaFmt = new Intl.DateTimeFormat("es-CO", { weekday: "short" });
   const diaLargoFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
   const fechaCortaFmt = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short" });
-  const dias7: { fecha: string; label: string; fechaLarga: string; fechaCorta: string; monto: number; facturas: number; esHoy: boolean; detalle: { nombre: string; total: number; color: string }[] }[] = [];
+  const dias7: { fecha: string; label: string; fechaLarga: string; fechaCorta: string; monto: number; facturas: number; esHoy: boolean; detalle: { id: number; nombre: string; total: number }[] }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - i);
     const isoD = isoDia(d);
@@ -289,7 +286,6 @@ export async function SuperadminDashboard({
       return {
         id,
         nombre: nombreFamilia(id),
-        color: servicioCat.get(id)?.color ?? COLOR_SERVICIO_DEFAULT,
         actual,
         delta: actual - previo,
         pct: previo > 0 ? Math.round(((actual - previo) / previo) * 100) : null,
@@ -313,7 +309,6 @@ export async function SuperadminDashboard({
     nombre: r.nombre,
     pagado: Number(r.pagado),
   }));
-  const topCliMax = Math.max(1, ...topClientes.map((t) => t.pagado));
 
   // ───────── Clases por cerrar ─────────
   const nowMs = now.getTime();
@@ -324,7 +319,6 @@ export async function SuperadminDashboard({
 
   // ───────── Clases agendadas y ocupación de canchas de la semana (EasyCancha) ─────────
   const [semanaEC, ocupacion] = await Promise.all([semanaECPromise, ocupacionPromise]);
-  const ecMax = Math.max(1, ...semanaEC.ranking.map((r) => r.clases));
 
   // ───────── Nombres de clientes (deudores + top) ─────────
   const cliName = new Map<number, string>();
@@ -345,14 +339,126 @@ export async function SuperadminDashboard({
   const saludo = nombre.includes("@") ? nombre.split("@")[0] : nombre;
   const carteraGlobal = carteraTotal + deudaSinCliente;
 
+  // ───────── Datos para las gráficas ─────────
+  // Aquí solo se les da forma: todas las cifras salen de los cálculos de arriba.
+  const prevFacturado = Number(recaudoPrevRes.data?.[0]?.facturado ?? 0) + utilEventosPrev;
+  const cobradoVs = variacion(periodTotal, prevTotal);
+  const facturadoVs = variacion(facturadoPeriodo, prevFacturado);
+
+  const tramosCartera = antiguedadRes.data ?? [];
+  const facturasCartera = tramosCartera.reduce((s, t) => s + Number(t.n), 0);
+  const totalTramos = tramosCartera.reduce((s, t) => s + Number(t.total), 0);
+  const reciente = Number(tramosCartera.find((t) => t.tramo === "0_30")?.total ?? 0);
+  const pctReciente = totalTramos > 0 ? (reciente / totalTramos) * 100 : 100;
+
+  // Hoy todavía sin facturas (rezago de Siigo): en las gráficas va como "sin datos", no
+  // como un cero. Un cero se lee como "hoy no entró nada", que casi nunca es verdad.
+  const sinDatosHoy = hoyPendiente && curEndIso === todayIso;
+  const medioDia = (iso: string) => new Date(`${iso}T12:00:00`);
+  const fechaCorta = (iso: string) => diaMesFmt.format(medioDia(iso)).replace(".", "");
+  const serieCobro: SerieDiaria = {
+    etiquetas: serieDiaria.map((s) => {
+      const corta = periodo === "mes" ? String(medioDia(s.fecha).getDate()) : fechaCorta(s.fecha);
+      return s.fecha === todayIso ? `${corta} · hoy` : corta;
+    }),
+    titulos: serieDiaria.map((s) => capitaliza(diaLargoFmt.format(medioDia(s.fecha)))),
+    montos: serieDiaria.map((s) => (sinDatosHoy && s.fecha === todayIso ? null : s.monto)),
+  };
+  const ladoActual: LadoComparativo = {
+    nombre: etiquetaPeriodo(curStartIso, "Este periodo"),
+    rango: rangoCorto(curStartIso, curEndIso),
+    acum: acumFactActual.map((v, i) => (sinDatosHoy && i === acumFactActual.length - 1 ? null : v)),
+    // Misma ventana y mismo orden que el acumulado: un día por posición.
+    marcas: serieDiaria.map((s) => fechaCorta(s.fecha)),
+  };
+  const ladoPrevio: LadoComparativo = {
+    nombre: etiquetaPeriodo(prevStartIso, "Periodo anterior"),
+    rango: rangoCorto(prevStartIso, prevEndIso),
+    acum: acumFactPrevio,
+  };
+  // En "mes" los dos lados tienen nombre propio ("noviembre vs. octubre"); en los demás periodos no.
+  const mesDe = (iso: string) => mesFmt.format(medioDia(iso));
+  const tituloComparativo =
+    periodo === "mes" ? `Facturado: ${mesDe(curStartIso)} vs. ${mesDe(prevStartIso)}` : "Facturado: este periodo vs. el anterior";
+  const frente = periodo === "mes" ? `Frente a ${mesDe(prevStartIso)}` : "Frente al periodo anterior";
+
+  const colorDe = (id: number) => colorDeServicio(servicioCat.get(id)?.clave);
+  const serviciosTablero: DatoServicio[] = [...famFacturado.entries()]
+    .map(([id, total]) => ({ id, nombre: nombreFamilia(id), color: colorDe(id), actual: total, previo: famFacturadoPrev.get(id) ?? 0 }))
+    // Un evento que dio pérdida deja su cubeta en negativo: no se puede dibujar.
+    .filter((s) => s.actual > 0)
+    .sort((a, b) => b.actual - a.actual);
+  const totalServicios = serviciosTablero.reduce((s, x) => s + x.actual, 0);
+  const movimiento = (m: (typeof movimientos)[number]): Movimiento => ({
+    id: m.id,
+    nombre: m.nombre,
+    // `pct` es null cuando el periodo anterior estaba en cero: no hay porcentaje que dar.
+    texto: m.pct === null ? (m.delta > 0 ? "nuevo" : "—") : (m.delta > 0 ? "+" : "−") + Math.abs(m.pct) + "%",
+  });
+  // Los tres que más subieron y los tres que más bajaron EN PESOS (no en porcentaje): un
+  // servicio chico que se duplica mueve menos la cifra que uno grande que sube un quinto.
+  const suben = enAlza.slice(0, 3).map(movimiento);
+  const bajan = enBaja.slice(0, 3).map(movimiento);
+
+  const diasTablero: DiaSemana[] = dias7.map((d) => {
+    const numero = d.fechaCorta.split(" ")[0];
+    return {
+      etiqueta: d.esHoy ? `hoy ${numero}` : `${d.label} ${numero}`,
+      titulo: capitaliza(d.fechaLarga),
+      monto: d.esHoy && hoyPendiente ? null : d.monto,
+      facturas: d.facturas,
+      partes: d.detalle.map((x) => ({ id: x.id, nombre: x.nombre, color: colorDe(x.id), total: x.total })),
+    };
+  });
+
+  // El reloj: un día típico de ESTA semana. Se promedian solo los días que ya llegaron
+  // (hoy incluido): los que faltan solo traen lo reservado por adelantado y bajarían el
+  // promedio sin que el club esté más vacío.
+  const media = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
+  const diasSemana = ocupacion.porHora.dias.map((d, i) => ({ ...d, i }));
+  const diasReloj = diasSemana.some((d) => !d.futuro) ? diasSemana.filter((d) => !d.futuro) : diasSemana;
+  const perfil = (matriz: number[][]) =>
+    ocupacion.porHora.horas.map((_, h) => Math.round(media(diasReloj.map((d) => matriz[d.i]?.[h] ?? 0))));
+  const reloj: RelojCanchas = {
+    horas: ocupacion.porHora.horas,
+    tenis: perfil(ocupacion.porHora.tenis),
+    padel: perfil(ocupacion.porHora.padel),
+  };
+  // "lunes, 16 de noviembre" → "lunes".
+  const nombreDia = (detalle: string) => detalle.split(/[\s,]+/)[0].toLowerCase();
+  const rangoReloj =
+    diasReloj.length === 0
+      ? ""
+      : diasReloj.length === 1
+        ? ` · solo el ${nombreDia(diasReloj[0].detalle)}`
+        : ` · promedio de ${nombreDia(diasReloj[0].detalle)} a ${nombreDia(diasReloj[diasReloj.length - 1].detalle)}`;
+
+  const entrenadores = semanaEC.ranking.slice(0, 10);
+  const totalClases = semanaEC.ranking.reduce((s, r) => s + r.clases, 0);
+  const maxClases = Math.max(1, ...entrenadores.map((e) => e.clases));
+
+  const sumaTopClientes = topClientes.reduce((s, t) => s + t.pagado, 0);
+  const sumaTopDeudas = topPendientes.reduce((s, f) => s + Number(f.saldo), 0);
+  /** "los cinco" cuando son cinco; si hay menos, el número ("los 3"). */
+  const cuantos = (n: number, articulo: "los" | "las") => (n === 5 ? `${articulo} cinco` : `${articulo} ${n}`);
+  const diasDesde = (iso: string) => Math.round((Date.parse(`${todayIso}T12:00:00Z`) - Date.parse(`${iso}T12:00:00Z`)) / 86_400_000);
+  const hace = (n: number) => (n <= 0 ? "hoy" : n === 1 ? "ayer" : `hace ${n} días`);
+
+  const pie = "border-border text-muted-foreground border-t pt-3 text-xs";
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="cdaf-headline">Dashboard</h1>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="cdaf-headline">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {rangoCorto(curStartIso, curEndIso)}, comparado con {rangoCorto(prevStartIso, prevEndIso)}
+          </p>
+        </div>
         <PeriodoToggle periodo={periodo} desde={desde} hasta={hasta} />
       </div>
 
-      {/* ── Banner: el marcador de hoy ── */}
+      {/* ── Banner: el marcador de hoy (se conserva tal cual del dashboard anterior) ── */}
       <section className={ENTRAR} style={retraso(0)}>
         <div className="bg-stadium relative overflow-hidden rounded-2xl p-6 text-white shadow-md sm:p-8">
           <div className="bg-primary/15 pointer-events-none absolute -top-28 -right-16 size-80 rounded-full blur-3xl" />
@@ -371,9 +477,7 @@ export async function SuperadminDashboard({
                     {ultimoCierre ? `Último cierre · ${ultimoCierre.label} ${ultimoCierre.fechaCorta}` : "Sin facturación reciente en Siigo"}
                   </p>
                 ) : (
-                  <p className="mt-0.5 text-xs text-white/70">
-                    {hoyFacturas} factura(s) hoy · sync cada 20 min
-                  </p>
+                  <p className="mt-0.5 text-xs text-white/70">{hoyFacturas} factura(s) hoy · sync cada 20 min</p>
                 )}
               </div>
               <Link href={hrefIngresos} className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
@@ -385,358 +489,280 @@ export async function SuperadminDashboard({
       </section>
 
       {totalVencidas > 0 && (
-        <div className="border-destructive/30 bg-destructive/[0.06] flex items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
+        <div className="border-destructive/30 bg-destructive/[0.06] flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
           <span className="flex items-center gap-2.5 text-sm">
             <TriangleAlert className="text-destructive size-5 shrink-0" />
-            <span><strong>{totalVencidas}</strong> clase(s) sin cerrar hace más de {PLAZO_CIERRE_HORAS} h.</span>
+            <span>
+              <strong>{totalVencidas}</strong> clase(s) sin cerrar hace más de {PLAZO_CIERRE_HORAS} h.
+            </span>
           </span>
-          <Link href="/cierre/vencidas" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Ver vencidas</Link>
+          <Link href="/cierre/vencidas" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Ver vencidas
+          </Link>
         </div>
       )}
 
-      {/* Transparencia: las cifras de arriba NO incluyen los eventos sin cerrar. Sin este
-          aviso, el dashboard no cuadraría con Siigo y no se sabría por qué. */}
+      {/* Transparencia: las cifras NO incluyen los eventos sin cerrar. Sin este aviso, el
+          dashboard no cuadraría con Siigo y no se sabría por qué. */}
       {facturadoRetenido > 0 && (
         <div className="border-warning/40 bg-warning/10 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-sm">
           <span className="flex items-center gap-2.5 text-sm">
             <Trophy className="text-warning size-5 shrink-0" />
             <span>
-              <strong className="tabular-nums">{COP.format(facturadoRetenido)}</strong> facturados en{" "}
-              <strong>{eventosAbiertos}</strong> evento(s) sin cerrar todavía no entran a estas cifras. Al cerrarlos
-              entra su <strong>utilidad</strong> (ingresos − gastos), no el bruto.
+              <strong className="tabular-nums">{COP.format(facturadoRetenido)}</strong> facturados en <strong>{eventosAbiertos}</strong>{" "}
+              evento(s) sin cerrar todavía no entran a estas cifras. Al cerrarlos entra su <strong>utilidad</strong> (ingresos − gastos), no
+              el bruto.
             </span>
           </span>
-          <Link href="/eventos" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Ver eventos</Link>
+          <Link href="/eventos" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Ver eventos
+          </Link>
         </div>
       )}
 
-      {/* ── Bento: marcador del periodo + comparativo de facturado ── */}
-      <div className={cn("grid gap-4 lg:grid-cols-3", ENTRAR)} style={retraso(1)}>
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Marcador del periodo</CardTitle>
-            <CardDescription>
-              Ingresos pagados (Siigo) · {curStartIso} a {curEndIso}
+      {/* ── Indicadores ── */}
+      <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", ENTRAR)} style={retraso(1)}>
+        <Kpi
+          etiqueta="Facturado"
+          valor={corto(facturadoPeriodo)}
+          exacto={COP.format(facturadoPeriodo)}
+          detalle={
+            <>
+              <Delta v={facturadoVs} /> vs. {corto(prevFacturado)}
+            </>
+          }
+        >
+          <Chispa valores={ladoActual.acum} forma="area" etiqueta="Facturado acumulado en el periodo" />
+        </Kpi>
+        <Kpi
+          etiqueta="Cobrado"
+          valor={corto(periodTotal)}
+          exacto={COP.format(periodTotal)}
+          detalle={
+            <>
+              <Delta v={cobradoVs} /> vs. {corto(prevTotal)}
+            </>
+          }
+        >
+          <Chispa valores={serieCobro.montos} forma="barras" etiqueta="Cobrado por día en el periodo" />
+        </Kpi>
+        <Kpi
+          etiqueta="Por cobrar del periodo"
+          valor={corto(saldoPeriodo)}
+          exacto={COP.format(saldoPeriodo)}
+          detalle={facturadoPeriodo > 0 ? `${Math.round((saldoPeriodo / facturadoPeriodo) * 100)}% de lo facturado` : "Sin facturación en el periodo"}
+        >
+          <Medidor pct={pctRecaudo} etiqueta={`${Math.round(pctRecaudo)}% de lo facturado ya está cobrado`} />
+        </Kpi>
+        <Kpi
+          etiqueta="Cartera total"
+          valor={corto(carteraGlobal)}
+          exacto={COP.format(carteraGlobal)}
+          detalle={`${facturasCartera} factura(s), todas las fechas`}
+        >
+          <Medidor pct={pctReciente} etiqueta={`${Math.round(pctReciente)}% de la cartera tiene menos de 30 días`} />
+        </Kpi>
+      </div>
+
+      {/* ── Paneles ── En cada fila las dos tarjetas quedan del mismo alto: la gráfica o la
+          lista de la más corta se estira (ver `minimo` en echart.tsx). */}
+      <div className={cn("grid grid-cols-1 gap-4 xl:grid-cols-12", ENTRAR)} style={retraso(2)}>
+        <PanelCobro
+          className="xl:col-span-6"
+          serie={serieCobro}
+          sub={
+            <>
+              Dinero que ha ingresado · arrastra la barra para acercarte
               {utilEventos !== 0 && ` · incluye ${COP.format(utilEventos)} de utilidad de eventos cerrados`}
-            </CardDescription>
-            <CardAction>
-              <Link href={hrefIngresos} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                Ver detalle <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-6">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <CountUp value={periodTotal} durationMs={1100} className="font-heading text-4xl font-bold tracking-tight" />
-              {deltaPct !== null && (
-                <span className={cn("inline-flex items-center gap-1 text-sm font-semibold", deltaPct >= 0 ? "text-[#46530a]" : "text-destructive")}>
-                  {deltaPct >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
-                  {deltaPct >= 0 ? "+" : ""}{deltaPct}%
-                  <span className="text-muted-foreground font-normal">vs. anterior</span>
-                </span>
-              )}
-            </div>
-            {serieDiaria.length > 1 ? (
-              <div className="min-h-[150px] flex-1">
-                <ChartArea puntos={serieDiaria} fill />
-              </div>
-            ) : (
-              <EmptyState icon={Wallet} title="Sin ingresos en el periodo" description="Cuando entren facturas de Siigo verás la curva aquí." />
-            )}
-          </CardContent>
-        </Card>
+              {sinDatosHoy && " · hoy aún sin datos"}
+            </>
+          }
+        />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Facturado vs. periodo anterior</CardTitle>
-            <CardDescription>Lo emitido en facturas (no lo cobrado)</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col">
-            {acumFactActual.length > 1 && acumFactPrevio.length > 1 ? (
-              <ChartComparativo
-                actual={{
-                  label: etiquetaPeriodo(curStartIso, "Este periodo"),
-                  rango: rangoCorto(curStartIso, curEndIso),
-                  acum: acumFactActual,
-                }}
-                previo={{
-                  label: etiquetaPeriodo(prevStartIso, "Periodo anterior"),
-                  rango: rangoCorto(prevStartIso, prevEndIso),
-                  acum: acumFactPrevio,
-                }}
-              />
-            ) : (
-              <EmptyState
-                icon={Wallet}
-                title="Sin facturación para comparar"
-                description="Se necesitan datos del periodo anterior para el comparativo."
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <PanelComparativo
+          className="xl:col-span-6"
+          titulo={tituloComparativo}
+          actual={ladoActual}
+          previo={ladoPrevio}
+          total={facturadoPeriodo}
+          totalTexto={COP.format(facturadoPeriodo)}
+          totalPrevio={prevFacturado}
+        />
 
-      {/* ── Recaudo + composición del ingreso ── */}
-      <div className={cn("grid gap-4 lg:grid-cols-4", ENTRAR)} style={retraso(2)}>
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Recaudo del periodo</CardTitle>
-            <CardAction>
-              <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                Ver cartera <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-center gap-4">
-              <RadialGauge pct={pctRecaudo} />
-              <dl className="grid flex-1 gap-2 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-muted-foreground text-xs">Facturado en el periodo</dt>
-                  <dd className="font-medium tabular-nums">{COP.format(facturadoPeriodo)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground text-xs">Cobrado</dt>
-                  <dd className="font-medium tabular-nums">{COP.format(cobradoPeriodo)}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground text-xs">Pendiente del periodo</dt>
-                  <dd className={cn("font-semibold tabular-nums", saldoPeriodo > 0 ? "text-destructive" : "")}>{COP.format(saldoPeriodo)}</dd>
-                </div>
-              </dl>
-            </div>
-            <p className="text-muted-foreground border-t pt-2.5 text-xs">
-              Cartera total (todas las fechas): <strong className="text-foreground tabular-nums">{COP.format(carteraGlobal)}</strong>
-              {" — incluye la deuda de los eventos, que sí se sigue cobrando."}
-            </p>
-          </CardContent>
-        </Card>
+        <PanelServicios
+          className="xl:col-span-4"
+          servicios={serviciosTablero}
+          total={totalServicios}
+          sub={`Facturado del periodo · ${M(totalServicios)}`}
+          frente={frente}
+          suben={suben}
+          bajan={bajan}
+        />
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Composición del ingreso</CardTitle>
-            <CardDescription>Por servicio · facturado · {curStartIso} a {curEndIso}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {familiasIngreso.length > 0 ? (
-              <ChartDonut segmentos={familiasIngreso} subtitulo={`${curStartIso} a ${curEndIso}`} />
-            ) : (
-              <EmptyState icon={Wallet} title="Sin facturación en el periodo" description="Cuando entren facturas verás la composición aquí." />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        <PanelSemana
+          className="xl:col-span-8"
+          dias={diasTablero}
+          sub={
+            <>
+              Cobrado por día · {M(totalSemana)} en la semana
+              {hoyPendiente && " · hoy aún sin datos"}
+            </>
+          }
+        />
 
-      {/* ── Semana + tendencias ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(3)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Los últimos 7 días</CardTitle>
-            <CardDescription>Ingreso pagado por día · {COP.format(totalSemana)} en la semana</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <ChartBarrasSemana dias={dias7} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Tendencias por servicio</CardTitle>
-            <CardDescription>
-              Facturado del periodo vs. el anterior ({prevStartIso} a {prevEndIso})
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {enAlza.length === 0 && enBaja.length === 0 ? (
-              <EmptyState icon={TrendingUp} title="Sin variaciones" description="No hay cambios frente al periodo anterior." />
-            ) : (
-              [
-                { titulo: "En alza", items: enAlza, up: true },
-                { titulo: "En baja", items: enBaja, up: false },
-              ].map(
-                (sec) =>
-                  sec.items.length > 0 && (
-                    <div key={sec.titulo}>
-                      <p className="text-muted-foreground mb-1.5 text-xs font-medium tracking-wide uppercase">{sec.titulo}</p>
-                      <ul className="divide-y">
-                        {sec.items.map((m) => (
-                          <li key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: m.color }} />
-                              <span className="truncate font-medium">{m.nombre}</span>
-                            </span>
-                            <span className="flex shrink-0 items-center gap-2 tabular-nums">
-                              <span className="text-muted-foreground">{COP.format(m.actual)}</span>
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-0.5 text-xs font-semibold",
-                                  sec.up ? "text-[#46530a]" : "text-destructive",
-                                )}
-                              >
-                                {sec.up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                                {m.pct === null ? "nuevo" : `${m.pct > 0 ? "+" : ""}${m.pct}%`}
-                              </span>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ),
-              )
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Top clientes + top deudores ── */}
-      <div className={cn("grid gap-6 lg:grid-cols-2", ENTRAR)} style={retraso(4)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Top clientes</CardTitle>
-            <CardDescription>Los 5 con mayor facturación pagada en el periodo</CardDescription>
-            <CardAction>
-              <Link href={hrefIngresos} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                Ver ingresos <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {topClientes.length === 0 ? (
-              <EmptyState icon={Users} title="Sin clientes con pagos en el periodo" description="Aún no hay facturación pagada identificada." />
-            ) : (
-              <ol className="space-y-2.5">
+        <Panel className="xl:col-span-4" titulo="Top clientes" sub={`Los ${topClientes.length || 5} que más han pagado en el periodo`}>
+          {topClientes.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center text-sm">Aún no hay facturación pagada identificada en el periodo.</p>
+          ) : (
+            <>
+              <ol className="divide-border flex flex-1 flex-col divide-y">
                 {topClientes.map((t, idx) => {
                   const nombreCli = t.clienteId != null ? cliName.get(t.clienteId) ?? t.nombre ?? `Cliente #${t.clienteId}` : t.nombre ?? "—";
                   return (
-                    <li key={`${t.clienteId ?? t.nombre}-${idx}`} className="flex items-center gap-3 text-sm">
-                      <span className="bg-primary/15 text-charcoal ring-primary/25 flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1">
-                        {idx + 1}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="mb-1 flex items-center justify-between gap-2">
-                          {t.clienteId != null ? (
-                            <Link href={`/clientes/${t.clienteId}`} className="truncate font-medium hover:underline">{nombreCli}</Link>
-                          ) : (
-                            <span className="truncate font-medium">{nombreCli}</span>
-                          )}
-                          <span className="shrink-0 font-semibold tabular-nums">{COP.format(t.pagado)}</span>
+                    <li key={`${t.clienteId ?? t.nombre}-${idx}`} className="flex flex-1 items-center justify-between gap-3 py-3 text-[13px]">
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="bg-primary/35 border-lime-dim text-charcoal flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold">
+                          {idx + 1}
                         </span>
-                        <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
-                          <span className="bg-charcoal/70 block h-full rounded-full" style={{ width: `${(t.pagado / topCliMax) * 100}%` }} />
-                        </span>
+                        {t.clienteId != null ? (
+                          <Link href={`/clientes/${t.clienteId}`} className="truncate hover:underline" title={nombreCli}>
+                            {nombreCli}
+                          </Link>
+                        ) : (
+                          <span className="truncate" title={nombreCli}>
+                            {nombreCli}
+                          </span>
+                        )}
                       </span>
+                      <strong className="shrink-0 tabular-nums">{COP.format(t.pagado)}</strong>
                     </li>
                   );
                 })}
               </ol>
-            )}
-          </CardContent>
-        </Card>
+              <p className={pie}>
+                Entre {cuantos(topClientes.length, "los")} suman <strong className="text-foreground">{M(sumaTopClientes)}</strong>
+                {periodTotal > 0 && `, el ${Math.round((sumaTopClientes / periodTotal) * 100)}% de lo cobrado`}.
+              </p>
+            </>
+          )}
+        </Panel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Top deudores</CardTitle>
-            <CardDescription>Los 5 pendientes de mayor valor · Cartera {COP.format(carteraTotal + deudaSinCliente)}</CardDescription>
-            <CardAction>
-              <Link href="/cartera" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium">
-                Ver cartera <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {topPendientes.length === 0 ? (
-              <EmptyState icon={Wallet} title="Cartera al día" description="Nadie con saldo pendiente. 🎾" />
-            ) : (
-              <ul className="divide-y">
+        <Panel
+          className="xl:col-span-8"
+          titulo="Top deudores"
+          sub={`Las ${topPendientes.length || 5} facturas pendientes de mayor valor`}
+        >
+          {topPendientes.length === 0 ? (
+            <p className="text-muted-foreground py-8 text-center text-sm">Cartera al día: nadie con saldo pendiente.</p>
+          ) : (
+            <>
+              <ul className="divide-border flex flex-1 flex-col divide-y">
                 {topPendientes.map((f) => (
-                  <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0">
+                  <li key={f.id} className="flex flex-1 items-center justify-between gap-3 py-3 text-[13px]">
                     <span className="min-w-0 leading-tight">
                       {f.cliente_id ? (
-                        <Link href={`/clientes/${f.cliente_id}`} className="block truncate font-medium hover:underline">
+                        <Link href={`/clientes/${f.cliente_id}`} className="block truncate hover:underline">
                           {cliName.get(f.cliente_id) ?? `Cliente #${f.cliente_id}`}
                         </Link>
                       ) : f.cliente_nombre_siigo ? (
-                        <span className="block truncate font-medium">{f.cliente_nombre_siigo}</span>
+                        <span className="block truncate">{f.cliente_nombre_siigo}</span>
                       ) : (
                         <span className="text-muted-foreground block">Sin identificar</span>
                       )}
-                      <span className="text-muted-foreground block text-xs">{f.numero ?? "—"} · {f.fecha}</span>
+                      <span className="text-muted-foreground block text-xs" title={f.numero ?? undefined}>
+                        Factura del {fechaCorta(f.fecha)} · {hace(diasDesde(f.fecha))}
+                      </span>
                     </span>
-                    <span className="text-destructive shrink-0 font-semibold tabular-nums">{COP.format(f.saldo)}</span>
+                    <strong className="text-destructive shrink-0 tabular-nums">{COP.format(f.saldo)}</strong>
                   </li>
                 ))}
               </ul>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              <p className={pie}>
+                Entre {cuantos(topPendientes.length, "las")} suman <strong className="text-foreground">{M(sumaTopDeudas)}</strong>
+                {carteraGlobal > 0 && `, el ${Math.round((sumaTopDeudas / carteraGlobal) * 100)}% de la cartera total`} ({M(carteraGlobal)} en{" "}
+                {facturasCartera} factura(s)).
+              </p>
+            </>
+          )}
+        </Panel>
 
-      {/* ── Ocupación de canchas (EasyCancha) ── */}
-      <section className={ENTRAR} style={retraso(5)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Ocupación de canchas</CardTitle>
-            <CardDescription>
-              Tiempo de cancha reservado sobre el disponible · EasyCancha · semana del {ocupacion.desde} al{" "}
-              {ocupacion.hasta}
-            </CardDescription>
-            <CardAction>
-              <Link
-                href="/clases?vista=cancha"
-                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm font-medium"
-              >
-                Ver calendario <ArrowRight className="size-3.5" />
-              </Link>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <ChartOcupacion datos={ocupacion} />
-          </CardContent>
-        </Card>
-      </section>
+        <PanelReloj
+          className="xl:col-span-6"
+          reloj={reloj}
+          sub={`Ocupación de un día típico, hora por hora${rangoReloj}`}
+        />
 
-      {/* ── Clases agendadas (EasyCancha) ── */}
-      <div className={cn(ENTRAR)} style={retraso(6)}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Clases agendadas esta semana</CardTitle>
-            <CardDescription>
-              Por entrenador · EasyCancha · {semanaEC.desde} a {semanaEC.hasta}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {semanaEC.ranking.length === 0 ? (
-              <EmptyState icon={CalendarClock} title="Sin clases agendadas" description="No hay reservas de clases en EasyCancha esta semana." />
-            ) : (
-              <ol className="space-y-2.5">
-                {semanaEC.ranking.slice(0, 8).map((r, idx) => (
-                  <li key={r.nombre} className="flex items-center gap-3 text-sm">
-                    <span className="text-muted-foreground w-4 shrink-0 text-center font-semibold tabular-nums">{idx + 1}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="mb-1 flex items-center justify-between gap-2">
-                        <span className="truncate font-medium">
-                          {r.nombre}
-                          {r.deportes.length > 0 && (
-                            <span className="text-muted-foreground font-normal">
-                              {" "}({r.deportes.map((d) => (d === "padel" ? "Pádel" : "Tenis")).join(" y ")})
-                            </span>
-                          )}
-                        </span>
-                        <span className="text-muted-foreground tabular-nums">{r.clases}</span>
+        <Panel className="xl:col-span-6" titulo="Clases por entrenador" sub={`Agendadas esta semana · ${totalClases} en total`}>
+          {entrenadores.length === 0 ? (
+            <p className="text-muted-foreground py-10 text-center text-sm">No hay clases agendadas en EasyCancha esta semana.</p>
+          ) : (
+            <ul className="flex flex-1 flex-col justify-between">
+              {entrenadores.map((e) => {
+                // El pádel en su verde y el tenis en azul, como en el reloj; quien dicta los dos va en azul.
+                const soloPadel = e.deportes.length === 1 && e.deportes[0] === "padel";
+                const deporte = e.deportes.map((d) => (d === "padel" ? "Pádel" : "Tenis")).join(" y ");
+                return (
+                  <li key={e.nombre} className="py-[7px]">
+                    <div className="flex items-baseline justify-between gap-2.5 text-[13px]">
+                      <span className="min-w-0 truncate">
+                        {e.nombre}
+                        {deporte && <span className="text-muted-foreground"> · {deporte}</span>}
                       </span>
-                      <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">
-                        <span className="bg-primary block h-full rounded-full" style={{ width: `${(r.clases / ecMax) * 100}%` }} />
-                      </span>
-                    </span>
+                      <strong className="tabular-nums">{e.clases}</strong>
+                    </div>
+                    <div className="bg-muted mt-1.5 h-2 overflow-hidden rounded">
+                      <div
+                        className="h-2 rounded"
+                        style={{ width: `${(e.clases / maxClases) * 100}%`, background: soloPadel ? TABLERO.padel : TABLERO.tenis }}
+                      />
+                    </div>
                   </li>
-                ))}
-              </ol>
-            )}
-          </CardContent>
-        </Card>
-
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
       </div>
 
+      <p className="text-muted-foreground text-xs">Dinero: Siigo, se actualiza cada 20 min · Canchas y clases: EasyCancha</p>
+    </div>
+  );
+}
+
+/** Un indicador: etiqueta, cifra, un renglón de contexto y, abajo, su minigráfica o medidor. */
+function Kpi({
+  etiqueta,
+  valor,
+  exacto,
+  detalle,
+  children,
+}: {
+  etiqueta: string;
+  valor: string;
+  /** La cifra completa, para quien pase el cursor sobre la abreviada. */
+  exacto?: string;
+  detalle?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-card border-border flex min-w-0 flex-col gap-1 rounded-xl border px-[18px] py-4 shadow-sm">
+      <span className="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">{etiqueta}</span>
+      <span className="font-heading text-[26px] leading-tight font-bold tabular-nums" title={exacto}>
+        {valor}
+      </span>
+      {detalle && <span className="text-muted-foreground text-xs">{detalle}</span>}
+      {children && <div className="mt-auto pt-2.5">{children}</div>}
+    </div>
+  );
+}
+
+/** Barra de dos tramos: lo resuelto en grafito, lo que falta en ámbar. */
+function Medidor({ pct, etiqueta }: { pct: number; etiqueta: string }) {
+  const lleno = Math.max(0, Math.min(100, pct));
+  return (
+    <div role="img" aria-label={etiqueta} className="bg-muted flex h-2 gap-0.5 overflow-hidden rounded">
+      <span className="block h-2" style={{ width: `${lleno}%`, background: TABLERO.carbon }} />
+      <span className="block h-2" style={{ width: `${100 - lleno}%`, background: TABLERO.ambar }} />
     </div>
   );
 }

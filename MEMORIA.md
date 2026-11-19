@@ -759,8 +759,9 @@ CLI — mantener ambas en sintonía). pg_cron la invoca: **cada 20 min** (increm
 `cron.job_run_details` y `net._http_response`. La UI muestra "última sync" desde `siigo_sync.updated_at`.
 
 ## Módulos (rutas → fuente)
-`/dashboard` bento animado (RPCs Siigo + EasyCancha semanal; componentes en `dashboard/`: count-up,
-chart-area, chart-barras-semana, chart-donut, radial-gauge) · `/ingresos` y `/cartera` detalle paginado
+`/dashboard` tablero con gráficas de ECharts (RPCs Siigo + EasyCancha semanal; ver "📊 Dashboard
+nuevo" más abajo; archivos en `dashboard/`: echart, echarts-nucleo, tablero-paneles, tablero-formato,
+count-up) · `/ingresos` y `/cartera` detalle paginado
 (20/pág, filtro por servicio; ingresos también por periodo) · `/pagos` cola de conciliación (SOLO
 asignar cliente por NIT; "mostrador" no aparece. **Atar a un evento NO se hace aquí** — ver P&G de
 eventos) · `/clientes` (paginado 30, autocomplete) · `/academias` (el **planeador** por profesor + la matrícula por academia)
@@ -2579,6 +2580,47 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
 - Verificado en local el 1-oct-2026 de punta a punta en celular (375 px) y en escritorio: 4 pasos → envío
   (la niña entró como miembro 689 de la 598 por la cédula de la acudiente; facturación escrita porque la
   ficha no tenía NIT) → consentimiento precargado → firma escrita → PDF (firma 81c67be2…).
+
+## 📊 Dashboard nuevo: gráficas con ECharts (19-nov-2026)
+Laura pidió un rediseño completo del dashboard "como un centro de control de datos". Fueron seis
+rondas de diseño el mismo día (artifacts, sin tocar el repo) hasta que dijo "implementa esta versión".
+- **Por qué ECharts**: se probaron ECharts, ApexCharts y Recharts sobre las cifras reales y Laura
+  escogió ECharts: es la única donde al cambiar de forma la gráfica se transforma en la otra, y su
+  licencia es Apache 2.0 (gratis). ApexCharts se descartó por su licencia (gratis solo bajo US$2 M
+  de ingresos al año). Con esto cambia la regla de "gráficos propios, sin librerías".
+- **Claro, no oscuro**: los primeros diseños eran oscuros ("Sala de control") y Laura los corrigió:
+  "necesito que sea blanco, como actualmente tenemos la plataforma". No volver a proponerlo oscuro.
+- **El orden y lo que lleva lo decidió ella**, con un collage: marcador de hoy (el banner de siempre,
+  pidió conservarlo) → avisos → Facturado, Cobrado, Por cobrar, Cartera total → Cobrado por día +
+  Facturado vs. anterior → Ingreso por servicio + Últimos 7 días → Top clientes + Top deudores →
+  Reloj de las canchas + Clases por entrenador. También pidió: tarjetas del mismo alto por fila; el
+  título "Cobrado por día" con el texto "Dinero que ha ingresado · arrastra la barra para acercarte";
+  barras de servicios cada una de su color; la leyenda de la dona y los "suben/bajan" en filas
+  alineadas; y el total facturado en grande bajo el título de la gráfica de Facturado.
+- **Selectores**: Cobrado por día (barras · línea · área) · Ingreso por servicio (barras · dona ·
+  bloques; abre en dona) · Últimos 7 días (por servicio · total) · Reloj (los dos · tenis · pádel).
+- **Las cifras NO cambiaron**: el cálculo de `superadmin-dashboard.tsx` es el mismo (mismos RPCs,
+  misma regla de eventos); se le sumó `siigo_cartera_antiguedad` para el indicador de cartera.
+- **Nuevo en los datos**: `ocupacionCanchas()` devuelve además `porHora` (día × hora, promedio de las
+  canchas de cada deporte). El reloj promedia solo los días de la semana que ya llegaron.
+- **Se quitó respecto al dashboard de julio**: el medidor de recaudo (ahora es el indicador "Por
+  cobrar" con su barra), el mapa de ocupación por cancha, el modal al tocar una barra de la semana
+  (lo reemplaza "por servicio") y los seis componentes de gráficas propias. ⚠️ Tampoco está la
+  **antigüedad de la cartera** (0–30 / 31–60 / +60): no estaba en el collage de Laura; sigue en `/cartera`.
+- 🎨 **Los colores de los servicios del dashboard NO son los del catálogo** (`servicios.color`): sobre
+  blanco, Academia Competencia Tenis y Academia Recreativa Tenis se confunden en la dona. El dashboard
+  usa una tabla propia por `clave` (14 colores, `tablero-formato.ts`). Consecuencia: un servicio tiene
+  un color en el dashboard y otro en `/ingresos` y `/config`. **Unificarlos es decisión de Laura** (se
+  le avisó; no se tocó el catálogo).
+- ⚠️ **Diferencia de $260.000 SIN explicar entre el diseño y la plataforma**: el diseño (una foto de
+  los datos tomada esa mañana) decía $172.927.363 de facturado para el 1–19 nov; la plataforma, en
+  vivo, da $172.667.363. Medido el 19-nov: `siigo_recaudo` devuelve lo mismo con y sin eventos, y no
+  había eventos cerrados ni retenidos en el periodo, así que **no es la regla de eventos**. No se
+  investigó más (puede ser una nota crédito o una anulación posterior). La cifra buena es la de la
+  plataforma; si alguien compara contra el diseño, la diferencia viene de ahí.
+- Trampas y archivos: `handoff.md` §11 "Gráficos". Prueba: `tests/dashboard-render.test.tsx`.
+- Respaldo de la primera implementación (la oscura, retirada): carpeta hermana del repo
+  `Respaldo Sala de control ECharts (19-nov-2026)/`. Ya no hace falta; se puede borrar.
 
 ## Pendientes conocidos
 

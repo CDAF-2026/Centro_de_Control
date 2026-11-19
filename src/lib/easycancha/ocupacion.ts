@@ -104,6 +104,19 @@ export type OcupacionVista = {
   padel: PanelDeporte;
 };
 
+/**
+ * Mapa de calor de la semana: ocupación media de las canchas de un deporte en cada
+ * día y cada hora. Es una tercera lectura de los mismos tramos: `hoy` responde "cómo va
+ * el día", `semana` "qué cancha se usa más", y esta "a qué horas se llena el club".
+ */
+export type OcupacionPorHora = {
+  horas: { label: string; detalle: string }[];
+  dias: { label: string; detalle: string; hoy: boolean; futuro: boolean }[];
+  /** [día][hora] → % medio de las canchas del deporte (0–100). */
+  tenis: number[][];
+  padel: number[][];
+};
+
 export type Ocupacion = {
   hoyIso: string;
   desde: string;
@@ -113,6 +126,8 @@ export type Ocupacion = {
   hoy: OcupacionVista;
   /** Columnas = días de la semana en curso. */
   semana: OcupacionVista;
+  /** Semana completa por día y hora, promediando las canchas de cada deporte. */
+  porHora: OcupacionPorHora;
   error: string | null;
 };
 
@@ -331,6 +346,21 @@ export async function ocupacionCanchas(now: Date = new Date()): Promise<Ocupacio
     padel: panelDeporte(tramos, "padel", nCanchas.padel, columnas, ventanas),
   });
 
+  // ── Mapa de calor: día × hora, promediando las canchas del deporte ──
+  // Se promedia el % de cada cancha (no se suman minutos) por la misma razón que arriba:
+  // todas las ventanas miden una hora, así que el promedio ya es minutos ocupados sobre
+  // minutos disponibles, y cuadra con el titular del deporte.
+  const matrizPorHora = (dep: Deporte, n: number): number[][] => {
+    const delDep = tramos.filter((t) => t.dep === dep);
+    const porCancha = Array.from({ length: n }, (_, i) => delDep.filter((t) => t.cancha === i + 1));
+    return dias.map((fecha) =>
+      colsHoy.map((_, j) => {
+        const a = (APERTURA_H + j) * 60;
+        return mean(porCancha.map((tc) => celda(tc, { fecha, a, z: a + 60 }).pct));
+      }),
+    );
+  };
+
   return {
     hoyIso,
     desde,
@@ -338,6 +368,12 @@ export async function ocupacionCanchas(now: Date = new Date()): Promise<Ocupacio
     horario: { apertura: APERTURA_H, cierre: CIERRE_H },
     hoy: armar(colsHoy, venHoy),
     semana: armar(colsSemana, venSemana),
+    porHora: {
+      horas: colsHoy.map((c) => ({ label: c.label, detalle: c.detalle })),
+      dias: colsSemana.map((c) => ({ label: c.label, detalle: c.detalle, hoy: c.destacada, futuro: c.futura })),
+      tenis: matrizPorHora("tenis", nCanchas.tenis),
+      padel: matrizPorHora("padel", nCanchas.padel),
+    },
     error,
   };
 }

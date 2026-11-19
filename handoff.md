@@ -708,9 +708,57 @@ Authorization: Bearer $SUPABASE_ACCESS_TOKEN
 
 ### Gráficos
 
-Son propios, en `src/app/(app)/dashboard/`: `CountUp`, `ChartArea`, `ChartBarrasSemana`,
-`ChartDonut`, `RadialGauge`. **Sin librerías** — SVG + transiciones CSS. Respetan
-`prefers-reduced-motion`.
+Desde el 19-nov-2026 el dashboard usa **Apache ECharts 6** (licencia Apache 2.0). Lo
+escogió Laura tras comparar ECharts, ApexCharts y Recharts sobre datos reales; hasta
+entonces los gráficos eran propios, en SVG y sin librerías. El dashboard es **claro**, como
+el resto de la plataforma (Laura descartó la versión oscura). Todo vive en
+`src/app/(app)/dashboard/`:
+
+| Archivo | Qué es |
+|---|---|
+| `echarts-nucleo.ts` | ECharts con solo lo que se usa. **Un tipo de gráfica o una pieza nueva (zoom, línea de referencia…) se registra aquí**; si falta, ECharts no falla: simplemente no la dibuja. |
+| `echart.tsx` | El componente que dibuja. Carga ECharts con `import()` (trozo aparte, no pesa en el resto de la app). |
+| `tablero-paneles.tsx` | Los paneles (cliente): cada uno guarda su "forma" (barras, línea, dona…) y arma la opción. |
+| `tablero-formato.ts` | Colores, formatos de dinero y los tipos de los datos que el servidor les pasa. |
+| `superadmin-dashboard.tsx` | La pantalla (servidor): arriba calcula todas las cifras, abajo las pinta. |
+| `count-up.tsx` | El número animado del marcador de hoy (el único gráfico propio que queda). |
+
+Trampas medidas, no las repitas:
+
+- **Las opciones se arman en el cliente**, no en el servidor: llevan funciones (formatos de
+  eje, tooltips) y una función no cruza de servidor a cliente.
+- **Un cambio de tamaño a mitad de una animación deja la gráfica a medias** (pasó con la
+  transformación barras → dona y con la línea de promedio). Por eso `echart.tsx` solo
+  reajusta si el tamaño cambió de verdad, y entonces redibuja **en seco**: limpia y pinta
+  sin animar.
+- **Tarjetas del mismo alto en cada fila**: una gráfica con `minimo` (en vez de `alto`) se
+  estira hasta llenar su tarjeta, que iguala a la vecina. Las listas hacen lo mismo con
+  `flex-1`. No pongas alturas fijas "a ojo" para emparejar.
+- **Un lienzo no entiende `var(--font-…)`** y next/font le pone a cada familia un nombre
+  generado. Las opciones usan las marcas `FUENTE` / `FUENTE_TITULO` y `echart.tsx` las
+  cambia por la familia real antes de dibujar.
+- **Los tonos están en DOS sitios**: las variables de `globals.css` y `TABLERO` en
+  `tablero-formato.ts` (ECharts necesita el valor, no la variable). Cambia los dos.
+- **El dato principal va en grafito, no en lima**: la lima sobre blanco tiene contraste
+  1,4:1 y no se lee como barra. Queda de acento (relleno de áreas, barra de zoom).
+- **El dashboard NO usa `servicios.color`**: sobre blanco, los tonos del catálogo de
+  Academia Competencia Tenis y Academia Recreativa Tenis se confunden en la dona. Tiene su
+  propia tabla por `servicios.clave` (`COLOR_SERVICIO`), validada con la skill `dataviz`.
+  Son 14 colores y el techo real de distinguibles es ~9: por eso **ninguna gráfica deja el
+  color solo** (el nombre va al lado o en la lista de debajo), al apilar se ordena con
+  `turnoDeColor`, y la dona reacomoda sus tajadas con `sinVecinosParecidos` para que
+  naranja y rojo no queden pegados. Un servicio sin color propio sale en gris.
+  ⚠️ `/ingresos` y `/config` siguen con `servicios.color`: los colores de un servicio no
+  coinciden entre esas pantallas y el dashboard. Unificarlos es una decisión de Laura.
+- **Sin zoom con la rueda del ratón** en "Cobrado por día" (solo la barra de abajo): la
+  rueda secuestra el desplazamiento de la página.
+- **La cifra grande de "Facturado" la formatea el servidor** y llega como texto: con
+  `Intl` en un componente de cliente el texto puede no coincidir al hidratar.
+- **Hoy sin facturas va como "sin datos" (`null`), no como cero**, por el rezago de Siigo.
+- Respetan `prefers-reduced-motion` (sin animación).
+- Prueba: `tests/dashboard-render.test.tsx`. Las gráficas no se pueden probar ahí (dibujan
+  en un lienzo, en el navegador): prueba que la pantalla se ejecute en cada periodo, el
+  orden de los bloques y la forma de los datos. Para verlas hay que abrir el navegador.
 
 ---
 
