@@ -31,7 +31,7 @@ export function AcompanantesCampos({
     <div className={compacto ? "space-y-1.5" : "space-y-2"}>
       <p className={compacto ? "text-muted-foreground text-xs" : "text-sm font-medium"}>
         {faltan === 1 ? "¿Quién más tomó la clase?" : "¿Quiénes más tomaron la clase?"}
-        {!obligatorio && " (opcional: si no los sabes, el profesor los pone al cerrar la clase)"}
+        {!obligatorio && " (opcional: si no los sabes, el entrenador los pone al cerrar la clase)"}
       </p>
       {Array.from({ length: faltan }, (_, i) => (
         <Input

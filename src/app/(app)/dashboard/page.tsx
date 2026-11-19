@@ -169,7 +169,7 @@ export default async function DashboardPage({
         ) : (
           <>
             <Kpi label="Clientes activos" value={nClientes ?? 0} icon={Users} accent />
-            <Kpi label="Profesores" value={nProfes ?? 0} icon={GraduationCap} />
+            <Kpi label="Entrenadores" value={nProfes ?? 0} icon={GraduationCap} />
             <Kpi label="Academias activas" value={nAcademias ?? 0} icon={Building2} />
             {esFinanzas ? (
               <Kpi label="Cobrado este mes" value={COP.format(totalMes)} icon={Wallet} accent />

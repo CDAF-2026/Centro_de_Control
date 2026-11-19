@@ -124,8 +124,8 @@ describe("el selector del modal", () => {
   });
 
   it("titula el grupo con el deporte de la clase", async () => {
-    expect(await montar("tenis")).toContain("Profesores de tenis");
-    expect(await montar("padel")).toContain("Profesores de pádel");
+    expect(await montar("tenis")).toContain("Entrenadores de tenis");
+    expect(await montar("padel")).toContain("Entrenadores de pádel");
   });
 
   it("no cuela profesores del otro deporte", async () => {
@@ -151,7 +151,7 @@ describe("el selector del modal", () => {
       React.createElement(ProfesorClaseForm, { claseId: 1, opciones: [], deporte: "tenis" }),
     );
     expect(html).not.toContain("<select");
-    expect(html).toContain("No hay profesores disponibles");
+    expect(html).toContain("No hay entrenadores disponibles");
   });
 });
 

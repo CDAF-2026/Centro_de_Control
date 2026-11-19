@@ -205,7 +205,7 @@ export default async function ClasesPage({
       estadoTone: est.tone,
       detalles: [
         ["Fecha y hora", `${c.fecha} · ${hora}${horaFin ? `–${horaFin}` : ""}`],
-        ["Profesor", profesor ?? "—"],
+        ["Entrenador", profesor ?? "—"],
         ["Cancha", c.cancha ?? "—"],
         // Clase compartida: quiénes la tomaron además del titular.
         ...(c.tipo !== "academia" && c.asistentes_no_registrados
@@ -256,7 +256,7 @@ export default async function ClasesPage({
                   ? `Pasaron más de ${PLAZO_CIERRE_HORAS} h: su valor ya cuenta para la liquidación.`
                   : `Pasaron más de ${PLAZO_CIERRE_HORAS} h. Para corregirlo, pídeselo al superadministrador.`
                 : c.estado !== "programada"
-                  ? "Ya cerrada: su valor cuenta para la liquidación del profesor."
+                  ? "Ya cerrada: su valor cuenta para la liquidación del entrenador."
                   : null,
             },
           }
@@ -276,7 +276,7 @@ export default async function ClasesPage({
       const profesor = resolverProfesor(profesorDeCancha(b.courtName));
       const est = EST_EC[b.status] ?? { label: b.status, tone: "warn" as const };
       const det: [string, string][] = [["Fecha y hora", `${b.localDate} · ${hora}${fin ? `–${fin}` : ""}`]];
-      if (profesor) det.push(["Profesor", profesor]);
+      if (profesor) det.push(["Entrenador", profesor]);
       if (b.courtName) det.push(["Cancha", b.courtName]);
       // El comentario SOLO se muestra en los bloqueos de academia: ahí el club apunta
       // el profesor/grupo. En las reservas de clientes esa nota trae datos privados
@@ -460,7 +460,7 @@ export default async function ClasesPage({
         <CalendarGrid year={year} month={month} deporte={deporte} eventos={eventosVista} canAssign={puedeCrear} />
       ) : vista === "profesor" && !selProf ? (
         <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-          Elige un profesor para ver su día.
+          Elige un entrenador para ver su día.
         </p>
       ) : vista === "cancha" && !selCancha ? (
         <p className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">

@@ -122,7 +122,7 @@ export function CierreForm({
             defaultValue={motivoActual ?? ""}
             required
             minLength={3}
-            placeholder="Semana de receso · profesor enfermo · lluvia · cancha ocupada"
+            placeholder="Semana de receso · entrenador enfermo · lluvia · cancha ocupada"
           />
           <p className="text-muted-foreground text-xs">
             La clase deja de pedirse y no cuenta para nada. Queda el registro de que ese día no
@@ -235,7 +235,7 @@ export function CierreForm({
             <option value="6">6 personas</option>
           </select>
           <p className="text-muted-foreground text-xs">
-            Para clases compartidas. Define el valor cuando el profesor cobra por nº de personas.
+            Para clases compartidas. Define el valor cuando el entrenador cobra por nº de personas.
           </p>
           <AcompanantesCampos personas={personas} iniciales={acompanantes} />
         </div>

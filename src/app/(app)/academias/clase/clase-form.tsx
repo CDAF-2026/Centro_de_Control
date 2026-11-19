@@ -51,7 +51,7 @@ export function ClaseForm({
         <input type="hidden" name="deporte" value={deporte} />
 
         <div className="space-y-1.5">
-          <Label htmlFor="profesorId">Profesor</Label>
+          <Label htmlFor="profesorId">Entrenador</Label>
           <select
             id="profesorId"
             name="profesorId"

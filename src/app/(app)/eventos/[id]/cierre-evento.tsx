@@ -65,7 +65,7 @@ export function CerrarEvento({
             <dd className="tabular-nums">{COP.format(ingreso)}</dd>
           </div>
           <div className="flex items-center justify-between px-3 py-2">
-            <dt className="text-muted-foreground">Costos (gastos + profesores)</dt>
+            <dt className="text-muted-foreground">Costos (gastos + entrenadores)</dt>
             <dd className="tabular-nums">−{COP.format(costo)}</dd>
           </div>
           <div className="bg-muted/40 flex items-center justify-between px-3 py-2">

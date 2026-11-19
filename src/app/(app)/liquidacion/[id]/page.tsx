@@ -57,7 +57,7 @@ export default async function LiquidacionDetallePage({
               <th className="px-3 py-2">Cliente</th>
               <th className="px-3 py-2">Tipo de clase</th>
               <th className="px-3 py-2 text-right">Valor cobrado al cliente</th>
-              <th className="px-3 py-2 text-right">Valor a pagar al profesor</th>
+              <th className="px-3 py-2 text-right">Valor a pagar al entrenador</th>
             </tr>
           </thead>
           <tbody>
@@ -125,7 +125,7 @@ export default async function LiquidacionDetallePage({
 
       <p className="text-muted-foreground text-xs">
         <strong>Valor cobrado al cliente</strong> = lo facturado por esa clase (o la base de Siigo en alto rendimiento).{" "}
-        <strong>Valor a pagar al profesor</strong> = según sus reglas de compensación. Solo clases realizadas; el alto
+        <strong>Valor a pagar al entrenador</strong> = según sus reglas de compensación. Solo clases realizadas; el alto
         rendimiento sale de la facturación de Siigo del periodo. Las clases de <strong>academia</strong> aparecen con
         &ldquo;—&rdquo; en lo cobrado: la academia se factura por mensualidad en Siigo, no por clase, así que no hay un
         valor por clase que mostrar aquí.

@@ -42,7 +42,7 @@ export function claseConfirmadaEmail(opts: {
           <p style="margin:0 0 14px;font-size:16px;">Hola ${esc(opts.nombre) || "deportista"},</p>
           <p style="margin:0;font-size:14px;line-height:1.6;">
             Tu clase ${deporteTxt ? `de <strong>${deporteTxt}</strong> ` : ""}del <strong>${esc(opts.fecha)}</strong>${opts.hora ? ` a las <strong>${esc(opts.hora)}</strong>` : ""} fue
-            <strong style="color:#3a4400;">confirmada como realizada</strong>${opts.profesor ? ` por tu profesor <strong>${esc(opts.profesor)}</strong>` : ""}. ✅
+            <strong style="color:#3a4400;">confirmada como realizada</strong>${opts.profesor ? ` por tu entrenador <strong>${esc(opts.profesor)}</strong>` : ""}. ✅
           </p>
           ${saldoBox}
           <p style="margin:18px 0 0;font-size:12px;color:#6b7280;line-height:1.5;">¡Gracias por entrenar con nosotros! Nos vemos en la cancha. 🎾</p>

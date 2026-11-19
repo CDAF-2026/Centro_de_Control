@@ -624,7 +624,7 @@ export async function asignarProfesorClase(
   const claseId = Number(formData.get("claseId"));
   const profesorId = String(formData.get("profesorId") ?? "").trim();
   if (!claseId) return { error: "Clase inválida." };
-  if (!profesorId) return { error: "Escoge un profesor." };
+  if (!profesorId) return { error: "Escoge un entrenador." };
 
   const supabase = await createClient();
   const { data: clase } = await supabase
@@ -634,13 +634,13 @@ export async function asignarProfesorClase(
     .maybeSingle();
   if (!clase) return { error: "No se encontró la clase." };
   if (clase.profesor_id) {
-    return { error: "Esta clase ya tiene profesor. Para cambiarlo, pídeselo al superadministrador." };
+    return { error: "Esta clase ya tiene entrenador. Para cambiarlo, pídeselo al superadministrador." };
   }
 
   // Que sea alguien a quien de verdad se le pueda pagar por dictar.
   const docentes = await profesoresActivos();
   const elegido = docentes.find((p) => p.id === profesorId);
-  if (!elegido) return { error: "Ese profesor no está disponible para dictar." };
+  if (!elegido) return { error: "Ese entrenador no está disponible para dictar." };
 
   const { error } = await supabase
     .from("clases")
@@ -663,7 +663,7 @@ export async function asignarProfesorClase(
   revalidatePath("/liquidacion");
   // Se devuelve el nombre para que el modal confirme: su copia del evento es de
   // cuando se abrió y no se refresca sola.
-  return { ok: "Profesor asignado.", profesor: elegido.nombre ?? "—" };
+  return { ok: "Entrenador asignado.", profesor: elegido.nombre ?? "—" };
 }
 
 // ─────────────────────────────────────────────────────────────

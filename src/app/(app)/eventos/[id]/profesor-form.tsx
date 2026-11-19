@@ -20,7 +20,7 @@ export function ProfesorForm({
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="evento_id" value={eventoId} />
       <select name="profesor_id" required defaultValue="" className={SELECT}>
-        <option value="">Profesor…</option>
+        <option value="">Entrenador…</option>
         {profesores.map((p) => (
           <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>
         ))}

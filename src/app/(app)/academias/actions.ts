@@ -186,7 +186,7 @@ export async function guardarClase(
   const deporte = formData.get("deporte") === "padel" ? ("padel" as const) : ("tenis" as const);
 
   const fieldErrors: Record<string, string> = {};
-  if (!profesorId) fieldErrors.profesorId = "Escoge el profesor.";
+  if (!profesorId) fieldErrors.profesorId = "Escoge el entrenador.";
   if (!Number.isInteger(dia) || dia < 0 || dia > 6) fieldErrors.dia = "Escoge el día.";
   if (!/^\d{2}:\d{2}$/.test(hora)) fieldErrors.hora = "Escoge la hora.";
   if (!Number.isInteger(duracion) || duracion < 15 || duracion > 300) fieldErrors.duracion = "Escoge cuánto dura.";
@@ -212,7 +212,7 @@ export async function guardarClase(
   if (error) {
     return {
       error: /duplicate|unique/i.test(error.message)
-        ? "Ese profesor ya tiene una clase ese día a esa hora. Un profesor no puede estar en dos canchas a la vez."
+        ? "Ese entrenador ya tiene una clase ese día a esa hora. Un entrenador no puede estar en dos canchas a la vez."
         : error.message,
     };
   }

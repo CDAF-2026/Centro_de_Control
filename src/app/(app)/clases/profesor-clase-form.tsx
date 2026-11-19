@@ -57,12 +57,12 @@ export function ProfesorClaseForm({
 
   const delDeporte = opciones.filter((p) => p.delDeporte);
   const sinMarcar = opciones.filter((p) => !p.delDeporte);
-  const etiqueta = deporte === "padel" ? "Profesores de pádel" : deporte === "tenis" ? "Profesores de tenis" : "Profesores";
+  const etiqueta = deporte === "padel" ? "Entrenadores de pádel" : deporte === "tenis" ? "Entrenadores de tenis" : "Entrenadores";
 
   if (!opciones.length) {
     return (
       <span className="text-muted-foreground text-right text-xs">
-        No hay profesores disponibles.
+        No hay entrenadores disponibles.
       </span>
     );
   }

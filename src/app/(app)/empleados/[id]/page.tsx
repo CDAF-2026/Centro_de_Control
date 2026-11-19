@@ -223,7 +223,7 @@ export default async function EmpleadoDetallePage({
                 {reglas.length === 0 && comp && (
                   <div className="space-y-3 border-t pt-4">
                     <p className="text-muted-foreground text-xs">
-                      <strong>Configuración anterior</strong> — se usa para liquidar mientras este profesor no tenga reglas.
+                      <strong>Configuración anterior</strong> — se usa para liquidar mientras este entrenador no tenga reglas.
                     </p>
                     <CompensacionForm profesorId={emp.id} comp={compDefault} />
                   </div>

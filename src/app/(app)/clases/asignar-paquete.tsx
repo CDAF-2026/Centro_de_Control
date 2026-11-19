@@ -108,7 +108,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
       {ec.esBloqueo ? (
         <p className="text-muted-foreground text-sm">
           Las clases de academia no se registran aquí: salen solas del{" "}
-          <Link className="underline" href="/academias">planeador</Link> y el profesor las cierra en
+          <Link className="underline" href="/academias">planeador</Link> y el entrenador las cierra en
           Cierre de clases.
         </p>
       ) : !ec.pareceClase && !forzarClase ? (
@@ -155,7 +155,7 @@ export function MaterializarReserva({ ev }: { ev: CalEvento }) {
           )}
 
           <label className="block text-xs">
-            Profesor
+            Entrenador
             <select value={profesorId} onChange={(e) => setProfesorId(e.target.value)} className={SELECT}>
               <option value="">— Sin asignar —</option>
               {data.profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}

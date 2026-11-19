@@ -94,7 +94,7 @@ export default async function LiquidacionPage({
         <table className="cdaf-table">
           <thead>
             <tr>
-              <th className="px-4 py-2">Profesor</th>
+              <th className="px-4 py-2">Entrenador</th>
               <th className="px-4 py-2 text-right">Valor facturado</th>
               <th className="px-4 py-2 text-right">Total a liquidar</th>
               <th className="px-4 py-2" />
@@ -135,7 +135,7 @@ export default async function LiquidacionPage({
         </table>
       </div>
       <p className="text-muted-foreground text-xs">
-        <strong>Valor facturado</strong> = total cobrado a clientes. <strong>Total a liquidar</strong> = a pagar al profesor
+        <strong>Valor facturado</strong> = total cobrado a clientes. <strong>Total a liquidar</strong> = a pagar al entrenador
         según su compensación. Solo clases <strong>realizadas</strong>; montos fijos prorrateados (quincena = mitad del mensual).
       </p>
     </div>

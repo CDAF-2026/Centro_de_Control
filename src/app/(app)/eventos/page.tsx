@@ -54,7 +54,7 @@ export default async function EventosPage() {
       </div>
       <p className="text-muted-foreground text-sm">
         Torneos, clínicas y masterclass. Cada evento lleva su propio resultado (ingresos facturados − gastos −
-        pago a profesores) y solo entra al dashboard —por su utilidad, no por el bruto— cuando se cierra.
+        pago a entrenadores) y solo entra al dashboard —por su utilidad, no por el bruto— cuando se cierra.
       </p>
 
       {retenido > 0 && (

@@ -121,7 +121,7 @@ export async function guardarCompensacion(
 
   const profesorId = String(formData.get("profesorId") || "");
   const tipo = String(formData.get("tipo") || "");
-  if (!profesorId) return { error: "Falta el profesor." };
+  if (!profesorId) return { error: "Falta el entrenador." };
   if (!["por_clase", "fijo_comision", "fisico"].includes(tipo)) return { error: "Tipo de compensación inválido." };
 
   const num = (k: string) => Math.max(0, Math.round(Number(formData.get(k)) || 0));
@@ -159,7 +159,7 @@ export async function guardarReglas(
   await requireRole(rolesForModule("empleados", "edit"));
 
   const profesorId = String(formData.get("profesorId") || "");
-  if (!profesorId) return { error: "Falta el profesor." };
+  if (!profesorId) return { error: "Falta el entrenador." };
   const aplicaDesde = String(formData.get("aplicaDesde") || "");
   // La historia del club arranca en junio de 2026: antes no hay nada que liquidar.
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(aplicaDesde) || aplicaDesde < "2026-06") {

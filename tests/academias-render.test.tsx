@@ -133,7 +133,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
     const t = texto(html);
     expect(t).toContain("Academias");
     expect(t).toContain("Clases a la semana");
-    expect(t).toContain("Profesor");
+    expect(t).toContain("Entrenador");
     // Por profesor (opción C): cada clase del planeador sale UNA vez, aunque el
     // profesor no aparezca en el directorio (con service_role salen sin nombre).
     const { count } = await admin()
@@ -334,7 +334,7 @@ describe("las pantallas de academias se renderizan enteras", () => {
       PERFIL.role = "coord_deportivo";
       const html = await render(Page, { searchParams: P({}) });
       expect(html).toContain('href="/academias/exportar"');
-      expect(texto(html)).toContain("Descargar inscritos por profesor");
+      expect(texto(html)).toContain("Descargar inscritos por entrenador");
       PERFIL.role = "recepcion";
       expect(await render(Page, { searchParams: P({}) })).not.toContain("/academias/exportar");
     } finally {

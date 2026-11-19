@@ -25,7 +25,7 @@ export function ProfesorPicker({
       }}
       className="border-input bg-background h-9 max-w-60 rounded-md border px-3 text-sm"
     >
-      <option value="">— Elige un profesor —</option>
+      <option value="">— Elige un entrenador —</option>
       {professors.map((p) => (
         <option key={p} value={p}>{p}</option>
       ))}

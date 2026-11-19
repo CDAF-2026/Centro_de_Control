@@ -144,7 +144,7 @@ export default async function CerrarClasePage({
         <p className="text-muted-foreground text-sm">
           {clase.fecha} {clase.hora_inicio?.slice(0, 5) ?? ""} ·{" "}
           {clase.tipo === "academia" ? "Academia" : "Individual"}
-          {clase.deporte ? ` · ${clase.deporte === "padel" ? "Pádel" : "Tenis"}` : ""} · Profe: {profesorNombre ?? "—"}
+          {clase.deporte ? ` · ${clase.deporte === "padel" ? "Pádel" : "Tenis"}` : ""} · Entrenador: {profesorNombre ?? "—"}
         </p>
       </div>
       {noEmpezo ? (

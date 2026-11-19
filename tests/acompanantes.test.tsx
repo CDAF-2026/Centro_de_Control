@@ -74,7 +74,7 @@ describe("casillas de nombres", () => {
       React.createElement(AcompanantesCampos, { personas: 3, iniciales: [], obligatorio: false }),
     );
     expect(html).not.toContain("required");
-    expect(html).toContain("el profesor los pone al cerrar");
+    expect(html).toContain("el entrenador los pone al cerrar");
   });
 
   it("trae los nombres ya guardados", () => {

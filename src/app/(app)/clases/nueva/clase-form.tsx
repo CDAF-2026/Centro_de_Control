@@ -54,7 +54,7 @@ export function ClaseForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label htmlFor="profesorId">Profesor</Label>
+          <Label htmlFor="profesorId">Entrenador</Label>
           <select id="profesorId" name="profesorId" className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm">
             <option value="">— Sin asignar —</option>
             {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>)}

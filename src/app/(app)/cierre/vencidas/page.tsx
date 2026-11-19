@@ -79,8 +79,8 @@ export default async function ClasesVencidasPage() {
         <Link href="/cierre" className="text-muted-foreground text-sm hover:underline">← Clases por cerrar</Link>
         <h1 className="cdaf-headline mt-1">Clases vencidas ({vencidas.length + planVencidas.length})</h1>
         <p className="text-muted-foreground text-sm">
-          Clases que pasaron <strong>{PLAZO_CIERRE_HORAS} h sin cerrarse</strong> por el profesor → no entran a la liquidación.
-          Ciérralas tú (como superadministrador) o reactívalas para que el profesor las registre.
+          Clases que pasaron <strong>{PLAZO_CIERRE_HORAS} h sin cerrarse</strong> por el entrenador → no entran a la liquidación.
+          Ciérralas tú (como superadministrador) o reactívalas para que el entrenador las registre.
         </p>
       </div>
 
@@ -93,14 +93,14 @@ export default async function ClasesVencidasPage() {
               c.tipo === "academia"
                 ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
                 : c.cliente_id ? cliName.get(c.cliente_id) ?? "—" : "Sin deportista";
-            const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin profesor";
+            const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin entrenador";
             return (
               <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                 <div>
                   <p className="font-medium">{quien}</p>
                   <p className="text-muted-foreground text-sm">
                     {c.fecha} {c.hora_inicio?.slice(0, 5) ?? ""}
-                    {c.deporte ? ` · ${c.deporte}` : ""} · Profe: {profe}
+                    {c.deporte ? ` · ${c.deporte}` : ""} · Entrenador: {profe}
                   </p>
                   <Badge variant="destructive" className="mt-1">{haceTexto(c)}</Badge>
                 </div>
@@ -124,7 +124,7 @@ export default async function ClasesVencidasPage() {
               <div>
                 <p className="font-medium">{p.colegio ? `Colegio ${p.colegio}` : `Academia${p.deporte === "padel" ? " de pádel" : ""} · ${p.ninos} ${p.ninos === 1 ? "niño" : "niños"}`}</p>
                 <p className="text-muted-foreground text-sm">
-                  {p.fecha} {p.hora_inicio.slice(0, 5)} · Profe: {profName.get(p.profesor_id) ?? "—"}
+                  {p.fecha} {p.hora_inicio.slice(0, 5)} · Entrenador: {profName.get(p.profesor_id) ?? "—"}
                 </p>
                 <Badge variant="destructive" className="mt-1">{haceTexto(p)}</Badge>
               </div>

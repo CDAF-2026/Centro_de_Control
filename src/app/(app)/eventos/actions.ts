@@ -184,7 +184,7 @@ export async function agregarProfesor(_prev: EventoState, formData: FormData): P
   const rol = String(formData.get("rol") || "").trim() || null;
   const pago = Number(formData.get("pago") || 0);
   if (!eventoId) return { error: "Evento inválido." };
-  if (!profesorId) return { error: "Selecciona un profesor." };
+  if (!profesorId) return { error: "Selecciona un entrenador." };
   const supabase = await createClient();
   const cerrado = await evitarSiCerrado(supabase, eventoId);
   if (cerrado) return { error: cerrado };
@@ -195,7 +195,7 @@ export async function agregarProfesor(_prev: EventoState, formData: FormData): P
   await logAudit({ action: "evento.agregar_profesor", entity: "evento_profesores", entityId: String(eventoId), after: { profesorId, pago } });
   revalidatePath(`/eventos/${eventoId}`);
   revalidatePath("/liquidacion");
-  return { ok: "Profesor agregado." };
+  return { ok: "Entrenador agregado." };
 }
 
 export async function quitarProfesor(_prev: EventoState, formData: FormData): Promise<EventoState> {
@@ -210,7 +210,7 @@ export async function quitarProfesor(_prev: EventoState, formData: FormData): Pr
   await logAudit({ action: "evento.quitar_profesor", entity: "evento_profesores", entityId: String(id) });
   revalidatePath(`/eventos/${eventoId}`);
   revalidatePath("/liquidacion");
-  return { ok: "Profesor eliminado." };
+  return { ok: "Entrenador eliminado." };
 }
 
 // ─────────────────────────────── Gastos del evento ───────────────────────────────

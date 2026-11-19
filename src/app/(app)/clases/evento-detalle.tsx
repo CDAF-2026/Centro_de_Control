@@ -37,7 +37,7 @@ export function EventoDetalle({
             <span className="text-muted-foreground shrink-0">{k}</span>
             {/* La clase sin profesor no muestra un guión resignado: muestra el
                 selector para arreglarlo, justo donde se ve el hueco. */}
-            {k === "Profesor" && canAssign && ev.sinProfesor && !ev.cancelada ? (
+            {k === "Entrenador" && canAssign && ev.sinProfesor && !ev.cancelada ? (
               <ProfesorClaseForm
                 claseId={ev.sinProfesor.claseId}
                 opciones={ev.sinProfesor.opciones}

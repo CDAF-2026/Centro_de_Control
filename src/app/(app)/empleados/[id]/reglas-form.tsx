@@ -215,7 +215,7 @@ export function ReglasForm({
 
       {reglas.length === 0 && (
         <p className="text-muted-foreground text-sm">
-          Sin reglas personalizadas. Agrega reglas para liquidar a este profesor con el modelo nuevo.
+          Sin reglas personalizadas. Agrega reglas para liquidar a este entrenador con el modelo nuevo.
         </p>
       )}
 

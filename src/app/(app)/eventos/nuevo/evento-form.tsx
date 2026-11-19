@@ -101,11 +101,11 @@ export function EventoForm({
 
       {profesores.length > 0 && (
         <div className="space-y-2 border-t pt-4">
-          <Label>Profesores responsables (opcional)</Label>
+          <Label>Entrenadores responsables (opcional)</Label>
           {profRows.map((k) => (
             <div key={k} className="flex items-center gap-2">
               <select name="prof_id" defaultValue="" className={`${SELECT} flex-1`}>
-                <option value="">Profesor…</option>
+                <option value="">Entrenador…</option>
                 {profesores.map((p) => (
                   <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>
                 ))}
@@ -117,10 +117,10 @@ export function EventoForm({
             </div>
           ))}
           <Button type="button" size="sm" variant="outline" onClick={addRow}>
-            + Agregar profesor
+            + Agregar entrenador
           </Button>
           <p className="text-muted-foreground text-xs">
-            El pago de cada profesor entra a su Liquidación del periodo como “Evento”. Puedes editarlo luego en la ficha.
+            El pago de cada entrenador entra a su Liquidación del periodo como “Evento”. Puedes editarlo luego en la ficha.
           </p>
         </div>
       )}

@@ -49,7 +49,7 @@ export default async function ProfesorSemanaPage({
   // No se exige que siga siendo docente activo: si le dan de baja a alguien,
   // sus clases tienen que seguir alcanzables para reasignarlas.
   if (!docente && suyas.length === 0) notFound();
-  const nombre = docente?.nombre ?? nombres.get(id) ?? "Profesor";
+  const nombre = docente?.nombre ?? nombres.get(id) ?? "Entrenador";
 
   // Mismo color que en el planeador: se calcula sobre la misma lista.
   const lista = opcionesParaDeporte(docentes, deporte).map((p) => ({ id: p.id, nombre: p.nombre }));

@@ -33,7 +33,7 @@ export async function GET() {
   const fallo = respuestas.find((r) => r.error)?.error;
   if (fallo) return new Response(`No se pudo armar el Excel: ${fallo.message}`, { status: 500 });
   // `mapaNombresStaff` no avisa si falla: sin esto saldrían todos "sin nombre".
-  if (nombres.size === 0) return new Response("No se pudo armar el Excel: no se leyeron los profesores.", { status: 500 });
+  if (nombres.size === 0) return new Response("No se pudo armar el Excel: no se leyeron los entrenadores.", { status: 500 });
 
   const matriculas = academias.flatMap((a, i) =>
     (respuestas[i].data ?? []).map((m) => ({
@@ -57,7 +57,7 @@ export async function GET() {
   return new Response(new Uint8Array(archivo), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="inscritos-por-profesor-${hoy}.xlsx"`,
+      "Content-Disposition": `attachment; filename="inscritos-por-entrenador-${hoy}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });

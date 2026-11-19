@@ -53,7 +53,7 @@ const horarioDe = (clases: MatriculaExcel["clases"]) =>
 
 /** Excel no acepta más de 31 caracteres, ni estos signos, ni dos hojas iguales. */
 function nombreHoja(nombre: string, usadas: Set<string>): string {
-  const limpio = nombre.replace(/[\\/?*[\]:']/g, " ").replace(/\s+/g, " ").trim().slice(0, 31).trim() || "Profesor";
+  const limpio = nombre.replace(/[\\/?*[\]:']/g, " ").replace(/\s+/g, " ").trim().slice(0, 31).trim() || "Entrenador";
   let hoja = limpio;
   for (let i = 2; usadas.has(hoja.toLowerCase()); i++) {
     const sufijo = ` ${i}`;
@@ -101,7 +101,7 @@ export async function excelInscritos(d: DatosExcelInscritos): Promise<Buffer> {
       let p = porProfesor.get(id);
       if (!p) {
         const nombre = d.nombres.get(id);
-        p = { id, nombre: nombre && nombre !== "—" ? nombre : "Profesor sin nombre", alumnos: [], clases: new Map() };
+        p = { id, nombre: nombre && nombre !== "—" ? nombre : "Entrenador sin nombre", alumnos: [], clases: new Map() };
         porProfesor.set(id, p);
       }
       p.alumnos.push({ ...base, deporte: m.deporte, horario: horarioDe(clases) });
@@ -122,8 +122,8 @@ export async function excelInscritos(d: DatosExcelInscritos): Promise<Buffer> {
 
   // ── Pestaña 1: Resumen ────────────────────────────────────────────────────
   const resumen = libro.addWorksheet("Resumen");
-  const rotulos = ["Profesor", "Deporte", "Clases con alumnos", "Alumnos"];
-  titulo(resumen, "Inscritos por profesor", d.rotulo, rotulos.length);
+  const rotulos = ["Entrenador", "Deporte", "Clases con alumnos", "Alumnos"];
+  titulo(resumen, "Inscritos por entrenador", d.rotulo, rotulos.length);
   encabezado(resumen, rotulos);
   resumen.columns = [{ width: 32 }, { width: 11 }, { width: 11 }, { width: 11 }];
 
@@ -134,14 +134,14 @@ export async function excelInscritos(d: DatosExcelInscritos): Promise<Buffer> {
       resumen.addRow([p.nombre, DEPORTE_NOMBRE[dep], clases.size, p.alumnos.filter((a) => a.deporte === dep).length]);
     }
   }
-  if (sinProfesor.length) pintar(resumen.addRow(["Sin profesor asignado", "—", 0, sinProfesor.length]), AMBAR);
+  if (sinProfesor.length) pintar(resumen.addRow(["Sin entrenador asignado", "—", 0, sinProfesor.length]), AMBAR);
 
   resumen.addRow([]);
   const conVarios = [...profesoresDe.values()].filter((s) => s.size > 1).length;
   const nota = d.matriculas.length
-    ? `${alumnos(profesoresDe.size)} en total. Cada alumno cuenta una vez por profesor, aunque venga varios días a la semana.` +
+    ? `${alumnos(profesoresDe.size)} en total. Cada alumno cuenta una vez por entrenador, aunque venga varios días a la semana.` +
       (conVarios
-        ? ` ${conVarios === 1 ? "1 alumno tiene" : `${conVarios} alumnos tienen`} más de un profesor y sale${conVarios === 1 ? "" : "n"} en la hoja de cada uno.`
+        ? ` ${conVarios === 1 ? "1 alumno tiene" : `${conVarios} alumnos tienen`} más de un entrenador y sale${conVarios === 1 ? "" : "n"} en la hoja de cada uno.`
         : "")
     : "Todavía no hay alumnos inscritos.";
   resumen.addRow([nota]).font = { italic: true, size: 9, color: { argb: "FF6B7780" } };
@@ -152,7 +152,7 @@ export async function excelInscritos(d: DatosExcelInscritos): Promise<Buffer> {
     hojaDeAlumnos(libro, nombreHoja(p.nombre, usadas), `Inscritos de ${p.nombre}`, d.rotulo, p.alumnos);
   }
   if (sinProfesor.length) {
-    hojaDeAlumnos(libro, nombreHoja("Sin profesor", usadas), "Matriculados sin profesor", d.rotulo, sinProfesor);
+    hojaDeAlumnos(libro, nombreHoja("Sin entrenador", usadas), "Matriculados sin entrenador", d.rotulo, sinProfesor);
   }
 
   return Buffer.from(await libro.xlsx.writeBuffer());

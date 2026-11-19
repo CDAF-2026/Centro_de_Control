@@ -112,7 +112,7 @@ export default async function AcademiasPage({
         <div>
           <h1 className="cdaf-headline">Academias</h1>
           <p className="text-muted-foreground mt-1.5 text-sm">
-            La semana del club: qué dicta cada profesor y quiénes vienen.
+            La semana del club: qué dicta cada entrenador y quiénes vienen.
           </p>
         </div>
         {puedeEditar && (
@@ -124,7 +124,7 @@ export default async function AcademiasPage({
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/academias/exportar" className={buttonVariants({ variant: "outline" })}>
               <Download className="size-4" />
-              Descargar inscritos por profesor
+              Descargar inscritos por entrenador
             </a>
             <Link href={`/academias/clase/nueva?deporte=${deporte}`} className={buttonVariants()}>
               + Nueva clase
@@ -172,7 +172,7 @@ export default async function AcademiasPage({
           label="Horas de cancha"
           valor={String(total.horas).replace(".", ",")}
         />
-        <Kpi label="Profesores con clases" valor={conClases.size} />
+        <Kpi label="Entrenadores con clases" valor={conClases.size} />
       </div>
 
       {/* El planeador POR PROFESOR (rediseño 23-sep-2026, opción C): una fila
@@ -185,7 +185,7 @@ export default async function AcademiasPage({
         >
           <div className="grid min-w-[960px] grid-cols-[260px_repeat(6,minmax(112px,1fr))]">
             <div className="border-border text-muted-foreground border-b px-4 py-3 text-[11px] font-bold tracking-wider uppercase">
-              Profesor
+              Entrenador
             </div>
             {DIAS_SEMANA.map((d) => {
               const delDia = cs.filter((c) => c.dia_semana === d);
@@ -326,7 +326,7 @@ export default async function AcademiasPage({
 
       <p className="text-muted-foreground -mt-2 text-xs">
         Cada casilla es la hora de la clase y cuántos niños van. Toca una hora
-        para ver quiénes vienen, o el profesor para ver su semana.
+        para ver quiénes vienen, o el entrenador para ver su semana.
       </p>
 
       {/* La matrícula es el lado del COBRO (cada academia apunta a su servicio de

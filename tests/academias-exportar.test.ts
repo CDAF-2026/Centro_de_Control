@@ -78,7 +78,7 @@ describe("el Excel de inscritos por profesor", () => {
     expect(filas(libro.getWorksheet("Beto Gil")!)[0][3]).toBe("Vie 18:00");
     const nota = filas(libro.getWorksheet("Resumen")!).at(-1)![0] as string;
     expect(nota).toContain("1 alumno en total");
-    expect(nota).toContain("1 alumno tiene más de un profesor y sale en la hoja de cada uno");
+    expect(nota).toContain("1 alumno tiene más de un entrenador y sale en la hoja de cada uno");
   });
 
   it("ordena los alumnos por nombre y a los profesores con tenis primero", async () => {
@@ -106,13 +106,13 @@ describe("el Excel de inscritos por profesor", () => {
 
   it("el matriculado sin ningún día NO se pierde: sale en su propia hoja y en el resumen", async () => {
     const libro = await armar([matricula(1, "Sola, Ana", [])]);
-    expect(filas(libro.getWorksheet("Sin profesor")!)[0]).toEqual(["Sola, Ana", 10, "Academia Recreativa Tenis", "Sin ningún día"]);
-    expect(filas(libro.getWorksheet("Resumen")!)[0]).toEqual(["Sin profesor asignado", "—", 0, 1]);
+    expect(filas(libro.getWorksheet("Sin entrenador")!)[0]).toEqual(["Sola, Ana", 10, "Academia Recreativa Tenis", "Sin ningún día"]);
+    expect(filas(libro.getWorksheet("Resumen")!)[0]).toEqual(["Sin entrenador asignado", "—", 0, 1]);
   });
 
   it("si todos tienen profesor no aparece la hoja de sin profesor", async () => {
     const libro = await armar([matricula(1, "Uno, Ana", [clase(10, ANA, 1, "16:00")])]);
-    expect(libro.getWorksheet("Sin profesor")).toBeUndefined();
+    expect(libro.getWorksheet("Sin entrenador")).toBeUndefined();
   });
 
   it("la edad que falta queda vacía, no en cero", async () => {
@@ -144,7 +144,7 @@ describe("el Excel de inscritos por profesor", () => {
       expect(n.length).toBeLessThanOrEqual(31);
       expect(n).not.toMatch(/[\\/?*[\]:]/);
     }
-    expect(hojas).toContain("Profesor sin nombre");
+    expect(hojas).toContain("Entrenador sin nombre");
   });
 
   it("sin alumnos arma el archivo y lo dice", async () => {
@@ -179,7 +179,7 @@ describe("la descarga de /academias/exportar", () => {
   it("entrega el archivo con su nombre y sin guardarlo en caché", async () => {
     const r = await descargar();
     expect(r.status).toBe(200);
-    expect(r.headers.get("Content-Disposition")).toMatch(/^attachment; filename="inscritos-por-profesor-\d{4}-\d{2}-\d{2}\.xlsx"$/);
+    expect(r.headers.get("Content-Disposition")).toMatch(/^attachment; filename="inscritos-por-entrenador-\d{4}-\d{2}-\d{2}\.xlsx"$/);
     expect(r.headers.get("Cache-Control")).toBe("no-store");
     const libro = await abrir(await r.arrayBuffer());
     expect(libro.worksheets.map((w) => w.name)).toEqual(["Resumen", "Ana Ruiz"]);

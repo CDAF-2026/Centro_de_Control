@@ -99,7 +99,7 @@ function PaqueteFila({
           {p.clases_consumidas > 0 && (
             <p className="text-muted-foreground text-xs">
               Ya tiene {p.clases_consumidas} {p.clases_consumidas === 1 ? "clase cerrada" : "clases cerradas"}:
-              si cambias el precio, cambia lo que se le liquida al profesor por esas clases.
+              si cambias el precio, cambia lo que se le liquida al entrenador por esas clases.
             </p>
           )}
           <div className="flex flex-wrap items-end gap-2">

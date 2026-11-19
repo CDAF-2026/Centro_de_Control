@@ -701,7 +701,7 @@ export async function SuperadminDashboard({
           <CardHeader>
             <CardTitle>Clases agendadas esta semana</CardTitle>
             <CardDescription>
-              Por profesor · EasyCancha · {semanaEC.desde} a {semanaEC.hasta}
+              Por entrenador · EasyCancha · {semanaEC.desde} a {semanaEC.hasta}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -714,7 +714,14 @@ export async function SuperadminDashboard({
                     <span className="text-muted-foreground w-4 shrink-0 text-center font-semibold tabular-nums">{idx + 1}</span>
                     <span className="min-w-0 flex-1">
                       <span className="mb-1 flex items-center justify-between gap-2">
-                        <span className="truncate font-medium">{r.nombre}</span>
+                        <span className="truncate font-medium">
+                          {r.nombre}
+                          {r.deportes.length > 0 && (
+                            <span className="text-muted-foreground font-normal">
+                              {" "}({r.deportes.map((d) => (d === "padel" ? "Pádel" : "Tenis")).join(" y ")})
+                            </span>
+                          )}
+                        </span>
                         <span className="text-muted-foreground tabular-nums">{r.clases}</span>
                       </span>
                       <span className="bg-muted block h-1.5 w-full overflow-hidden rounded-full">

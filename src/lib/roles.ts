@@ -5,7 +5,7 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   coord_admin: "Coord. Administrativo",
   coord_deportivo: "Coord. Deportivo",
   recepcion: "Recepción",
-  profesor: "Profesor",
+  profesor: "Entrenador",
   gestion_eventos: "Gestión de Eventos",
   seguridad: "Seguridad",
   // No es una persona: es el PC de recepción, con la sesión abierta todo el día

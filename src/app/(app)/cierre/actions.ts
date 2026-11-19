@@ -71,7 +71,7 @@ export async function cerrarClase(
   // cosas distintas: una está bien y la otra hay que reponerla.
   const motivo = String(formData.get("motivo_cancelacion") || "").trim();
   if (estado === "cancelada" && motivo.length < 3) {
-    return { error: "Escribe por qué no se dictó (ej. «semana de receso», «profesor enfermo», «lluvia»)." };
+    return { error: "Escribe por qué no se dictó (ej. «semana de receso», «entrenador enfermo», «lluvia»)." };
   }
 
   const noRegistrados = String(formData.get("asistentes_no_registrados") || "").trim() || null;

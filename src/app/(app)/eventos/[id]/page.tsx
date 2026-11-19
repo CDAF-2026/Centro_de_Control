@@ -301,7 +301,7 @@ export default async function EventoDetallePage({
               <p className="text-muted-foreground text-xs">Costos</p>
               <p className="font-heading mt-0.5 text-2xl font-semibold tabular-nums">−{COP.format(costo)}</p>
               <p className="text-muted-foreground mt-1 text-xs tabular-nums">
-                Gastos {COP.format(totalGastos)} · profesores {COP.format(totalProfes)}
+                Gastos {COP.format(totalGastos)} · entrenadores {COP.format(totalProfes)}
               </p>
             </div>
             <div className="border-primary/40 bg-primary/[0.06] rounded-lg border p-3 sm:-m-1">
@@ -455,8 +455,8 @@ export default async function EventoDetallePage({
         <CardHeader className="pb-3">
           <CardTitle>Gastos</CardTitle>
           <p className="text-muted-foreground text-xs">
-            Refrigerios, premios, logística… Lo que se le paga a los profesores del evento NO va aquí: el
-            resultado ya lo toma de la sección de profesores. Un gasto en <strong>$0</strong> es válido:
+            Refrigerios, premios, logística… Lo que se le paga a los entrenadores del evento NO va aquí: el
+            resultado ya lo toma de la sección de entrenadores. Un gasto en <strong>$0</strong> es válido:
             sirve para dejar constancia de lo que cubrió un patrocinador sin costarle al club.
           </p>
         </CardHeader>
@@ -575,7 +575,7 @@ export default async function EventoDetallePage({
 
       {/* Profesores */}
       <Card>
-        <CardHeader><CardTitle>Profesores</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Entrenadores</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {profes.length > 0 ? (
             <ul className="divide-y text-sm">
@@ -593,13 +593,13 @@ export default async function EventoDetallePage({
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground text-sm">Sin profesores asignados.</p>
+            <p className="text-muted-foreground text-sm">Sin entrenadores asignados.</p>
           )}
           {puedeEditar && (
             <div className="border-t pt-3">
               <ProfesorForm eventoId={eventoId} profesores={profesores} />
               <p className="text-muted-foreground mt-2 text-xs">
-                El pago de cada profesor se suma a su Liquidación del periodo, etiquetado como “Evento”, y
+                El pago de cada entrenador se suma a su Liquidación del periodo, etiquetado como “Evento”, y
                 cuenta como costo en el resultado de arriba.
               </p>
             </div>

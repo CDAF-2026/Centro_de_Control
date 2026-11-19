@@ -150,7 +150,7 @@ export default async function CierrePage({
       {!esProfesor && (
         <form className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="profesor">Profesor</Label>
+            <Label htmlFor="profesor">Entrenador</Label>
             <select id="profesor" name="profesor" defaultValue={profesorFilter} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
               <option value="">Todos</option>
               {profesores.map((p) => <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>)}
@@ -192,7 +192,7 @@ export default async function CierrePage({
                     {p.colegio ? `Colegio ${p.colegio}` : `Academia${p.deporte === "padel" ? " de pádel" : ""} · ${p.ninos} ${p.ninos === 1 ? "niño" : "niños"}`}
                   </p>
                   <p className="text-muted-foreground text-sm">
-                    {p.fecha} {p.hora_inicio.slice(0, 5)} · Profe:{" "}
+                    {p.fecha} {p.hora_inicio.slice(0, 5)} · Entrenador:{" "}
                     {profName.get(p.profesor_id) ?? "—"}
                     {p.cancha ? ` · Cancha ${p.cancha}` : ""}
                   </p>
@@ -218,7 +218,7 @@ export default async function CierrePage({
             c.tipo === "academia"
               ? `Academia: ${c.academia_id ? acaName.get(c.academia_id) ?? "—" : "—"}`
               : deportista(c) ?? "Sin deportista";
-          const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin profesor";
+          const profe = c.profesor_id ? profName.get(c.profesor_id) ?? "—" : "Sin entrenador";
           return (
             <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
               <div>
@@ -226,7 +226,7 @@ export default async function CierrePage({
                 <p className="text-muted-foreground text-sm">
                   {c.fecha} {c.hora_inicio?.slice(0, 5) ?? ""} ·{" "}
                   {c.tipo === "academia" ? "Academia" : "Individual"}
-                  {c.deporte ? ` · ${c.deporte}` : ""} · Profe: {profe}
+                  {c.deporte ? ` · ${c.deporte}` : ""} · Entrenador: {profe}
                 </p>
                 {vencida && <Badge variant="destructive" className="mt-1">+{PLAZO_CIERRE_HORAS} h sin cerrar</Badge>}
               </div>

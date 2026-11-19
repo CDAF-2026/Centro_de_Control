@@ -67,14 +67,14 @@ export default async function ClasesCerradasPage({
         <Link href="/cierre" className="text-muted-foreground text-sm hover:underline">← Clases por cerrar</Link>
         <h1 className="cdaf-headline mt-1">Clases cerradas · gestión</h1>
         <p className="text-muted-foreground text-sm">
-          Deshaz el cierre de una clase para que vuelva a pendientes (p. ej. cuando un profesor no pudo
+          Deshaz el cierre de una clase para que vuelva a pendientes (p. ej. cuando un entrenador no pudo
           cerrarla a tiempo). Si la clase consumió un paquete, el saldo se restaura.
         </p>
       </div>
 
       <form className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
-          <Label htmlFor="profesor">Profesor</Label>
+          <Label htmlFor="profesor">Entrenador</Label>
           <select id="profesor" name="profesor" defaultValue={profesorId} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
             <option value="">Todos</option>
             {(profesores ?? []).map((p) => <option key={p.id} value={p.id}>{p.nombre ?? p.id}</option>)}
@@ -96,7 +96,7 @@ export default async function ClasesCerradasPage({
           <thead>
             <tr>
               <th className="px-3 py-2 font-semibold">Fecha</th>
-              <th className="px-3 py-2 font-semibold">Profesor</th>
+              <th className="px-3 py-2 font-semibold">Entrenador</th>
               <th className="px-3 py-2 font-semibold">Deportista</th>
               <th className="px-3 py-2 font-semibold">Tipo</th>
               <th className="px-3 py-2 font-semibold">Estado</th>

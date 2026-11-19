@@ -1,10 +1,15 @@
 /** Consultas a EasyCancha para el dashboard (reservas de clases). */
 import { createClient } from "@/lib/supabase/server";
-import { profesorDeCancha, claveProfesor } from "@/lib/easycancha/client";
+import { profesorDeCancha, claveProfesor, deporteDeSport } from "@/lib/easycancha/client";
 import { mapaNombresStaff } from "@/lib/staff";
 import { hoyBogota } from "@/lib/periodo";
 
-type RankProfesor = { nombre: string; clases: number };
+/**
+ * `deportes` sale de las reservas mismas (el deporte de la cancha en
+ * EasyCancha), no de la ficha del empleado: así se ve también para quien aún no
+ * tiene alias (cae al nombre de EasyCancha) y refleja lo que dicta esa semana.
+ */
+type RankProfesor = { nombre: string; clases: number; deportes: ("tenis" | "padel")[] };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -52,14 +57,16 @@ export async function clasesSemanaPorProfesor(
     // Se agrupa por la clave normalizada, no por el texto: así "Profesor
     // Willinton", "Entrenador  Willinton" y "/ Profesor Willinton" cuentan como
     // una sola persona. `crudo` es solo el respaldo por si falta el alias.
-    const conteo = new Map<string, { crudo: string; clases: number }>();
+    const conteo = new Map<string, { crudo: string; clases: number; deportes: Set<"tenis" | "padel"> }>();
     for (const b of j.bookings) {
       if (b.status === "CANCELLED") continue;
       const crudo = profesorDeCancha(b.courtName);
       const clave = claveProfesor(crudo);
       if (!clave || !crudo) continue;
-      const cur = conteo.get(clave) ?? { crudo, clases: 0 };
+      const cur = conteo.get(clave) ?? { crudo, clases: 0, deportes: new Set() };
       cur.clases++;
+      const dep = deporteDeSport(b.sportName ?? null);
+      if (dep) cur.deportes.add(dep);
       conteo.set(clave, cur);
     }
 
@@ -75,7 +82,12 @@ export async function clasesSemanaPorProfesor(
     );
 
     const ranking: RankProfesor[] = [...conteo.entries()]
-      .map(([clave, v]) => ({ nombre: canon.get(clave) ?? v.crudo, clases: v.clases }))
+      .map(([clave, v]) => ({
+        nombre: canon.get(clave) ?? v.crudo,
+        clases: v.clases,
+        // Siempre en el mismo orden (tenis, pádel) para que no salte entre cargas.
+        deportes: (["tenis", "padel"] as const).filter((d) => v.deportes.has(d)),
+      }))
       .sort((a, b) => b.clases - a.clases);
     return { desde, hasta, ranking };
   } catch {
