@@ -924,6 +924,111 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["lista_espera"]["Insert"]>;
         Relationships: [];
       };
+      // ── Cafetería: carta administrable + historial de pedidos (20-nov-2026) ──
+      cafeteria_categorias: {
+        Row: {
+          id: number;
+          nombre: string;
+          /** Posición en la carta: menor va primero. */
+          orden: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          nombre: string;
+          orden?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["cafeteria_categorias"]["Insert"]>;
+        Relationships: [];
+      };
+      cafeteria_productos: {
+        Row: {
+          id: number;
+          categoria_id: number;
+          nombre: string;
+          descripcion: string | null;
+          /** Pesos colombianos. 0 = todavía sin precio (y entonces no puede estar disponible). */
+          precio: number;
+          /** Variantes que el comprador escoge (Milo: Frío / Caliente). */
+          opciones: string[];
+          /** Ruta dentro del bucket público `cafeteria`. Null = sin foto. */
+          foto_path: string | null;
+          /** El único interruptor de la carta: false = no le aparece al comprador. */
+          disponible: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          categoria_id: number;
+          nombre: string;
+          descripcion?: string | null;
+          precio?: number;
+          opciones?: string[];
+          foto_path?: string | null;
+          disponible?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["cafeteria_productos"]["Insert"]>;
+        Relationships: [];
+      };
+      cafeteria_pedidos: {
+        Row: {
+          id: number;
+          codigo: string;
+          recibido_el: string;
+          nombre: string;
+          /** Dónde está la persona, como lo escribió. */
+          ubicacion: string;
+          detalle_ubicacion: string | null;
+          notas: string | null;
+          /** Foto del pedido: [{ producto_id, nombre, opcion, cantidad, precio, subtotal }]. */
+          lineas: Json;
+          total: number;
+          mensaje: string;
+          /** pendiente · en_preparacion · entregado · cancelado. Se cambia con `cafeteria_pedido_estado`. */
+          estado: string;
+          estado_el: string | null;
+          estado_por: string | null;
+        };
+        Insert: {
+          id?: number;
+          codigo: string;
+          recibido_el?: string;
+          nombre: string;
+          ubicacion: string;
+          detalle_ubicacion?: string | null;
+          notas?: string | null;
+          lineas: Json;
+          total: number;
+          mensaje: string;
+          estado?: string;
+          estado_el?: string | null;
+          estado_por?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["cafeteria_pedidos"]["Insert"]>;
+        Relationships: [];
+      };
+      cafeteria_ajustes: {
+        Row: {
+          /** Una sola fila: la llave siempre es `true`. */
+          id: boolean;
+          /** Indicativo + número, solo dígitos. Vacío = WhatsApp deja escoger el contacto. */
+          whatsapp: string;
+          updated_at: string;
+          actualizado_por: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          whatsapp?: string;
+          updated_at?: string;
+          actualizado_por?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["cafeteria_ajustes"]["Insert"]>;
+        Relationships: [];
+      };
       paquetes_catalogo: {
         Row: {
           id: number;
@@ -1774,6 +1879,11 @@ export type Database = {
       evento_atar_facturas: {
         Args: { p_evento: number; p_facturas: number[] };
         Returns: number;
+      };
+      /** Cambia el estado de un pedido de la cafetería y devuelve el que tenía. Valida el rol por dentro. */
+      cafeteria_pedido_estado: {
+        Args: { p_pedido: number; p_estado: string };
+        Returns: string;
       };
       /** Quita la factura de su evento. Falla si el evento ya está cerrado. */
       evento_soltar_factura: {

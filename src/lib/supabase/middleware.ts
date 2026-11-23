@@ -4,7 +4,10 @@ import type { Database } from "@/lib/database.types";
 
 // `/registro` es la página pública del QR (1-oct-2026): sin sesión a propósito.
 // Lo que escribe pasa por server actions que validan y llaman RPC de solo service_role.
-const PUBLIC_PATHS = ["/", "/login", "/styleguide", "/auth", "/registro"];
+// `/carta` es la carta de la cafetería que abre el QR del club (20-nov-2026):
+// también sin sesión. Lee y registra el pedido desde el servidor; el panel que la
+// administra es `/cafeteria`, que sí exige sesión.
+const PUBLIC_PATHS = ["/", "/login", "/styleguide", "/auth", "/registro", "/carta"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(

@@ -26,7 +26,9 @@ export type ModuleKey =
    *  marcar lo dice `profiles.marca_turno`, persona por persona. */
   | "turnos"
   /** El reporte de horas clasificadas por la normativa. Corregir es solo del SA. */
-  | "turnos_reporte";
+  | "turnos_reporte"
+  /** La carta de la cafetería (productos, fotos, disponible o no) y su historial de pedidos. */
+  | "cafeteria";
 
 const E: Permission = "edit";
 const L: Permission = "read";
@@ -112,6 +114,12 @@ export const PERMISSIONS: Record<ModuleKey, Record<AppRole, Permission>> = {
   // de los cuatro que marca, así que con esto ve su propio acumulado — justo lo
   // que la migración 0083 le cerró a los empleados. Se le advirtió a Laura.
   turnos_reporte: { superadmin: E, coord_admin: L, coord_deportivo: N, recepcion: N, profesor: N, gestion_eventos: N, seguridad: N, quiosco: N },
+  // La carta que el comprador abre con el QR (20-nov-2026, decisión de Laura):
+  // la administran el superadministrador, la coordinación administrativa y
+  // recepción, que es el rol de la cafetería. Las políticas de la base dicen lo
+  // mismo (migración `20261120100000`). Cambiar el WhatsApp a donde llegan los
+  // pedidos es más estrecho: `PUEDE_CAMBIAR_WHATSAPP` (src/lib/cafeteria/carta.ts).
+  cafeteria: { superadmin: E, coord_admin: E, coord_deportivo: N, recepcion: E, profesor: N, gestion_eventos: N, seguridad: N, quiosco: N },
 };
 
 /** ¿El rol puede `read` (ver) o `edit` (editar) el módulo? */

@@ -790,6 +790,151 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
 | cierre de clases | E | — | E | — | E | — |
 | pagos (conciliación) | E | E | — | — | — | — |
 | liquidación · agente | E | — | — | — | — | — |
+## ☕ Cafetería: carta por QR + panel (20-nov-2026, pedido de Laura)
+Nació como una demo aparte (`../App pedidos cafetería/`, oct-2026, carta escrita en el código). El 20-nov
+se trajo al Centro de Control para poder administrarla. **Estado: PUBLICADA en producción el 23-nov-2026**
+(Laura: "publícala en producción"), con todo lo que pidió el 20-nov: carta rediseñada, buscador con
+sugerencias, estados de pedido y un solo QR. Las cuatro migraciones ya estaban aplicadas desde el 20-nov.
+
+| Ruta | Qué es |
+|---|---|
+| `/carta` (pública, sin sesión) | Lo que abre el QR de la cafetería (uno solo para todo el club). Carta → pedido → se abre WhatsApp con el mensaje escrito |
+| `/carta/pedidos` (POST) | Guarda el pedido en el historial. La carta lo llama con `keepalive` justo antes de irse a WhatsApp |
+| `/cafeteria` | El panel: tarjetas con foto e interruptor; la categoría se escoge en la columna (`?categoria=`) |
+| `/cafeteria/producto/nuevo` · `/cafeteria/producto/[id]` | El editor de un producto, con el celular de "Así lo ve el comprador" |
+| `/cafeteria/pedidos` | Pedidos por atender (lo de hoy abierto) e Historial (`?ver=historial`: Hoy · 7 días · Todos, 30 por página) |
+
+**Decisiones de Laura (20-nov):** el panel va DENTRO del Centro de Control (no login aparte) · lo administran
+**superadministrador, coord. administrativo y recepción** · **un solo interruptor** Disponible / No disponible
+(lo no disponible no le aparece al comprador), eliminar aparte · todo debe servir en **computador y celular**,
+incluida la foto · historial de pedidos · **sin "carrito protegido"** (no hay inventarios por ahora).
+
+- 🎨 **Diseño del panel = la "mezcla" que armó Laura** (20-nov-2026, sobre tres propuestas en
+  https://claude.ai/artifact/MXzKY3BCuytvyeaGg3eLHM): arriba a la derecha los botones y el marcador de cuatro
+  cifras; a la izquierda las pestañas Carta / Pedidos y la columna de categorías; el buscador con su filtro; los
+  productos en **tarjetas con foto** (5 por fila en computador, 2 en celular); y al tocar el lápiz o "Nuevo
+  producto", el **editor con el celular que muestra en vivo cómo lo ve el comprador**. `marco.tsx` es lo que
+  comparten las tres pantallas; `datos.ts` la lectura única.
+  · La tarjeta solo tiene el interruptor y el lápiz: **eliminar se hace desde el editor**.
+  · La columna tiene dos caras: normal (un toque filtra) y **"Editar"** (subir/bajar, lápiz para renombrar y
+    **caneca para eliminar**). En la maqueta el botón decía "Ordenar"; se dejó "Editar" porque también renombra
+    y elimina.
+  · 🗑️ **Eliminar categoría sirve para CUALQUIERA** (Laura, 20-nov-2026; antes estaba escondido tras el lápiz y
+    solo para las vacías): pide confirmar en la misma fila y, si tiene productos, hay que escoger a qué otra
+    categoría pasan. **Los productos nunca se borran de paso.** Si es la única categoría y tiene productos, no
+    deja y lo dice. El mensaje de lo hecho sale al pie de la columna («Eliminaste «X». Sus 7 productos pasaron
+    a «Y».»). Verificado en navegador con categorías de prueba (con producto y vacía), ya borradas.
+  · El WhatsApp quedó en una tarjeta pequeña al pie de la columna (no estaba en la maqueta).
+  · 🚪 **Guardar CIERRA el editor y vuelve a la rejilla** (Laura, 20-nov-2026: "no debe dejarme ahí, porque el
+    usuario va a creer que su acción no surtió efecto"). Lo mismo crear y eliminar. Se vuelve a la rejilla de
+    donde se vino (el lápiz lleva `?de=<categoría>`; sin él, "Todas"), con una franja negra que dice qué se hizo
+    («Guardaste los cambios de «X».») y la tarjeta a la vista y resaltada. Los parámetros `hecho`, `p`, `n` y
+    `nota` los pone `volverALaCarta()` en `actions.ts` y la rejilla los borra de la dirección al mostrarlos.
+    **No volver a dejar el editor abierto con un "Producto guardado."**
+  · Única excepción: al CREAR sin precio o si la foto no subió, se cae al editor de ese producto con el aviso
+    (`?aviso=precio|foto`), porque quedó algo por terminar.
+  · En celular la columna se deshace (`contents` + `order`): pestañas → categorías en fila deslizable →
+    contenido → WhatsApp.
+- **Tablas** (migración `20261120100000`): `cafeteria_categorias`, `cafeteria_productos`, `cafeteria_pedidos`,
+  `cafeteria_ajustes` (una sola fila: el WhatsApp). Bucket público `cafeteria` para las fotos.
+- 🔒 **`anon` no lee nada**: la página pública lee y escribe desde el servidor con service_role
+  (`src/lib/cafeteria/publica.ts` y la ruta), igual que `/registro`. Los pedidos solo los inserta el servidor.
+- 🔒 **Nadie ve un producto en $0**: `check (not disponible or precio > 0)` en la base. Para prenderlo hay que
+  ponerle precio; si se le quita el precio a uno prendido, la acción lo apaga y lo dice.
+- **El total lo calcula el servidor con la carta de la base**, no con lo que mande el celular; un producto
+  apagado o borrado no entra al pedido. Tope de 150 pedidos en 10 min contra abuso.
+- **El historial guarda una FOTO del pedido** (`lineas` jsonb con nombre y precio): borrar o cambiar un producto
+  no reescribe lo pedido ayer.
+- 🚦 **Estado de cada pedido y dos listas** (Laura, 20-nov-2026; migración `20261120120000`). Un pedido nace
+  `pendiente` y la cafetería lo pasa a `en_preparacion`, `entregado` o `cancelado` con los botones de su tarjeta
+  en `/cafeteria/pedidos`:
+  · **Por atender** = lo de HOY que sigue pendiente o en preparación (del más viejo al más nuevo).
+  · **Historial** (`?ver=historial`, con Hoy / 7 días / Todos) = lo entregado, lo cancelado y **todo lo de días
+    anteriores, esté como esté**. Así cada día la lista por atender arranca vacía, sin tarea nocturna: "hoy" se
+    calcula al leer.
+  · La pantalla **se refresca sola cada 30 s** (`al-dia.tsx`): los pedidos nuevos aparecen sin recargar y el
+    cambio de día limpia la lista aunque la dejen abierta.
+  · Tras cada cambio sale una franja negra «El pedido de X quedó como Y» con **Deshacer**; en el historial,
+    "Corregir estado" plegado.
+  · 🔒 El estado se cambia SOLO por la función **`cafeteria_pedido_estado(p_pedido, p_estado)`** (valida el rol
+    por dentro, devuelve el estado anterior): la tabla sigue sin permiso de UPDATE para nadie, porque una
+    política no puede limitar columnas. Verificado simulando sesiones y revirtiendo: profesor → rechazado;
+    recepción → cambia; UPDATE directo de recepción → `permission denied`.
+  · Los cuatro estados están en TRES sitios (`src/lib/cafeteria/estado.ts`, el `check` de la columna y la función).
+- ⚠️ **Un pedido en el historial NO prueba que llegó**: se registra al tocar "Enviar pedido por WhatsApp"; la
+  página no sabe si la persona tocó Enviar dentro de WhatsApp. La pantalla lo dice. Laura lo sabe.
+- **El WhatsApp vive en la base, no en una variable de entorno** (`cafeteria_ajustes.whatsapp`); lo cambian
+  solo SA y coord. admin (`PUEDE_CAMBIAR_WHATSAPP`, y la política dice lo mismo). Vacío = WhatsApp deja
+  escoger el contacto.
+- **La foto se reduce en el navegador** (`reducirFoto`, 1.400 px, JPG) antes de subir; el servidor valida tipo y
+  5 MB. El formulario se envía a mano (no `action=`) para mandar la reducida y no perder lo escrito si hay error.
+- **Carga inicial** (migración `20261120101000`, generada desde `Precios_Siigo_Cafeteria.xlsx`, corte de Siigo
+  del 19-nov): **121 productos con precio real, todos disponibles**. Las 8 categorías las armé yo; se editan
+  en el panel.
+  · 🚫 **La carta trae SOLO lo del Excel de Siigo** (Laura, 20-nov-2026: "si no estaban en el excel hay que
+    quitarlos"). Yo había cargado además 16 de la carta impresa sin precio y apagados (arepa, patacones,
+    hamburguesa, cafés, helados…); se borraron ese día, con la fila entera en `audit_log`
+    (`cafeteria.producto.eliminar`, actor nulo). **No volver a cargar productos de la carta impresa (MENU.pdf)
+    por iniciativa propia.**
+  · La hoja "Faltantes" del Excel (40 insumos sin precio: tocineta, huevos, salsas…) tampoco se cargó.
+  · 🥛 **Milo partido en dos** (Laura, 20-nov-2026): "Milo" (id 23, con opciones Frío / Caliente) pasó a ser
+    **"Milo caliente"** (id 23, bebidas calientes, sin opciones) y **"Milo frío"** (id 141, NUEVO, bebidas
+    frías, mismo precio $8.000). Los dos con la foto `Milo máquina.png` (una copia por producto en el bucket:
+    eliminar un producto borra su foto). Rastro en `audit_log`. La carta quedó en **122 productos**.
+    "Milo máquina" (id 24) **se queda** (Laura); ese día se le cambió la foto por `milo_maquina.png` (el
+    vaso verde) y ella lo pasó a bebidas frías desde el panel. "Proteína" (id 29) también cambió de foto
+    (`Batido de proteína.png`). Las fotos sueltas se cambian con el script de una vez `foto_producto.mjs`
+    (no está en el repo) o desde el panel.
+- 📷 **Fotos cargadas el 20-nov-2026**: Laura hizo 113 imágenes (`../Carta Menu/Menu web - PNG/`, 500×500, PNG con
+  fondo TRANSPARENTE). Se subieron **112** al bucket como WebP con transparencia (22,7 MB → 3,1 MB), una por
+  producto, con un script de una sola vez (service_role; no pasó por el panel). 109 casaron por nombre; 3 a ojo:
+  `images.png` → Hatsu lila, `chokis.png` → Chokis bola de chocolate, y de las dos de Chocolate La Abuela se usó
+  la `(avif)`. **Sin foto quedan 9** (Jugos naturales, Papas naturales / de
+  limón / de pimienta limón, Yucas naturales y los 4 Plátanos).
+  · Por ser recortes transparentes, las fotos se pintan **completas sobre blanco** (`object-contain`), no
+    recortadas. ⚠️ `reducirFoto` (subida desde el panel) aplana a JPG con fondo blanco: se ve igual sobre el
+    recuadro blanco, pero pierde la transparencia.
+- 🛒 **Carta del comprador rediseñada** (Laura, 20-nov-2026, "Impleméntala"; lienzo "Carta del comprador"):
+  toda la carta en UNA página — arriba las categorías en cuadros grandes con foto (la del primer producto de
+  la categoría que tenga), debajo todas las secciones; buscador (nombre, descripción o nombre de categoría);
+  barra fija abajo con "Categorías" (abre la misma cuadrícula como hoja y marca "Estás aquí") y "Mi pedido".
+  **Sin conteos de productos, sin letrero de zona y sin forma de pago** (la cafetería lleva el QR o el
+  datáfono). "¿Dónde estás?" es un campo que la persona ESCRIBE.
+  · **Ya no hay zonas ni `PAGOS`**: se borró `zonas.ts`; migración `20261120110000` (aplicada con la tabla en
+    0 filas): `zona_nombre` → `ubicacion`, y se quitaron `zona_id` y `pago` de `cafeteria_pedidos`.
+  · **Un solo QR para todo el club**: `npm run qr:cafeteria` genera `carta.png/svg` y una hoja con 4 copias.
+  · **El buscador autocompleta** (Laura, mismo día): mientras se escribe salen hasta 6 sugerencias debajo del
+    campo (categorías primero, luego productos; arriba lo que empieza igual), con foto, precio y lo escrito en
+    negrita. Tocar un producto completa el campo con su nombre; tocar una categoría borra la búsqueda y baja a
+    su sección. Flechas, Enter y Escape en computador. La lógica es pura y vive en `src/lib/cafeteria/buscar.ts`
+    (`filtrar`, `sugerir`), con sus pruebas en `tests/cafeteria-pedido.test.ts`.
+  · 🍓 **Dibujo de la fruta junto a cada sabor** (Laura, mismo día, por los Jugos naturales):
+    `src/app/carta/icono-fruta.tsx` trae cinco dibujos hechos a mano (mango, mora, fresa, guanábana,
+    maracuyá). Se escogen por el NOMBRE de la opción (texto libre del panel): una opción sin dibujo ("Lulo",
+    "Frío") queda sin él. **Para una fruta nueva hay que agregar su dibujo a `FRUTAS`**; no se sube desde el panel.
+  · **Un producto con opciones llega PLEGADO** (Laura, mismo día: "no quiero que jugos esté desplegado"): el
+    botón lima «Elegir» despliega y recoge los sabores; plegado y con algo escogido, el botón se vuelve negro
+    y dice cuántos lleva. En el celular del editor las opciones se muestran abiertas, a propósito.
+  · En la barra de abajo "Mi pedido" va ENCIMA del total: en un renglón se cortaba con totales de cinco cifras.
+  · **El pedido se llama por el NOMBRE de la persona, no por un código** (Laura, mismo día): la pantalla final
+    dice "Pedido de Laura", el mensaje de WhatsApp empieza "*Pedido de Laura* · Cafetería CDAF" (ya sin el
+    renglón "Nombre:") y el historial muestra solo el nombre (`tituloPedido`). El código de 4 letras se sigue
+    generando y guardando en `cafeteria_pedidos.codigo`, pero solo por dentro (fila y avisos de error).
+  · La vista del celular del editor (`vista-comprador.tsx`) se ajustó al diseño nuevo (sin pestañas ni banner).
+  · Verificado en navegador a 375 px (cuadrícula, hoja, buscador, formulario, registro del pedido) y con
+    build + pruebas (29 de cafetería). Sin commit.
+- Los productos van en orden alfabético dentro de cada categoría; las categorías se ordenan con flechas.
+- La demo vieja sigue publicada en `cdaf-pedidos-cafeteria.vercel.app` con la carta fija: decidir si se apaga.
+- Pruebas: `tests/cafeteria-pedido.test.ts` (19, lógica) y `tests/cafeteria-render.test.tsx` (20, pantallas).
+  Permisos verificados simulando sesiones (profesor ve 0 filas y no escribe; recepción administra la carta y no
+  cambia el WhatsApp; nadie con sesión inserta pedidos; anon sin acceso).
+- ✅ **Verificado en navegador con la sesión de Laura (20-nov-2026)**, en local contra la base real: el
+  interruptor (apagar y prender; la carta pública lo refleja al instante), crear con foto (un PNG de 2000×1500
+  llegó al bucket como JPG de 1400×1050), editar, eliminar (borra también la foto del bucket) y la bitácora con
+  su nombre. Probado a 1366 px y a 375 px. El producto de prueba se borró. **Repetido con el diseño nuevo**: vista
+  en vivo del celular, crear sin precio (cae al editor con el aviso), guardar con foto y opción, y eliminar.
+- El WhatsApp ya está puesto: lo guardó Laura el 20-nov-2026 desde el panel.
+
 | config (catálogo de servicios) | **L** | — | — | — | — | — |
 
 - 🆕 **`gestion_eventos` — "Gestión de Eventos"** (migraciones 0068–0069, 5-ago-2026). Rol para la
@@ -809,6 +954,7 @@ Fuente única: `PERMISSIONS` en `src/lib/auth/permissions.ts`. **E**=edita · **
     servidor al crear empleado (`z.enum`) y al cambiar de rol (`actions.ts:299`). Escrita a mano, no
     se enteró del rol nuevo, y el fallo salía **solo al guardar**: el selector sí ofrecía "Gestión de
     Eventos" (viene de `ROLE_LABEL`) pero el servidor respondía *"Rol inválido"* al cambiarlo y
+| cafetería (carta + pedidos) | E | E | — | E | — | — |
     *"revisa los campos"* al crear. **Ya deriva de `ALL_ROLES`**, así que quedan dos sitios y el
     compilador amarra los dos (`AppRole` el tipo, `ALL_ROLES` la enumeración). Moraleja repetida: el
     selector viene de un lado y la validación de otro — probar SIEMPRE guardando, no solo abriendo.

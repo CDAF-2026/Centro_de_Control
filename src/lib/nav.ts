@@ -16,6 +16,7 @@ import {
   Clock,
   Timer,
   Inbox,
+  Coffee,
   type LucideIcon,
 } from "lucide-react";
 import type { ModuleKey } from "@/lib/auth/permissions";
@@ -51,6 +52,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Paquetes", href: "/paquetes", icon: Package, module: "paquetes" },
   { label: "Clases", href: "/clases", icon: CalendarDays, module: "clases" },
   { label: "Eventos", href: "/eventos", icon: Trophy, module: "eventos" },
+  { label: "Cafetería", href: "/cafeteria", icon: Coffee, module: "cafeteria" },
   { label: "Notas", href: "/notas", icon: StickyNote, module: "notas" },
   { label: "Mi turno", href: "/turnos", icon: Clock, module: "turnos", requiere: "marca_turno" },
   { label: "Horas del personal", href: "/horas", icon: Timer, module: "turnos_reporte" },

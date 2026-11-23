@@ -148,6 +148,13 @@ Cubre, en un solo sitio, lo que el club hacía en Excel y WhatsApp:
 - **Nómina**: liquidación de entrenadores por reglas, y turnos por horas del personal
   administrativo (con la normativa laboral colombiana codificada en SQL).
 - **Notas**: tablón de relevo de turno del staff.
+- **Cafetería** (20-nov-2026, publicada el 23-nov): la carta que el comprador abre con UN QR
+  para todo el club (`/carta`, pública) y pide por WhatsApp, escribiendo dónde está; se administra
+  en `/cafeteria` (productos, fotos, categorías, un interruptor Disponible / No disponible) y en
+  `/cafeteria/pedidos` (cada pedido con su estado: pendiente, en preparación, entregado o
+  cancelado; "Por atender" e "Historial"). El estado se cambia SOLO con la función
+  `cafeteria_pedido_estado`: la tabla de pedidos no tiene UPDATE para nadie. Detalle en
+  `MEMORIA.md` → "☕ Cafetería".
 - **Registro por QR y consentimiento digital** (`/registro`, público): el papá escanea un QR,
   actualiza la ficha del niño y firma el consentimiento informado con el dedo; el PDF queda en la
   ficha. Es la **primera pantalla sin sesión que escribe en la base**.
@@ -219,6 +226,7 @@ src/
     (auth)/login/
     quiosco/               # FUERA de (app): aparato de una sola función, sin menú
     registro/              # FUERA de (app): página PÚBLICA del QR (landing, datos, consentimiento, listo)
+    carta/                 # FUERA de (app): carta PÚBLICA de la cafetería (un solo QR) + `pedidos/route.ts`
     styleguide/
     globals.css            # Tokens de marca + semánticos shadcn
   components/
@@ -414,6 +422,7 @@ La fuente de verdad del esquema son las **migraciones**. `src/lib/database.types
 | config | **L** | — | — | — | — | — |
 | turnos (marcar) | E | E | E | E | E | E |
 | reporte de horas | E | **L** | — | — | — | — |
+| cafetería (carta + pedidos) | E | E | — | E | — | — |
 
 `seguridad` solo tiene `turnos`. `quiosco` no tiene ningún módulo (usa `/quiosco`).
 
@@ -850,6 +859,7 @@ Trampas medidas, no las repitas:
 | `turnos` | Privado | Fotos de marcación. Dato sensible (Ley 1581) → enlaces firmados + **borrado automático a los 45 días**. |
 | `cliente-docs` | Privado | Documentos de clientes. |
 | `evento-docs` | Privado | Soportes de gasto de eventos. |
+| `cafeteria` | **PÚBLICO** | Fotos de los productos de la carta (`<id del producto>/<instante>.jpg`). Público porque las ve el comprador sin sesión. Tope 5 MB y solo JPG/PNG/WEBP, puestos en el bucket. Escriben SA, coord. admin y recepción. |
 | `consentimientos` | Privado | `<firma_uuid>/consentimiento.pdf` y `/firma.png`. Lectura para el personal; **nadie con sesión escribe**: solo service_role, una vez. |
 
 Ningún bucket tiene `file_size_limit` propio (usan el global del proyecto).
