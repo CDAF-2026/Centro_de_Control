@@ -75,7 +75,8 @@ se crea. Si el papá ya era cliente, el niño entra como **hijo** en su ficha.
 - **Ficha del cliente** → aviso "La familia propuso N cambios de facturación" con enlace a
   la bandeja.
 - **Clientes › Registros** → la bandeja y el historial de lo aplicado.
-- **Notas** → cada caso que necesita revisión llega como "Aviso automático".
+- **Notas** → desde el 20-nov-2026 el registro ya no deja "Aviso automático" ahí: lo que
+  necesita revisión se mira en **Clientes › Registros**.
 
 ## Si algo no funciona
 

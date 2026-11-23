@@ -2348,6 +2348,20 @@ canvas https://claude.ai/artifact/DxZANqj8bnry6KG6FPA114):**
     a `en_revision` / firma `pendiente_asignar` + aviso a los revisores, sin tocar ninguna ficha. La
     confirmación hecha en datos viaja en la sesión (`DatosMenor.confirmado`) para no volver a frenar en
     la firma. Pruebas con un cliente falso en `registro-match.test.ts`.
+  · 🔕 **El registro ya NO deja "Aviso automático" en Notas** (20-nov-2026, pedido de Laura). Se quitó
+    `avisarRevisores` de `registro/datos/actions.ts` y `registro/consentimiento/actions.ts` (facturación
+    por aprobar, documento de otra persona y más de una ficha). Lo que queda por revisar se mira en
+    **Clientes › Registros**, que **no tiene contador en el menú** (se le ofreció a Laura; no lo ha pedido).
+    Se borraron los 37 avisos que había en Notas, ninguno con comentarios (rastro `audit_log`
+    `nota.eliminar_avisos_registro`, con las filas enteras). El aviso de Siigo por grupo nuevo o renombrado
+    (`siigo_catalogo_aplicar`) sigue igual. Lo que este archivo diga "+ aviso a los revisores" es de antes.
+  · ✅ **Luciana Londoño, una sola ficha (573)** (20-nov-2026, Laura). Estaba como hermana de Manuela en la
+    573 (miembro 591, academia y 7 asistencias) y además sola en la **574** (creada el 23-sep tres minutos
+    antes, retirada el 1-oct, vacía); por eso los datos y la firma del papá del 3-nov quedaron `ambiguo`.
+    Se aplicaron al miembro 591 (`registro_aplicar_datos` y `consentimiento_asignar` con la sesión de Laura;
+    documento 242). **Se conservaron TI y O+**: el papá puso RC y dejó el RH vacío, y tiene 11 años. El
+    contacto principal de la familia pasó de la mamá (Susana Sosa) al papá (Juan Fernando Londoño), como
+    manda D1; Laura lo confirmó. La 574 se borró (rastro `cliente.fusionar`, entity 574).
   · **Tope de intentos 60 / 10 min · 400 / día** (migración `20261002100000`): con 10 / 10 min, el wifi
     del club (una sola IP) habría bloqueado a la quinta familia el día del arranque.
   · **Una firma por niño y versión**: si ya hay firma `asignada` con PDF para esa versión, `/registro/listo?ya=1`

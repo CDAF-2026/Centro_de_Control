@@ -74,7 +74,6 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
   if (!(await registroAbierto())) return { error: "El registro no está disponible en este momento." };
 
   // ¿A quién pertenece? (R8) Nunca se muestra lo que se encontró.
-  const nombreMenor = `${d.nombres} ${d.apellidos}`.trim();
   const busqueda = await buscarMiembro(admin, { documento: d.documento, nombres: d.nombres, apellidos: d.apellidos, fechaNacimiento: d.fechaNacimiento });
 
   // El correo y el celular de la ficha son los del acudiente principal (como hoy en las fichas).
@@ -133,15 +132,9 @@ export async function enviarDatos(_prev: DatosState, formData: FormData): Promis
     const { data: r, error } = await admin.rpc("registro_aplicar_datos", { p_solicitud: sol.id, p_decision: decision as unknown as Json });
     if (error || !r) { console.error("[registro] aplicar:", sol.id, error?.message); return { error: GENERICO }; }
     miembro = { miembro_id: r.miembro_id, cliente_id: r.cliente_id };
-    if (r.cambios_pendientes > 0) {
-      await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} propuso datos de facturación para la ficha de ${nombreMenor}. Hay ${r.cambios_pendientes} cambio(s) por aprobar en Clientes › Registros.`);
-    }
-  } else if (busqueda.tipo === "documento_ajeno") {
-    await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} registró a ${nombreMenor} con un documento que en la plataforma tiene otra persona, y confirmó que es correcto. No se tocó ninguna ficha: revisar en Clientes › Registros.`);
-  } else {
-    // Caso extremo (D3): dos fichas con el mismo documento y nombre. No se escribe en clientes.
-    await avisarRevisores(admin, `Aviso automático · Los datos de ${nombreMenor} enviados por ${firmante.nombre} coinciden con más de una ficha. Revisar en Clientes › Registros.`);
   }
+  // Sin ficha decidida (documento de otra persona, o dos fichas iguales: D3) no se escribe en clientes.
+  // Lo que queda por revisar se ve en Clientes › Registros; ya no se deja nota en Notas (Laura, 20-nov-2026).
 
   await anotarEnSesion(sesionId, {
     firmante,
@@ -188,12 +181,4 @@ async function decidirFicha(
     clienteId = a?.cliente_id ?? null;
   }
   return { decision: clienteId ? { modo: "hermano", cliente_id: clienteId } : { modo: "crear" }, candidatos: null };
-}
-
-/** Nota "Aviso automático" a los revisores (SA y coord. admin), igual que en el consentimiento. */
-async function avisarRevisores(admin: ReturnType<typeof createAdminClient>, texto: string): Promise<void> {
-  const { data: nota, error } = await admin.from("notas").insert({ texto, autor_id: null, prioridad: "normal" }).select("id").single();
-  if (error || !nota) { console.error("[registro] aviso:", error?.message); return; }
-  const { data: perfiles } = await admin.from("profiles").select("id").in("role", ["superadmin", "coord_admin"]).eq("activo", true);
-  if (perfiles?.length) await admin.from("nota_destinatarios").insert(perfiles.map((p) => ({ nota_id: nota.id, perfil_id: p.id })));
 }

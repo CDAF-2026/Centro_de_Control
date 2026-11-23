@@ -29,23 +29,6 @@ export type ConsentimientoState = {
 const GENERICO = "No pudimos guardar la firma. Inténtalo de nuevo o acércate a recepción.";
 
 /**
- * Nota "Aviso automático" a los revisores (D8: superadmin y coord. administrativo).
- * `private.nota_sistema_roles` no se alcanza por PostgREST (esquema private), así
- * que se escribe igual que ella pero desde aquí: nota sin autor + destinatarios.
- */
-async function avisarRevisores(admin: ReturnType<typeof createAdminClient>, texto: string): Promise<void> {
-  const { data: nota, error } = await admin.from("notas").insert({ texto, autor_id: null, prioridad: "normal" }).select("id").single();
-  if (error || !nota) {
-    console.error("[registro] aviso:", error?.message);
-    return;
-  }
-  const { data: perfiles } = await admin.from("profiles").select("id").in("role", ["superadmin", "coord_admin"]).eq("activo", true);
-  if (perfiles?.length) {
-    await admin.from("nota_destinatarios").insert(perfiles.map((p) => ({ nota_id: nota.id, perfil_id: p.id })));
-  }
-}
-
-/**
  * El camino completo de una firma (plan §4.2 y §4.8). Sin sesión ni rol: lo que
  * protege son zod, el rate limit, los RPC (solo service_role) y que la página
  * NUNCA devuelve datos existentes.
@@ -314,14 +297,13 @@ export async function firmarConsentimiento(
   }
 
   if (busqueda.tipo === "documento_ajeno") {
-    await avisarRevisores(admin, `Aviso automático · ${firmante.nombre} firmó por ${nombreMenor} con un documento que en la plataforma tiene otra persona, y confirmó que es correcto. La firma quedó sin asignar: revisar en Clientes › Registros.`);
     await logAuditSistema({
       action: "consentimiento.pendiente_asignar", entity: "consentimiento_firma", entityId: firmaId,
       after: { motivo: "documento_ajeno", candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
     });
   } else if (busqueda.tipo === "ambiguo") {
-    // Caso extremo (D3): mismo documento y mismo nombre en dos fichas. Avisar a los revisores.
-    await avisarRevisores(admin, `Aviso automático · Un consentimiento firmado por ${firmante.nombre} para ${nombreMenor} coincide con más de una ficha. Hay que asignarlo desde la ficha correcta (Clientes).`);
+    // Caso extremo (D3): mismo documento y mismo nombre en dos fichas. Queda por asignar en Clientes › Registros
+    // (ya no se deja nota en Notas: Laura, 20-nov-2026).
     await logAuditSistema({
       action: "consentimiento.pendiente_asignar", entity: "consentimiento_firma", entityId: firmaId,
       after: { candidatos: busqueda.candidatos.map((c) => c.miembro_id) },
