@@ -3,6 +3,7 @@
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { EChartsCoreOption } from "echarts/core";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EChart } from "./echart";
 import {
   TABLERO as T,
@@ -569,6 +570,9 @@ const cuotaDe = (v: number, total: number) => {
   return c < 1 ? "menos de 1%" : Math.round(c) + "%";
 };
 
+/** "menos de 1%" no cabe en una columna angosta. */
+const cuotaCorta = (v: number, total: number) => cuotaDe(v, total).replace("menos de 1%", "<1%");
+
 /** La dona muestra los cinco mayores y junta el resto: más de seis tajadas ya no se leen. */
 function tajadas(servicios: DatoServicio[]): Tajada[] {
   const top = servicios.slice(0, 5);
@@ -730,6 +734,80 @@ function ColumnaMovimientos({ titulo, sube, filas }: { titulo: string; sube: boo
   );
 }
 
+/** Todos los servicios uno por uno, sin el cubo de "Otros": la dona solo muestra cinco. */
+function TodosLosServicios({
+  servicios,
+  partes,
+  total,
+  sub,
+  frente,
+}: {
+  servicios: DatoServicio[];
+  partes: Tajada[];
+  total: number;
+  sub: ReactNode;
+  frente: string;
+}) {
+  // Los cinco primeros llevan el color de su tajada; los demás, el gris de "Otros".
+  const colorDe = (i: number) => (i < 5 && partes[i] ? partes[i].color : T.gris);
+  return (
+    <Dialog>
+      <DialogTrigger className="self-start text-[13px] font-semibold text-[#5b6300] hover:text-[#46530a] hover:underline">
+        Ver todos ({servicios.length})
+      </DialogTrigger>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Ingreso por servicio</DialogTitle>
+          <DialogDescription>{sub}</DialogDescription>
+        </DialogHeader>
+        <div className="-mx-5 min-h-0 overflow-y-auto px-5">
+          <table className="w-full text-[13px]">
+            <thead className="bg-popover sticky top-0">
+              <tr className="text-muted-foreground border-border border-b text-[11px] font-bold tracking-wider uppercase">
+                <th className="py-2 text-left font-bold">Servicio</th>
+                <th className="py-2 pl-2 text-right font-bold">Facturado</th>
+                <th className="hidden py-2 pl-2 text-right font-bold sm:table-cell">%</th>
+                <th className="py-2 pl-2 text-right font-bold sm:pl-3">{frente}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-border divide-y">
+              {servicios.map((s, i) => (
+                <tr key={s.id}>
+                  <td className="py-[7px]">
+                    <span className="flex items-center gap-2 leading-tight">
+                      <span className="size-2.5 shrink-0 rounded-sm" style={{ background: colorDe(i) }} />
+                      {s.nombre}
+                    </span>
+                  </td>
+                  <td className="py-[7px] pl-2 text-right whitespace-nowrap tabular-nums">
+                    {corto(s.actual)}
+                    {/* En celular no cabe la columna del %: va debajo del monto. */}
+                    <span className="text-muted-foreground block text-[11px] font-bold sm:hidden">{cuotaCorta(s.actual, total)}</span>
+                  </td>
+                  <td className="hidden py-[7px] pl-2 text-right font-bold whitespace-nowrap tabular-nums sm:table-cell">
+                    {cuotaCorta(s.actual, total)}
+                  </td>
+                  <td className="py-[7px] pl-2 text-right text-xs tabular-nums sm:pl-3">
+                    <Delta v={variacion(s.actual, s.previo)} conSigno />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-border border-t-2 font-bold">
+                <td className="py-2">Total</td>
+                <td className="py-2 pl-2 text-right whitespace-nowrap tabular-nums">{corto(total)}</td>
+                <td className="hidden py-2 pl-2 text-right tabular-nums sm:table-cell">100%</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function PanelServicios({
   servicios,
   total,
@@ -777,6 +855,7 @@ export function PanelServicios({
               ))}
             </ul>
           )}
+          <TodosLosServicios servicios={servicios} partes={partes} total={total} sub={sub} frente={frente} />
         </>
       ) : (
         <p className="text-muted-foreground py-10 text-center text-sm">Sin facturación en el periodo.</p>
