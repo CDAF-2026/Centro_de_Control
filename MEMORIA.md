@@ -923,6 +923,17 @@ incluida la foto · historial de pedidos · **sin "carrito protegido"** (no hay 
   · La vista del celular del editor (`vista-comprador.tsx`) se ajustó al diseño nuevo (sin pestañas ni banner).
   · Verificado en navegador a 375 px (cuadrícula, hoja, buscador, formulario, registro del pedido) y con
     build + pruebas (29 de cafetería). Sin commit.
+- 💳 **Vuelve la forma de pago** (Laura, 23-nov-2026; revierte el "sin forma de pago" del 20-nov). En "¿A dónde
+  te lo llevamos?", antes de las notas: **"Forma de pago"** con tres casillas — QR, Datáfono, Efectivo — de las
+  que se escoge UNA (se portan como opciones: tocar otra cambia la elegida). Es **obligatoria** («Elige cómo vas
+  a pagar.»). Con **Efectivo** se abre **"¿Devuelta de cuánto?"** (pesos con punto de miles, opcional: quien
+  paga exacto lo deja vacío); si el billete es menor que el total, no deja enviar.
+  · Migración `20261123100000` (aplicada en producción ese día, solo agrega): `cafeteria_pedidos.pago`
+    (`qr|datafono|efectivo`, nulo en los pedidos de antes) y `devuelta_de` (entero).
+  · El mensaje de WhatsApp lleva `*Pago:* Efectivo · devuelta de $50.000` después del total. La tarjeta del
+    panel muestra "Pago: …" y, con efectivo y billete, "llevar $X de cambio".
+  · Las tres opciones viven en `FORMAS_PAGO` (`src/lib/cafeteria/pedido.ts`), en el `z.enum` de
+    `pedidoSchema` y en el `check` de la columna: cambiar las tres juntas.
 - Los productos van en orden alfabético dentro de cada categoría; las categorías se ordenan con flechas.
 - La demo vieja sigue publicada en `cdaf-pedidos-cafeteria.vercel.app` con la carta fija: decidir si se apaga.
 - Pruebas: `tests/cafeteria-pedido.test.ts` (19, lógica) y `tests/cafeteria-render.test.tsx` (20, pantallas).

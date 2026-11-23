@@ -18,7 +18,7 @@ import { TarjetaPedido, type PedidoVista } from "./tarjeta-pedido";
 const POR_PAGINA = 30;
 /** Tope de la lista por atender. Un día con más de esto abiertos a la vez no es real. */
 const MAX_POR_ATENDER = 200;
-const COLUMNAS = "id, recibido_el, nombre, ubicacion, detalle_ubicacion, notas, lineas, total, estado";
+const COLUMNAS = "id, recibido_el, nombre, ubicacion, detalle_ubicacion, notas, pago, devuelta_de, lineas, total, estado";
 
 type Ver = "atender" | "historial";
 type Periodo = "hoy" | "semana" | "todos";

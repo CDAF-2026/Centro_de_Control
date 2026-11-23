@@ -54,5 +54,8 @@ export const pedidoSchema = z.object({
     ubicacion: z.string().trim().min(1).max(80),
     detalleUbicacion: z.string().trim().max(120),
     notas: z.string().trim().max(300),
+    pago: z.enum(["qr", "datafono", "efectivo"]),
+    /** Con qué billete paga en efectivo, como lo escribió ("50.000"). Opcional. */
+    devuelta: z.string().trim().max(20).optional().default(""),
   }),
 });

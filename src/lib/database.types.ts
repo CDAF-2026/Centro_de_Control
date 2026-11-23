@@ -984,6 +984,10 @@ export type Database = {
           ubicacion: string;
           detalle_ubicacion: string | null;
           notas: string | null;
+          /** qr · datafono · efectivo. Nulo en los pedidos de antes del 23-nov-2026. */
+          pago: string | null;
+          /** Solo efectivo: con qué billete paga (para llevar el cambio). */
+          devuelta_de: number | null;
           /** Foto del pedido: [{ producto_id, nombre, opcion, cantidad, precio, subtotal }]. */
           lineas: Json;
           total: number;
@@ -1001,6 +1005,8 @@ export type Database = {
           ubicacion: string;
           detalle_ubicacion?: string | null;
           notas?: string | null;
+          pago?: string | null;
+          devuelta_de?: number | null;
           lineas: Json;
           total: number;
           mensaje: string;

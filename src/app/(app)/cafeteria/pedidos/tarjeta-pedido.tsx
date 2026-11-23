@@ -1,5 +1,5 @@
 import { nombreEstado, sigueAbierto, type EstadoPedido } from "@/lib/cafeteria/estado";
-import { pesos, type LineaGuardada } from "@/lib/cafeteria/pedido";
+import { nombrePago, pesos, type LineaGuardada } from "@/lib/cafeteria/pedido";
 import { fechaHoraCorta, tiempoRelativo } from "@/lib/fecha";
 import { cn } from "@/lib/utils";
 import { cambiarEstadoPedido } from "./actions";
@@ -11,6 +11,9 @@ export type PedidoVista = {
   ubicacion: string;
   detalle_ubicacion: string | null;
   notas: string | null;
+  /** qr · datafono · efectivo; nulo en los pedidos de antes del 23-nov-2026. */
+  pago: string | null;
+  devuelta_de: number | null;
   total: number;
   estado: string;
   lineas: LineaGuardada[];
@@ -102,6 +105,7 @@ export function TarjetaPedido({ pedido, porAtender, volverA }: { pedido: PedidoV
             </li>
           ))}
         </ul>
+        <Pago pedido={pedido} />
         {pedido.notas && <p className="bg-muted/60 rounded-md px-2.5 py-1.5 text-xs"><strong>Notas:</strong> {pedido.notas}</p>}
       </div>
 
@@ -141,5 +145,27 @@ export function TarjetaPedido({ pedido, porAtender, volverA }: { pedido: PedidoV
         </details>
       )}
     </li>
+  );
+}
+
+/**
+ * Cómo paga, para saber qué llevar: el QR, el datáfono o el cambio. Con efectivo y
+ * billete dicho, también cuánto cambio hay que llevar. Los pedidos de antes del
+ * 23-nov-2026 no tienen forma de pago y no muestran nada.
+ */
+export function Pago({ pedido }: { pedido: Pick<PedidoVista, "pago" | "devuelta_de" | "total"> }) {
+  const nombre = nombrePago(pedido.pago);
+  if (!nombre) return null;
+  const cambio = pedido.devuelta_de !== null ? pedido.devuelta_de - pedido.total : null;
+  return (
+    <p className="rounded-md border border-[#e3e8ea] px-2.5 py-1.5 text-xs">
+      <strong>Pago:</strong> {nombre}
+      {pedido.pago === "efectivo" && pedido.devuelta_de !== null && (
+        <>
+          {" "}· devuelta de {pesos(pedido.devuelta_de)}
+          {cambio !== null && cambio > 0 && <span className="font-semibold"> · llevar {pesos(cambio)} de cambio</span>}
+        </>
+      )}
+    </p>
   );
 }

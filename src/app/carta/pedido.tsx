@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Image from "next/image";
-import { ArrowLeft, Check, ChevronDown, LayoutGrid, Minus, Plus, Search, Send, UtensilsCrossed, X } from "lucide-react";
+import { ArrowLeft, Banknote, Check, ChevronDown, CreditCard, LayoutGrid, Minus, Plus, QrCode, Search, Send, UtensilsCrossed, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -11,11 +11,14 @@ import { filtrar, sinTildes, sugerir, type Sugerencia } from "@/lib/cafeteria/bu
 import type { CategoriaCarta, ProductoCarta } from "@/lib/cafeteria/carta";
 import { IconoFruta, frutaDe } from "./icono-fruta";
 import {
+  FORMAS_PAGO,
   MAX_POR_LINEA,
   claveLinea,
   codigoPedido,
   enlaceWhatsApp,
+  escribirPesos,
   indexar,
+  leerPesos,
   lineasValidas,
   mensajeWhatsApp,
   nombreLinea,
@@ -25,6 +28,7 @@ import {
   total,
   unidades,
   type DatosPedido,
+  type FormaPago,
   type Linea,
   type Productos,
 } from "@/lib/cafeteria/pedido";
@@ -39,8 +43,10 @@ import {
  *     desde cualquier punto) junto a "Mi pedido".
  *   · El buscador filtra la carta mientras se escribe y además SUGIERE debajo
  *     del campo (autocompletar, pedido de Laura el mismo día).
- *   · Sin conteos de productos, sin letrero de zona y sin forma de pago: dónde
- *     está la persona lo ESCRIBE al final.
+ *   · Sin conteos de productos ni letrero de zona: dónde está la persona lo
+ *     ESCRIBE al final.
+ *   · Forma de pago (Laura, 23-nov-2026): QR, datáfono o efectivo, se escoge una;
+ *     con efectivo se abre "¿Devuelta de cuánto?".
  */
 const CARD = "bg-card rounded-[18px] shadow-[0_1px_2px_rgba(26,28,30,0.06),0_4px_12px_rgba(26,28,30,0.05)]";
 const TITULO = "font-heading font-extrabold uppercase italic";
@@ -59,7 +65,10 @@ const GUARDADO = "cdaf-carta-pedido";
 /** Entre visitas: el nombre, para no volver a escribirlo en el próximo pedido. */
 const NOMBRE = "cdaf-carta-nombre";
 
-const DATOS_VACIOS: DatosPedido = { nombre: "", ubicacion: "", detalleUbicacion: "", notas: "" };
+const DATOS_VACIOS: DatosPedido = { nombre: "", ubicacion: "", detalleUbicacion: "", notas: "", pago: "", devuelta: "" };
+
+const ICONO_PAGO: Record<FormaPago, typeof QrCode> = { qr: QrCode, datafono: CreditCard, efectivo: Banknote };
+const formaPago = (v: unknown): FormaPago | "" => FORMAS_PAGO.find((f) => f.valor === v)?.valor ?? "";
 
 const texto = (v: unknown) => (typeof v === "string" ? v : "");
 const idSeccion = (categoriaId: number) => `categoria-${categoriaId}`;
@@ -107,6 +116,8 @@ export function Pedido({
           ubicacion: texto(d.ubicacion),
           detalleUbicacion: texto(d.detalleUbicacion),
           notas: texto(d.notas),
+          pago: formaPago(d.pago),
+          devuelta: texto(d.devuelta),
         });
         if (guardado.enviado) {
           setEnviado(guardado.enviado);
@@ -155,6 +166,11 @@ export function Pedido({
     const faltan: Errores = {};
     if (!datos.nombre.trim()) faltan.nombre = "Escribe tu nombre para que te encuentren.";
     if (!datos.ubicacion.trim()) faltan.ubicacion = "Escribe dónde estás para llevártelo.";
+    if (!datos.pago) faltan.pago = "Elige cómo vas a pagar.";
+    const billete = datos.pago === "efectivo" ? leerPesos(datos.devuelta) : null;
+    if (billete !== null && billete < total(lineas, productos)) {
+      faltan.devuelta = `Debe ser igual o mayor al total (${pesos(total(lineas, productos))}).`;
+    }
     setErrores(faltan);
     if (Object.keys(faltan).length > 0 || lineas.length === 0) return;
 
@@ -184,7 +200,7 @@ export function Pedido({
     setCarrito({});
     setEnviado(null);
     // El nombre y dónde está se conservan: lo normal es que siga en el mismo sitio.
-    setDatos((d) => ({ ...d, detalleUbicacion: "", notas: "" }));
+    setDatos((d) => ({ ...d, detalleUbicacion: "", notas: "", devuelta: "" }));
     setBusqueda("");
     setPaso("carta");
   };
@@ -298,6 +314,47 @@ export function Pedido({
           <Campo label="¿Cómo te encontramos? (opcional)" name="detalleUbicacion">
             <Input id="detalleUbicacion" name="detalleUbicacion" autoComplete="off" value={datos.detalleUbicacion} onChange={(e) => cambiarDato("detalleUbicacion", e.target.value)} maxLength={120} className={INPUT} placeholder="Ej.: banca azul, camiseta roja" />
           </Campo>
+          <fieldset className="space-y-1.5">
+            <legend className="text-charcoal mb-1.5 text-[13px] font-semibold">Forma de pago</legend>
+            <div role="radiogroup" aria-label="Forma de pago" aria-invalid={!!errores.pago} className="grid grid-cols-3 gap-2">
+              {FORMAS_PAGO.map((f) => {
+                const elegida = datos.pago === f.valor;
+                const Icono = ICONO_PAGO[f.valor];
+                return (
+                  <button
+                    key={f.valor}
+                    type="button"
+                    role="radio"
+                    aria-checked={elegida}
+                    aria-label={f.nombre}
+                    onClick={() => cambiarDato("pago", f.valor)}
+                    className={cn(
+                      "flex h-[76px] flex-col items-start justify-between rounded-xl border-[1.5px] px-3 py-2.5 text-left transition active:translate-y-px",
+                      elegida ? "border-primary bg-stadium text-primary" : "border-input bg-card",
+                      errores.pago && !elegida && "border-destructive/60",
+                    )}
+                  >
+                    <span className="flex w-full items-center justify-between">
+                      <Icono className="size-5" aria-hidden />
+                      <span className={cn("flex size-5 items-center justify-center rounded-[5px] border-[1.5px]", elegida ? "border-primary bg-primary text-stadium" : "border-[#c4ccd0] bg-white")}>
+                        {elegida && <Check className="size-3.5" strokeWidth={3} aria-hidden />}
+                      </span>
+                    </span>
+                    <span className="text-[14px] font-bold">{f.nombre}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {errores.pago && <p className="text-destructive text-sm">{errores.pago}</p>}
+          </fieldset>
+          {datos.pago === "efectivo" && (
+            <Campo label="¿Devuelta de cuánto?" name="devuelta" error={errores.devuelta}>
+              <div className="relative">
+                <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-[15px]">$</span>
+                <Input id="devuelta" name="devuelta" inputMode="numeric" autoComplete="off" value={datos.devuelta} onChange={(e) => cambiarDato("devuelta", escribirPesos(e.target.value))} aria-invalid={!!errores.devuelta} maxLength={12} className={cn(INPUT, "pl-7 tabular-nums")} placeholder="Ej.: 50.000" />
+              </div>
+            </Campo>
+          )}
           <Campo label="Notas para la cafetería (opcional)" name="notas">
             <textarea id="notas" name="notas" rows={2} value={datos.notas} onChange={(e) => cambiarDato("notas", e.target.value)} maxLength={300}
               className="border-input placeholder:text-muted-foreground w-full resize-none rounded-xl border-[1.5px] bg-transparent px-3.5 py-3 text-[15px]"

@@ -9,10 +9,40 @@ import type { ProductoCarta } from "./carta";
 /** Una línea del carrito: un producto, con su opción si la tiene (Milo frío…). */
 export type Linea = { productoId: number; opcion?: string; cantidad: number };
 
+const formatoPesos = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+
 /**
- * Lo que la persona llena al pedir. Sin forma de pago (la cafetería lleva el QR
- * o el datáfono al entregar) y sin lista de zonas: dónde está lo ESCRIBE
- * (Laura, 20-nov-2026).
+ * Cómo va a pagar al recibir (Laura, 23-nov-2026). Se escoge una sola: con eso la
+ * cafetería sabe si lleva el QR, el datáfono o el cambio. El 20-nov se había quitado
+ * la forma de pago; volvió el 23-nov con estas tres opciones.
+ */
+export const FORMAS_PAGO = [
+  { valor: "qr", nombre: "QR" },
+  { valor: "datafono", nombre: "Datáfono" },
+  { valor: "efectivo", nombre: "Efectivo" },
+] as const;
+
+export type FormaPago = (typeof FORMAS_PAGO)[number]["valor"];
+
+export function nombrePago(valor: string | null | undefined): string | null {
+  return FORMAS_PAGO.find((f) => f.valor === valor)?.nombre ?? null;
+}
+
+/** "50.000", "$50.000", "50 mil" a medias → 50000. Solo se quedan los dígitos; vacío → null. */
+export function leerPesos(texto: string): number | null {
+  const digitos = texto.replace(/\D/g, "");
+  return digitos ? Number(digitos) : null;
+}
+
+/** Mientras se escribe: "50000" → "50.000". */
+export function escribirPesos(texto: string): string {
+  const valor = leerPesos(texto);
+  return valor === null ? "" : formatoPesos.format(valor);
+}
+
+/**
+ * Lo que la persona llena al pedir. Sin lista de zonas: dónde está lo ESCRIBE
+ * (Laura, 20-nov-2026). La forma de pago volvió el 23-nov-2026.
  */
 export type DatosPedido = {
   nombre: string;
@@ -21,6 +51,10 @@ export type DatosPedido = {
   /** Opcional, para que la encuentren: "banca azul", "camiseta roja"… */
   detalleUbicacion: string;
   notas: string;
+  /** "" mientras no escoja. */
+  pago: FormaPago | "";
+  /** Solo con efectivo: con qué billete paga, tal como lo escribió ("50.000"). Opcional. */
+  devuelta: string;
 };
 
 export const MAX_POR_LINEA = 20;
@@ -35,8 +69,6 @@ export function indexar(categorias: { productos: ProductoCarta[] }[]): Productos
 export function claveLinea(productoId: number, opcion?: string): string {
   return opcion ? `${productoId}:${opcion}` : String(productoId);
 }
-
-const formatoPesos = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
 
 /** "$3.500". Sin el estilo `currency`: ese mete un espacio que WhatsApp y React leen distinto. */
 export function pesos(valor: number): string {
@@ -95,6 +127,8 @@ export function mensajeWhatsApp(lineas: Linea[], datos: DatosPedido, productos: 
   const ubicacion = datos.ubicacion.trim() || "Sin ubicación";
   const detalle = datos.detalleUbicacion.trim();
   const notas = datos.notas.trim();
+  const pago = nombrePago(datos.pago);
+  const devuelta = datos.pago === "efectivo" ? leerPesos(datos.devuelta) : null;
 
   return [
     `*${tituloPedido(datos.nombre)}* · Cafetería CDAF`,
@@ -103,6 +137,7 @@ export function mensajeWhatsApp(lineas: Linea[], datos: DatosPedido, productos: 
     ...lineas.map((l) => `${l.cantidad} x ${nombreLinea(l, productos)} — ${pesos(subtotal(l, productos))}`),
     "",
     `*Total: ${pesos(total(lineas, productos))}*`,
+    ...(pago ? [`*Pago:* ${pago}${devuelta ? ` · devuelta de ${pesos(devuelta)}` : ""}`] : []),
     ...(notas ? [`*Notas:* ${notas}`] : []),
   ].join("\n");
 }

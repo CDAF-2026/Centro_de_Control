@@ -248,7 +248,7 @@ describe("/cafeteria/pedidos · por atender e historial", () => {
   it("una tarjeta por atender ofrece el paso siguiente; en el historial solo dice en qué quedó y deja corregir", async () => {
     const { TarjetaPedido } = await import("../src/app/(app)/cafeteria/pedidos/tarjeta-pedido");
     const pedido = (estado: string) => ({
-      id: 9, nombre: "Ana", recibido_el: new Date().toISOString(), ubicacion: "Cancha 1", detalle_ubicacion: null, notas: null, total: 4000, estado,
+      id: 9, nombre: "Ana", recibido_el: new Date().toISOString(), ubicacion: "Cancha 1", detalle_ubicacion: null, notas: null, pago: null, devuelta_de: null, total: 4000, estado,
       lineas: [{ producto_id: 1, nombre: "Empanadas", opcion: null, cantidad: 2, precio: 2000, subtotal: 4000 }],
     });
     const botones = (html: string) => [...html.matchAll(/<button[^>]*value="([a-z_]+)"/g)].map((m) => m[1]);
@@ -269,6 +269,14 @@ describe("/cafeteria/pedidos · por atender e historial", () => {
     // Uno de un día anterior que nadie cerró: está en el historial igual, y se dice por qué.
     const viejo = renderToStaticMarkup(<TarjetaPedido pedido={pedido("pendiente")} porAtender={false} volverA="/cafeteria/pedidos?ver=historial" />);
     expect(texto(viejo)).toContain("Es de un día anterior");
+
+    // Forma de pago (23-nov-2026): los pedidos de antes no la tienen y no dicen nada;
+    // con efectivo y billete, también cuánto cambio llevar.
+    expect(texto(pendiente)).not.toContain("Pago:");
+    const conQr = renderToStaticMarkup(<TarjetaPedido pedido={{ ...pedido("pendiente"), pago: "datafono" }} porAtender volverA="/cafeteria/pedidos" />);
+    expect(texto(conQr)).toContain("Pago: Datáfono");
+    const efectivo = renderToStaticMarkup(<TarjetaPedido pedido={{ ...pedido("pendiente"), pago: "efectivo", devuelta_de: 10000 }} porAtender volverA="/cafeteria/pedidos" />);
+    expect(texto(efectivo)).toContain("Pago: Efectivo · devuelta de $10.000 · llevar $6.000 de cambio");
   });
 });
 

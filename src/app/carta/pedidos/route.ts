@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leerCartaPublica } from "@/lib/cafeteria/publica";
-import { indexar, lineasParaGuardar, lineasValidas, mensajeWhatsApp, total } from "@/lib/cafeteria/pedido";
+import { indexar, leerPesos, lineasParaGuardar, lineasValidas, mensajeWhatsApp, total } from "@/lib/cafeteria/pedido";
 import { pedidoSchema } from "@/lib/validations/cafeteria";
 
 /**
@@ -56,6 +56,9 @@ export async function POST(request: Request) {
     ubicacion: datos.ubicacion,
     detalle_ubicacion: datos.detalleUbicacion || null,
     notas: datos.notas || null,
+    pago: datos.pago,
+    // Un billete menor que el total es un error de dedo: no se guarda, para no mandar un cambio equivocado.
+    devuelta_de: datos.pago === "efectivo" && (leerPesos(datos.devuelta) ?? 0) >= valor ? leerPesos(datos.devuelta) : null,
     lineas: lineasParaGuardar(lineas, productos),
     total: valor,
     mensaje: mensajeWhatsApp(lineas, datos, productos),

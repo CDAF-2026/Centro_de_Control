@@ -5,7 +5,9 @@ import { ESTADOS, POR_ATENDER, esEstado, nombreEstado, sigueAbierto } from "../s
 import { leerOpciones, type ProductoCarta } from "../src/lib/cafeteria/carta";
 import {
   enlaceWhatsApp,
+  escribirPesos,
   indexar,
+  leerPesos,
   lineasParaGuardar,
   lineasValidas,
   mensajeWhatsApp,
@@ -27,7 +29,7 @@ const producto = (id: number, nombre: string, precio: number, opciones: string[]
 });
 // La carta "disponible": empanadas y Milo. La hamburguesa NO está (apagada o sin precio).
 const productos = indexar([{ productos: [producto(1, "Empanadas", 2000), producto(2, "Milo", 8000, ["Frío", "Caliente"])] }]);
-const datos: DatosPedido = { nombre: " Ana ", ubicacion: " Cancha de pádel 2 ", detalleUbicacion: "banca azul", notas: "" };
+const datos: DatosPedido = { nombre: " Ana ", ubicacion: " Cancha de pádel 2 ", detalleUbicacion: "banca azul", notas: "", pago: "", devuelta: "" };
 
 describe("cafetería · líneas del pedido", () => {
   it("un producto que no está en la carta (apagado o eliminado) se cae del pedido", () => {
@@ -59,7 +61,7 @@ describe("cafetería · líneas del pedido", () => {
 });
 
 describe("cafetería · mensaje de WhatsApp", () => {
-  it("se titula con el nombre de la persona y lleva la ubicación que escribió con su detalle, cada línea y el total; SIN forma de pago", () => {
+  it("se titula con el nombre de la persona y lleva la ubicación que escribió con su detalle, cada línea y el total", () => {
     const texto = mensajeWhatsApp([{ productoId: 1, cantidad: 2 }, { productoId: 2, opcion: "Caliente", cantidad: 1 }], datos, productos);
     expect(texto.split("\n")).toEqual([
       // El pedido se llama por el nombre de la persona, no por un código (Laura, 20-nov-2026).
@@ -71,8 +73,28 @@ describe("cafetería · mensaje de WhatsApp", () => {
       "",
       "*Total: $12.000*",
     ]);
-    expect(texto).not.toContain("Pago");
     expect(texto).not.toContain("#");
+  });
+
+  it("la forma de pago va después del total; con efectivo, la devuelta si la dijo (Laura, 23-nov-2026)", () => {
+    const lineas = [{ productoId: 1, cantidad: 2 }];
+    const ultima = (d: Partial<DatosPedido>) => mensajeWhatsApp(lineas, { ...datos, ...d }, productos).split("\n").at(-1);
+    expect(ultima({ pago: "qr" })).toBe("*Pago:* QR");
+    expect(ultima({ pago: "datafono" })).toBe("*Pago:* Datáfono");
+    expect(ultima({ pago: "efectivo" })).toBe("*Pago:* Efectivo");
+    expect(ultima({ pago: "efectivo", devuelta: "50.000" })).toBe("*Pago:* Efectivo · devuelta de $50.000");
+    // La devuelta escrita y luego cambiada a QR no se cuela en el mensaje.
+    expect(ultima({ pago: "qr", devuelta: "50.000" })).toBe("*Pago:* QR");
+    // Las notas siguen yendo al final.
+    expect(mensajeWhatsApp(lineas, { ...datos, pago: "qr", notas: "sin hielo" }, productos).split("\n").slice(-2)).toEqual(["*Pago:* QR", "*Notas:* sin hielo"]);
+  });
+
+  it("la devuelta se escribe con punto de miles y se lee solo con los dígitos", () => {
+    expect(escribirPesos("50000")).toBe("50.000");
+    expect(escribirPesos("$ 100.000")).toBe("100.000");
+    expect(escribirPesos("abc")).toBe("");
+    expect(leerPesos("50.000")).toBe(50000);
+    expect(leerPesos("")).toBeNull();
   });
 
   it("las notas van al final, y sin ubicación escrita lo dice en vez de dejar el renglón vacío", () => {
@@ -154,7 +176,7 @@ describe("cafetería · validaciones", () => {
   });
 
   it("el pedido que manda el celular exige nombre y dónde está (texto libre, con tope); lo demás es opcional", () => {
-    const bueno = { codigo: "K7P3", lineas: [{ productoId: 1, cantidad: 1 }], datos: { ...datos, nombre: "Ana" } };
+    const bueno = { codigo: "K7P3", lineas: [{ productoId: 1, cantidad: 1 }], datos: { ...datos, nombre: "Ana", pago: "qr" } };
     const leido = pedidoSchema.safeParse(bueno);
     expect(leido.success).toBe(true);
     // La ubicación se guarda sin los espacios de los lados.
@@ -165,6 +187,13 @@ describe("cafetería · validaciones", () => {
     expect(pedidoSchema.safeParse({ ...bueno, datos: { ...bueno.datos, detalleUbicacion: "", notas: "" } }).success).toBe(true);
     expect(pedidoSchema.safeParse({ ...bueno, lineas: [] }).success).toBe(false);
     expect(pedidoSchema.safeParse({ ...bueno, codigo: "k7" }).success).toBe(false);
+    // La forma de pago es obligatoria y solo una de las tres; la devuelta, opcional.
+    expect(pedidoSchema.safeParse({ ...bueno, datos: { ...bueno.datos, pago: "" } }).success).toBe(false);
+    expect(pedidoSchema.safeParse({ ...bueno, datos: { ...bueno.datos, pago: "nequi" } }).success).toBe(false);
+    expect(pedidoSchema.safeParse({ ...bueno, datos: { ...bueno.datos, pago: "efectivo", devuelta: "50.000" } }).success).toBe(true);
+    const sinDevuelta = { ...bueno.datos } as Record<string, unknown>;
+    delete sinDevuelta.devuelta;
+    expect(pedidoSchema.safeParse({ ...bueno, datos: sinDevuelta }).success).toBe(true);
   });
 });
 
