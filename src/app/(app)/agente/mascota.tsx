@@ -188,7 +188,7 @@ export function MascotaAgente() {
               Cargando la conversación…
             </p>
           ) : (
-            <ListaMensajes compacta mensajes={chat.mensajes} enCurso={enCurso} error={chat.error} alElegir={chat.enviar} />
+            <ListaMensajes compacta mensajes={chat.mensajes} enCurso={enCurso} error={chat.error} />
           )}
           <CajaPregunta
             compacta

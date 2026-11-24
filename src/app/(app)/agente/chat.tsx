@@ -29,7 +29,7 @@ export function AgenteChat({
 
   return (
     <section className="bg-card flex min-h-[32rem] flex-col rounded-xl shadow-sm ring-1 ring-foreground/[0.06] lg:h-[calc(100dvh-14rem)]">
-      <ListaMensajes mensajes={chat.mensajes} enCurso={chat.enCurso} error={chat.error} alElegir={chat.enviar} />
+      <ListaMensajes mensajes={chat.mensajes} enCurso={chat.enCurso} error={chat.error} />
       <CajaPregunta
         valor={chat.borrador}
         alCambiar={chat.setBorrador}

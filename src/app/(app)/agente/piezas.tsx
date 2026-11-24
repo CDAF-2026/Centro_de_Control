@@ -17,14 +17,6 @@ import type { EnCurso } from "./use-chat-agente";
 /** Nombre decidido por Laura (24-nov-2026). */
 export const NOMBRE_AGENTE = "Agente CDAF";
 
-/** Las preguntas de Laura para el banco de pruebas (24-nov-2026): las que de verdad le harían. */
-export const SUGERENCIAS = [
-  "¿Por qué bajaron mis ingresos este mes?",
-  "¿Cuáles son los servicios más exitosos del club?",
-  "¿Qué debería dejar de vender en la cafetería por poca rotación?",
-  "¿Qué horarios convienen para sacar promociones?",
-];
-
 export function Mascota({ tam, className }: { tam: number; className?: string }) {
   return (
     <Image
@@ -67,7 +59,8 @@ export function MensajeAgente({ mensaje, compacta }: { mensaje: MensajeVista; co
   );
 }
 
-export function Bienvenida({ alElegir, compacta }: { alElegir: (s: string) => void; compacta?: boolean }) {
+/** Sin preguntas sugeridas: Laura las quitó porque ensuciaban la interfaz (24-nov-2026). */
+export function Bienvenida({ compacta }: { compacta?: boolean }) {
   return (
     <div className="flex flex-col items-center gap-4 py-6 text-center">
       <Mascota tam={compacta ? 88 : 104} />
@@ -76,18 +69,6 @@ export function Bienvenida({ alElegir, compacta }: { alElegir: (s: string) => vo
         <p className="text-muted-foreground mx-auto max-w-md text-sm">
           Pregúntame por ingresos, cartera, clientes, academias, clases, entrenadores, cafetería u ocupación de las canchas.
         </p>
-      </div>
-      <div className={cn("flex flex-wrap justify-center gap-2", compacta ? "max-w-sm" : "max-w-2xl")}>
-        {SUGERENCIAS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => alElegir(s)}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full border px-3 py-1.5 text-left text-xs transition-colors"
-          >
-            {s}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -104,13 +85,11 @@ export function ListaMensajes({
   mensajes,
   enCurso,
   error,
-  alElegir,
   compacta,
 }: {
   mensajes: MensajeVista[];
   enCurso: EnCurso | null;
   error: string | null;
-  alElegir: (s: string) => void;
   compacta?: boolean;
 }) {
   const caja = useRef<HTMLDivElement>(null);
@@ -144,7 +123,7 @@ export function ListaMensajes({
         vacia && "flex flex-col justify-center",
       )}
     >
-      {vacia && <Bienvenida alElegir={alElegir} compacta={compacta} />}
+      {vacia && <Bienvenida compacta={compacta} />}
 
       {mensajes.map((m) =>
         m.rol === "usuario" ? <Pregunta key={m.id} texto={m.contenido} /> : <MensajeAgente key={m.id} mensaje={m} compacta={compacta} />,

@@ -2898,7 +2898,8 @@ de prueba · siete preguntas reales para el banco de pruebas (están en el plan)
 ### ✅ Paso 3 · Pantalla (24-nov-2026)
 - **`/agente`** (`page.tsx`): a la izquierda "Nueva conversación" y la lista de las suyas (en celular,
   plegada); a la derecha el chat (`chat.tsx`). `?c=<id>` abre una; si no existe o es ajena se abre como
-  nueva, sin avisar que existe. Sugerencias = las preguntas de Laura.
+  nueva, sin avisar que existe. **Sin preguntas sugeridas**: las hubo (las de Laura) y ella las quitó el
+  24-nov-2026 porque "ensucian la interfaz"; queda solo el saludo de la mascota. No volver a ponerlas.
 - **`POST /agente/chat`** (`chat/route.ts`, `maxDuration` 300): valida el rol OTRA vez (403), valida el
   cuerpo con zod (400) y responde por partes en NDJSON (`src/lib/agente/protocolo.ts`): `inicio`,
   `consultando` (la etiqueta humana de la herramienta), `texto`, `texto_descartado`, `fin`, `error`.
@@ -2945,9 +2946,9 @@ optimizada).
   (`bottom-24`), que queda visible para cerrarla. **El teclado**: en iPhone la página no se encoge, solo la
   parte visible, y la ventana quedaba detrás del teclado. `useAreaConTeclado` lee `window.visualViewport` y,
   con el teclado abierto, pone `top`/`bottom` en línea para que la ventana quepa en lo visible y esconde la
-  mascota. Probado con un `visualViewport` simulado (no hay teclado real en el navegador de escritorio);
-  ⚠️ falta confirmarlo en un iPhone de verdad. Ojo al medir en la vista oculta del navegador: el estilo se
-  refresca tarde y la primera medición sale vieja.
+  mascota. Probado con un `visualViewport` simulado y **confirmado por Laura en su iPhone el 24-nov-2026**
+  ("se ve bien"). Ojo al medir en la vista oculta del navegador: el estilo se refresca tarde y la primera
+  medición sale vieja.
 - **Vive en el layout: cambiar de pantalla no la desmonta**, así que la conversación y una respuesta que
   siga llegando se conservan (verificado: se preguntó en Cartera, se pasó a Clientes y la respuesta llegó).
   Tras recargar, retoma la conversación de la pestaña (`sessionStorage` `agente-cdaf:conversacion` +

@@ -41,7 +41,7 @@ const admin = () =>
 const texto = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 describe("/agente", () => {
-  it("sin conversaciones: el chat nuevo con sugerencias y la caja de pregunta", async () => {
+  it("sin conversaciones: el saludo de la mascota y la caja de pregunta, sin preguntas sugeridas", async () => {
     const { default: Page } = await import("../src/app/(app)/agente/page");
     const html = renderToStaticMarkup(await Page({ searchParams: Promise.resolve({}) }));
     const t = texto(html);
@@ -49,7 +49,9 @@ describe("/agente", () => {
     expect(t).toContain("Nueva conversación");
     expect(t).toContain("Todavía no hay conversaciones.");
     expect(t).toContain("¡Hola! Soy el Agente CDAF.");
-    expect(t).toContain("¿Por qué bajaron mis ingresos este mes?");
+    // Laura quitó las preguntas sugeridas (24-nov-2026): ensuciaban la interfaz.
+    expect(t).not.toContain("¿Por qué bajaron mis ingresos este mes?");
+    expect(html).not.toContain("rounded-full border px-3");
     expect(html).toContain('aria-label="Pregunta"');
     // Nada del modelo ni del costo en la pantalla.
     expect(t).not.toMatch(/gpt|astra|luna|US\$/i);
