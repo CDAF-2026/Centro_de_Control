@@ -31,6 +31,34 @@ function guardarId(id: number | null) {
   }
 }
 
+/**
+ * En el celular, el teclado tapa media pantalla y una ventana fija abajo quedaría
+ * detrás de él (en iPhone la página no se encoge: se encoge solo la parte VISIBLE).
+ * Mientras el teclado está abierto, devuelve cuánto dejar arriba y abajo para que la
+ * ventana quepa justo en lo que se ve. En computador, o sin teclado, null.
+ */
+function useAreaConTeclado(activo: boolean) {
+  const [area, setArea] = useState<{ arriba: number; abajo: number } | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!activo || !vv) return;
+    const medir = () => {
+      const tapado = window.innerHeight - vv.height;
+      if (window.innerWidth >= 640 || tapado < 120) setArea(null);
+      else setArea({ arriba: vv.offsetTop, abajo: Math.max(window.innerHeight - vv.offsetTop - vv.height, 0) });
+    };
+    const primera = requestAnimationFrame(medir);
+    vv.addEventListener("resize", medir);
+    vv.addEventListener("scroll", medir);
+    return () => {
+      cancelAnimationFrame(primera);
+      vv.removeEventListener("resize", medir);
+      vv.removeEventListener("scroll", medir);
+    };
+  }, [activo]);
+  return activo ? area : null;
+}
+
 async function leerMensajes(id: number): Promise<MensajeVista[] | null> {
   const r = await fetch(`/agente/chat?c=${id}`, { cache: "no-store" });
   if (!r.ok) return null;
@@ -44,6 +72,7 @@ export function MascotaAgente() {
   /** Llegó una respuesta que nadie ha visto: la mascota lo avisa con un punto si está cerrada. */
   const [sinLeer, setSinLeer] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const teclado = useAreaConTeclado(abierta);
 
   const chat = useChatAgente({
     conversacionId: null,
@@ -105,7 +134,11 @@ export function MascotaAgente() {
         <div
           role="dialog"
           aria-label={NOMBRE_AGENTE}
-          className="bg-card animate-in fade-in slide-in-from-bottom-2 fixed inset-0 z-30 flex flex-col overflow-hidden shadow-xl ring-1 ring-foreground/[0.08] duration-200 sm:inset-auto sm:right-6 sm:bottom-24 sm:h-[min(40rem,calc(100dvh-8rem))] sm:w-[25rem] sm:rounded-2xl"
+          // Celular (opción A que escogió Laura, 24-nov-2026): ventana flotante con márgenes,
+          // debajo del encabezado y encima de la mascota, que queda visible para cerrarla.
+          // Computador: 25rem de ancho, abajo a la derecha.
+          className="bg-card animate-in fade-in slide-in-from-bottom-2 fixed inset-x-3 top-16 bottom-24 z-30 flex flex-col overflow-hidden rounded-2xl shadow-xl ring-1 ring-foreground/[0.08] duration-200 sm:inset-x-auto sm:top-auto sm:right-6 sm:bottom-24 sm:h-[min(40rem,calc(100dvh-8rem))] sm:w-[25rem]"
+          style={teclado ? { top: teclado.arriba + 8, bottom: teclado.abajo + 8 } : undefined}
         >
           <header className="bg-stadium flex items-center gap-3 px-4 py-3 text-white">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15">
@@ -177,8 +210,8 @@ export function MascotaAgente() {
         className={cn(
           "fixed right-4 bottom-4 z-30 size-16 rounded-full transition-transform duration-200 hover:scale-105 active:scale-95 sm:right-6 sm:bottom-6",
           "focus-visible:ring-ring/60 outline-none focus-visible:ring-4",
-          // En celular la ventana ocupa toda la pantalla y se cierra con la X.
-          abierta && "max-sm:hidden",
+          // Con el teclado abierto la mascota quedaría debajo de él: se esconde mientras se escribe.
+          teclado && "hidden",
         )}
       >
         <Mascota tam={64} className="drop-shadow-[0_6px_14px_rgba(26,28,30,0.35)]" />

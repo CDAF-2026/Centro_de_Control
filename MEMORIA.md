@@ -2937,9 +2937,17 @@ diadema (la mandó ella; `public/agente/mascota.png`, 384 px con fondo transpare
 optimizada).
 - **`agente/mascota.tsx`**: botón flotante abajo a la derecha en todas las pantallas de `(app)`; lo pinta
   `(app)/layout.tsx` SOLO si el rol tiene `agente_ia`. Al tocarlo abre una ventana de chat (computador: 25rem
-  × hasta 40rem, `rounded-2xl shadow-xl`, cabecera `bg-stadium` con la mascota; celular: pantalla completa y
-  el botón se esconde). Botones: nueva conversación, ver en pantalla completa (`/agente?c=<id>`), cerrar
-  (también con Esc). En `/agente` no se pinta (ahí está el chat en grande).
+  × hasta 40rem, `rounded-2xl shadow-xl`, cabecera `bg-stadium` con la mascota). Botones: nueva
+  conversación, ver en pantalla completa (`/agente?c=<id>`), cerrar (también con Esc). En `/agente` no se
+  pinta (ahí está el chat en grande).
+- **Celular = ventana flotante** (opción A que escogió Laura el 24-nov-2026, al verla en su iPhone ocupando
+  toda la pantalla): 12 px a los lados, desde debajo del encabezado (`top-16`) hasta encima de la mascota
+  (`bottom-24`), que queda visible para cerrarla. **El teclado**: en iPhone la página no se encoge, solo la
+  parte visible, y la ventana quedaba detrás del teclado. `useAreaConTeclado` lee `window.visualViewport` y,
+  con el teclado abierto, pone `top`/`bottom` en línea para que la ventana quepa en lo visible y esconde la
+  mascota. Probado con un `visualViewport` simulado (no hay teclado real en el navegador de escritorio);
+  ⚠️ falta confirmarlo en un iPhone de verdad. Ojo al medir en la vista oculta del navegador: el estilo se
+  refresca tarde y la primera medición sale vieja.
 - **Vive en el layout: cambiar de pantalla no la desmonta**, así que la conversación y una respuesta que
   siga llegando se conservan (verificado: se preguntó en Cartera, se pasó a Clientes y la respuesta llegó).
   Tras recargar, retoma la conversación de la pestaña (`sessionStorage` `agente-cdaf:conversacion` +
