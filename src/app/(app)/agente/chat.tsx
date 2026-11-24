@@ -1,61 +1,41 @@
 "use client";
 
-import { useActionState } from "react";
-import { preguntar, type AgenteState } from "./actions";
-import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import type { MensajeVista } from "@/lib/agente/protocolo";
+import { CajaPregunta, ListaMensajes } from "./piezas";
+import { useChatAgente } from "./use-chat-agente";
 
-const initial: AgenteState = {};
-
-const SUGERENCIAS = [
-  "¿Cuántos clientes activos tenemos?",
-  "¿Cuánto se ha conciliado este mes y por qué servicio?",
-  "¿Cuántas clases hay realizadas vs canceladas?",
-];
-
-export function AgenteChat() {
-  const [state, action, pending] = useActionState(preguntar, initial);
+/**
+ * El chat en la pantalla completa `/agente` (la otra cara es la mascota flotante).
+ *
+ * Al empezar una conversación la dirección pasa a `?c=<id>` sin navegar (para no
+ * cortar la respuesta), y al terminar se refresca la página para que la lista de
+ * la izquierda quede al día.
+ */
+export function AgenteChat({
+  conversacionId,
+  mensajesIniciales,
+}: {
+  conversacionId: number | null;
+  mensajesIniciales: MensajeVista[];
+}) {
+  const router = useRouter();
+  const chat = useChatAgente({
+    conversacionId,
+    mensajesIniciales,
+    alCrear: (id) => window.history.replaceState(null, "", `/agente?c=${id}`),
+    alTerminar: () => router.refresh(),
+  });
 
   return (
-    <div className="space-y-4">
-      <form action={action} className="space-y-3">
-        <textarea
-          name="pregunta"
-          required
-          rows={3}
-          placeholder="Pregunta sobre los datos del club…"
-          className="border-input bg-background w-full rounded-md border p-3 text-sm"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={pending}>
-            {pending ? "Pensando…" : "Preguntar"}
-          </Button>
-          {SUGERENCIAS.map((s) => (
-            <button
-              key={s}
-              type="submit"
-              name="pregunta"
-              value={s}
-              className="text-muted-foreground hover:text-foreground rounded-full border px-3 py-1 text-xs"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </form>
-
-      {state.question && (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-sm">
-            <strong>Tú:</strong> {state.question}
-          </p>
-          {state.answer && (
-            <div className="bg-muted/40 rounded-lg border p-4 text-sm whitespace-pre-wrap">
-              {state.answer}
-            </div>
-          )}
-        </div>
-      )}
-      {state.error && <p className="text-destructive text-sm">{state.error}</p>}
-    </div>
+    <section className="bg-card flex min-h-[32rem] flex-col rounded-xl shadow-sm ring-1 ring-foreground/[0.06] lg:h-[calc(100dvh-14rem)]">
+      <ListaMensajes mensajes={chat.mensajes} enCurso={chat.enCurso} error={chat.error} alElegir={chat.enviar} />
+      <CajaPregunta
+        valor={chat.borrador}
+        alCambiar={chat.setBorrador}
+        alEnviar={() => chat.enviar(chat.borrador)}
+        ocupado={!!chat.enCurso}
+      />
+    </section>
   );
 }

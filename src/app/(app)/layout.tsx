@@ -2,6 +2,8 @@ import { requireProfile } from "@/lib/auth";
 import { contarNoLeidas } from "@/lib/notas";
 import { avatarUrl } from "@/lib/avatar";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { rolesForModule } from "@/lib/auth/permissions";
+import { MascotaAgente } from "./agente/mascota";
 
 export default async function AppLayout({
   children,
@@ -21,6 +23,9 @@ export default async function AppLayout({
       marcaTurno={profile.marca_turno}
     >
       {children}
+      {/* La mascota del Agente CDAF en todas las pantallas, solo para quien tiene el
+          agente (hoy, el superadministrador). La ruta valida el rol otra vez. */}
+      {rolesForModule("agente_ia").includes(profile.role) && <MascotaAgente />}
     </AppShell>
   );
 }

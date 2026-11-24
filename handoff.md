@@ -166,7 +166,7 @@ Cubre, en un solo sitio, lo que el club hacía en Excel y WhatsApp:
 | **Siigo** (ERP) | **La verdad del dinero.** Facturas, saldos, productos. NIT de Siigo = cédula del cliente. | Solo lectura (entra a la plataforma) |
 | **EasyCancha** | Reservas de cancha. De ahí sale el calendario, quién reservó y qué profesor. | Solo lectura |
 | **Resend** | Correos con marca (confirmación de clase cerrada). | Salida |
-| **OpenAI** | El módulo `/agente` (consultas en lenguaje natural). | Salida |
+| **OpenAI** | El Agente IA (`/agente`): dos modelos, herramientas sobre la base, solo lectura. Ver `MEMORIA.md` → "🤖 Agente IA". | Salida |
 
 ---
 
@@ -241,7 +241,8 @@ src/
                            #   sesion.ts (cookie), evidencia.ts (IP/UA), version.ts (las dos llaves),
                            #   texto.ts (títulos y resumen del consentimiento), revision.ts (quién revisa)
     pdf/                   # consentimiento-pdf.tsx (@react-pdf/renderer) + logo-cdaf-240.png
-    email/  openai/
+    email/
+    agente/                # Agente IA: motor, herramientas, manual del negocio (ver MEMORIA.md)
     database.types.ts      # ⚠️ MANUAL, no generado
     liquidacion.ts  turnos.ts  eventos.ts  finanzas.ts  periodo.ts
     staff.ts  deportistas.ts  clientes-match.ts  fecha.ts  audit.ts
@@ -814,7 +815,10 @@ Trampas medidas, no las repitas:
 
 - Resend manda los correos con marca. El SMTP de Supabase **todavía no** apunta a Resend →
   no hay "olvidé mi contraseña"; el SA asigna las claves.
-- OpenAI solo lo usa `/agente`.
+- OpenAI solo lo usa `/agente` (desde el 24-nov-2026 con el SDK oficial `openai` y la API de
+  Respuestas; código en `src/lib/agente/`). Lee la base con la sesión del superadministrador y una
+  consulta libre de solo lectura (rol `agente_lectura`, esquema `agente`). Una tabla nueva NO la ve el
+  agente hasta que se le crea su vista en ese esquema.
 
 ---
 

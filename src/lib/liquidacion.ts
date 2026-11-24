@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import type { ReglaConcepto, ReglaEscalon, ReglaMetodo } from "@/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, ReglaConcepto, ReglaEscalon, ReglaMetodo } from "@/lib/database.types";
 import { cuentaEnLiquidacion, solapa, vigenteEl } from "@/lib/reglas-vigencia";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -130,8 +131,16 @@ function pagoReglaClase(
  *     + salario fijo / comisión quincenal prorrateados por `quincenas`.
  * Los eventos se pagan igual en ambos modelos (evento_profesores.pago).
  */
-export async function calcularLiquidacion(desde: string, hasta: string, quincenas: number): Promise<LiqProfesor[]> {
-  const supabase = await createClient();
+export async function calcularLiquidacion(
+  desde: string,
+  hasta: string,
+  quincenas: number,
+  // El Agente IA (24-nov-2026) calcula con la sesión que ya trae, y su banco de
+  // preguntas corre por consola, donde no hay cookies. Sin este parámetro todo
+  // sigue igual: la sesión de la petición.
+  cliente?: SupabaseClient<Database>,
+): Promise<LiqProfesor[]> {
+  const supabase = cliente ?? (await createClient());
 
   const [{ data: profesores }, { data: comps }, { data: reglasRaw }, { data: clasesRaw }] = await Promise.all([
     // Se traen TODOS y se filtra abajo por "tiene con qué pagársele", no por rol.

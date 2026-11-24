@@ -1035,6 +1035,58 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["cafeteria_ajustes"]["Insert"]>;
         Relationships: [];
       };
+      /** Agente IA: una conversación guardada. La lee solo su dueño (superadministrador);
+       *  escribe solo el servidor con service_role (migración 20261124100000). */
+      agente_conversacion: {
+        Row: {
+          id: number;
+          perfil_id: string;
+          titulo: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: never;
+          perfil_id: string;
+          titulo?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["agente_conversacion"]["Insert"]>;
+        Relationships: [];
+      };
+      /** Agente IA: una pregunta o una respuesta. `herramientas` = qué consultó el agente
+       *  (de ahí sale "Cómo lo calculé"); tokens y costo, para medir el gasto real. */
+      agente_mensaje: {
+        Row: {
+          id: number;
+          conversacion_id: number;
+          rol: "usuario" | "agente";
+          contenido: string;
+          herramientas: Json;
+          modelo: string | null;
+          tokens_entrada: number | null;
+          tokens_cache: number | null;
+          tokens_salida: number | null;
+          costo_usd: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: never;
+          conversacion_id: number;
+          rol: "usuario" | "agente";
+          contenido: string;
+          herramientas?: Json;
+          modelo?: string | null;
+          tokens_entrada?: number | null;
+          tokens_cache?: number | null;
+          tokens_salida?: number | null;
+          costo_usd?: number | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["agente_mensaje"]["Insert"]>;
+        Relationships: [];
+      };
       paquetes_catalogo: {
         Row: {
           id: number;
@@ -2030,6 +2082,112 @@ export type Database = {
       siigo_top_clientes: {
         Args: { p_desde: string; p_hasta: string; p_limite?: number };
         Returns: { cliente_id: number | null; nombre: string | null; pagado: number }[];
+      };
+      // ── Agente IA (migraciones 20261124101000 y 20261124102000) ──
+      /** Consulta libre de SOLO LECTURA sobre las vistas del esquema `agente`. Solo
+       *  superadministrador (o service_role). Máximo 200 filas; `truncado` avisa si había más. */
+      agente_consulta: {
+        Args: { p_sql: string };
+        Returns: { filas: Json[]; truncado: boolean };
+      };
+      /** Clases por profesor, deporte, tipo (academia/paquete/particular) y estado. El valor
+       *  sigue a la liquidación; la academia va en 0 porque su dinero sale de Siigo. */
+      agente_clases_resumen: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          profesor_id: string | null;
+          profesor: string;
+          deporte: string;
+          tipo: "academia" | "paquete" | "particular";
+          estado: string;
+          clases: number;
+          horas: number;
+          valor: number;
+        }[];
+      };
+      /** Asistencia de las clases de academia CERRADAS, por academia y profesor. */
+      agente_asistencia_resumen: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          academia: string;
+          deporte: string;
+          profesor: string;
+          clases: number;
+          presentes: number;
+          ausentes: number;
+          excusas_medicas: number;
+          reposiciones: number;
+          ninos: number;
+        }[];
+      };
+      /** Paquetes por deporte, catálogo y estado. Con fechas: solo los que inician en el rango. */
+      agente_paquetes_resumen: {
+        Args: { p_desde?: string | null; p_hasta?: string | null };
+        Returns: {
+          deporte: string;
+          paquete: string;
+          estado: string;
+          paquetes: number;
+          clientes: number;
+          clases_vendidas: number;
+          clases_consumidas: number;
+          valor_vendido: number;
+          por_vencer_15_dias: number;
+        }[];
+      };
+      /** Indicadores de clientes, cada uno con su descripción. */
+      agente_clientes_resumen: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: { indicador: string; descripcion: string; valor: number }[];
+      };
+      /** Pedidos de la carta por QR por estado, día, día de la semana, hora, pago y producto. */
+      agente_cafeteria_pedidos: {
+        Args: { p_desde: string; p_hasta: string };
+        Returns: {
+          dimension: "estado" | "dia" | "dia_semana" | "hora" | "pago" | "producto";
+          clave: string;
+          pedidos: number;
+          unidades: number | null;
+          monto: number;
+        }[];
+      };
+      /** Ventas por producto de Siigo. Con p_servicio incluye los de esa categoría que no se
+       *  vendieron en el periodo (unidades 0). Mide rotación, no margen. */
+      agente_productos_vendidos: {
+        Args: { p_desde: string; p_hasta: string; p_servicio?: number | null };
+        Returns: {
+          codigo: string;
+          producto: string;
+          servicio_id: number | null;
+          servicio: string;
+          unidades: number;
+          facturado: number;
+          facturas: number;
+          ultima_venta_periodo: string | null;
+          ultima_venta_historica: string | null;
+          dias_sin_venta: number | null;
+        }[];
+      };
+      /** Ticket por mes y segmento (cliente identificado / mostrador), con totales:
+       *  mes = 'todo el periodo', segmento = 'todas'. */
+      agente_ticket: {
+        Args: { p_desde: string; p_hasta: string; p_servicio?: number | null };
+        Returns: {
+          mes: string;
+          segmento: string;
+          facturas: number;
+          compradores: number;
+          facturado: number;
+          ticket_promedio: number;
+          ticket_mediana: number;
+          facturas_por_comprador: number | null;
+          gasto_por_comprador: number | null;
+        }[];
+      };
+      /** Parejas que salen en la misma factura, por categoría o por producto. */
+      agente_compras_juntas: {
+        Args: { p_desde: string; p_hasta: string; p_nivel?: "servicio" | "producto"; p_limite?: number };
+        Returns: { a: string; b: string; facturas_juntas: number; facturas_a: number; facturas_b: number }[];
       };
     };
     Enums: {

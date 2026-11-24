@@ -1,5 +1,5 @@
 import "server-only";
-import { getBookings, deporteDeSport, CORREO_BLOQUEOS_ACADEMIA, type EcBooking } from "./client";
+import { getBookings, deporteDeSport, pareceClase, CORREO_BLOQUEOS_ACADEMIA, type EcBooking } from "./client";
 
 /**
  * Ocupación de canchas a partir de las reservas de EasyCancha, desglosada
@@ -168,8 +168,10 @@ function esInterna(b: EcBooking): boolean {
   return CORREOS_INTERNOS.has((b.userEmail ?? "").trim().toLowerCase());
 }
 
-/** Reserva ya recortada al horario de operación, lista para agregar. */
-type Tramo = { fecha: string; dep: Deporte; cancha: number; ini: number; fin: number; interna: boolean };
+/** Reserva ya recortada al horario de operación, lista para agregar.
+ *  `clase` = una reserva de cliente que parece clase (`pareceClase`); el resto de
+ *  las de cliente son alquiler. Las internas no son ni lo uno ni lo otro. */
+type Tramo = { fecha: string; dep: Deporte; cancha: number; ini: number; fin: number; interna: boolean; clase: boolean };
 
 function aTramos(bookings: EcBooking[]): Tramo[] {
   const out: Tramo[] = [];
@@ -186,7 +188,8 @@ function aTramos(bookings: EcBooking[]): Tramo[] {
     const a = Math.max(ini, APERTURA_H * 60);
     const z = Math.min(fin, CIERRE_H * 60);
     if (z <= a) continue; // fuera del horario de operación
-    out.push({ fecha: b.localDate, dep, cancha, ini: a, fin: z, interna: esInterna(b) });
+    const interna = esInterna(b);
+    out.push({ fecha: b.localDate, dep, cancha, ini: a, fin: z, interna, clase: !interna && pareceClase(b) });
   }
   return out;
 }
@@ -376,4 +379,128 @@ export async function ocupacionCanchas(now: Date = new Date()): Promise<Ocupacio
     },
     error,
   };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Ocupación por FRANJA (día de la semana × hora) en un rango de fechas.
+// La usa el Agente IA (24-nov-2026) para "¿qué horarios convienen para sacar
+// promociones?". Mismos criterios que el resto del archivo: minutos de cancha,
+// canchas físicas, horario 7 a. m.–9 p. m., internas aparte.
+// ───────────────────────────────────────────────────────────────────────────
+
+export const DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"] as const;
+
+export type FranjasDeporte = {
+  deporte: Deporte;
+  canchas: number;
+  /** Fechas del rango que se midieron. */
+  fechas: number;
+  /** Ocupación de todo el rango (0–100) y de qué se compone. */
+  pct: number;
+  pctClases: number;
+  pctAlquiler: number;
+  pctInterno: number;
+  /** "07" … "20": la hora en que EMPIEZA cada columna. */
+  horas: string[];
+  /** día de la semana → % ocupado en cada hora (entero, 0–100). */
+  matriz: Record<(typeof DIAS_SEMANA)[number], number[]>;
+  /** Igual, pero solo lo que se vende (sin bloqueos internos del club). */
+  matrizVenta: Record<(typeof DIAS_SEMANA)[number], number[]>;
+};
+
+/** Lunes = 0 … domingo = 6. */
+function diaSemana(fecha: string): number {
+  const [y, m, d] = fecha.split("-").map(Number);
+  return (new Date(y, m - 1, d).getDay() + 6) % 7;
+}
+
+/**
+ * Agrega las reservas por día de la semana y hora. Pura (sin red) para poder
+ * probarla. Una hora "disponible" es una cancha física durante 60 minutos de una
+ * de las fechas: el % de una franja es ocupado ÷ disponible sumando todas las
+ * fechas de ese día de la semana.
+ */
+export function franjasDeReservas(bookings: EcBooking[], fechas: string[]): Record<Deporte, FranjasDeporte> {
+  const enRango = new Set(fechas);
+  const tramos = aTramos(bookings).filter((t) => enRango.has(t.fecha));
+  const horas: number[] = [];
+  for (let h = APERTURA_H; h < CIERRE_H; h++) horas.push(h);
+
+  const porClave = new Map<string, Tramo[]>();
+  for (const t of tramos) {
+    const k = `${t.fecha}|${t.dep}|${t.cancha}`;
+    const lista = porClave.get(k);
+    if (lista) lista.push(t);
+    else porClave.set(k, [t]);
+  }
+
+  const deporte = (dep: Deporte): FranjasDeporte => {
+    const nCanchas = Math.max(CANCHAS_BASE[dep], ...tramos.filter((t) => t.dep === dep).map((t) => t.cancha));
+    const cero = () => DIAS_SEMANA.map(() => horas.map(() => 0));
+    const ocupado = cero();
+    const interno = cero();
+    const clases = cero();
+    const disponible = DIAS_SEMANA.map(() => 0); // minutos por hora y día de la semana
+
+    for (const fecha of fechas) {
+      const d = diaSemana(fecha);
+      disponible[d] += 60 * nCanchas;
+      for (let n = 1; n <= nCanchas; n++) {
+        const lista = porClave.get(`${fecha}|${dep}|${n}`);
+        if (!lista) continue;
+        const todos = lista.map((t) => [t.ini, t.fin] as [number, number]);
+        const internos = lista.filter((t) => t.interna).map((t) => [t.ini, t.fin] as [number, number]);
+        const deClase = lista.filter((t) => t.clase).map((t) => [t.ini, t.fin] as [number, number]);
+        horas.forEach((h, j) => {
+          const a = h * 60;
+          const z = a + 60;
+          const occ = minutosUnion(todos, a, z);
+          ocupado[d][j] += occ;
+          interno[d][j] += Math.min(minutosUnion(internos, a, z), occ);
+          clases[d][j] += Math.min(minutosUnion(deClase, a, z), occ);
+        });
+      }
+    }
+
+    const pctDe = (m: number[][]) =>
+      Object.fromEntries(
+        DIAS_SEMANA.map((nombre, d) => [nombre, m[d].map((min) => (disponible[d] ? Math.round((min / disponible[d]) * 100) : 0))]),
+      ) as FranjasDeporte["matriz"];
+    const venta = ocupado.map((fila, d) => fila.map((min, j) => Math.max(min - interno[d][j], 0)));
+    const suma = (m: number[][]) => m.flat().reduce((s, x) => s + x, 0);
+    const totalDisponible = disponible.reduce((s, x) => s + x, 0) * horas.length;
+    const pct = (min: number) => (totalDisponible ? Math.round((min / totalDisponible) * 1000) / 10 : 0);
+    const occTotal = suma(ocupado);
+    const intTotal = suma(interno);
+    const claTotal = suma(clases);
+
+    return {
+      deporte: dep,
+      canchas: nCanchas,
+      fechas: fechas.length,
+      pct: pct(occTotal),
+      pctClases: pct(claTotal),
+      pctAlquiler: pct(Math.max(occTotal - intTotal - claTotal, 0)),
+      pctInterno: pct(intTotal),
+      horas: horas.map((h) => pad(h)),
+      matriz: pctDe(ocupado),
+      matrizVenta: pctDe(venta),
+    };
+  };
+
+  return { tenis: deporte("tenis"), padel: deporte("padel") };
+}
+
+/** Lo mismo, trayendo las reservas de EasyCancha (máximo 3 meses por consulta). */
+export async function ocupacionPorFranja(desde: string, hasta: string) {
+  const fechas: string[] = [];
+  const [y, m, d] = desde.split("-").map(Number);
+  for (let i = 0; ; i++) {
+    const f = new Date(y, m - 1, d + i);
+    const s = `${f.getFullYear()}-${pad(f.getMonth() + 1)}-${pad(f.getDate())}`;
+    if (s > hasta) break;
+    fechas.push(s);
+  }
+  const { bookings, error } = await getBookings({ from: desde, to: hasta });
+  return { desde, hasta, ...franjasDeReservas(bookings, fechas), error };
 }
